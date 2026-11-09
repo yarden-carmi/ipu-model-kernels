@@ -81,7 +81,7 @@
 | `div{broadcast=0,numel=1310720,operands=scalar}` | 15 | 0 | cpu | cpu | - |
 | `div{broadcast=0,numel=327680,operands=scalar}` | 15 | 0 | cpu | cpu | - |
 | `div{broadcast=0,numel=655360,operands=scalar}` | 15 | 0 | cpu | cpu | - |
-| `layernorm{channels=1280,layout=channels_last,tokens=256}` | 15 | 0 | cpu | cpu | - |
+| `layernorm{channels=1280,layout=channels_last,tokens=256}` | 15 | 0 | chip-emu | cpu | layernorm_rsqrt_nx8 (chip-emu, approximation, rsqrt_nx8) |
 | `layernorm{channels=320,layout=channels_last,tokens=4096}` | 15 | 0 | cpu | cpu | - |
 | `layernorm{channels=640,layout=channels_last,tokens=1024}` | 15 | 0 | cpu | cpu | - |
 | `groupnorm{channels=320,groups=32,hw=4096}` | 13 | 0 | cpu | cpu | - |
@@ -107,7 +107,7 @@
 | `silu{numel=163840}` | 4 | 0 | chip | cpu | silu_exp2_recip (chip, approximation, exp2_recip) |
 | `concat{numel=163840}` | 3 | 0 | cpu | cpu | - |
 | `groupnorm{channels=2560,groups=32,hw=64}` | 3 | 0 | cpu | cpu | - |
-| `layernorm{channels=1280,layout=channels_last,tokens=64}` | 3 | 0 | cpu | cpu | - |
+| `layernorm{channels=1280,layout=channels_last,tokens=64}` | 3 | 0 | chip-emu | cpu | layernorm_rsqrt_nx8 (chip-emu, approximation, rsqrt_nx8) |
 | `concat{numel=2621440}` | 2 | 0 | cpu | cpu | - |
 | `concat{numel=320}` | 2 | 0 | cpu | cpu | - |
 | `concat{numel=655360}` | 2 | 0 | cpu | cpu | - |

@@ -1,5 +1,6 @@
 [
  {
+  "code": null,
   "description": "0.5x(1+tanh(sqrt(2/pi)(x+0.044715x^3))) in place of the erf form",
   "hw_mapping": "LUT (tanh) or ACTIVATE.QUANTIZE generic",
   "isa_path": "no erf: tanh/sigmoid estimation, or the generic LUT",
@@ -12,9 +13,12 @@
    "max_rel": 1.0,
    "mean_abs": 0.00014925117663299402,
    "sqnr_db": 79.95492279546595
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "2 sigmoid(2x) - 1 (an identity) via exp2 + reciprocal, NX8 e4 between stages",
   "hw_mapping": "ACTIVATE.QUANTIZE exp2 + reciprocal",
   "isa_path": "2 sigmoid(2x) - 1 via exp2 + reciprocal",
@@ -27,9 +31,12 @@
    "max_rel": 203.11348092600838,
    "mean_abs": 0.015853071699812427,
    "sqnr_db": 30.089270873964864
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "256-entry LUT over [-8, 8], linear interpolation, asymptotes outside",
   "hw_mapping": "LD.LUT + ACTIVATE.QUANTIZE generic",
   "isa_path": "2 sigmoid(2x) - 1 via exp2 + reciprocal",
@@ -42,9 +49,12 @@
    "max_rel": 0.001966208014352742,
    "mean_abs": 8.060551541100303e-05,
    "sqnr_db": 76.33561803710185
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "256-entry LUT over [-8, 8], linear interpolation, asymptotes outside",
   "hw_mapping": "LD.LUT + ACTIVATE.QUANTIZE generic",
   "isa_path": "exp2 for x < 0, select by mask",
@@ -57,9 +67,12 @@
    "max_rel": 2.0250134609348542,
    "mean_abs": 4.061416771228288e-05,
    "sqnr_db": 87.6623941805532
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "256-entry LUT over [-8, 8], linear interpolation, asymptotes outside",
   "hw_mapping": "LD.LUT + ACTIVATE.QUANTIZE generic",
   "isa_path": "no erf: tanh/sigmoid estimation, or the generic LUT",
@@ -72,9 +85,12 @@
    "max_rel": 6.5552944291271285,
    "mean_abs": 6.213814057586437e-05,
    "sqnr_db": 85.3074709333656
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "256-entry LUT over [-8, 8], linear interpolation, asymptotes outside",
   "hw_mapping": "LD.LUT + ACTIVATE.QUANTIZE generic",
   "isa_path": "no log/softplus: generic LUT",
@@ -87,9 +103,12 @@
    "max_rel": 4.38179729713036,
    "mean_abs": 6.0782232692929705e-05,
    "sqnr_db": 83.54635104642519
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "256-entry LUT over [-8, 8], linear interpolation, asymptotes outside",
   "hw_mapping": "LD.LUT + ACTIVATE.QUANTIZE generic",
   "isa_path": "no log: generic LUT",
@@ -102,9 +121,12 @@
    "max_rel": 1.0,
    "mean_abs": 3.863879201979753e-05,
    "sqnr_db": 92.03968485297543
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "256-entry LUT over [-8, 8], linear interpolation, asymptotes outside",
   "hw_mapping": "LD.LUT + ACTIVATE.QUANTIZE generic",
   "isa_path": "reciprocal(1 + exp2(-x log2e)) (needs |x| for exp2's domain)",
@@ -117,9 +139,12 @@
    "max_rel": 1.0,
    "mean_abs": 1.8327863351604023e-05,
    "sqnr_db": 86.86811198139837
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "256-entry LUT over [-8, 8], linear interpolation, asymptotes outside",
   "hw_mapping": "LD.LUT + ACTIVATE.QUANTIZE generic",
   "isa_path": "x * sigmoid(1.702x) via exp2 + reciprocal",
@@ -132,9 +157,12 @@
    "max_rel": 6.991166201388835,
    "mean_abs": 5.742987366259132e-05,
    "sqnr_db": 85.39178621108137
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "256-entry LUT over [-8, 8], linear interpolation, asymptotes outside",
   "hw_mapping": "LD.LUT + ACTIVATE.QUANTIZE generic",
   "isa_path": "x * sigmoid(2 sqrt(2/pi)(x + 0.044715x^3)) via exp2 + reciprocal",
@@ -147,9 +175,12 @@
    "max_rel": 6.555286652846353,
    "mean_abs": 6.214301611789867e-05,
    "sqnr_db": 85.31100623457692
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "256-entry LUT over [-8, 8], linear interpolation, asymptotes outside",
   "hw_mapping": "LD.LUT + ACTIVATE.QUANTIZE generic",
   "isa_path": "x * sigmoid(x) via exp2 + reciprocal",
@@ -162,9 +193,12 @@
    "max_rel": 4.1081569234184565,
    "mean_abs": 6.466946030111997e-05,
    "sqnr_db": 81.673348892648
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "256-entry LUT over [-8, 8], nearest entry (no interpolation)",
   "hw_mapping": "LD.LUT + ACTIVATE.QUANTIZE generic",
   "isa_path": "2 sigmoid(2x) - 1 via exp2 + reciprocal",
@@ -177,9 +211,12 @@
    "max_rel": 260.89106455185083,
    "mean_abs": 0.003969526249717026,
    "sqnr_db": 41.20023367039699
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "256-entry LUT over [-8, 8], nearest entry (no interpolation)",
   "hw_mapping": "LD.LUT + ACTIVATE.QUANTIZE generic",
   "isa_path": "exp2 for x < 0, select by mask",
@@ -192,9 +229,12 @@
    "max_rel": 260.97698511271034,
    "mean_abs": 0.009636049621586151,
    "sqnr_db": 44.18223077563391
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "256-entry LUT over [-8, 8], nearest entry (no interpolation)",
   "hw_mapping": "LD.LUT + ACTIVATE.QUANTIZE generic",
   "isa_path": "no erf: tanh/sigmoid estimation, or the generic LUT",
@@ -207,9 +247,12 @@
    "max_rel": 267.5079454452592,
    "mean_abs": 0.008338545396691936,
    "sqnr_db": 44.25144503689475
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "256-entry LUT over [-8, 8], nearest entry (no interpolation)",
   "hw_mapping": "LD.LUT + ACTIVATE.QUANTIZE generic",
   "isa_path": "no log/softplus: generic LUT",
@@ -222,9 +265,12 @@
    "max_rel": 265.33585969201306,
    "mean_abs": 0.00870211564840831,
    "sqnr_db": 44.223980074733234
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "256-entry LUT over [-8, 8], nearest entry (no interpolation)",
   "hw_mapping": "LD.LUT + ACTIVATE.QUANTIZE generic",
   "isa_path": "no log: generic LUT",
@@ -237,9 +283,12 @@
    "max_rel": 1.0,
    "mean_abs": 0.00774086322074128,
    "sqnr_db": 45.80319721069812
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "256-entry LUT over [-8, 8], nearest entry (no interpolation)",
   "hw_mapping": "LD.LUT + ACTIVATE.QUANTIZE generic",
   "isa_path": "reciprocal(1 + exp2(-x log2e)) (needs |x| for exp2's domain)",
@@ -252,9 +301,12 @@
    "max_rel": 1.0,
    "mean_abs": 0.0017950533733090482,
    "sqnr_db": 47.55450911631762
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "256-entry LUT over [-8, 8], nearest entry (no interpolation)",
   "hw_mapping": "LD.LUT + ACTIVATE.QUANTIZE generic",
   "isa_path": "x * sigmoid(1.702x) via exp2 + reciprocal",
@@ -267,9 +319,12 @@
    "max_rel": 267.9421681687753,
    "mean_abs": 0.008284282824997928,
    "sqnr_db": 44.26816286496305
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "256-entry LUT over [-8, 8], nearest entry (no interpolation)",
   "hw_mapping": "LD.LUT + ACTIVATE.QUANTIZE generic",
   "isa_path": "x * sigmoid(2 sqrt(2/pi)(x + 0.044715x^3)) via exp2 + reciprocal",
@@ -282,9 +337,12 @@
    "max_rel": 267.5079454452592,
    "mean_abs": 0.008339239562593895,
    "sqnr_db": 44.25124168097007
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "256-entry LUT over [-8, 8], nearest entry (no interpolation)",
   "hw_mapping": "LD.LUT + ACTIVATE.QUANTIZE generic",
   "isa_path": "x * sigmoid(x) via exp2 + reciprocal",
@@ -297,9 +355,12 @@
    "max_rel": 265.0701612050215,
    "mean_abs": 0.008408047356916443,
    "sqnr_db": 44.19471866861439
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "PyTorch elu, FP32",
   "hw_mapping": "ACTIVATE.EXACT (emulator only)",
   "isa_path": "exp2 for x < 0, select by mask",
@@ -312,9 +373,12 @@
    "max_rel": 0.0,
    "mean_abs": 0.0,
    "sqnr_db": Infinity
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "PyTorch gelu, FP32",
   "hw_mapping": "ACTIVATE.EXACT (emulator only)",
   "isa_path": "no erf: tanh/sigmoid estimation, or the generic LUT",
@@ -327,9 +391,12 @@
    "max_rel": 0.0,
    "mean_abs": 0.0,
    "sqnr_db": Infinity
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "PyTorch gelu_tanh, FP32",
   "hw_mapping": "ACTIVATE.EXACT (emulator only)",
   "isa_path": "x * sigmoid(2 sqrt(2/pi)(x + 0.044715x^3)) via exp2 + reciprocal",
@@ -342,9 +409,12 @@
    "max_rel": 0.0,
    "mean_abs": 0.0,
    "sqnr_db": Infinity
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "PyTorch mish, FP32",
   "hw_mapping": "ACTIVATE.EXACT (emulator only)",
   "isa_path": "no log/softplus: generic LUT",
@@ -357,9 +427,12 @@
    "max_rel": 0.0,
    "mean_abs": 0.0,
    "sqnr_db": Infinity
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "PyTorch quick_gelu, FP32",
   "hw_mapping": "ACTIVATE.EXACT (emulator only)",
   "isa_path": "x * sigmoid(1.702x) via exp2 + reciprocal",
@@ -372,9 +445,12 @@
    "max_rel": 0.0,
    "mean_abs": 0.0,
    "sqnr_db": Infinity
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "PyTorch sigmoid, FP32",
   "hw_mapping": "ACTIVATE.EXACT (emulator only)",
   "isa_path": "reciprocal(1 + exp2(-x log2e)) (needs |x| for exp2's domain)",
@@ -387,9 +463,12 @@
    "max_rel": 0.0,
    "mean_abs": 0.0,
    "sqnr_db": Infinity
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "PyTorch silu, FP32",
   "hw_mapping": "ACTIVATE.EXACT (emulator only)",
   "isa_path": "x * sigmoid(x) via exp2 + reciprocal",
@@ -402,9 +481,12 @@
    "max_rel": 0.0,
    "mean_abs": 0.0,
    "sqnr_db": Infinity
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "PyTorch softplus, FP32",
   "hw_mapping": "ACTIVATE.EXACT (emulator only)",
   "isa_path": "no log: generic LUT",
@@ -417,9 +499,12 @@
    "max_rel": 0.0,
    "mean_abs": 0.0,
    "sqnr_db": Infinity
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "PyTorch tanh, FP32",
   "hw_mapping": "ACTIVATE.EXACT (emulator only)",
   "isa_path": "2 sigmoid(2x) - 1 via exp2 + reciprocal",
@@ -432,9 +517,48 @@
    "max_rel": 0.0,
    "mean_abs": 0.0,
    "sqnr_db": Infinity
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
+  "description": "as exp2_recip, every store NX8 dynamic",
+  "hw_mapping": "MULT + ACTIVATE.QUANTIZE exp2 + ACTIVATE.QUANTIZE reciprocal",
+  "isa_path": "x * sigmoid(x) via exp2 + reciprocal",
+  "isa_support": "composed",
+  "kind": "approximation",
+  "method": "exp2_recip_dynamic",
+  "op": "silu",
+  "op_error": {
+   "max_abs": 0.12447261810302734,
+   "max_rel": 1.9351268686437857,
+   "mean_abs": 0.018102134194776215,
+   "sqnr_db": 39.1868565721778
+  },
+  "op_error_nx8": null,
+  "origin": null
+ },
+ {
+  "code": null,
+  "description": "as exp2_recip, every store NX8 e5",
+  "hw_mapping": "MULT + ACTIVATE.QUANTIZE exp2 + ACTIVATE.QUANTIZE reciprocal",
+  "isa_path": "x * sigmoid(x) via exp2 + reciprocal",
+  "isa_support": "composed",
+  "kind": "approximation",
+  "method": "exp2_recip_e5",
+  "op": "silu",
+  "op_error": {
+   "max_abs": 2.304424285888672,
+   "max_rel": 1.2624689932904525,
+   "mean_abs": 0.11536485766506396,
+   "sqnr_db": 18.281546960953104
+  },
+  "op_error_nx8": null,
+  "origin": null
+ },
+ {
+  "code": null,
   "description": "aten layer_norm, FP32",
   "hw_mapping": "MULT/ACC mean+var, ACTIVATE.EXACT rsqrt",
   "isa_path": "MULT/ACC mean and variance, rsqrt (no eps: Q57)",
@@ -447,9 +571,12 @@
    "max_rel": 0.0,
    "mean_abs": 0.0,
    "sqnr_db": Infinity
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "exp2(x log2e) recipe in FP32 (the emulator kernels)",
   "hw_mapping": "AGG.MAX, MULT, ACTIVATE.EXACT exp2, AGG.SUM, ACTIVATE.EXACT reciprocal",
   "isa_path": "AGG.MAX, MULT, exp2, AGG.SUM, reciprocal",
@@ -462,9 +589,12 @@
    "max_rel": 1.8241823119074217e-06,
    "mean_abs": 2.4433751068239994e-10,
    "sqnr_db": 126.9632183809049
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "exp2(x log2e) recipe, every stored stage NX8 dynamic",
   "hw_mapping": "AGG.MAX, MULT, ACTIVATE.QUANTIZE exp2, AGG.SUM, ACTIVATE.QUANTIZE reciprocal",
   "isa_path": "AGG.MAX, MULT, exp2, AGG.SUM, reciprocal",
@@ -477,9 +607,12 @@
    "max_rel": 3.6254095117839316,
    "mean_abs": 5.410810109977373e-05,
    "sqnr_db": 31.511672430254677
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "exp2(x log2e) recipe, every stored stage NX8 e4",
   "hw_mapping": "AGG.MAX, MULT, ACTIVATE.QUANTIZE exp2, AGG.SUM, ACTIVATE.QUANTIZE reciprocal",
   "isa_path": "AGG.MAX, MULT, exp2, AGG.SUM, reciprocal",
@@ -492,9 +625,12 @@
    "max_rel": 3.7803303776368216,
    "mean_abs": 4.4631647087126924e-05,
    "sqnr_db": 29.95905915026384
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "exp2(x log2e) recipe, every stored stage NX8 e5",
   "hw_mapping": "AGG.MAX, MULT, ACTIVATE.QUANTIZE exp2, AGG.SUM, ACTIVATE.QUANTIZE reciprocal",
   "isa_path": "AGG.MAX, MULT, exp2, AGG.SUM, reciprocal",
@@ -507,9 +643,12 @@
    "max_rel": 3.347982123770014,
    "mean_abs": 9.109123265138054e-05,
    "sqnr_db": 22.81807208050722
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "exp2(x log2e)",
   "hw_mapping": "MULT + ACTIVATE.QUANTIZE exp2",
   "isa_path": "exp2(x * log2e): MULT + ACTIVATE.QUANTIZE exp2",
@@ -522,9 +661,12 @@
    "max_rel": 8.695969765852318e-07,
    "mean_abs": 0.0005876197361226029,
    "sqnr_db": 139.6473635237415
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "exp2(x log2e), stages NX8 e4",
   "hw_mapping": "MULT + ACTIVATE.QUANTIZE exp2",
   "isa_path": "exp2(x * log2e): MULT + ACTIVATE.QUANTIZE exp2",
@@ -537,9 +679,12 @@
    "max_rel": 1.742807966841502,
    "mean_abs": 1256.2105800625898,
    "sqnr_db": 7.945103615344066
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "hardsigmoid: relu/relu6 are hardware functions",
   "hw_mapping": "ACTIVATE.QUANTIZE relu/relu6 (+ MULT)",
   "isa_path": "relu6 + MULT",
@@ -552,9 +697,12 @@
    "max_rel": 0.0,
    "mean_abs": 0.0,
    "sqnr_db": Infinity
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "hardswish: relu/relu6 are hardware functions",
   "hw_mapping": "ACTIVATE.QUANTIZE relu/relu6 (+ MULT)",
   "isa_path": "relu6 + MULT",
@@ -567,9 +715,12 @@
    "max_rel": 0.0,
    "mean_abs": 0.0,
    "sqnr_db": Infinity
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "no eps (the emulator kernels, Q57); rsqrt(0) = 0",
   "hw_mapping": "MULT/ACC mean+var, ACTIVATE.EXACT rsqrt",
   "isa_path": "MULT/ACC mean and variance, rsqrt (no eps: Q57)",
@@ -582,9 +733,12 @@
    "max_rel": 7.259784114762668e-07,
    "mean_abs": 4.277962927234924e-07,
    "sqnr_db": 125.34891599293665
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "operands NX8 dynamic along k, FP32 accumulation",
   "hw_mapping": "LD.MULT (NX8) + MULT + ACC",
   "isa_path": "MULT + ACC",
@@ -597,9 +751,12 @@
    "max_rel": 105.3144518330258,
    "mean_abs": 0.21451272945705568,
    "sqnr_db": 38.415594058949964
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "operands NX8 e4 along k, FP32 accumulation",
   "hw_mapping": "LD.MULT (NX8) + MULT + ACC",
   "isa_path": "MULT + ACC",
@@ -612,9 +769,12 @@
    "max_rel": 188.2326010514222,
    "mean_abs": 0.6810621692347922,
    "sqnr_db": 28.524088209515046
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "operands NX8 e5 along k, FP32 accumulation",
   "hw_mapping": "LD.MULT (NX8) + MULT + ACC",
   "isa_path": "MULT + ACC",
@@ -627,9 +787,12 @@
    "max_rel": 274.6090937576158,
    "mean_abs": 1.3696633801955613,
    "sqnr_db": 22.322666437715366
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "operands and result NX8 dynamic",
   "hw_mapping": "LD.MULT + MULT + ACC + ACTIVATE.QUANTIZE",
   "isa_path": "MULT + ACC",
@@ -642,9 +805,12 @@
    "max_rel": 74.01298610869338,
    "mean_abs": 0.25100345737155294,
    "sqnr_db": 37.08342668276707
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "operands and result NX8 e4",
   "hw_mapping": "LD.MULT + MULT + ACC + ACTIVATE.QUANTIZE",
   "isa_path": "MULT + ACC",
@@ -657,9 +823,12 @@
    "max_rel": 181.53246527173346,
    "mean_abs": 0.8153414631742635,
    "sqnr_db": 26.79347344005665
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "operands and result NX8 e5",
   "hw_mapping": "LD.MULT + MULT + ACC + ACTIVATE.QUANTIZE",
   "isa_path": "MULT + ACC",
@@ -672,9 +841,12 @@
    "max_rel": 291.05194443477353,
    "mean_abs": 1.6704298785698484,
    "sqnr_db": 20.520724310870083
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "reciprocal(1 + exp2(-x log2e)), NX8 e4 between stages",
   "hw_mapping": "ACTIVATE.QUANTIZE exp2 + reciprocal",
   "isa_path": "reciprocal(1 + exp2(-x log2e)) (needs |x| for exp2's domain)",
@@ -687,9 +859,12 @@
    "max_rel": 0.7387968389687783,
    "mean_abs": 0.016140351162572474,
    "sqnr_db": 28.61583410904001
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "relu6(x+3)/6 in place of sigmoid",
   "hw_mapping": "ACTIVATE.QUANTIZE relu6",
   "isa_path": "reciprocal(1 + exp2(-x log2e)) (needs |x| for exp2's domain)",
@@ -702,9 +877,12 @@
    "max_rel": 1.0,
    "mean_abs": 0.03460652984673846,
    "sqnr_db": 23.521754812586025
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "relu6: relu/relu6 are hardware functions",
   "hw_mapping": "ACTIVATE.QUANTIZE relu/relu6 (+ MULT)",
   "isa_path": "ACTIVATE.QUANTIZE relu6",
@@ -717,9 +895,12 @@
    "max_rel": 0.0,
    "mean_abs": 0.0,
    "sqnr_db": Infinity
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "relu: relu/relu6 are hardware functions",
   "hw_mapping": "ACTIVATE.QUANTIZE relu/relu6 (+ MULT)",
   "isa_path": "ACTIVATE.QUANTIZE relu",
@@ -732,9 +913,12 @@
    "max_rel": 0.0,
    "mean_abs": 0.0,
    "sqnr_db": Infinity
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "rsqrt and output stored NX8 e4",
   "hw_mapping": "ACTIVATE.QUANTIZE rsqrt",
   "isa_path": "MULT/ACC mean and variance, rsqrt (no eps: Q57)",
@@ -747,9 +931,12 @@
    "max_rel": 0.657821770594492,
    "mean_abs": 0.026058238259549633,
    "sqnr_db": 28.000520655680795
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "rsqrt stored NX8 e4",
   "hw_mapping": "ACTIVATE.QUANTIZE rsqrt",
   "isa_path": "ACTIVATE.QUANTIZE rsqrt",
@@ -762,9 +949,12 @@
    "max_rel": 0.06101124878034336,
    "mean_abs": 0.01404033591006737,
    "sqnr_db": 31.41931872851158
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "the erf GELU in place of its tanh form",
   "hw_mapping": "LUT",
   "isa_path": "x * sigmoid(2 sqrt(2/pi)(x + 0.044715x^3)) via exp2 + reciprocal",
@@ -777,9 +967,12 @@
    "max_rel": 4.000000202069229,
    "mean_abs": 0.00014925117663299402,
    "sqnr_db": 79.95515756256619
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "the tanh form of GELU, computed via exp2 + reciprocal with NX8 e4 stages",
   "hw_mapping": "MULT (cubic) + ACTIVATE.QUANTIZE exp2 + reciprocal",
   "isa_path": "no erf: tanh/sigmoid estimation, or the generic LUT",
@@ -792,9 +985,12 @@
    "max_rel": 1.0,
    "mean_abs": 0.007935276913821888,
    "sqnr_db": 43.20976010549813
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "torch.rsqrt",
   "hw_mapping": "ACTIVATE.QUANTIZE rsqrt",
   "isa_path": "ACTIVATE.QUANTIZE rsqrt",
@@ -807,9 +1003,12 @@
    "max_rel": 0.0,
    "mean_abs": 0.0,
    "sqnr_db": Infinity
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "torch.softmax, FP32",
   "hw_mapping": "ACTIVATE.EXACT exp2/reciprocal (emulator only)",
   "isa_path": "AGG.MAX, MULT, exp2, AGG.SUM, reciprocal",
@@ -822,9 +1021,12 @@
    "max_rel": 0.0,
    "mean_abs": 0.0,
    "sqnr_db": Infinity
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "x * reciprocal(1 + exp2(-x log2e)), NX8 e4 between stages",
   "hw_mapping": "MULT + ACTIVATE.QUANTIZE exp2 + ACTIVATE.QUANTIZE reciprocal",
   "isa_path": "x * sigmoid(x) via exp2 + reciprocal",
@@ -837,9 +1039,12 @@
    "max_rel": 0.7387968559629083,
    "mean_abs": 0.0462318264341032,
    "sqnr_db": 26.100033496149123
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "x * sigmoid(2 sqrt(2/pi)(x + 0.044715x^3)) via exp2 + reciprocal, NX8 e4 between stages",
   "hw_mapping": "MULT (cubic) + ACTIVATE.QUANTIZE exp2 + reciprocal",
   "isa_path": "x * sigmoid(2 sqrt(2/pi)(x + 0.044715x^3)) via exp2 + reciprocal",
@@ -852,9 +1057,12 @@
    "max_rel": 1.6666667617932465,
    "mean_abs": 0.007873508749519281,
    "sqnr_db": 43.23255991988869
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "x*relu6(x+3)/6 in place of SiLU",
   "hw_mapping": "ACTIVATE.QUANTIZE relu6 + MULT",
   "isa_path": "x * sigmoid(x) via exp2 + reciprocal",
@@ -867,9 +1075,12 @@
    "max_rel": 1.0,
    "mean_abs": 0.05985256972080513,
    "sqnr_db": 29.160142499620573
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "x*sigmoid(1.702x) (QuickGELU) in place of GELU",
   "hw_mapping": "exp2 + reciprocal + MULT",
   "isa_path": "no erf: tanh/sigmoid estimation, or the generic LUT",
@@ -882,9 +1093,12 @@
    "max_rel": 895.8100182780981,
    "mean_abs": 0.00791188707636677,
    "sqnr_db": 46.08117918327092
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "x*sigmoid(1.702x) in place of tanh GELU",
   "hw_mapping": "exp2 + reciprocal + MULT",
   "isa_path": "x * sigmoid(2 sqrt(2/pi)(x + 0.044715x^3)) via exp2 + reciprocal",
@@ -897,9 +1111,12 @@
    "max_rel": 1362.2756161149894,
    "mean_abs": 0.008007699316438584,
    "sqnr_db": 45.961903072777595
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "x*sigmoid(1.702x) via exp2 + reciprocal, NX8 e4 stages",
   "hw_mapping": "MULT + exp2 + reciprocal",
   "isa_path": "no erf: tanh/sigmoid estimation, or the generic LUT",
@@ -912,9 +1129,12 @@
    "max_rel": 1125.4000625983256,
    "mean_abs": 0.02862961867169884,
    "sqnr_db": 29.410098645858653
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  },
  {
+  "code": null,
   "description": "x*sigmoid(1.702x) via exp2 + reciprocal, NX8 e4 stages",
   "hw_mapping": "MULT + exp2 + reciprocal",
   "isa_path": "x * sigmoid(1.702x) via exp2 + reciprocal",
@@ -927,6 +1147,8 @@
    "max_rel": 1.7654064069416713,
    "mean_abs": 0.02644696643476222,
    "sqnr_db": 29.634901679328614
-  }
+  },
+  "op_error_nx8": null,
+  "origin": null
  }
 ]

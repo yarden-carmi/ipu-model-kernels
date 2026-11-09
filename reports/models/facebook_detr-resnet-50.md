@@ -48,10 +48,10 @@
 | `linear{bias=1,k=256,m=100,n=4}` | 1 | 102,400 | cpu | cpu | - |
 | `add{broadcast=0,numel=25600,operands=tensor}` | 30 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact); residual_add (chip-emu, exact, fp32-exact) |
 | `add{broadcast=0,numel=65536,operands=tensor}` | 24 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact); residual_add (chip-emu, exact, fp32-exact) |
-| `layernorm{channels=256,layout=channels_last,tokens=100}` | 19 | 0 | cpu | cpu | - |
+| `layernorm{channels=256,layout=channels_last,tokens=100}` | 19 | 0 | chip-emu | cpu | layernorm_rsqrt_nx8 (chip-emu, approximation, rsqrt_nx8) |
 | `relu{numel=524288}` | 17 | 0 | cpu | cpu | - |
 | `relu{numel=1048576}` | 13 | 0 | cpu | cpu | - |
-| `layernorm{channels=256,layout=channels_last,tokens=256}` | 12 | 0 | cpu | cpu | - |
+| `layernorm{channels=256,layout=channels_last,tokens=256}` | 12 | 0 | chip-emu | cpu | layernorm_rsqrt_nx8 (chip-emu, approximation, rsqrt_nx8) |
 | `relu{numel=262144}` | 11 | 0 | cpu | cpu | - |
 | `rmsnorm{channels=32,tokens=8192}` | 11 | 0 | cpu | cpu | - |
 | `rmsnorm{channels=32,tokens=32768}` | 7 | 0 | cpu | cpu | - |
@@ -62,9 +62,9 @@
 | `mul{broadcast=0,numel=80000,operands=scalar}` | 6 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `relu{numel=204800}` | 6 | 0 | cpu | cpu | - |
 | `rmsnorm{channels=128,tokens=8192}` | 6 | 0 | cpu | cpu | - |
-| `softmax{dim_last=1,n=100,rows=800}` | 6 | 0 | chip | chip-emu | softmax_exp2_nx8_e4 (chip, approximation, exp2_nx8_e4); softmax_rows_partial (chip-emu, exact, fp32-exact) |
-| `softmax{dim_last=1,n=256,rows=2048}` | 6 | 0 | chip | chip-emu | softmax_exp2_nx8_e4 (chip, approximation, exp2_nx8_e4); softmax_rows_long (chip-emu, exact, fp32-exact) |
-| `softmax{dim_last=1,n=256,rows=800}` | 6 | 0 | chip | chip-emu | softmax_exp2_nx8_e4 (chip, approximation, exp2_nx8_e4); softmax_rows_long (chip-emu, exact, fp32-exact) |
+| `softmax{dim_last=1,n=100,rows=800}` | 6 | 0 | chip-emu | chip-emu | softmax_exp2_nx8_e4 (chip-emu, approximation, exp2_nx8_e4); softmax_rows_partial (chip-emu, exact, fp32-exact) |
+| `softmax{dim_last=1,n=256,rows=2048}` | 6 | 0 | chip-emu | chip-emu | softmax_exp2_nx8_e4 (chip-emu, approximation, exp2_nx8_e4); softmax_rows_long (chip-emu, exact, fp32-exact) |
+| `softmax{dim_last=1,n=256,rows=800}` | 6 | 0 | chip-emu | chip-emu | softmax_exp2_nx8_e4 (chip-emu, approximation, exp2_nx8_e4); softmax_rows_long (chip-emu, exact, fp32-exact) |
 | `relu{numel=131072}` | 5 | 0 | cpu | cpu | - |
 | `relu{numel=2097152}` | 5 | 0 | cpu | cpu | - |
 | `rmsnorm{channels=16,tokens=8192}` | 5 | 0 | cpu | cpu | - |

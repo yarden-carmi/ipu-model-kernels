@@ -24,5 +24,5 @@
 | `aten{numel=930816,schema=aten::flatten.using_ints}` | 1 | 0 | cpu | cpu | - |
 | `concat{numel=932352}` | 1 | 0 | cpu | cpu | - |
 | `div{broadcast=0,numel=768,operands=scalar}` | 1 | 0 | cpu | cpu | - |
-| `layernorm{channels=768,layout=channels_last,tokens=1}` | 1 | 0 | cpu | cpu | - |
+| `layernorm{channels=768,layout=channels_last,tokens=1}` | 1 | 0 | chip-emu | cpu | layernorm_rsqrt_nx8 (chip-emu, approximation, rsqrt_nx8) |
 

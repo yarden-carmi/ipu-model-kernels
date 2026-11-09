@@ -15,7 +15,7 @@
 | `bmm{b=16,k=256,m=256,n=64}` | 24 | 67,108,864 | cpu | cpu | - |
 | `bmm{b=16,k=64,m=256,n=256}` | 24 | 67,108,864 | cpu | cpu | - |
 | `add{broadcast=0,numel=262144,operands=tensor}` | 50 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
-| `layernorm{channels=1024,layout=channels_last,tokens=256}` | 50 | 0 | cpu | cpu | - |
+| `layernorm{channels=1024,layout=channels_last,tokens=256}` | 50 | 0 | chip-emu | cpu | layernorm_rsqrt_nx8 (chip-emu, approximation, rsqrt_nx8) |
 | `gelu{numel=1048576}` | 24 | 0 | cpu | cpu | - |
 | `mul{broadcast=0,numel=1048576,operands=scalar}` | 24 | 0 | cpu | cpu | - |
 | `softmax{dim_last=1,n=256,rows=4096}` | 24 | 0 | chip-emu | chip-emu | softmax_rows_long (chip-emu, exact, fp32-exact) |

@@ -27,7 +27,7 @@
 | `linear{bias=1,k=768,m=1,n=1000}` | 1 | 768,000 | cpu | cpu | - |
 | `add{broadcast=0,numel=75264,operands=tensor}` | 9 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact); residual_add (chip-emu, exact, fp32-exact) |
 | `gelu{numel=301056}` | 9 | 0 | cpu | cpu | - |
-| `layernorm{channels=384,layout=channels_last,tokens=196}` | 9 | 0 | cpu | cpu | - |
+| `layernorm{channels=384,layout=channels_last,tokens=196}` | 9 | 0 | chip-emu | cpu | layernorm_rsqrt_nx8 (chip-emu, approximation, rsqrt_nx8) |
 | `mul{broadcast=1,numel=75264,operands=tensor}` | 9 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `add{broadcast=0,numel=150528,operands=tensor}` | 3 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
 | `add{broadcast=0,numel=301056,operands=tensor}` | 3 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
@@ -36,7 +36,7 @@
 | `gelu{numel=150528}` | 3 | 0 | cpu | cpu | - |
 | `gelu{numel=602112}` | 3 | 0 | cpu | cpu | - |
 | `layernorm{channels=192,layout=channels_last,tokens=784}` | 3 | 0 | cpu | cpu | - |
-| `layernorm{channels=768,layout=channels_last,tokens=49}` | 3 | 0 | cpu | cpu | - |
+| `layernorm{channels=768,layout=channels_last,tokens=49}` | 3 | 0 | chip-emu | cpu | layernorm_rsqrt_nx8 (chip-emu, approximation, rsqrt_nx8) |
 | `layernorm{channels=96,layout=channels_last,tokens=3136}` | 3 | 0 | cpu | cpu | - |
 | `mul{broadcast=1,numel=150528,operands=tensor}` | 3 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `mul{broadcast=1,numel=301056,operands=tensor}` | 3 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |

@@ -2,6 +2,7 @@
  {
   "agent": "claude-code:default",
   "attempts": 1,
+  "crosscheck": null,
   "cycles": {
    "dynamic": 103,
    "e4": 103,
@@ -24,11 +25,12 @@
   "origin": "zoo",
   "path": "kernels/zoo/silu_exp2_recip",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": "claude-code:default",
   "attempts": 1,
+  "crosscheck": null,
   "cycles": {
    "dynamic": 19,
    "e4": 19,
@@ -54,11 +56,12 @@
   "origin": "zoo",
   "path": "kernels/zoo/add_exact",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": "claude-code:default",
   "attempts": 1,
+  "crosscheck": null,
   "cycles": {
    "dynamic": 20,
    "e4": 20,
@@ -84,11 +87,12 @@
   "origin": "zoo",
   "path": "kernels/zoo/mul_exact",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": "claude-code:default",
   "attempts": 1,
+  "crosscheck": null,
   "cycles": {
    "e4": 227,
    "fp32": 227
@@ -98,7 +102,7 @@
    "fp32"
   ],
   "host_steps": [],
-  "hw_clean": 1,
+  "hw_clean": 0,
   "kind": "approximation",
   "method": "exp2_nx8_e4",
   "name": "softmax_exp2_nx8_e4",
@@ -107,11 +111,36 @@
   "origin": "zoo",
   "path": "kernels/zoo/softmax_exp2_nx8_e4",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
+ },
+ {
+  "agent": "claude-code:default",
+  "attempts": 1,
+  "crosscheck": null,
+  "cycles": {
+   "e4": 751,
+   "fp32": 751
+  },
+  "formats": [
+   "e4",
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "approximation",
+  "method": "rsqrt_nx8",
+  "name": "layernorm_rsqrt_nx8",
+  "notes": "One token at a time, each ceil(channels / 128) XMEM rows (chunks), five passes over the chunks, all hardware instructions (rsqrt is ACTIVATE.QUANTIZE rsqrt), in e4 and fp32. P1: m' = SUM x (kh + kl), where kh + kl = 1 / channels are two fill rows (kh rounded to 4 bits by a closed-form expression over channels, kl the rest, rounded by the store). A: d = x - m' stored as d_hi + d_lo (the program reloads the stored e4 row, subtracts it from the accumulator it still holds and stores the rest: about 8 significant bits); m' is subtracted through a 1.0 / 0.0 lane-indicator row, so padding lanes stay 0. B: V = SUM d^2 and T = SUM d. Scalars (one element per row, so each has its own scale): delta = T / channels (one Newton step for the inexact 1 / channels), var = V / channels - delta^2 + eps clamped at 0, r = rsqrt(var) stored in unsigned e1 (8 significant bits, via a second QF half) and split into e4 r_hi + r_lo. C: n = (d - delta) r stored as n_hi + n_lo. D: y = n gamma + beta, stored once in e4. 23 words per chunk plus 47 per token (768 channels: 185 cycles per token; 2560 x 256: 129803 cycles). Without the Newton step a token of equal values came out as beta +- gamma; with it, y = beta to 0.002. Tolerance: fp32 FP32_ORDER; e4 is held to an absolute bound (rtol 0.125 = one e4 step of y, atol 2^-7), not NX8 steps: y = n gamma + beta cancels near 0, where the golden row's grid is far finer than the 8-bit intermediates (up to 70 steps there), so NX8_STEP cannot hold for any LayerNorm that stores intermediates in NX8. Measured against the exact LayerNorm (float64): worst excess over one e4 step is 0.0029 in the default tier and 0.0053 in the nightly tier (atol 0.004 failed 4 of the 13 nightly cases); the rest of the error is y's own e4 rounding. eps is a parameter with three NX8-exact choices (1.0014e-5, 9.98e-7, 0; default the first) because 1e-5 itself is not an NX8 MULT constant; it is added inside rsqrt as torch does. Domain: channels 1..2560, tokens 1..406, layout channels_last; the box corner 2560 x 406 uses 16346 of the 16384 NX8 rows. It covers 17 of the 24 signatures; the 7 with more than 406 tokens need a host split over tokens (rows are independent). The reference is the exact torch LayerNorm; the kernel's intermediate roundings are not modelled. The default tier runs 51 tests (channels 1, 8, 100, 128, 129, 200 and every signature channel count; mean 6 sigma from 0, outlier channels, constant tokens, the other eps values, 768 x 1/49/50/64/99); the nightly tier runs the real signature shapes up to 1152 x 256 and 2560 x 256 and the corner 2560 x 406, all 13 passing.",
+  "op": "layernorm",
+  "origin": "zoo",
+  "path": "kernels/zoo/layernorm_rsqrt_nx8",
+  "status": "passing",
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "e3",
@@ -129,11 +158,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/conformance/vector_tour",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "e4",
@@ -141,20 +171,21 @@
    "dynamic"
   ],
   "host_steps": [],
-  "hw_clean": 0,
-  "kind": "exact",
-  "method": "fp32-exact",
+  "hw_clean": 1,
+  "kind": "approximation",
+  "method": "nx8",
   "name": "fully_connected",
   "notes": "",
   "op": "fully_connected",
   "origin": "ipu-emulator",
   "path": "kernels/linear/fully_connected",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -169,11 +200,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/attention/attn_scores_km_16x60",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -188,11 +220,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/attention/attn_scores_km_256x36",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -207,11 +240,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/attention/attn_scores_km_64x48",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -226,11 +260,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/attention/attn_v_16x60",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -245,11 +280,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/attention/attn_v_256x36",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -264,11 +300,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/attention/attn_v_64x48",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -283,11 +320,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/attention/attn_v_bcast_36",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -302,11 +340,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/attention/attn_v_bcast_48",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -321,11 +360,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/attention/attn_v_bcast_60",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -340,11 +380,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/detect/channel_peak",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -359,11 +400,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/reshape/concat",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -378,11 +420,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/reshape/concat",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -397,11 +440,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/reshape/concat",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -416,11 +460,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/conv1x1",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -435,11 +480,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/conv3x3_relu",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -454,11 +500,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/conv3x3_relu_cin1",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -473,11 +520,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/conv_first_layer",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -492,11 +540,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/conv_universal_tpl",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -511,11 +560,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/conv_universal_tpl",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -530,11 +580,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/conv_universal_tpl",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -549,11 +600,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/conv_universal_wide384",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -568,11 +620,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/reshape/depth_to_space",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -587,11 +640,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/depthwise_conv_stride2_128",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -606,11 +660,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/depthwise_conv_stride2_16",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -625,11 +680,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/depthwise_conv_stride2_narrow",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -644,11 +700,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/depthwise_conv_tpl",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -663,11 +720,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/depthwise_conv_tpl",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -682,11 +740,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/depthwise_conv_tpl",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -701,11 +760,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/depthwise_conv_tpl",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -720,11 +780,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/reshape/fold_16x16x192",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -739,11 +800,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/reshape/fold_32x32x144",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -758,11 +820,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/reshape/fold_8x8x240",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -777,11 +840,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/reshape/identity",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -796,11 +860,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/normalize/l2_normalize_channels",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -815,11 +880,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/normalize/layernorm",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -834,11 +900,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/normalize/layernorm",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -853,11 +920,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/normalize/layernorm",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -872,11 +940,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/normalize/layernorm",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -891,11 +960,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/matmul/matmul_small",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -910,11 +980,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/matmul/matmul_small",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -929,11 +1000,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/matmul/matmul_small",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -948,11 +1020,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/matmul/matmul_x128_2tg_c2",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -967,11 +1040,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/matmul/matmul_x128_2tg_c3",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -986,11 +1060,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/matmul/matmul_x128_c2",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1005,11 +1080,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/matmul/matmul_x128_c3",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1024,11 +1100,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/matmul/matmul_x128_c2",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1043,11 +1120,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/matmul/matmul_x128_c4",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1062,11 +1140,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/matmul/matmul_x128_2tg_c2",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1081,11 +1160,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/matmul/matmul_x128_c2",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1100,11 +1180,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/matmul/matmul_x128_2tg_c2",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1119,11 +1200,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/matmul/matmul_x128_c2",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1138,11 +1220,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/matmul/matmul_x128_c2_qkv",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1157,11 +1240,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/matmul/matmul_small",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1176,11 +1260,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/matmul/matmul_x128_c2",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1195,11 +1280,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/pooling/maxpool2d_nms",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1214,11 +1300,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/pooling/maxpool2d_nms",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1233,11 +1320,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/pooling/maxpool2d_stride2",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1252,11 +1340,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/pooling/maxpool2d_stride2_tail",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1271,11 +1360,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/pooling/maxpool2d_window",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1290,11 +1380,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/normalize/packed_layernorm",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1309,11 +1400,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/normalize/packed_layernorm",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1328,11 +1420,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/projections/packed_output_linear_p4",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1347,11 +1440,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/projections/packed_output_linear",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1366,11 +1460,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/projections/packed_output_linear_p4",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1385,11 +1480,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/projections/packed_output_linear",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1404,11 +1500,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/reshape/packed_pack",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1423,11 +1520,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/reshape/packed_pack",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1442,11 +1540,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/elementwise/residual_add_rows",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1461,11 +1560,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/elementwise/residual_add_rows",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1480,11 +1580,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/reshape/packed_unpack",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1499,11 +1600,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/reshape/packed_unpack",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1518,11 +1620,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/pointwise_conv_tpl",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1537,11 +1640,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/pointwise_conv_tpl",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1556,11 +1660,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/pointwise_conv_tpl",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1575,11 +1680,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/projections/proj_p4_2tg_silu",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1594,11 +1700,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/projections/proj_p4",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1613,11 +1720,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/projections/proj_p4",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1632,11 +1740,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/projections/proj_p4_2tg",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1651,11 +1760,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/projections/proj_p4",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1670,11 +1780,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/projections/proj_p4",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1689,11 +1800,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/projections/proj_p4_2tg",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1708,11 +1820,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/projections/proj_p4",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1727,11 +1840,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/projections/proj_p4",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1746,11 +1860,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/projections/proj_p4_2tg",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1765,11 +1880,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/projections/proj_p4",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1784,11 +1900,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/projections/proj_p4",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1803,11 +1920,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/attention/qk_scores_16x60",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1822,11 +1940,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/attention/qk_scores_256x36",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1841,11 +1960,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/attention/qk_scores_64x48",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1860,11 +1980,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/elementwise/residual_add",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1879,11 +2000,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/elementwise/residual_add_rows",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1898,11 +2020,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/elementwise/residual_add_rows",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1917,11 +2040,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/elementwise/residual_add_rows",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1936,11 +2060,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/sampling/sample_descriptors",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1955,11 +2080,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/sampling/sample_descriptors_separable",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1974,11 +2100,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/elementwise/scale",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -1993,11 +2120,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/detect/score_threshold",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -2012,11 +2140,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/softmax/softmax_columns",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -2031,11 +2160,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/softmax/softmax_columns_packed",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -2050,11 +2180,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/softmax/softmax_rows",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -2069,11 +2200,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/softmax/softmax_rows_long",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -2088,11 +2220,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/softmax/softmax_rows_partial",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -2107,11 +2240,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/reshape/unfold_16x16x192",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -2126,11 +2260,12 @@
   "origin": "ipu-emulator",
   "path": "kernels/reshape/unfold_32x32x144",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  },
  {
   "agent": null,
   "attempts": null,
+  "crosscheck": null,
   "cycles": null,
   "formats": [
    "fp32"
@@ -2145,6 +2280,6 @@
   "origin": "ipu-emulator",
   "path": "kernels/reshape/unfold_8x8x240",
   "status": "passing",
-  "updated_at": 1794235359
+  "updated_at": 1794237224
  }
 ]

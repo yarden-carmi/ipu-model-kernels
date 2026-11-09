@@ -16,7 +16,7 @@
 | `conv2d{bias=1,cin=3,cout=768,dilation=1,groups=1,h=224,kh=16,kw=16,out_elements=150528,padding=0,stride=16,w=224}` | 1 | 115,605,504 | cpu | cpu | - |
 | `linear{bias=1,k=768,m=1,n=1000}` | 1 | 768,000 | cpu | cpu | - |
 | `add{broadcast=0,numel=151296,operands=tensor}` | 25 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
-| `layernorm{channels=768,layout=channels_last,tokens=197}` | 25 | 0 | cpu | cpu | - |
+| `layernorm{channels=768,layout=channels_last,tokens=197}` | 25 | 0 | chip-emu | cpu | layernorm_rsqrt_nx8 (chip-emu, approximation, rsqrt_nx8) |
 | `gelu{numel=605184}` | 12 | 0 | cpu | cpu | - |
 | `aten{numel=150528,schema=aten::flatten.using_ints}` | 1 | 0 | cpu | cpu | - |
 | `concat{numel=151296}` | 1 | 0 | cpu | cpu | - |
