@@ -1,0 +1,2067 @@
+[
+ {
+  "agent": "claude-code:default",
+  "attempts": 1,
+  "cycles": {
+   "dynamic": 103,
+   "e4": 103,
+   "e5": 103,
+   "fp32": 103
+  },
+  "formats": [
+   "e4",
+   "e5",
+   "dynamic",
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 1,
+  "kind": "approximation",
+  "method": "exp2_recip",
+  "name": "silu_exp2_recip",
+  "notes": "One XMEM row (128 elements) per iteration, 11 instruction words per row (9 of them multiplies), all hardware instructions, in e4, e5, dynamic and fp32. exp2 of a positive input is an error, so the kernel works on |x|. It computes t = |x| as max(-x, x) with ACC.SUB.FIRST then ACC.MAX, stores it (exact, since the row has the same scale and grid as x) and reloads it. Then e = exp2(-t * log2e) and r = reciprocal(1 + e) = sigmoid(|x|), with the 1 broadcast by MULT.EE from a ones row resident in R0. Finally y = max(x * r, x * e * r): for x >= 0 the first term is silu, for x < 0 the second is. q = x * e is stored and reloaded so the negative branch is a product with no x - x*r cancellation. Each intermediate (t, e, r, q) is a round trip through XMEM via ACTIVATE.QUANTIZE (ISA idiom A8), quantized to the case's NX8 type, in two reused scratch rows. log2(e) is the sum of two exactly representable MULT constants (1.4375 + 0.00518798828125, relative error 4.9e-6), because one 8-bit NX8 constant is 0.4 % off. They are declared as single-choice float params with defaults, so a query needs only numel. Domain: numel a multiple of 128, from 128 to 1048320. The upper limit is NX8 XMEM, which addresses 16384 rows (x + y + 3 scratch). It covers 15 of the 24 signatures, and the 9 larger ones must be split on the host into calls of at most 1048320 elements (elementwise, so any split works). The tolerance is FP32_ORDER in fp32 (measured 9.5e-7) and 2 NX8 steps in NX8 (measured worst 2 steps on the negative branch, from the three intermediate roundings). The reference is the exact x * sigmoid(x) with the kernel's log2(e) constant; it does not model the intermediate roundings. All tested signatures run in the default tier up to numel 29568. 81920, 393216, 786432 and 1048320 are nightly (e4), and all pass.",
+  "op": "silu",
+  "origin": "zoo",
+  "path": "kernels/zoo/silu_exp2_recip",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "e3",
+   "e4",
+   "e5",
+   "dynamic"
+  ],
+  "host_steps": [],
+  "hw_clean": 1,
+  "kind": "approximation",
+  "method": "nx8",
+  "name": "vector_tour",
+  "notes": "",
+  "op": "vector_tour",
+  "origin": "ipu-emulator",
+  "path": "kernels/conformance/vector_tour",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "e4",
+   "e5",
+   "dynamic"
+  ],
+  "host_steps": [],
+  "hw_clean": 1,
+  "kind": "approximation",
+  "method": "nx8",
+  "name": "fully_connected",
+  "notes": "",
+  "op": "fully_connected",
+  "origin": "ipu-emulator",
+  "path": "kernels/linear/fully_connected",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "attn_scores_km_16x60",
+  "notes": "",
+  "op": "attn_scores_km",
+  "origin": "ipu-emulator",
+  "path": "kernels/attention/attn_scores_km_16x60",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "attn_scores_km_256x36",
+  "notes": "",
+  "op": "attn_scores_km",
+  "origin": "ipu-emulator",
+  "path": "kernels/attention/attn_scores_km_256x36",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "attn_scores_km_64x48",
+  "notes": "",
+  "op": "attn_scores_km",
+  "origin": "ipu-emulator",
+  "path": "kernels/attention/attn_scores_km_64x48",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "attn_v_16x60",
+  "notes": "",
+  "op": "attn_v",
+  "origin": "ipu-emulator",
+  "path": "kernels/attention/attn_v_16x60",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "attn_v_256x36",
+  "notes": "",
+  "op": "attn_v",
+  "origin": "ipu-emulator",
+  "path": "kernels/attention/attn_v_256x36",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "attn_v_64x48",
+  "notes": "",
+  "op": "attn_v",
+  "origin": "ipu-emulator",
+  "path": "kernels/attention/attn_v_64x48",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "attn_v_bcast_36",
+  "notes": "",
+  "op": "attn_v_bcast",
+  "origin": "ipu-emulator",
+  "path": "kernels/attention/attn_v_bcast_36",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "attn_v_bcast_48",
+  "notes": "",
+  "op": "attn_v_bcast",
+  "origin": "ipu-emulator",
+  "path": "kernels/attention/attn_v_bcast_48",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "attn_v_bcast_60",
+  "notes": "",
+  "op": "attn_v_bcast",
+  "origin": "ipu-emulator",
+  "path": "kernels/attention/attn_v_bcast_60",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "channel_peak",
+  "notes": "",
+  "op": "channel_peak",
+  "origin": "ipu-emulator",
+  "path": "kernels/detect/channel_peak",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "concat_16x16x128x128",
+  "notes": "Layer 4: 128 + 128 -> 256 channels",
+  "op": "concat",
+  "origin": "ipu-emulator",
+  "path": "kernels/reshape/concat",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "concat_32x32x96x96",
+  "notes": "Layer 3: 96 + 96 -> 192 channels",
+  "op": "concat",
+  "origin": "ipu-emulator",
+  "path": "kernels/reshape/concat",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "concat_8x8x160x160",
+  "notes": "Layer 5: 160 + 160 -> 320 channels",
+  "op": "concat",
+  "origin": "ipu-emulator",
+  "path": "kernels/reshape/concat",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "conv1x1",
+  "notes": "",
+  "op": "conv2d",
+  "origin": "ipu-emulator",
+  "path": "kernels/convolutions/conv1x1",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "conv3x3_relu",
+  "notes": "",
+  "op": "conv2d",
+  "origin": "ipu-emulator",
+  "path": "kernels/convolutions/conv3x3_relu",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "conv3x3_relu_cin1",
+  "notes": "",
+  "op": "conv2d",
+  "origin": "ipu-emulator",
+  "path": "kernels/convolutions/conv3x3_relu_cin1",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "conv_first_layer",
+  "notes": "",
+  "op": "conv2d",
+  "origin": "ipu-emulator",
+  "path": "kernels/convolutions/conv_first_layer",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "conv_universal",
+  "notes": "3x3 stride-1 conv, no bias, no activation (FP32, width <= 128)",
+  "op": "conv2d",
+  "origin": "ipu-emulator",
+  "path": "kernels/convolutions/conv_universal_tpl",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "conv_universal_bias",
+  "notes": "3x3 stride-1 conv + bias, no activation (FP32, width <= 128)",
+  "op": "conv2d",
+  "origin": "ipu-emulator",
+  "path": "kernels/convolutions/conv_universal_tpl",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "conv_universal_bn_activation",
+  "notes": "3x3 stride-1 conv + folded batch-norm bias + ReLU (FP32, width <= 128)",
+  "op": "conv2d",
+  "origin": "ipu-emulator",
+  "path": "kernels/convolutions/conv_universal_tpl",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "conv_universal_wide384",
+  "notes": "",
+  "op": "conv2d",
+  "origin": "ipu-emulator",
+  "path": "kernels/convolutions/conv_universal_wide384",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "depth_to_space",
+  "notes": "",
+  "op": "depth_to_space",
+  "origin": "ipu-emulator",
+  "path": "kernels/reshape/depth_to_space",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "depthwise_conv_stride2_128",
+  "notes": "",
+  "op": "conv2d",
+  "origin": "ipu-emulator",
+  "path": "kernels/convolutions/depthwise_conv_stride2_128",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "depthwise_conv_stride2_16",
+  "notes": "",
+  "op": "conv2d",
+  "origin": "ipu-emulator",
+  "path": "kernels/convolutions/depthwise_conv_stride2_16",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "depthwise_conv_stride2_narrow",
+  "notes": "",
+  "op": "conv2d",
+  "origin": "ipu-emulator",
+  "path": "kernels/convolutions/depthwise_conv_stride2_narrow",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "depthwise_conv_universal",
+  "notes": "3x3 stride-1 depthwise conv2d, no bias, no activation (FP32, width <= 128)",
+  "op": "conv2d",
+  "origin": "ipu-emulator",
+  "path": "kernels/convolutions/depthwise_conv_tpl",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "depthwise_conv_universal_bias",
+  "notes": "3x3 stride-1 depthwise conv2d + bias, no activation (FP32, width <= 128)",
+  "op": "conv2d",
+  "origin": "ipu-emulator",
+  "path": "kernels/convolutions/depthwise_conv_tpl",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "depthwise_conv_universal_bn_activation",
+  "notes": "3x3 stride-1 depthwise conv2d + folded batch-norm bias + ReLU (FP32, width <= 128)",
+  "op": "conv2d",
+  "origin": "ipu-emulator",
+  "path": "kernels/convolutions/depthwise_conv_tpl",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "depthwise_conv_universal_relu",
+  "notes": "3x3 stride-1 depthwise conv2d + ReLU, no bias (FP32, width <= 128)",
+  "op": "conv2d",
+  "origin": "ipu-emulator",
+  "path": "kernels/convolutions/depthwise_conv_tpl",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "fold_16x16x192",
+  "notes": "",
+  "op": "fold",
+  "origin": "ipu-emulator",
+  "path": "kernels/reshape/fold_16x16x192",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "fold_32x32x144",
+  "notes": "",
+  "op": "fold",
+  "origin": "ipu-emulator",
+  "path": "kernels/reshape/fold_32x32x144",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "fold_8x8x240",
+  "notes": "",
+  "op": "fold",
+  "origin": "ipu-emulator",
+  "path": "kernels/reshape/fold_8x8x240",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "identity",
+  "notes": "",
+  "op": "identity",
+  "origin": "ipu-emulator",
+  "path": "kernels/reshape/identity",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "l2_normalize_channels",
+  "notes": "",
+  "op": "l2_normalize",
+  "origin": "ipu-emulator",
+  "path": "kernels/normalize/l2_normalize_channels",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "layernorm_128x16",
+  "notes": "16 channels over 128 tokens (not a MobileViT layer shape)",
+  "op": "layernorm",
+  "origin": "ipu-emulator",
+  "path": "kernels/normalize/layernorm",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "layernorm_16x240",
+  "notes": "Layer 5: 240 channels, 16 tokens",
+  "op": "layernorm",
+  "origin": "ipu-emulator",
+  "path": "kernels/normalize/layernorm",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "layernorm_256x144",
+  "notes": "Layer 3: 144 channels, 256 tokens in two groups of 128",
+  "op": "layernorm",
+  "origin": "ipu-emulator",
+  "path": "kernels/normalize/layernorm",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "layernorm_64x192",
+  "notes": "Layer 4: 192 channels, 64 tokens",
+  "op": "layernorm",
+  "origin": "ipu-emulator",
+  "path": "kernels/normalize/layernorm",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "matmul_128x128",
+  "notes": "Generic 128x128x128 matmul",
+  "op": "matmul",
+  "origin": "ipu-emulator",
+  "path": "kernels/matmul/matmul_small",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "matmul_128x64x128",
+  "notes": "Generic 128x64x128 matmul",
+  "op": "matmul",
+  "origin": "ipu-emulator",
+  "path": "kernels/matmul/matmul_small",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "matmul_128x64x64",
+  "notes": "Generic 128x64x64 matmul",
+  "op": "matmul",
+  "origin": "ipu-emulator",
+  "path": "kernels/matmul/matmul_small",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "matmul_144x144_x128",
+  "notes": "Layer 3 OutProj",
+  "op": "matmul",
+  "origin": "ipu-emulator",
+  "path": "kernels/matmul/matmul_x128_2tg_c2",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "matmul_144x288_x128",
+  "notes": "Layer 3 FFN2",
+  "op": "matmul",
+  "origin": "ipu-emulator",
+  "path": "kernels/matmul/matmul_x128_2tg_c3",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "matmul_192x192_x128",
+  "notes": "Layer 4 OutProj",
+  "op": "matmul",
+  "origin": "ipu-emulator",
+  "path": "kernels/matmul/matmul_x128_c2",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "matmul_192x384_x128",
+  "notes": "Layer 4 FFN2",
+  "op": "matmul",
+  "origin": "ipu-emulator",
+  "path": "kernels/matmul/matmul_x128_c3",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "matmul_240x240_x128",
+  "notes": "Layer 5 OutProj",
+  "op": "matmul",
+  "origin": "ipu-emulator",
+  "path": "kernels/matmul/matmul_x128_c2",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "matmul_240x480_x128",
+  "notes": "Layer 5 FFN2",
+  "op": "matmul",
+  "origin": "ipu-emulator",
+  "path": "kernels/matmul/matmul_x128_c4",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "matmul_288x144_x128",
+  "notes": "Layer 3 FFN1 (fused SiLU)",
+  "op": "matmul",
+  "origin": "ipu-emulator",
+  "path": "kernels/matmul/matmul_x128_2tg_c2",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "matmul_384x192_x128",
+  "notes": "Layer 4 FFN1 (fused SiLU)",
+  "op": "matmul",
+  "origin": "ipu-emulator",
+  "path": "kernels/matmul/matmul_x128_c2",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "matmul_432x144_x128",
+  "notes": "Layer 3 QKV",
+  "op": "matmul",
+  "origin": "ipu-emulator",
+  "path": "kernels/matmul/matmul_x128_2tg_c2",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "matmul_480x240_x128",
+  "notes": "Layer 5 FFN1 (fused SiLU)",
+  "op": "matmul",
+  "origin": "ipu-emulator",
+  "path": "kernels/matmul/matmul_x128_c2",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "matmul_576x192_x128",
+  "notes": "Layer 4 QKV",
+  "op": "matmul",
+  "origin": "ipu-emulator",
+  "path": "kernels/matmul/matmul_x128_c2_qkv",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "matmul_64x64x64",
+  "notes": "Generic 64x64x64 matmul",
+  "op": "matmul",
+  "origin": "ipu-emulator",
+  "path": "kernels/matmul/matmul_small",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "matmul_720x240_x128",
+  "notes": "Layer 5 QKV",
+  "op": "matmul",
+  "origin": "ipu-emulator",
+  "path": "kernels/matmul/matmul_x128_c2",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "maxpool2d_nms7",
+  "notes": "SuperPoint simple_nms, nms_radius = 3",
+  "op": "maxpool2d",
+  "origin": "ipu-emulator",
+  "path": "kernels/pooling/maxpool2d_nms",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "maxpool2d_nms9",
+  "notes": "SuperPoint simple_nms, nms_radius = 4 (the default)",
+  "op": "maxpool2d",
+  "origin": "ipu-emulator",
+  "path": "kernels/pooling/maxpool2d_nms",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "maxpool2d_stride2",
+  "notes": "",
+  "op": "maxpool2d",
+  "origin": "ipu-emulator",
+  "path": "kernels/pooling/maxpool2d_stride2",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "maxpool2d_stride2_tail",
+  "notes": "",
+  "op": "maxpool2d",
+  "origin": "ipu-emulator",
+  "path": "kernels/pooling/maxpool2d_stride2_tail",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "maxpool2d_window",
+  "notes": "",
+  "op": "maxpool2d",
+  "origin": "ipu-emulator",
+  "path": "kernels/pooling/maxpool2d_window",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "packed_layernorm_192x64",
+  "notes": "Layer 4, packed: 192 channels x 64 tokens, 2 channels a row",
+  "op": "packed_layernorm",
+  "origin": "ipu-emulator",
+  "path": "kernels/normalize/packed_layernorm",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "packed_layernorm_240x16",
+  "notes": "Layer 5, packed: 240 channels x 16 tokens, 8 channels a row",
+  "op": "packed_layernorm",
+  "origin": "ipu-emulator",
+  "path": "kernels/normalize/packed_layernorm",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "packed_output_linear_192",
+  "notes": "Layer 4, packed: QKV, OutProj and FFN2",
+  "op": "packed_linear",
+  "origin": "ipu-emulator",
+  "path": "kernels/projections/packed_output_linear_p4",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "packed_output_linear_240",
+  "notes": "Layer 5, packed: QKV, OutProj and FFN2",
+  "op": "packed_linear",
+  "origin": "ipu-emulator",
+  "path": "kernels/projections/packed_output_linear",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "packed_output_linear_silu_192",
+  "notes": "Layer 4, packed: FFN1, fused SiLU",
+  "op": "packed_linear",
+  "origin": "ipu-emulator",
+  "path": "kernels/projections/packed_output_linear_p4",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "packed_output_linear_silu_240",
+  "notes": "Layer 5, packed: FFN1, fused SiLU",
+  "op": "packed_linear",
+  "origin": "ipu-emulator",
+  "path": "kernels/projections/packed_output_linear",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "packed_pack_192x64",
+  "notes": "Layer 4: 192 channel rows -> 96 packed rows (2 channels a row)",
+  "op": "pack",
+  "origin": "ipu-emulator",
+  "path": "kernels/reshape/packed_pack",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "packed_pack_240x16",
+  "notes": "Layer 5: 240 channel rows -> 30 packed rows (8 channels a row)",
+  "op": "pack",
+  "origin": "ipu-emulator",
+  "path": "kernels/reshape/packed_pack",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "packed_residual_add_192x64",
+  "notes": "Layer 4, packed: 192 channels x 64 tokens, 2 channels a row (96 rows)",
+  "op": "residual_add",
+  "origin": "ipu-emulator",
+  "path": "kernels/elementwise/residual_add_rows",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "packed_residual_add_240x16",
+  "notes": "Layer 5, packed: 240 channels x 16 tokens, 8 channels a row (30 rows)",
+  "op": "residual_add",
+  "origin": "ipu-emulator",
+  "path": "kernels/elementwise/residual_add_rows",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "packed_unpack_192x64",
+  "notes": "Layer 4: 96 packed rows -> 192 channel rows",
+  "op": "unpack",
+  "origin": "ipu-emulator",
+  "path": "kernels/reshape/packed_unpack",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "packed_unpack_240x16",
+  "notes": "Layer 5: 30 packed rows -> 240 channel rows",
+  "op": "unpack",
+  "origin": "ipu-emulator",
+  "path": "kernels/reshape/packed_unpack",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "pointwise_conv_unified",
+  "notes": "1x1 conv2d, no bias, no activation (FP32, width <= 128)",
+  "op": "conv2d",
+  "origin": "ipu-emulator",
+  "path": "kernels/convolutions/pointwise_conv_tpl",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "pointwise_conv_unified_bias",
+  "notes": "1x1 conv2d + bias, no activation (FP32, width <= 128)",
+  "op": "conv2d",
+  "origin": "ipu-emulator",
+  "path": "kernels/convolutions/pointwise_conv_tpl",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "pointwise_conv_unified_bn_activation",
+  "notes": "1x1 conv2d + folded batch-norm bias + ReLU (FP32, width <= 128)",
+  "op": "conv2d",
+  "origin": "ipu-emulator",
+  "path": "kernels/convolutions/pointwise_conv_tpl",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "proj_ffn1_144_p4",
+  "notes": "Layer 3 FFN1 (fused SiLU)",
+  "op": "projection",
+  "origin": "ipu-emulator",
+  "path": "kernels/projections/proj_p4_2tg_silu",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "proj_ffn1_192_p4",
+  "notes": "Layer 4 FFN1 (fused SiLU)",
+  "op": "projection",
+  "origin": "ipu-emulator",
+  "path": "kernels/projections/proj_p4",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "proj_ffn1_240_p4",
+  "notes": "Layer 5 FFN1 (fused SiLU)",
+  "op": "projection",
+  "origin": "ipu-emulator",
+  "path": "kernels/projections/proj_p4",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "proj_ffn2_144_p4",
+  "notes": "Layer 3 FFN2",
+  "op": "projection",
+  "origin": "ipu-emulator",
+  "path": "kernels/projections/proj_p4_2tg",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "proj_ffn2_192_p4",
+  "notes": "Layer 4 FFN2",
+  "op": "projection",
+  "origin": "ipu-emulator",
+  "path": "kernels/projections/proj_p4",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "proj_ffn2_240_p4",
+  "notes": "Layer 5 FFN2",
+  "op": "projection",
+  "origin": "ipu-emulator",
+  "path": "kernels/projections/proj_p4",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "proj_outproj_144_p4",
+  "notes": "Layer 3 OutProj",
+  "op": "projection",
+  "origin": "ipu-emulator",
+  "path": "kernels/projections/proj_p4_2tg",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "proj_outproj_192_p4",
+  "notes": "Layer 4 OutProj",
+  "op": "projection",
+  "origin": "ipu-emulator",
+  "path": "kernels/projections/proj_p4",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "proj_outproj_240_p4",
+  "notes": "Layer 5 OutProj",
+  "op": "projection",
+  "origin": "ipu-emulator",
+  "path": "kernels/projections/proj_p4",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "proj_qkv_144_p4",
+  "notes": "Layer 3 QKV",
+  "op": "projection",
+  "origin": "ipu-emulator",
+  "path": "kernels/projections/proj_p4_2tg",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "proj_qkv_192_p4",
+  "notes": "Layer 4 QKV",
+  "op": "projection",
+  "origin": "ipu-emulator",
+  "path": "kernels/projections/proj_p4",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "proj_qkv_240_p4",
+  "notes": "Layer 5 QKV",
+  "op": "projection",
+  "origin": "ipu-emulator",
+  "path": "kernels/projections/proj_p4",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "qk_scores_16x60",
+  "notes": "",
+  "op": "qk_scores",
+  "origin": "ipu-emulator",
+  "path": "kernels/attention/qk_scores_16x60",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "qk_scores_256x36",
+  "notes": "",
+  "op": "qk_scores",
+  "origin": "ipu-emulator",
+  "path": "kernels/attention/qk_scores_256x36",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "qk_scores_64x48",
+  "notes": "",
+  "op": "qk_scores",
+  "origin": "ipu-emulator",
+  "path": "kernels/attention/qk_scores_64x48",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "residual_add",
+  "notes": "",
+  "op": "residual_add",
+  "origin": "ipu-emulator",
+  "path": "kernels/elementwise/residual_add",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "residual_add_16x240",
+  "notes": "Layer 5: 240 channels x 16 tokens, one channel per row",
+  "op": "residual_add",
+  "origin": "ipu-emulator",
+  "path": "kernels/elementwise/residual_add_rows",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "residual_add_256x144",
+  "notes": "Layer 3: 144 channels x 256 tokens, two rows per channel",
+  "op": "residual_add",
+  "origin": "ipu-emulator",
+  "path": "kernels/elementwise/residual_add_rows",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "residual_add_64x192",
+  "notes": "Layer 4: 192 channels x 64 tokens, one channel per row",
+  "op": "residual_add",
+  "origin": "ipu-emulator",
+  "path": "kernels/elementwise/residual_add_rows",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "sample_descriptors",
+  "notes": "",
+  "op": "sample_descriptors",
+  "origin": "ipu-emulator",
+  "path": "kernels/sampling/sample_descriptors",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "sample_descriptors_separable",
+  "notes": "",
+  "op": "sample_descriptors",
+  "origin": "ipu-emulator",
+  "path": "kernels/sampling/sample_descriptors_separable",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "scale",
+  "notes": "",
+  "op": "scale",
+  "origin": "ipu-emulator",
+  "path": "kernels/elementwise/scale",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "score_threshold",
+  "notes": "",
+  "op": "score_threshold",
+  "origin": "ipu-emulator",
+  "path": "kernels/detect/score_threshold",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "softmax_columns",
+  "notes": "",
+  "op": "softmax",
+  "origin": "ipu-emulator",
+  "path": "kernels/softmax/softmax_columns",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "softmax_columns_packed",
+  "notes": "",
+  "op": "softmax",
+  "origin": "ipu-emulator",
+  "path": "kernels/softmax/softmax_columns_packed",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "softmax_rows",
+  "notes": "",
+  "op": "softmax",
+  "origin": "ipu-emulator",
+  "path": "kernels/softmax/softmax_rows",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "softmax_rows_long",
+  "notes": "",
+  "op": "softmax",
+  "origin": "ipu-emulator",
+  "path": "kernels/softmax/softmax_rows_long",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "softmax_rows_partial",
+  "notes": "",
+  "op": "softmax",
+  "origin": "ipu-emulator",
+  "path": "kernels/softmax/softmax_rows_partial",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "unfold_16x16x192",
+  "notes": "",
+  "op": "unfold",
+  "origin": "ipu-emulator",
+  "path": "kernels/reshape/unfold_16x16x192",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "unfold_32x32x144",
+  "notes": "",
+  "op": "unfold",
+  "origin": "ipu-emulator",
+  "path": "kernels/reshape/unfold_32x32x144",
+  "status": "passing",
+  "updated_at": 1794233376
+ },
+ {
+  "agent": null,
+  "attempts": null,
+  "cycles": null,
+  "formats": [
+   "fp32"
+  ],
+  "host_steps": [],
+  "hw_clean": 0,
+  "kind": "exact",
+  "method": "fp32-exact",
+  "name": "unfold_8x8x240",
+  "notes": "",
+  "op": "unfold",
+  "origin": "ipu-emulator",
+  "path": "kernels/reshape/unfold_8x8x240",
+  "status": "passing",
+  "updated_at": 1794233376
+ }
+]

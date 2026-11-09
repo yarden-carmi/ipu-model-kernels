@@ -1,0 +1,76 @@
+# silu_exp2_recip: y = silu(x) = x * sigmoid(x) over numel elements, as
+# x / (1 + exp2(-x * log2(e))) built from the hardware's exp2 and reciprocal
+# (the .asm header has the dataflow). Hardware-clean: every store is
+# ACTIVATE.QUANTIZE; the NX8 variants round each intermediate row (e, r,
+# x * e) to the case's type.
+[kernel]
+op = "silu"
+formats = ["e4", "e5", "dynamic", "fp32"]
+
+[params]
+# Whole XMEM rows. NX8 addresses 16384 rows: x and y take numel / 128 each and
+# the scratch 3, so at most 8190 rows (1048320 elements) per call.
+numel    = { type = "int", min = 128, max = 1048320, multiple_of = 128 }
+# log2(e) = log2e_hi + log2e_lo, two MULT constants each NX8 holds exactly.
+log2e_hi = { type = "float", choices = [1.4375], default = 1.4375 }
+log2e_lo = { type = "float", choices = [0.00518798828125], default = 0.00518798828125 }
+
+[derived]
+rows  = "numel / 128"
+slot1 = "128"                                # LR2: R_CYCLIC slot 1, and R1 in R0 ++ R1
+qf    = "case_qf"                            # the case's QF half (0 in FP32)
+
+[inputs.x]
+shape = ["rows", 128]
+range = [-8, 8]
+
+[outputs.y]
+shape = ["rows", 128]                        # one ACTIVATE.QUANTIZE identity row per row
+
+[scratch.s0]                                 # t = |x|, then q = x * e
+shape = [1, 128]
+
+[scratch.s1]                                 # e = exp2(-|x| log2(e)), then r = 1 / (1 + e)
+shape = [1, 128]
+
+[scratch.ones]                               # R0: R0[0] is the 1 of 1 + e
+shape = [1, 128]
+fill = 1.0
+
+[abi]
+x        = "CR2"
+y        = { register = "CR3", offset = -1 }  # LR1 is row + 1 at the store
+s0       = "CR4"
+s1       = "CR5"
+ones     = "CR6"
+rows     = "CR7"
+slot1    = "CR8"
+log2e_hi = "CR9"
+log2e_lo = "CR10"
+qf       = "CR14"
+
+[golden]
+reference = "reference.py:reference"
+# FP32: the only error is the FP32 chain (measured max |err| 9.5e-7 on default).
+# NX8: e, r and q = x * e each round to the row's type before y does; the worst
+# is the negative branch, x * e * r, measured at 2 steps of y's grid in e4 and
+# e5 (1 in dynamic) on every case.
+tolerance = { fp32 = "FP32_ORDER", nx8 = { tier = "NX8_STEP", ulps = 2, why = "three intermediate NX8 roundings (e, r, x * e) before the store: measured 2 steps" } }
+
+[cases.default]                              # facebook/DiT-XL-2-256: 1152
+numel = 1152
+
+[cases.one_row]
+numel = 128
+
+[cases.sweep]                                # small layer signatures
+numel = [1280, 1536, 3072, 4864, 5632, 8192]
+
+[cases.mid]                                  # Qwen3-8B, Llama-3.1-8B, 70B, Qwen2.5-72B
+numel = [12288, 14336, 18944, 28672, 29568]
+formats = ["e4", "fp32"]
+
+[cases.large]                                # SD 1.5, SmolLM2 / mamba, Qwen3-0.6B, the largest call
+numel = [81920, 393216, 786432, 1048320]
+formats = ["e4"]
+tier = "nightly"
