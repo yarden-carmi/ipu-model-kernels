@@ -30,8 +30,8 @@
 | `mul{broadcast=0,numel=32768,operands=scalar}` | 12 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `quick_gelu{numel=131072}` | 12 | 0 | cpu | cpu | - |
 | `quick_gelu{numel=153600}` | 12 | 0 | cpu | cpu | - |
-| `softmax{dim_last=1,n=50,rows=600}` | 12 | 0 | chip-emu | chip-emu | softmax_exp2_nx8_e4 (chip-emu, approximation, exp2_nx8_e4); softmax_rows_partial (chip-emu, exact, fp32-exact) |
-| `softmax{dim_last=1,n=64,rows=512}` | 12 | 0 | chip-emu | chip-emu | softmax_exp2_nx8_e4 (chip-emu, approximation, exp2_nx8_e4); softmax_rows_partial (chip-emu, exact, fp32-exact) |
+| `softmax{dim_last=1,n=50,rows=600}` | 12 | 0 | chip | chip-emu | softmax_exp2_nx8_e4 (chip, approximation, exp2_nx8_e4); softmax_rows_partial (chip-emu, exact, fp32-exact) |
+| `softmax{dim_last=1,n=64,rows=512}` | 12 | 0 | chip | chip-emu | softmax_exp2_nx8_e4 (chip, approximation, exp2_nx8_e4); softmax_rows_partial (chip-emu, exact, fp32-exact) |
 | `add{broadcast=0,numel=64,operands=scalar}` | 2 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
 | `div{broadcast=1,numel=512,operands=tensor}` | 2 | 0 | cpu | cpu | - |
 | `pow{numel=1}` | 2 | 0 | cpu | cpu | - |

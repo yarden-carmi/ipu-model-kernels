@@ -41,7 +41,7 @@
 | `mul{broadcast=0,numel=6144,operands=scalar}` | 4 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `softmax{dim_last=1,n=1500,rows=192}` | 4 | 0 | chip-emu | chip-emu | softmax_rows_long (chip-emu, exact, fp32-exact) |
 | `softmax{dim_last=1,n=1500,rows=9000}` | 4 | 0 | chip-emu | chip-emu | softmax_rows_long (chip-emu, exact, fp32-exact) |
-| `softmax{dim_last=1,n=32,rows=192}` | 4 | 0 | chip-emu | chip-emu | softmax_exp2_nx8_e4 (chip-emu, approximation, exp2_nx8_e4); softmax_rows_partial (chip-emu, exact, fp32-exact) |
+| `softmax{dim_last=1,n=32,rows=192}` | 4 | 0 | chip | chip-emu | softmax_exp2_nx8_e4 (chip, approximation, exp2_nx8_e4); softmax_rows_partial (chip-emu, exact, fp32-exact) |
 | `add{broadcast=0,numel=32,operands=scalar}` | 3 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
 | `embedding{dim=384,tokens=1500,vocab=1500}` | 1 | 0 | cpu | cpu | - |
 | `embedding{dim=384,tokens=32,vocab=51865}` | 1 | 0 | cpu | cpu | - |

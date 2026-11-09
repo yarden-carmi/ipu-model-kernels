@@ -56,6 +56,58 @@
   "samples": 8
  },
  {
+  "config": "chip:nx8_e4+hw_methods",
+  "created_at": 1794234990,
+  "dataset": "wikitext-2-raw-v1/test",
+  "methods": {
+   "gelu": "tanh_exp2",
+   "layernorm": "rsqrt_nx8",
+   "matmul": "nx8_e4",
+   "softmax": "exp2_nx8_e4"
+  },
+  "metrics": {
+   "batches": 8,
+   "dataset": "wikitext-2-raw-v1/test",
+   "details": {},
+   "hits": {
+    "gelu": 104,
+    "layernorm": 208,
+    "matmul": 784,
+    "softmax": 96
+   },
+   "metrics": {
+    "cosine_similarity": 0.9975441497721372,
+    "mae": 0.46679498666255725,
+    "mse": 0.37045870447183826,
+    "nonfinite_reference": 0,
+    "nonfinite_simulator": 0,
+    "perfect_match": false,
+    "prediction_agreement": 0.9879396984924623,
+    "sqnr_db": 22.9790112524647
+   },
+   "reference_forwards": 8,
+   "simulator_forwards": 8,
+   "task": "generic",
+   "timing": {
+    "individual_model_timing": true,
+    "kind": "cpu_wall",
+    "paired_batches_per_second": null,
+    "paired_examples_per_second": null,
+    "paired_seconds": null,
+    "reference_batches_per_second": 6.978027120684536,
+    "reference_examples_per_second": 6.978027120684536,
+    "reference_seconds": 1.146455847998368,
+    "repetitions_per_batch": 1,
+    "simulator_batches_per_second": 0.2007024264756149,
+    "simulator_examples_per_second": 0.2007024264756149,
+    "simulator_seconds": 39.86000638099904
+   }
+  },
+  "model_id": "google-bert/bert-base-uncased",
+  "qbench_commit": "2ce4678",
+  "samples": 8
+ },
+ {
   "config": "chip:nx8_e4_out+hw_methods",
   "created_at": 1794234243,
   "dataset": "wikitext-2-raw-v1/test",
@@ -112,6 +164,58 @@
   "samples": 8
  },
  {
+  "config": "chip:nx8_e4_out+hw_methods",
+  "created_at": 1794235044,
+  "dataset": "wikitext-2-raw-v1/test",
+  "methods": {
+   "gelu": "tanh_exp2",
+   "layernorm": "rsqrt_nx8",
+   "matmul": "nx8_e4_out",
+   "softmax": "exp2_nx8_e4"
+  },
+  "metrics": {
+   "batches": 8,
+   "dataset": "wikitext-2-raw-v1/test",
+   "details": {},
+   "hits": {
+    "gelu": 104,
+    "layernorm": 208,
+    "matmul": 784,
+    "softmax": 96
+   },
+   "metrics": {
+    "cosine_similarity": 0.9973003606539121,
+    "mae": 0.5775998505402973,
+    "mse": 0.5594883902837693,
+    "nonfinite_reference": 0,
+    "nonfinite_simulator": 0,
+    "perfect_match": false,
+    "prediction_agreement": 0.9768844221105528,
+    "sqnr_db": 21.188498497824963
+   },
+   "reference_forwards": 8,
+   "simulator_forwards": 8,
+   "task": "generic",
+   "timing": {
+    "individual_model_timing": true,
+    "kind": "cpu_wall",
+    "paired_batches_per_second": null,
+    "paired_examples_per_second": null,
+    "paired_seconds": null,
+    "reference_batches_per_second": 7.439870711481097,
+    "reference_examples_per_second": 7.439870711481097,
+    "reference_seconds": 1.0752875030011637,
+    "repetitions_per_batch": 1,
+    "simulator_batches_per_second": 0.16124616130771835,
+    "simulator_examples_per_second": 0.16124616130771835,
+    "simulator_seconds": 49.613584194001305
+   }
+  },
+  "model_id": "google-bert/bert-base-uncased",
+  "qbench_commit": "2ce4678",
+  "samples": 8
+ },
+ {
   "config": "gelu:lut256",
   "created_at": 1794234404,
   "dataset": "wikitext-2-raw-v1/test",
@@ -154,6 +258,52 @@
    }
   },
   "model_id": "google-bert/bert-base-uncased",
+  "qbench_commit": "2ce4678",
+  "samples": 8
+ },
+ {
+  "config": "gelu:lut256",
+  "created_at": 1794235144,
+  "dataset": "wikitext-2-raw-v1/test",
+  "methods": {
+   "gelu": "lut256"
+  },
+  "metrics": {
+   "batches": 8,
+   "dataset": "wikitext-2-raw-v1/test",
+   "details": {},
+   "hits": {
+    "gelu": 56
+   },
+   "metrics": {
+    "cosine_similarity": 1.000056054466458,
+    "mae": 0.002196294573741644,
+    "mse": 7.430414631485777e-06,
+    "nonfinite_reference": 0,
+    "nonfinite_simulator": 0,
+    "perfect_match": false,
+    "prediction_agreement": 1.0,
+    "sqnr_db": 68.68206413397489
+   },
+   "reference_forwards": 8,
+   "simulator_forwards": 8,
+   "task": "generic",
+   "timing": {
+    "individual_model_timing": true,
+    "kind": "cpu_wall",
+    "paired_batches_per_second": null,
+    "paired_examples_per_second": null,
+    "paired_seconds": null,
+    "reference_batches_per_second": 14.121826155830105,
+    "reference_examples_per_second": 14.121826155830105,
+    "reference_seconds": 0.5664989719971345,
+    "repetitions_per_batch": 1,
+    "simulator_batches_per_second": 10.280155663086452,
+    "simulator_examples_per_second": 10.280155663086452,
+    "simulator_seconds": 0.778198333000546
+   }
+  },
+  "model_id": "distilbert/distilbert-base-uncased",
   "qbench_commit": "2ce4678",
   "samples": 8
  },
@@ -204,6 +354,52 @@
   "samples": 8
  },
  {
+  "config": "gelu:lut256_nearest",
+  "created_at": 1794235148,
+  "dataset": "wikitext-2-raw-v1/test",
+  "methods": {
+   "gelu": "lut256_nearest"
+  },
+  "metrics": {
+   "batches": 8,
+   "dataset": "wikitext-2-raw-v1/test",
+   "details": {},
+   "hits": {
+    "gelu": 56
+   },
+   "metrics": {
+    "cosine_similarity": 0.9999740864287039,
+    "mae": 0.07421400452478631,
+    "mse": 0.008950371034576262,
+    "nonfinite_reference": 0,
+    "nonfinite_simulator": 0,
+    "perfect_match": false,
+    "prediction_agreement": 0.9989949748743718,
+    "sqnr_db": 37.87378423086439
+   },
+   "reference_forwards": 8,
+   "simulator_forwards": 8,
+   "task": "generic",
+   "timing": {
+    "individual_model_timing": true,
+    "kind": "cpu_wall",
+    "paired_batches_per_second": null,
+    "paired_examples_per_second": null,
+    "paired_seconds": null,
+    "reference_batches_per_second": 13.44214345188409,
+    "reference_examples_per_second": 13.44214345188409,
+    "reference_seconds": 0.5951431800021965,
+    "repetitions_per_batch": 1,
+    "simulator_batches_per_second": 10.55947607337251,
+    "simulator_examples_per_second": 10.55947607337251,
+    "simulator_seconds": 0.7576133460042911
+   }
+  },
+  "model_id": "distilbert/distilbert-base-uncased",
+  "qbench_commit": "2ce4678",
+  "samples": 8
+ },
+ {
   "config": "gelu:sigmoid1702",
   "created_at": 1794234417,
   "dataset": "wikitext-2-raw-v1/test",
@@ -246,6 +442,52 @@
    }
   },
   "model_id": "google-bert/bert-base-uncased",
+  "qbench_commit": "2ce4678",
+  "samples": 8
+ },
+ {
+  "config": "gelu:sigmoid1702",
+  "created_at": 1794235154,
+  "dataset": "wikitext-2-raw-v1/test",
+  "methods": {
+   "gelu": "sigmoid1702"
+  },
+  "metrics": {
+   "batches": 8,
+   "dataset": "wikitext-2-raw-v1/test",
+   "details": {},
+   "hits": {
+    "gelu": 56
+   },
+   "metrics": {
+    "cosine_similarity": 0.9988861748752192,
+    "mae": 0.3746119612544078,
+    "mse": 0.2189950905335932,
+    "nonfinite_reference": 0,
+    "nonfinite_simulator": 0,
+    "perfect_match": false,
+    "prediction_agreement": 0.9939698492462311,
+    "sqnr_db": 23.98785083437837
+   },
+   "reference_forwards": 8,
+   "simulator_forwards": 8,
+   "task": "generic",
+   "timing": {
+    "individual_model_timing": true,
+    "kind": "cpu_wall",
+    "paired_batches_per_second": null,
+    "paired_examples_per_second": null,
+    "paired_seconds": null,
+    "reference_batches_per_second": 15.795099618055364,
+    "reference_examples_per_second": 15.795099618055364,
+    "reference_seconds": 0.5064862010021898,
+    "repetitions_per_batch": 1,
+    "simulator_batches_per_second": 13.743361531116093,
+    "simulator_examples_per_second": 13.743361531116093,
+    "simulator_seconds": 0.58209921800335
+   }
+  },
+  "model_id": "distilbert/distilbert-base-uncased",
   "qbench_commit": "2ce4678",
   "samples": 8
  },
@@ -296,6 +538,52 @@
   "samples": 8
  },
  {
+  "config": "gelu:sigmoid1702_exp2",
+  "created_at": 1794235167,
+  "dataset": "wikitext-2-raw-v1/test",
+  "methods": {
+   "gelu": "sigmoid1702_exp2"
+  },
+  "metrics": {
+   "batches": 8,
+   "dataset": "wikitext-2-raw-v1/test",
+   "details": {},
+   "hits": {
+    "gelu": 56
+   },
+   "metrics": {
+    "cosine_similarity": 0.9987563427993732,
+    "mae": 0.40529103070558875,
+    "mse": 0.25649868378982915,
+    "nonfinite_reference": 0,
+    "nonfinite_simulator": 0,
+    "perfect_match": false,
+    "prediction_agreement": 0.9939698492462311,
+    "sqnr_db": 23.301343214119044
+   },
+   "reference_forwards": 8,
+   "simulator_forwards": 8,
+   "task": "generic",
+   "timing": {
+    "individual_model_timing": true,
+    "kind": "cpu_wall",
+    "paired_batches_per_second": null,
+    "paired_examples_per_second": null,
+    "paired_seconds": null,
+    "reference_batches_per_second": 13.913288134427747,
+    "reference_examples_per_second": 13.913288134427747,
+    "reference_seconds": 0.5749898889971519,
+    "repetitions_per_batch": 1,
+    "simulator_batches_per_second": 2.3992333365066942,
+    "simulator_examples_per_second": 2.3992333365066942,
+    "simulator_seconds": 3.3343984839957557
+   }
+  },
+  "model_id": "distilbert/distilbert-base-uncased",
+  "qbench_commit": "2ce4678",
+  "samples": 8
+ },
+ {
   "config": "gelu:tanh",
   "created_at": 1794234413,
   "dataset": "wikitext-2-raw-v1/test",
@@ -342,6 +630,52 @@
   "samples": 8
  },
  {
+  "config": "gelu:tanh",
+  "created_at": 1794235151,
+  "dataset": "wikitext-2-raw-v1/test",
+  "methods": {
+   "gelu": "tanh"
+  },
+  "metrics": {
+   "batches": 8,
+   "dataset": "wikitext-2-raw-v1/test",
+   "details": {},
+   "hits": {
+    "gelu": 56
+   },
+   "metrics": {
+    "cosine_similarity": 1.0000549130254277,
+    "mae": 0.006656974341598563,
+    "mse": 7.080116883203187e-05,
+    "nonfinite_reference": 0,
+    "nonfinite_simulator": 0,
+    "perfect_match": false,
+    "prediction_agreement": 1.0,
+    "sqnr_db": 58.89179034938551
+   },
+   "reference_forwards": 8,
+   "simulator_forwards": 8,
+   "task": "generic",
+   "timing": {
+    "individual_model_timing": true,
+    "kind": "cpu_wall",
+    "paired_batches_per_second": null,
+    "paired_examples_per_second": null,
+    "paired_seconds": null,
+    "reference_batches_per_second": 14.299363743351247,
+    "reference_examples_per_second": 14.299363743351247,
+    "reference_seconds": 0.5594654520009499,
+    "repetitions_per_batch": 1,
+    "simulator_batches_per_second": 12.988615837041005,
+    "simulator_examples_per_second": 12.988615837041005,
+    "simulator_seconds": 0.6159239829994476
+   }
+  },
+  "model_id": "distilbert/distilbert-base-uncased",
+  "qbench_commit": "2ce4678",
+  "samples": 8
+ },
+ {
   "config": "gelu:tanh_exp2",
   "created_at": 1794234428,
   "dataset": "wikitext-2-raw-v1/test",
@@ -384,6 +718,52 @@
    }
   },
   "model_id": "google-bert/bert-base-uncased",
+  "qbench_commit": "2ce4678",
+  "samples": 8
+ },
+ {
+  "config": "gelu:tanh_exp2",
+  "created_at": 1794235161,
+  "dataset": "wikitext-2-raw-v1/test",
+  "methods": {
+   "gelu": "tanh_exp2"
+  },
+  "metrics": {
+   "batches": 8,
+   "dataset": "wikitext-2-raw-v1/test",
+   "details": {},
+   "hits": {
+    "gelu": 56
+   },
+   "metrics": {
+    "cosine_similarity": 0.9998152570493459,
+    "mae": 0.1279522983504114,
+    "mse": 0.026231310745787124,
+    "nonfinite_reference": 0,
+    "nonfinite_simulator": 0,
+    "perfect_match": false,
+    "prediction_agreement": 0.9969849246231156,
+    "sqnr_db": 33.20399470020444
+   },
+   "reference_forwards": 8,
+   "simulator_forwards": 8,
+   "task": "generic",
+   "timing": {
+    "individual_model_timing": true,
+    "kind": "cpu_wall",
+    "paired_batches_per_second": null,
+    "paired_examples_per_second": null,
+    "paired_seconds": null,
+    "reference_batches_per_second": 14.297839747571164,
+    "reference_examples_per_second": 14.297839747571164,
+    "reference_seconds": 0.5595250849946751,
+    "repetitions_per_batch": 1,
+    "simulator_batches_per_second": 2.0661071861905427,
+    "simulator_examples_per_second": 2.0661071861905427,
+    "simulator_seconds": 3.8720159599997714
+   }
+  },
+  "model_id": "distilbert/distilbert-base-uncased",
   "qbench_commit": "2ce4678",
   "samples": 8
  },
@@ -734,6 +1114,52 @@
   "samples": 8
  },
  {
+  "config": "layernorm:no_eps",
+  "created_at": 1794235171,
+  "dataset": "wikitext-2-raw-v1/test",
+  "methods": {
+   "layernorm": "no_eps"
+  },
+  "metrics": {
+   "batches": 8,
+   "dataset": "wikitext-2-raw-v1/test",
+   "details": {},
+   "hits": {
+    "layernorm": 112
+   },
+   "metrics": {
+    "cosine_similarity": 1.0000557816150557,
+    "mae": 6.436760618027962e-06,
+    "mse": 6.879595491569061e-11,
+    "nonfinite_reference": 0,
+    "nonfinite_simulator": 0,
+    "perfect_match": false,
+    "prediction_agreement": 1.0,
+    "sqnr_db": 119.01656559090466
+   },
+   "reference_forwards": 8,
+   "simulator_forwards": 8,
+   "task": "generic",
+   "timing": {
+    "individual_model_timing": true,
+    "kind": "cpu_wall",
+    "paired_batches_per_second": null,
+    "paired_examples_per_second": null,
+    "paired_seconds": null,
+    "reference_batches_per_second": 14.47782522813308,
+    "reference_examples_per_second": 14.47782522813308,
+    "reference_seconds": 0.5525691789989651,
+    "repetitions_per_batch": 1,
+    "simulator_batches_per_second": 10.425569152518314,
+    "simulator_examples_per_second": 10.425569152518314,
+    "simulator_seconds": 0.7673441979968629
+   }
+  },
+  "model_id": "distilbert/distilbert-base-uncased",
+  "qbench_commit": "2ce4678",
+  "samples": 8
+ },
+ {
   "config": "layernorm:rsqrt_nx8",
   "created_at": 1794233556,
   "dataset": "wikitext-2-raw-v1/test",
@@ -826,6 +1252,52 @@
    }
   },
   "model_id": "google-bert/bert-base-uncased",
+  "qbench_commit": "2ce4678",
+  "samples": 8
+ },
+ {
+  "config": "layernorm:rsqrt_nx8",
+  "created_at": 1794235176,
+  "dataset": "wikitext-2-raw-v1/test",
+  "methods": {
+   "layernorm": "rsqrt_nx8"
+  },
+  "metrics": {
+   "batches": 8,
+   "dataset": "wikitext-2-raw-v1/test",
+   "details": {},
+   "hits": {
+    "layernorm": 112
+   },
+   "metrics": {
+    "cosine_similarity": 0.9991286951624575,
+    "mae": 0.25045836860733783,
+    "mse": 0.10215183055207892,
+    "nonfinite_reference": 0,
+    "nonfinite_simulator": 0,
+    "perfect_match": false,
+    "prediction_agreement": 0.9939698492462311,
+    "sqnr_db": 27.29973308746817
+   },
+   "reference_forwards": 8,
+   "simulator_forwards": 8,
+   "task": "generic",
+   "timing": {
+    "individual_model_timing": true,
+    "kind": "cpu_wall",
+    "paired_batches_per_second": null,
+    "paired_examples_per_second": null,
+    "paired_seconds": null,
+    "reference_batches_per_second": 12.540027650726136,
+    "reference_examples_per_second": 12.540027650726136,
+    "reference_seconds": 0.6379571259985823,
+    "repetitions_per_batch": 1,
+    "simulator_batches_per_second": 3.285687619596775,
+    "simulator_examples_per_second": 3.285687619596775,
+    "simulator_seconds": 2.4348023690035916
+   }
+  },
+  "model_id": "distilbert/distilbert-base-uncased",
   "qbench_commit": "2ce4678",
   "samples": 8
  },
@@ -926,6 +1398,52 @@
   "samples": 8
  },
  {
+  "config": "matmul:nx8_dynamic",
+  "created_at": 1794235386,
+  "dataset": "wikitext-2-raw-v1/test",
+  "methods": {
+   "matmul": "nx8_dynamic"
+  },
+  "metrics": {
+   "batches": 8,
+   "dataset": "wikitext-2-raw-v1/test",
+   "details": {},
+   "hits": {
+    "matmul": 400
+   },
+   "metrics": {
+    "cosine_similarity": 0.9999261352237974,
+    "mae": 0.10221154425558103,
+    "mse": 0.016867683087929984,
+    "nonfinite_reference": 0,
+    "nonfinite_simulator": 0,
+    "perfect_match": false,
+    "prediction_agreement": 0.9979899497487437,
+    "sqnr_db": 35.121640294628165
+   },
+   "reference_forwards": 8,
+   "simulator_forwards": 8,
+   "task": "generic",
+   "timing": {
+    "individual_model_timing": true,
+    "kind": "cpu_wall",
+    "paired_batches_per_second": null,
+    "paired_examples_per_second": null,
+    "paired_seconds": null,
+    "reference_batches_per_second": 6.187967487161079,
+    "reference_examples_per_second": 6.187967487161079,
+    "reference_seconds": 1.2928316150009778,
+    "repetitions_per_batch": 1,
+    "simulator_batches_per_second": 0.06977605881083217,
+    "simulator_examples_per_second": 0.06977605881083217,
+    "simulator_seconds": 114.65250597900013
+   }
+  },
+  "model_id": "distilbert/distilbert-base-uncased",
+  "qbench_commit": "2ce4678",
+  "samples": 8
+ },
+ {
   "config": "matmul:nx8_dynamic_out",
   "created_at": 1794234025,
   "dataset": "wikitext-2-raw-v1/test",
@@ -972,6 +1490,52 @@
    }
   },
   "model_id": "openai-community/gpt2",
+  "qbench_commit": "2ce4678",
+  "samples": 8
+ },
+ {
+  "config": "matmul:nx8_dynamic_out",
+  "created_at": 1794234911,
+  "dataset": "wikitext-2-raw-v1/test",
+  "methods": {
+   "matmul": "nx8_dynamic_out"
+  },
+  "metrics": {
+   "batches": 8,
+   "dataset": "wikitext-2-raw-v1/test",
+   "details": {},
+   "hits": {
+    "matmul": 784
+   },
+   "metrics": {
+    "cosine_similarity": 0.9992546337748411,
+    "mae": 0.17673502208967648,
+    "mse": 0.07736317411215701,
+    "nonfinite_reference": 0,
+    "nonfinite_simulator": 0,
+    "perfect_match": false,
+    "prediction_agreement": 0.9939698492462311,
+    "sqnr_db": 29.781066488840345
+   },
+   "reference_forwards": 8,
+   "simulator_forwards": 8,
+   "task": "generic",
+   "timing": {
+    "individual_model_timing": true,
+    "kind": "cpu_wall",
+    "paired_batches_per_second": null,
+    "paired_examples_per_second": null,
+    "paired_seconds": null,
+    "reference_batches_per_second": 6.931210537340482,
+    "reference_examples_per_second": 6.931210537340482,
+    "reference_seconds": 1.154199538003013,
+    "repetitions_per_batch": 1,
+    "simulator_batches_per_second": 0.06542870882485782,
+    "simulator_examples_per_second": 0.06542870882485782,
+    "simulator_seconds": 122.2704855969987
+   }
+  },
+  "model_id": "google-bert/bert-base-uncased",
   "qbench_commit": "2ce4678",
   "samples": 8
  },
@@ -1072,6 +1636,52 @@
   "samples": 8
  },
  {
+  "config": "matmul:nx8_e4",
+  "created_at": 1794235195,
+  "dataset": "wikitext-2-raw-v1/test",
+  "methods": {
+   "matmul": "nx8_e4"
+  },
+  "metrics": {
+   "batches": 8,
+   "dataset": "wikitext-2-raw-v1/test",
+   "details": {},
+   "hits": {
+    "matmul": 400
+   },
+   "metrics": {
+    "cosine_similarity": 0.9993716361515841,
+    "mae": 0.21469140884950275,
+    "mse": 0.07528887073876031,
+    "nonfinite_reference": 0,
+    "nonfinite_simulator": 0,
+    "perfect_match": false,
+    "prediction_agreement": 0.9979899497487437,
+    "sqnr_db": 28.624886791184583
+   },
+   "reference_forwards": 8,
+   "simulator_forwards": 8,
+   "task": "generic",
+   "timing": {
+    "individual_model_timing": true,
+    "kind": "cpu_wall",
+    "paired_batches_per_second": null,
+    "paired_examples_per_second": null,
+    "paired_seconds": null,
+    "reference_batches_per_second": 14.420294906806992,
+    "reference_examples_per_second": 14.420294906806992,
+    "reference_seconds": 0.5547736749977048,
+    "repetitions_per_batch": 1,
+    "simulator_batches_per_second": 0.5121307633883988,
+    "simulator_examples_per_second": 0.5121307633883988,
+    "simulator_seconds": 15.621010437002042
+   }
+  },
+  "model_id": "distilbert/distilbert-base-uncased",
+  "qbench_commit": "2ce4678",
+  "samples": 8
+ },
+ {
   "config": "matmul:nx8_e4_out",
   "created_at": 1794233640,
   "dataset": "wikitext-2-raw-v1/test",
@@ -1164,6 +1774,52 @@
    }
   },
   "model_id": "google-bert/bert-base-uncased",
+  "qbench_commit": "2ce4678",
+  "samples": 8
+ },
+ {
+  "config": "matmul:nx8_e4_out",
+  "created_at": 1794235219,
+  "dataset": "wikitext-2-raw-v1/test",
+  "methods": {
+   "matmul": "nx8_e4_out"
+  },
+  "metrics": {
+   "batches": 8,
+   "dataset": "wikitext-2-raw-v1/test",
+   "details": {},
+   "hits": {
+    "matmul": 400
+   },
+   "metrics": {
+    "cosine_similarity": 0.9995256345449647,
+    "mae": 0.313584010907035,
+    "mse": 0.15867204609641483,
+    "nonfinite_reference": 0,
+    "nonfinite_simulator": 0,
+    "perfect_match": false,
+    "prediction_agreement": 0.9829145728643216,
+    "sqnr_db": 25.387190402471568
+   },
+   "reference_forwards": 8,
+   "simulator_forwards": 8,
+   "task": "generic",
+   "timing": {
+    "individual_model_timing": true,
+    "kind": "cpu_wall",
+    "paired_batches_per_second": null,
+    "paired_examples_per_second": null,
+    "paired_seconds": null,
+    "reference_batches_per_second": 13.713704598028647,
+    "reference_examples_per_second": 13.713704598028647,
+    "reference_seconds": 0.583358051999312,
+    "repetitions_per_batch": 1,
+    "simulator_batches_per_second": 0.39498214329674436,
+    "simulator_examples_per_second": 0.39498214329674436,
+    "simulator_seconds": 20.25408017999871
+   }
+  },
+  "model_id": "distilbert/distilbert-base-uncased",
   "qbench_commit": "2ce4678",
   "samples": 8
  },
@@ -1264,6 +1920,52 @@
   "samples": 8
  },
  {
+  "config": "matmul:nx8_e5",
+  "created_at": 1794235239,
+  "dataset": "wikitext-2-raw-v1/test",
+  "methods": {
+   "matmul": "nx8_e5"
+  },
+  "metrics": {
+   "batches": 8,
+   "dataset": "wikitext-2-raw-v1/test",
+   "details": {},
+   "hits": {
+    "matmul": 400
+   },
+   "metrics": {
+    "cosine_similarity": 0.9975133217573869,
+    "mae": 0.41574212554154033,
+    "mse": 0.27848745068636543,
+    "nonfinite_reference": 0,
+    "nonfinite_simulator": 0,
+    "perfect_match": false,
+    "prediction_agreement": 0.9919597989949749,
+    "sqnr_db": 22.94413832707171
+   },
+   "reference_forwards": 8,
+   "simulator_forwards": 8,
+   "task": "generic",
+   "timing": {
+    "individual_model_timing": true,
+    "kind": "cpu_wall",
+    "paired_batches_per_second": null,
+    "paired_examples_per_second": null,
+    "paired_seconds": null,
+    "reference_batches_per_second": 12.209309559872787,
+    "reference_examples_per_second": 12.209309559872787,
+    "reference_seconds": 0.6552377069947397,
+    "repetitions_per_batch": 1,
+    "simulator_batches_per_second": 0.4955637512404911,
+    "simulator_examples_per_second": 0.4955637512404911,
+    "simulator_seconds": 16.14323077500012
+   }
+  },
+  "model_id": "distilbert/distilbert-base-uncased",
+  "qbench_commit": "2ce4678",
+  "samples": 8
+ },
+ {
   "config": "matmul:nx8_e5_out",
   "created_at": 1794233760,
   "dataset": "wikitext-2-raw-v1/test",
@@ -1360,6 +2062,52 @@
   "samples": 8
  },
  {
+  "config": "matmul:nx8_e5_out",
+  "created_at": 1794235266,
+  "dataset": "wikitext-2-raw-v1/test",
+  "methods": {
+   "matmul": "nx8_e5_out"
+  },
+  "metrics": {
+   "batches": 8,
+   "dataset": "wikitext-2-raw-v1/test",
+   "details": {},
+   "hits": {
+    "matmul": 400
+   },
+   "metrics": {
+    "cosine_similarity": 0.9952673347232944,
+    "mae": 0.6161196973334006,
+    "mse": 0.608765211451399,
+    "nonfinite_reference": 0,
+    "nonfinite_simulator": 0,
+    "perfect_match": false,
+    "prediction_agreement": 0.9678391959798995,
+    "sqnr_db": 19.547696360628535
+   },
+   "reference_forwards": 8,
+   "simulator_forwards": 8,
+   "task": "generic",
+   "timing": {
+    "individual_model_timing": true,
+    "kind": "cpu_wall",
+    "paired_batches_per_second": null,
+    "paired_examples_per_second": null,
+    "paired_seconds": null,
+    "reference_batches_per_second": 11.809384883875321,
+    "reference_examples_per_second": 11.809384883875321,
+    "reference_seconds": 0.677427324002565,
+    "repetitions_per_batch": 1,
+    "simulator_batches_per_second": 0.335821721722106,
+    "simulator_examples_per_second": 0.335821721722106,
+    "simulator_seconds": 23.82216361400242
+   }
+  },
+  "model_id": "distilbert/distilbert-base-uncased",
+  "qbench_commit": "2ce4678",
+  "samples": 8
+ },
+ {
   "config": "softmax:exp2_fp32",
   "created_at": 1794234037,
   "dataset": "wikitext-2-raw-v1/test",
@@ -1406,6 +2154,52 @@
    }
   },
   "model_id": "openai-community/gpt2",
+  "qbench_commit": "2ce4678",
+  "samples": 8
+ },
+ {
+  "config": "softmax:exp2_fp32",
+  "created_at": 1794234916,
+  "dataset": "wikitext-2-raw-v1/test",
+  "methods": {
+   "softmax": "exp2_fp32"
+  },
+  "metrics": {
+   "batches": 8,
+   "dataset": "wikitext-2-raw-v1/test",
+   "details": {},
+   "hits": {
+    "softmax": 96
+   },
+   "metrics": {
+    "cosine_similarity": 1.000042783058934,
+    "mae": 5.836294859295445e-06,
+    "mse": 5.554317663338133e-11,
+    "nonfinite_reference": 0,
+    "nonfinite_simulator": 0,
+    "perfect_match": false,
+    "prediction_agreement": 1.0,
+    "sqnr_db": 121.22010214514766
+   },
+   "reference_forwards": 8,
+   "simulator_forwards": 8,
+   "task": "generic",
+   "timing": {
+    "individual_model_timing": true,
+    "kind": "cpu_wall",
+    "paired_batches_per_second": null,
+    "paired_examples_per_second": null,
+    "paired_seconds": null,
+    "reference_batches_per_second": 7.812891087078664,
+    "reference_examples_per_second": 7.812891087078664,
+    "reference_seconds": 1.023948742000357,
+    "repetitions_per_batch": 1,
+    "simulator_batches_per_second": 6.381819783226461,
+    "simulator_examples_per_second": 6.381819783226461,
+    "simulator_seconds": 1.2535609390015452
+   }
+  },
+  "model_id": "google-bert/bert-base-uncased",
   "qbench_commit": "2ce4678",
   "samples": 8
  },
@@ -1460,8 +2254,54 @@
   "samples": 8
  },
  {
+  "config": "softmax:exp2_nx8_dynamic",
+  "created_at": 1794234946,
+  "dataset": "wikitext-2-raw-v1/test",
+  "methods": {
+   "softmax": "exp2_nx8_dynamic"
+  },
+  "metrics": {
+   "batches": 8,
+   "dataset": "wikitext-2-raw-v1/test",
+   "details": {},
+   "hits": {
+    "softmax": 96
+   },
+   "metrics": {
+    "cosine_similarity": 0.9996938787793939,
+    "mae": 0.1248279497052789,
+    "mse": 0.05149311913039742,
+    "nonfinite_reference": 0,
+    "nonfinite_simulator": 0,
+    "perfect_match": false,
+    "prediction_agreement": 0.992964824120603,
+    "sqnr_db": 31.548917294104836
+   },
+   "reference_forwards": 8,
+   "simulator_forwards": 8,
+   "task": "generic",
+   "timing": {
+    "individual_model_timing": true,
+    "kind": "cpu_wall",
+    "paired_batches_per_second": null,
+    "paired_examples_per_second": null,
+    "paired_seconds": null,
+    "reference_batches_per_second": 7.798267446059241,
+    "reference_examples_per_second": 7.798267446059241,
+    "reference_seconds": 1.025868893999359,
+    "repetitions_per_batch": 1,
+    "simulator_batches_per_second": 0.7033020368302324,
+    "simulator_examples_per_second": 0.7033020368302324,
+    "simulator_seconds": 11.374913736999588
+   }
+  },
+  "model_id": "google-bert/bert-base-uncased",
+  "qbench_commit": "2ce4678",
+  "samples": 8
+ },
+ {
   "config": "softmax:exp2_nx8_e4",
-  "created_at": 1794234051,
+  "created_at": 1794234923,
   "dataset": "wikitext-2-raw-v1/test",
   "methods": {
    "softmax": "exp2_nx8_e4"
@@ -1474,18 +2314,64 @@
     "softmax": 96
    },
    "metrics": {
-    "cosine_similarity": 0.9254795005907305,
-    "mae": 31.208443599896533,
-    "mse": 2040.1676880832522,
+    "cosine_similarity": 1.0000077447557063,
+    "mae": 0.0535840343681582,
+    "mse": 0.005096187010022674,
     "nonfinite_reference": 0,
     "nonfinite_simulator": 0,
     "perfect_match": false,
-    "prediction_agreement": 0.056640625,
+    "prediction_agreement": 0.9979899497487437,
+    "sqnr_db": 41.59395572352704
+   },
+   "reference_forwards": 8,
+   "simulator_forwards": 8,
+   "task": "generic",
+   "timing": {
+    "individual_model_timing": true,
+    "kind": "cpu_wall",
+    "paired_batches_per_second": null,
+    "paired_examples_per_second": null,
+    "paired_seconds": null,
+    "reference_batches_per_second": 8.031466111609841,
+    "reference_examples_per_second": 8.031466111609841,
+    "reference_seconds": 0.9960821460026636,
+    "repetitions_per_batch": 1,
+    "simulator_batches_per_second": 2.0292117490628976,
+    "simulator_examples_per_second": 2.0292117490628976,
+    "simulator_seconds": 3.942417544001728
+   }
+  },
+  "model_id": "google-bert/bert-base-uncased",
+  "qbench_commit": "2ce4678",
+  "samples": 8
+ },
+ {
+  "config": "softmax:exp2_nx8_e4",
+  "created_at": 1794235336,
+  "dataset": "wikitext-2-raw-v1/test",
+  "methods": {
+   "softmax": "exp2_nx8_e4"
+  },
+  "metrics": {
+   "batches": 8,
+   "dataset": "wikitext-2-raw-v1/test",
+   "details": {},
+   "hits": {
+    "softmax": 96
+   },
+   "metrics": {
+    "cosine_similarity": 0.9973355858873374,
+    "mae": 1.2042415558249349,
+    "mse": 68.18062332462704,
+    "nonfinite_reference": 0,
+    "nonfinite_simulator": 0,
+    "perfect_match": false,
+    "prediction_agreement": 0.97705078125,
     "reference_loss": 3.934890567555147,
     "reference_perplexity": 51.156551463837644,
-    "simulator_loss": 9.217432598039215,
-    "simulator_perplexity": 10071.174354599714,
-    "sqnr_db": 7.917990881283358
+    "simulator_loss": 3.9347728056066176,
+    "simulator_perplexity": 51.150527523359656,
+    "sqnr_db": 22.67803985769411
    },
    "reference_forwards": 8,
    "simulator_forwards": 8,
@@ -1496,22 +2382,22 @@
     "paired_batches_per_second": null,
     "paired_examples_per_second": null,
     "paired_seconds": null,
-    "reference_batches_per_second": 2.772467359142413,
-    "reference_examples_per_second": 2.772467359142413,
-    "reference_seconds": 2.8855163879998145,
+    "reference_batches_per_second": 0.7277343514005331,
+    "reference_examples_per_second": 0.7277343514005331,
+    "reference_seconds": 10.993022364003991,
     "repetitions_per_batch": 1,
-    "simulator_batches_per_second": 1.017478415281657,
-    "simulator_examples_per_second": 1.017478415281657,
-    "simulator_seconds": 7.8625746549969335
+    "simulator_batches_per_second": 0.2666292383917971,
+    "simulator_examples_per_second": 0.2666292383917971,
+    "simulator_seconds": 30.004211272000248
    }
   },
   "model_id": "openai-community/gpt2",
-  "qbench_commit": "2ce4678",
+  "qbench_commit": "6875def",
   "samples": 8
  },
  {
   "config": "softmax:exp2_nx8_e5",
-  "created_at": 1794234081,
+  "created_at": 1794234931,
   "dataset": "wikitext-2-raw-v1/test",
   "methods": {
    "softmax": "exp2_nx8_e5"
@@ -1524,18 +2410,64 @@
     "softmax": 96
    },
    "metrics": {
-    "cosine_similarity": 0.9257566245690361,
-    "mae": 30.951289745707065,
-    "mse": 2010.3033905724576,
+    "cosine_similarity": 0.9998500958686706,
+    "mae": 0.11636702696366308,
+    "mse": 0.028464465731366354,
     "nonfinite_reference": 0,
     "nonfinite_simulator": 0,
     "perfect_match": false,
-    "prediction_agreement": 0.060546875,
+    "prediction_agreement": 0.9939698492462311,
+    "sqnr_db": 34.123378922121724
+   },
+   "reference_forwards": 8,
+   "simulator_forwards": 8,
+   "task": "generic",
+   "timing": {
+    "individual_model_timing": true,
+    "kind": "cpu_wall",
+    "paired_batches_per_second": null,
+    "paired_examples_per_second": null,
+    "paired_seconds": null,
+    "reference_batches_per_second": 8.623771017773082,
+    "reference_examples_per_second": 8.623771017773082,
+    "reference_seconds": 0.9276684159995057,
+    "repetitions_per_batch": 1,
+    "simulator_batches_per_second": 1.7838168966198025,
+    "simulator_examples_per_second": 1.7838168966198025,
+    "simulator_seconds": 4.484765233000871
+   }
+  },
+  "model_id": "google-bert/bert-base-uncased",
+  "qbench_commit": "2ce4678",
+  "samples": 8
+ },
+ {
+  "config": "softmax:exp2_nx8_e5",
+  "created_at": 1794235384,
+  "dataset": "wikitext-2-raw-v1/test",
+  "methods": {
+   "softmax": "exp2_nx8_e5"
+  },
+  "metrics": {
+   "batches": 8,
+   "dataset": "wikitext-2-raw-v1/test",
+   "details": {},
+   "hits": {
+    "softmax": 96
+   },
+   "metrics": {
+    "cosine_similarity": 0.9947886505176995,
+    "mae": 2.5795908250343236,
+    "mse": 132.2073568420817,
+    "nonfinite_reference": 0,
+    "nonfinite_simulator": 0,
+    "perfect_match": false,
+    "prediction_agreement": 0.93408203125,
     "reference_loss": 3.934890567555147,
     "reference_perplexity": 51.156551463837644,
-    "simulator_loss": 9.107160500919118,
-    "simulator_perplexity": 9019.647215418412,
-    "sqnr_db": 7.982033479750844
+    "simulator_loss": 3.9401017731311274,
+    "simulator_perplexity": 51.42383459887953,
+    "sqnr_db": 19.802093304349512
    },
    "reference_forwards": 8,
    "simulator_forwards": 8,
@@ -1546,17 +2478,17 @@
     "paired_batches_per_second": null,
     "paired_examples_per_second": null,
     "paired_seconds": null,
-    "reference_batches_per_second": 0.9975731109940349,
-    "reference_examples_per_second": 0.9975731109940349,
-    "reference_seconds": 8.019462344998828,
+    "reference_batches_per_second": 0.6197995188728815,
+    "reference_examples_per_second": 0.6197995188728815,
+    "reference_seconds": 12.907399499999883,
     "repetitions_per_batch": 1,
-    "simulator_batches_per_second": 0.4390575170746811,
-    "simulator_examples_per_second": 0.4390575170746811,
-    "simulator_seconds": 18.220847357999446
+    "simulator_batches_per_second": 0.2524240764376327,
+    "simulator_examples_per_second": 0.2524240764376327,
+    "simulator_seconds": 31.692697910995776
    }
   },
   "model_id": "openai-community/gpt2",
-  "qbench_commit": "2ce4678",
+  "qbench_commit": "6875def",
   "samples": 8
  }
 ]

@@ -35,8 +35,8 @@
 | `neg{numel=2048}` | 32 | 0 | cpu | cpu | - |
 | `neg{numel=512}` | 32 | 0 | cpu | cpu | - |
 | `silu{numel=28672}` | 32 | 0 | chip | cpu | silu_exp2_recip (chip, approximation, exp2_recip) |
-| `softmax{dim_last=1,n=257,rows=32}` | 32 | 0 | chip-emu | chip-emu | softmax_exp2_nx8_e4 (chip-emu, approximation, exp2_nx8_e4); softmax_rows_long (chip-emu, exact, fp32-exact) |
-| `softmax{dim_last=1,n=8,rows=1}` | 32 | 0 | chip-emu | chip-emu | softmax_exp2_nx8_e4 (chip-emu, approximation, exp2_nx8_e4); softmax_rows_partial (chip-emu, exact, fp32-exact) |
+| `softmax{dim_last=1,n=257,rows=32}` | 32 | 0 | chip | chip-emu | softmax_exp2_nx8_e4 (chip, approximation, exp2_nx8_e4); softmax_rows_long (chip-emu, exact, fp32-exact) |
+| `softmax{dim_last=1,n=8,rows=1}` | 32 | 0 | chip | chip-emu | softmax_exp2_nx8_e4 (chip, approximation, exp2_nx8_e4); softmax_rows_partial (chip-emu, exact, fp32-exact) |
 | `sort{numel=2,out=2}` | 32 | 0 | cpu | cpu | - |
 | `sum{numel=2,out=1}` | 32 | 0 | cpu | cpu | - |
 | `sum{numel=8192,out=4096}` | 32 | 0 | cpu | cpu | - |
@@ -82,7 +82,7 @@
 | `neg{numel=524288}` | 32 | 0 | cpu | cpu | - |
 | `silu{numel=7340032}` | 32 | 0 | cpu | cpu | - |
 | `softmax{dim_last=1,n=256,rows=8192}` | 32 | 0 | chip-emu | chip-emu | softmax_rows_long (chip-emu, exact, fp32-exact) |
-| `softmax{dim_last=1,n=8,rows=256}` | 32 | 0 | chip-emu | chip-emu | softmax_exp2_nx8_e4 (chip-emu, approximation, exp2_nx8_e4); softmax_rows_partial (chip-emu, exact, fp32-exact) |
+| `softmax{dim_last=1,n=8,rows=256}` | 32 | 0 | chip | chip-emu | softmax_exp2_nx8_e4 (chip, approximation, exp2_nx8_e4); softmax_rows_partial (chip-emu, exact, fp32-exact) |
 | `sort{numel=512,out=512}` | 32 | 0 | cpu | cpu | - |
 | `sum{numel=2097152,out=1048576}` | 32 | 0 | cpu | cpu | - |
 | `sum{numel=512,out=256}` | 32 | 0 | cpu | cpu | - |

@@ -25,7 +25,7 @@
 | `add{broadcast=1,numel=8224,operands=tensor}` | 32 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
 | `gelu_tanh{numel=10240}` | 32 | 0 | cpu | cpu | - |
 | `mul{broadcast=0,numel=8224,operands=scalar}` | 32 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
-| `softmax{dim_last=1,n=257,rows=32}` | 32 | 0 | chip-emu | chip-emu | softmax_exp2_nx8_e4 (chip-emu, approximation, exp2_nx8_e4); softmax_rows_long (chip-emu, exact, fp32-exact) |
+| `softmax{dim_last=1,n=257,rows=32}` | 32 | 0 | chip | chip-emu | softmax_exp2_nx8_e4 (chip, approximation, exp2_nx8_e4); softmax_rows_long (chip-emu, exact, fp32-exact) |
 | `add{broadcast=0,numel=1,operands=scalar}` | 2 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
 | `mul{broadcast=0,numel=32,operands=scalar}` | 2 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `add{broadcast=0,numel=257,operands=scalar}` | 1 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
