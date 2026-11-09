@@ -70,7 +70,7 @@
 | `mul{broadcast=0,numel=392,operands=scalar}` | 2 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `relu{numel=14336}` | 2 | 0 | cpu | cpu | - |
 | `softmax{dim_last=1,n=7,rows=32768}` | 2 | 0 | chip-emu | chip-emu | softmax_rows_partial (chip-emu, exact, fp32-exact) |
-| `softmax{dim_last=1,n=7,rows=56}` | 2 | 0 | chip-emu | chip-emu | softmax_rows_partial (chip-emu, exact, fp32-exact) |
+| `softmax{dim_last=1,n=7,rows=56}` | 2 | 0 | chip-emu | chip-emu | softmax_exp2_nx8_e4 (chip-emu, approximation, exp2_nx8_e4); softmax_rows_partial (chip-emu, exact, fp32-exact) |
 | `sub{broadcast=0,numel=4096,operands=scalar}` | 2 | 0 | cpu | cpu | - |
 | `add{broadcast=0,numel=2,operands=scalar}` | 1 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
 | `concat{numel=1048576}` | 1 | 0 | cpu | cpu | - |

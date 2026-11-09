@@ -28,8 +28,8 @@
 | `mul{broadcast=0,numel=8192,operands=tensor}` | 16 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `mul{broadcast=1,numel=16384,operands=tensor}` | 16 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `silu{numel=8192}` | 16 | 0 | chip | cpu | silu_exp2_recip (chip, approximation, exp2_recip) |
-| `softmax{dim_last=1,n=257,rows=16}` | 16 | 0 | chip-emu | chip-emu | softmax_rows_long (chip-emu, exact, fp32-exact) |
-| `softmax{dim_last=1,n=64,rows=1}` | 16 | 0 | chip-emu | chip-emu | softmax_rows_partial (chip-emu, exact, fp32-exact) |
+| `softmax{dim_last=1,n=257,rows=16}` | 16 | 0 | chip-emu | chip-emu | softmax_exp2_nx8_e4 (chip-emu, approximation, exp2_nx8_e4); softmax_rows_long (chip-emu, exact, fp32-exact) |
+| `softmax{dim_last=1,n=64,rows=1}` | 16 | 0 | chip-emu | chip-emu | softmax_exp2_nx8_e4 (chip-emu, approximation, exp2_nx8_e4); softmax_rows_partial (chip-emu, exact, fp32-exact) |
 | `sort{numel=8,out=8}` | 16 | 0 | cpu | cpu | - |
 | `sum{numel=16384,out=2048}` | 16 | 0 | cpu | cpu | - |
 | `topk{numel=64,out=8}` | 16 | 0 | cpu | cpu | - |
@@ -67,7 +67,7 @@
 | `mul{broadcast=1,numel=4194304,operands=tensor}` | 16 | 0 | cpu | cpu | - |
 | `silu{numel=2097152}` | 16 | 0 | cpu | cpu | - |
 | `softmax{dim_last=1,n=256,rows=4096}` | 16 | 0 | chip-emu | chip-emu | softmax_rows_long (chip-emu, exact, fp32-exact) |
-| `softmax{dim_last=1,n=64,rows=256}` | 16 | 0 | chip-emu | chip-emu | softmax_rows_partial (chip-emu, exact, fp32-exact) |
+| `softmax{dim_last=1,n=64,rows=256}` | 16 | 0 | chip-emu | chip-emu | softmax_exp2_nx8_e4 (chip-emu, approximation, exp2_nx8_e4); softmax_rows_partial (chip-emu, exact, fp32-exact) |
 | `sort{numel=2048,out=2048}` | 16 | 0 | cpu | cpu | - |
 | `sum{numel=4194304,out=524288}` | 16 | 0 | cpu | cpu | - |
 | `topk{numel=16384,out=2048}` | 16 | 0 | cpu | cpu | - |

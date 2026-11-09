@@ -26,7 +26,7 @@
 | `layernorm{channels=768,layout=channels_last,tokens=99}` | 25 | 0 | cpu | cpu | - |
 | `gelu{numel=304128}` | 12 | 0 | cpu | cpu | - |
 | `mul{broadcast=0,numel=117612,operands=scalar}` | 12 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
-| `softmax{dim_last=1,n=99,rows=1188}` | 12 | 0 | chip-emu | chip-emu | softmax_rows_partial (chip-emu, exact, fp32-exact) |
+| `softmax{dim_last=1,n=99,rows=1188}` | 12 | 0 | chip-emu | chip-emu | softmax_exp2_nx8_e4 (chip-emu, approximation, exp2_nx8_e4); softmax_rows_partial (chip-emu, exact, fp32-exact) |
 | `aten{numel=4718592,schema=aten::_weight_norm}` | 1 | 0 | cpu | cpu | - |
 | `aten{numel=76800,schema=aten::conv1d}` | 1 | 0 | cpu | cpu | - |
 | `gelu{numel=101888}` | 1 | 0 | cpu | cpu | - |

@@ -30,7 +30,7 @@
 | `neg{numel=1792}` | 28 | 0 | cpu | cpu | - |
 | `neg{numel=256}` | 28 | 0 | cpu | cpu | - |
 | `silu{numel=18944}` | 28 | 0 | chip | cpu | silu_exp2_recip (chip, approximation, exp2_recip) |
-| `softmax{dim_last=1,n=257,rows=28}` | 28 | 0 | chip-emu | chip-emu | softmax_rows_long (chip-emu, exact, fp32-exact) |
+| `softmax{dim_last=1,n=257,rows=28}` | 28 | 0 | chip-emu | chip-emu | softmax_exp2_nx8_e4 (chip-emu, approximation, exp2_nx8_e4); softmax_rows_long (chip-emu, exact, fp32-exact) |
 | `add{broadcast=0,numel=1,operands=scalar}` | 2 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
 | `mul{broadcast=0,numel=128,operands=scalar}` | 2 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `add{broadcast=0,numel=257,operands=scalar}` | 1 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
