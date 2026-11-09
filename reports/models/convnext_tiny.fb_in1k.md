@@ -25,13 +25,13 @@
 | `conv2d{bias=1,cin=3,cout=96,dilation=1,groups=1,h=224,kh=4,kw=4,out_elements=301056,padding=0,stride=4,w=224}` | 1 | 14,450,688 | cpu | cpu | - |
 | `conv2d{bias=1,cin=768,cout=768,dilation=1,groups=768,h=7,kh=7,kw=7,out_elements=37632,padding=3,stride=1,w=7}` | 3 | 1,843,968 | cpu | cpu | - |
 | `linear{bias=1,k=768,m=1,n=1000}` | 1 | 768,000 | cpu | cpu | - |
-| `add{broadcast=0,numel=75264,operands=tensor}` | 9 | 0 | chip-emu | chip-emu | residual_add (chip-emu, exact, fp32-exact) |
+| `add{broadcast=0,numel=75264,operands=tensor}` | 9 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact); residual_add (chip-emu, exact, fp32-exact) |
 | `gelu{numel=301056}` | 9 | 0 | cpu | cpu | - |
 | `layernorm{channels=384,layout=channels_last,tokens=196}` | 9 | 0 | cpu | cpu | - |
 | `mul{broadcast=1,numel=75264,operands=tensor}` | 9 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
-| `add{broadcast=0,numel=150528,operands=tensor}` | 3 | 0 | cpu | cpu | - |
-| `add{broadcast=0,numel=301056,operands=tensor}` | 3 | 0 | cpu | cpu | - |
-| `add{broadcast=0,numel=37632,operands=tensor}` | 3 | 0 | chip-emu | chip-emu | residual_add (chip-emu, exact, fp32-exact) |
+| `add{broadcast=0,numel=150528,operands=tensor}` | 3 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
+| `add{broadcast=0,numel=301056,operands=tensor}` | 3 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
+| `add{broadcast=0,numel=37632,operands=tensor}` | 3 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact); residual_add (chip-emu, exact, fp32-exact) |
 | `gelu{numel=1204224}` | 3 | 0 | cpu | cpu | - |
 | `gelu{numel=150528}` | 3 | 0 | cpu | cpu | - |
 | `gelu{numel=602112}` | 3 | 0 | cpu | cpu | - |

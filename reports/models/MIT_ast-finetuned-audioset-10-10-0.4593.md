@@ -20,7 +20,7 @@
 | `gelu{numel=3729408}` | 12 | 0 | cpu | cpu | - |
 | `mul{broadcast=0,numel=17685552,operands=scalar}` | 12 | 0 | cpu | cpu | - |
 | `softmax{dim_last=1,n=1214,rows=14568}` | 12 | 0 | chip-emu | chip-emu | softmax_rows_long (chip-emu, exact, fp32-exact) |
-| `add{broadcast=0,numel=768,operands=tensor}` | 1 | 0 | chip-emu | chip-emu | residual_add (chip-emu, exact, fp32-exact) |
+| `add{broadcast=0,numel=768,operands=tensor}` | 1 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact); residual_add (chip-emu, exact, fp32-exact) |
 | `aten{numel=930816,schema=aten::flatten.using_ints}` | 1 | 0 | cpu | cpu | - |
 | `concat{numel=932352}` | 1 | 0 | cpu | cpu | - |
 | `div{broadcast=0,numel=768,operands=scalar}` | 1 | 0 | cpu | cpu | - |

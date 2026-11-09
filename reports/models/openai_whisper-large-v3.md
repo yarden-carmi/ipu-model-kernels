@@ -25,14 +25,14 @@
 | `conv1d{bias=1,cin=128,cout=1280,dilation=1,groups=1,k=3,length=3000,out_elements=3840000,padding=1,stride=1}` | 1 | 1,474,560,000 | cpu | cpu | - |
 | `bmm{b=20,k=32,m=32,n=64}` | 32 | 1,310,720 | cpu | cpu | - |
 | `bmm{b=20,k=64,m=32,n=32}` | 32 | 1,310,720 | cpu | cpu | - |
-| `add{broadcast=0,numel=40960,operands=tensor}` | 97 | 0 | chip-emu | chip-emu | residual_add (chip-emu, exact, fp32-exact) |
+| `add{broadcast=0,numel=40960,operands=tensor}` | 97 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact); residual_add (chip-emu, exact, fp32-exact) |
 | `layernorm{channels=1280,layout=channels_last,tokens=32}` | 97 | 0 | cpu | cpu | - |
 | `add{broadcast=0,numel=1920000,operands=tensor}` | 65 | 0 | cpu | cpu | - |
 | `layernorm{channels=1280,layout=channels_last,tokens=1500}` | 65 | 0 | cpu | cpu | - |
 | `concat{numel=1920000}` | 64 | 0 | cpu | cpu | - |
 | `concat{numel=40960}` | 64 | 0 | cpu | cpu | - |
 | `mul{broadcast=0,numel=40960,operands=scalar}` | 64 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
-| `add{broadcast=1,numel=20480,operands=tensor}` | 32 | 0 | cpu | cpu | - |
+| `add{broadcast=1,numel=20480,operands=tensor}` | 32 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
 | `gelu{numel=163840}` | 32 | 0 | cpu | cpu | - |
 | `gelu{numel=7680000}` | 32 | 0 | cpu | cpu | - |
 | `mul{broadcast=0,numel=1920000,operands=scalar}` | 32 | 0 | cpu | cpu | - |
@@ -42,7 +42,7 @@
 | `softmax{dim_last=1,n=1500,rows=30000}` | 32 | 0 | chip-emu | chip-emu | softmax_rows_long (chip-emu, exact, fp32-exact) |
 | `softmax{dim_last=1,n=1500,rows=640}` | 32 | 0 | chip-emu | chip-emu | softmax_rows_long (chip-emu, exact, fp32-exact) |
 | `softmax{dim_last=1,n=32,rows=640}` | 32 | 0 | chip-emu | chip-emu | softmax_rows_partial (chip-emu, exact, fp32-exact) |
-| `add{broadcast=0,numel=32,operands=scalar}` | 3 | 0 | cpu | cpu | - |
+| `add{broadcast=0,numel=32,operands=scalar}` | 3 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
 | `embedding{dim=1280,tokens=1500,vocab=1500}` | 1 | 0 | cpu | cpu | - |
 | `embedding{dim=1280,tokens=32,vocab=51866}` | 1 | 0 | cpu | cpu | - |
 | `gather{numel=40960}` | 1 | 0 | cpu | cpu | - |

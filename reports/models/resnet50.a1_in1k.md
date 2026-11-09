@@ -38,17 +38,17 @@
 | `relu{numel=50176}` | 11 | 0 | cpu | cpu | - |
 | `batchnorm{channels=1024,hw=196}` | 7 | 0 | cpu | cpu | - |
 | `batchnorm{channels=128,hw=784}` | 7 | 0 | cpu | cpu | - |
-| `add{broadcast=0,numel=200704,operands=tensor}` | 6 | 0 | cpu | cpu | - |
+| `add{broadcast=0,numel=200704,operands=tensor}` | 6 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
 | `batchnorm{channels=64,hw=3136}` | 6 | 0 | cpu | cpu | - |
 | `batchnorm{channels=512,hw=49}` | 5 | 0 | cpu | cpu | - |
 | `batchnorm{channels=512,hw=784}` | 5 | 0 | cpu | cpu | - |
 | `relu{numel=25088}` | 5 | 0 | cpu | cpu | - |
 | `relu{numel=401408}` | 5 | 0 | cpu | cpu | - |
-| `add{broadcast=0,numel=401408,operands=tensor}` | 4 | 0 | cpu | cpu | - |
+| `add{broadcast=0,numel=401408,operands=tensor}` | 4 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
 | `batchnorm{channels=2048,hw=49}` | 4 | 0 | cpu | cpu | - |
 | `batchnorm{channels=256,hw=3136}` | 4 | 0 | cpu | cpu | - |
 | `relu{numel=802816}` | 4 | 0 | cpu | cpu | - |
-| `add{broadcast=0,numel=100352,operands=tensor}` | 3 | 0 | chip-emu | chip-emu | residual_add (chip-emu, exact, fp32-exact) |
+| `add{broadcast=0,numel=100352,operands=tensor}` | 3 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact); residual_add (chip-emu, exact, fp32-exact) |
 | `add{broadcast=0,numel=802816,operands=tensor}` | 3 | 0 | cpu | cpu | - |
 | `adaptive_avgpool2d{channels=2048,h=7,out=1,w=7}` | 1 | 0 | cpu | cpu | - |
 | `aten{numel=2048,schema=aten::flatten.using_ints}` | 1 | 0 | cpu | cpu | - |

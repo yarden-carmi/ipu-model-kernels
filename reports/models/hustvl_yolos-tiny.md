@@ -17,7 +17,7 @@
 | `linear{bias=1,k=192,m=100,n=192}` | 4 | 3,686,400 | cpu | cpu | - |
 | `linear{bias=1,k=192,m=100,n=92}` | 1 | 1,766,400 | cpu | cpu | - |
 | `linear{bias=1,k=192,m=100,n=4}` | 1 | 76,800 | cpu | cpu | - |
-| `add{broadcast=0,numel=351168,operands=tensor}` | 25 | 0 | cpu | cpu | - |
+| `add{broadcast=0,numel=351168,operands=tensor}` | 25 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
 | `layernorm{channels=192,layout=channels_last,tokens=1829}` | 25 | 0 | cpu | cpu | - |
 | `gelu{numel=1404672}` | 12 | 0 | cpu | cpu | - |
 | `mul{broadcast=0,numel=10035723,operands=scalar}` | 12 | 0 | cpu | cpu | - |

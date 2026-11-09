@@ -15,13 +15,13 @@
 | `linear{bias=0,k=4096,m=1,n=1024}` | 72 | 4,194,304 | cpu | cpu | - |
 | `bmm{b=32,k=128,m=1,n=257}` | 36 | 1,052,672 | cpu | cpu | - |
 | `bmm{b=32,k=257,m=1,n=128}` | 36 | 1,052,672 | cpu | cpu | - |
-| `add{broadcast=0,numel=4096,operands=tensor}` | 108 | 0 | chip-emu | chip-emu | residual_add (chip-emu, exact, fp32-exact) |
+| `add{broadcast=0,numel=4096,operands=tensor}` | 108 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact); residual_add (chip-emu, exact, fp32-exact) |
 | `rmsnorm{channels=4096,tokens=1}` | 73 | 0 | cpu | cpu | - |
 | `concat{numel=263168}` | 72 | 0 | cpu | cpu | - |
 | `mul{broadcast=1,numel=1024,operands=tensor}` | 72 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `mul{broadcast=1,numel=4096,operands=tensor}` | 72 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
-| `add{broadcast=0,numel=1024,operands=tensor}` | 36 | 0 | chip-emu | chip-emu | residual_add (chip-emu, exact, fp32-exact) |
-| `add{broadcast=1,numel=8224,operands=tensor}` | 36 | 0 | cpu | cpu | - |
+| `add{broadcast=0,numel=1024,operands=tensor}` | 36 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact); residual_add (chip-emu, exact, fp32-exact) |
+| `add{broadcast=1,numel=8224,operands=tensor}` | 36 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
 | `concat{numel=1024}` | 36 | 0 | cpu | cpu | - |
 | `concat{numel=4096}` | 36 | 0 | cpu | cpu | - |
 | `mul{broadcast=0,numel=12288,operands=tensor}` | 36 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
@@ -32,9 +32,9 @@
 | `rmsnorm{channels=128,tokens=8}` | 36 | 0 | cpu | cpu | - |
 | `silu{numel=12288}` | 36 | 0 | chip | cpu | silu_exp2_recip (chip, approximation, exp2_recip) |
 | `softmax{dim_last=1,n=257,rows=32}` | 36 | 0 | chip-emu | chip-emu | softmax_rows_long (chip-emu, exact, fp32-exact) |
-| `add{broadcast=0,numel=1,operands=scalar}` | 2 | 0 | cpu | cpu | - |
+| `add{broadcast=0,numel=1,operands=scalar}` | 2 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
 | `mul{broadcast=0,numel=128,operands=scalar}` | 2 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
-| `add{broadcast=0,numel=257,operands=scalar}` | 1 | 0 | cpu | cpu | - |
+| `add{broadcast=0,numel=257,operands=scalar}` | 1 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
 | `concat{numel=128}` | 1 | 0 | cpu | cpu | - |
 | `cos{numel=128}` | 1 | 0 | cpu | cpu | - |
 | `embedding{dim=4096,tokens=1,vocab=151936}` | 1 | 0 | cpu | cpu | - |
@@ -57,7 +57,7 @@
 | `rmsnorm{channels=4096,tokens=256}` | 73 | 0 | cpu | cpu | - |
 | `mul{broadcast=1,numel=1048576,operands=tensor}` | 72 | 0 | cpu | cpu | - |
 | `mul{broadcast=1,numel=262144,operands=tensor}` | 72 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
-| `add{broadcast=0,numel=262144,operands=tensor}` | 36 | 0 | cpu | cpu | - |
+| `add{broadcast=0,numel=262144,operands=tensor}` | 36 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
 | `add{broadcast=1,numel=2097152,operands=tensor}` | 36 | 0 | cpu | cpu | - |
 | `concat{numel=1048576}` | 36 | 0 | cpu | cpu | - |
 | `concat{numel=262144}` | 36 | 0 | cpu | cpu | - |
@@ -69,7 +69,7 @@
 | `rmsnorm{channels=128,tokens=8192}` | 36 | 0 | cpu | cpu | - |
 | `silu{numel=3145728}` | 36 | 0 | cpu | cpu | - |
 | `softmax{dim_last=1,n=256,rows=8192}` | 36 | 0 | chip-emu | chip-emu | softmax_rows_long (chip-emu, exact, fp32-exact) |
-| `add{broadcast=0,numel=256,operands=scalar}` | 3 | 0 | cpu | cpu | - |
+| `add{broadcast=0,numel=256,operands=scalar}` | 3 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
 | `mul{broadcast=0,numel=32768,operands=scalar}` | 2 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `aten{numel=256,schema=aten::diff}` | 1 | 0 | cpu | cpu | - |
 | `concat{numel=32768}` | 1 | 0 | cpu | cpu | - |

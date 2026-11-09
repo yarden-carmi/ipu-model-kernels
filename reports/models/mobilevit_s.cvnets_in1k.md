@@ -56,19 +56,19 @@
 | `linear{bias=1,k=640,m=1,n=1000}` | 1 | 640,000 | cpu | cpu | - |
 | `conv2d{bias=0,cin=512,cout=512,dilation=1,groups=512,h=16,kh=3,kw=3,out_elements=32768,padding=1,stride=2,w=16}` | 1 | 294,912 | chip-emu | chip-emu | depthwise_conv_stride2_16 (chip-emu, exact, fp32-exact) |
 | `layernorm{channels=192,layout=channels_last,tokens=256}` | 9 | 0 | cpu | cpu | - |
-| `add{broadcast=0,numel=49152,operands=tensor}` | 8 | 0 | chip-emu | chip-emu | residual_add (chip-emu, exact, fp32-exact) |
+| `add{broadcast=0,numel=49152,operands=tensor}` | 8 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact); residual_add (chip-emu, exact, fp32-exact) |
 | `layernorm{channels=240,layout=channels_last,tokens=64}` | 7 | 0 | cpu | cpu | - |
-| `add{broadcast=0,numel=15360,operands=tensor}` | 6 | 0 | chip-emu | chip-emu | residual_add (chip-emu, exact, fp32-exact) |
+| `add{broadcast=0,numel=15360,operands=tensor}` | 6 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact); residual_add (chip-emu, exact, fp32-exact) |
 | `batchnorm{channels=256,hw=4096}` | 5 | 0 | cpu | cpu | - |
 | `layernorm{channels=144,layout=channels_last,tokens=1024}` | 5 | 0 | cpu | cpu | - |
-| `add{broadcast=0,numel=147456,operands=tensor}` | 4 | 0 | cpu | cpu | - |
+| `add{broadcast=0,numel=147456,operands=tensor}` | 4 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
 | `batchnorm{channels=128,hw=256}` | 4 | 0 | cpu | cpu | - |
 | `batchnorm{channels=160,hw=64}` | 4 | 0 | cpu | cpu | - |
 | `batchnorm{channels=96,hw=1024}` | 4 | 0 | cpu | cpu | - |
 | `silu{numel=98304}` | 4 | 0 | chip | cpu | silu_exp2_recip (chip, approximation, exp2_recip) |
 | `batchnorm{channels=64,hw=4096}` | 3 | 0 | cpu | cpu | - |
 | `silu{numel=30720}` | 3 | 0 | chip | cpu | silu_exp2_recip (chip, approximation, exp2_recip) |
-| `add{broadcast=0,numel=262144,operands=tensor}` | 2 | 0 | cpu | cpu | - |
+| `add{broadcast=0,numel=262144,operands=tensor}` | 2 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
 | `batchnorm{channels=64,hw=16384}` | 2 | 0 | cpu | cpu | - |
 | `silu{numel=294912}` | 2 | 0 | chip | cpu | silu_exp2_recip (chip, approximation, exp2_recip) |
 | `adaptive_avgpool2d{channels=640,h=8,out=1,w=8}` | 1 | 0 | cpu | cpu | - |

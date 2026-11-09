@@ -75,8 +75,8 @@
 | `linear{bias=1,k=1280,m=1,n=320}` | 5 | 409,600 | cpu | cpu | - |
 | `linear{bias=1,k=320,m=1,n=1280}` | 1 | 409,600 | cpu | cpu | - |
 | `add{broadcast=0,numel=1310720,operands=tensor}` | 25 | 0 | cpu | cpu | - |
-| `add{broadcast=0,numel=327680,operands=tensor}` | 25 | 0 | cpu | cpu | - |
-| `add{broadcast=0,numel=655360,operands=tensor}` | 25 | 0 | cpu | cpu | - |
+| `add{broadcast=0,numel=327680,operands=tensor}` | 25 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
+| `add{broadcast=0,numel=655360,operands=tensor}` | 25 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
 | `silu{numel=1280}` | 23 | 0 | chip | cpu | silu_exp2_recip (chip, approximation, exp2_recip) |
 | `div{broadcast=0,numel=1310720,operands=scalar}` | 15 | 0 | cpu | cpu | - |
 | `div{broadcast=0,numel=327680,operands=scalar}` | 15 | 0 | cpu | cpu | - |
@@ -86,18 +86,18 @@
 | `layernorm{channels=640,layout=channels_last,tokens=1024}` | 15 | 0 | cpu | cpu | - |
 | `groupnorm{channels=320,groups=32,hw=4096}` | 13 | 0 | cpu | cpu | - |
 | `groupnorm{channels=1280,groups=32,hw=64}` | 12 | 0 | cpu | cpu | - |
-| `add{broadcast=0,numel=81920,operands=tensor}` | 11 | 0 | chip-emu | chip-emu | residual_add (chip-emu, exact, fp32-exact) |
+| `add{broadcast=0,numel=81920,operands=tensor}` | 11 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact); residual_add (chip-emu, exact, fp32-exact) |
 | `groupnorm{channels=1280,groups=32,hw=256}` | 11 | 0 | cpu | cpu | - |
 | `groupnorm{channels=640,groups=32,hw=1024}` | 11 | 0 | cpu | cpu | - |
 | `silu{numel=81920}` | 11 | 0 | chip | cpu | silu_exp2_recip (chip, approximation, exp2_recip) |
 | `div{broadcast=0,numel=81920,operands=scalar}` | 9 | 0 | cpu | cpu | - |
 | `silu{numel=1310720}` | 9 | 0 | cpu | cpu | - |
 | `silu{numel=655360}` | 8 | 0 | chip | cpu | silu_exp2_recip (chip, approximation, exp2_recip) |
-| `add{broadcast=1,numel=81920,operands=tensor}` | 7 | 0 | cpu | cpu | - |
+| `add{broadcast=1,numel=81920,operands=tensor}` | 7 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
 | `silu{numel=327680}` | 7 | 0 | chip | cpu | silu_exp2_recip (chip, approximation, exp2_recip) |
 | `add{broadcast=1,numel=1310720,operands=tensor}` | 5 | 0 | cpu | cpu | - |
-| `add{broadcast=1,numel=327680,operands=tensor}` | 5 | 0 | cpu | cpu | - |
-| `add{broadcast=1,numel=655360,operands=tensor}` | 5 | 0 | cpu | cpu | - |
+| `add{broadcast=1,numel=327680,operands=tensor}` | 5 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
+| `add{broadcast=1,numel=655360,operands=tensor}` | 5 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
 | `gelu{numel=1310720}` | 5 | 0 | cpu | cpu | - |
 | `gelu{numel=2621440}` | 5 | 0 | cpu | cpu | - |
 | `gelu{numel=5242880}` | 5 | 0 | cpu | cpu | - |

@@ -22,11 +22,11 @@
 | `concat{numel=256}` | 84 | 0 | cpu | cpu | - |
 | `mul{broadcast=0,numel=128,operands=scalar}` | 84 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `silu{numel=1152}` | 71 | 0 | chip | cpu | silu_exp2_recip (chip, approximation, exp2_recip) |
-| `add{broadcast=0,numel=1152,operands=scalar}` | 57 | 0 | cpu | cpu | - |
-| `add{broadcast=0,numel=294912,operands=tensor}` | 57 | 0 | cpu | cpu | - |
-| `add{broadcast=1,numel=294912,operands=tensor}` | 57 | 0 | cpu | cpu | - |
+| `add{broadcast=0,numel=1152,operands=scalar}` | 57 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
+| `add{broadcast=0,numel=294912,operands=tensor}` | 57 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
+| `add{broadcast=1,numel=294912,operands=tensor}` | 57 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
 | `layernorm{channels=1152,layout=channels_last,tokens=256}` | 57 | 0 | cpu | cpu | - |
-| `add{broadcast=0,numel=1152,operands=tensor}` | 42 | 0 | chip-emu | chip-emu | residual_add (chip-emu, exact, fp32-exact) |
+| `add{broadcast=0,numel=1152,operands=tensor}` | 42 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact); residual_add (chip-emu, exact, fp32-exact) |
 | `cos{numel=128}` | 42 | 0 | cpu | cpu | - |
 | `div{broadcast=0,numel=128,operands=scalar}` | 42 | 0 | cpu | cpu | - |
 | `embedding{dim=1152,tokens=1,vocab=1001}` | 42 | 0 | cpu | cpu | - |

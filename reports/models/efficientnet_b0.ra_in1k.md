@@ -63,7 +63,7 @@
 | `mul{broadcast=1,numel=56448,operands=tensor}` | 4 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `sigmoid{numel=1152}` | 4 | 0 | cpu | cpu | - |
 | `silu{numel=48}` | 4 | 0 | cpu | cpu | - |
-| `add{broadcast=0,numel=9408,operands=tensor}` | 3 | 0 | cpu | cpu | - |
+| `add{broadcast=0,numel=9408,operands=tensor}` | 3 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
 | `batchnorm{channels=112,hw=196}` | 3 | 0 | cpu | cpu | - |
 | `batchnorm{channels=144,hw=3136}` | 3 | 0 | cpu | cpu | - |
 | `batchnorm{channels=240,hw=784}` | 3 | 0 | cpu | cpu | - |
@@ -74,8 +74,8 @@
 | `sigmoid{numel=672}` | 3 | 0 | cpu | cpu | - |
 | `silu{numel=20}` | 3 | 0 | cpu | cpu | - |
 | `silu{numel=28}` | 3 | 0 | cpu | cpu | - |
-| `add{broadcast=0,numel=15680,operands=tensor}` | 2 | 0 | cpu | cpu | - |
-| `add{broadcast=0,numel=21952,operands=tensor}` | 2 | 0 | cpu | cpu | - |
+| `add{broadcast=0,numel=15680,operands=tensor}` | 2 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
+| `add{broadcast=0,numel=21952,operands=tensor}` | 2 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
 | `batchnorm{channels=24,hw=3136}` | 2 | 0 | cpu | cpu | - |
 | `batchnorm{channels=32,hw=12544}` | 2 | 0 | cpu | cpu | - |
 | `batchnorm{channels=40,hw=784}` | 2 | 0 | cpu | cpu | - |
@@ -86,8 +86,8 @@
 | `silu{numel=10}` | 2 | 0 | cpu | cpu | - |
 | `silu{numel=6}` | 2 | 0 | cpu | cpu | - |
 | `adaptive_avgpool2d{channels=1280,h=7,out=1,w=7}` | 1 | 0 | cpu | cpu | - |
-| `add{broadcast=0,numel=31360,operands=tensor}` | 1 | 0 | chip-emu | chip-emu | residual_add (chip-emu, exact, fp32-exact) |
-| `add{broadcast=0,numel=75264,operands=tensor}` | 1 | 0 | chip-emu | chip-emu | residual_add (chip-emu, exact, fp32-exact) |
+| `add{broadcast=0,numel=31360,operands=tensor}` | 1 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact); residual_add (chip-emu, exact, fp32-exact) |
+| `add{broadcast=0,numel=75264,operands=tensor}` | 1 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact); residual_add (chip-emu, exact, fp32-exact) |
 | `aten{numel=1280,schema=aten::flatten.using_ints}` | 1 | 0 | cpu | cpu | - |
 | `batchnorm{channels=1280,hw=49}` | 1 | 0 | cpu | cpu | - |
 | `batchnorm{channels=144,hw=784}` | 1 | 0 | cpu | cpu | - |

@@ -44,18 +44,18 @@
 | `batchnorm{channels=192,hw=784}` | 5 | 0 | cpu | cpu | - |
 | `batchnorm{channels=576,hw=196}` | 5 | 0 | cpu | cpu | - |
 | `batchnorm{channels=64,hw=196}` | 4 | 0 | cpu | cpu | - |
-| `add{broadcast=0,numel=12544,operands=tensor}` | 3 | 0 | chip-emu | chip-emu | residual_add (chip-emu, exact, fp32-exact) |
+| `add{broadcast=0,numel=12544,operands=tensor}` | 3 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact); residual_add (chip-emu, exact, fp32-exact) |
 | `batchnorm{channels=144,hw=3136}` | 3 | 0 | cpu | cpu | - |
 | `batchnorm{channels=160,hw=49}` | 3 | 0 | cpu | cpu | - |
 | `batchnorm{channels=32,hw=784}` | 3 | 0 | cpu | cpu | - |
 | `batchnorm{channels=96,hw=196}` | 3 | 0 | cpu | cpu | - |
-| `add{broadcast=0,numel=18816,operands=tensor}` | 2 | 0 | chip-emu | chip-emu | residual_add (chip-emu, exact, fp32-exact) |
-| `add{broadcast=0,numel=25088,operands=tensor}` | 2 | 0 | chip-emu | chip-emu | residual_add (chip-emu, exact, fp32-exact) |
-| `add{broadcast=0,numel=7840,operands=tensor}` | 2 | 0 | cpu | cpu | - |
+| `add{broadcast=0,numel=18816,operands=tensor}` | 2 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact); residual_add (chip-emu, exact, fp32-exact) |
+| `add{broadcast=0,numel=25088,operands=tensor}` | 2 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact); residual_add (chip-emu, exact, fp32-exact) |
+| `add{broadcast=0,numel=7840,operands=tensor}` | 2 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
 | `batchnorm{channels=24,hw=3136}` | 2 | 0 | cpu | cpu | - |
 | `batchnorm{channels=32,hw=12544}` | 2 | 0 | cpu | cpu | - |
 | `adaptive_avgpool2d{channels=1280,h=7,out=1,w=7}` | 1 | 0 | cpu | cpu | - |
-| `add{broadcast=0,numel=75264,operands=tensor}` | 1 | 0 | chip-emu | chip-emu | residual_add (chip-emu, exact, fp32-exact) |
+| `add{broadcast=0,numel=75264,operands=tensor}` | 1 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact); residual_add (chip-emu, exact, fp32-exact) |
 | `aten{numel=1280,schema=aten::flatten.using_ints}` | 1 | 0 | cpu | cpu | - |
 | `batchnorm{channels=1280,hw=49}` | 1 | 0 | cpu | cpu | - |
 | `batchnorm{channels=144,hw=784}` | 1 | 0 | cpu | cpu | - |

@@ -24,7 +24,37 @@
   "origin": "zoo",
   "path": "kernels/zoo/silu_exp2_recip",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
+ },
+ {
+  "agent": "claude-code:default",
+  "attempts": 1,
+  "cycles": {
+   "dynamic": 19,
+   "e4": 19,
+   "e5": 19,
+   "fp32": 19
+  },
+  "formats": [
+   "e4",
+   "e5",
+   "dynamic",
+   "fp32"
+  ],
+  "host_steps": [
+   "broadcast = true: expand b to a's shape before the call (the kernel adds same-shape tensors; the query does not say which axis b broadcasts along)",
+   "operands = scalar: write the scalar as b's first element (the kernel reads b[0] only)"
+  ],
+  "hw_clean": 1,
+  "kind": "exact",
+  "method": "exact",
+  "name": "add_exact",
+  "notes": "One XMEM row (128 elements) per iteration, 2 words per row, all hardware instructions, in e4, e5, dynamic and fp32. The IPU has no vector add, so each addend passes through the multiplier against CR1 (1.0 as a MULT constant in every mode, an exact identity) and the accumulator sums them: word 1 is MULT.RC.VE a[r] x CR1 + ACC.ADD.FIRST, word 2 is MULT.VE b[r] x CR1 (tensor mode, b's row in R0) or MULT.EE R0[0] x CR1 (scalar mode, b[0] broadcast to all lanes) + ACC.ADD + ACTIVATE.QUANTIZE identity in the same word. The FP32 sum of two decoded elements is the reference's sum, so the only approximation is the NX8 store's rounding, which the harness applies to the golden too: every variant passes at EXACT. Loads run one word ahead of their MULT (MULT reads its registers at cycle start): word 1 loads b[r] into R0, word 2 loads a[r + 1] into R_CYCLIC, so the last iteration reads one row past a (the next region, never used). Scalar mode stores b[0] in the padding lanes of a partial last row, past numel. broadcast is declared (true and false) but ignored, because the query gives no broadcast shape: the host expands b first. b keeps numel elements in scalar mode too (tensor shapes cannot depend on a str parameter), of which only b[0] is read. Domain: numel 1 to 699008, the NX8 XMEM limit for three regions (5461 rows). It covers 20 of the 24 signatures; the 4 larger ones must be split on the host into calls of at most 699008 elements (elementwise, so any split works). Tested in the default tier: every covered signature size (1, 256, 257 scalar; 512, 768, 1024, 2048, 4096, 4112, 8224, 32768, 49152, 65536, 75264, 100352, 131072, 196608, 200704, 262144 tensor) plus odd sizes; 524288 and 699008 (e4, both modes) are nightly, and all pass.",
+  "op": "add",
+  "origin": "zoo",
+  "path": "kernels/zoo/add_exact",
+  "status": "passing",
+  "updated_at": 1794234115
  },
  {
   "agent": "claude-code:default",
@@ -54,7 +84,7 @@
   "origin": "zoo",
   "path": "kernels/zoo/mul_exact",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -76,7 +106,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/conformance/vector_tour",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -97,7 +127,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/linear/fully_connected",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -116,7 +146,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/attention/attn_scores_km_16x60",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -135,7 +165,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/attention/attn_scores_km_256x36",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -154,7 +184,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/attention/attn_scores_km_64x48",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -173,7 +203,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/attention/attn_v_16x60",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -192,7 +222,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/attention/attn_v_256x36",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -211,7 +241,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/attention/attn_v_64x48",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -230,7 +260,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/attention/attn_v_bcast_36",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -249,7 +279,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/attention/attn_v_bcast_48",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -268,7 +298,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/attention/attn_v_bcast_60",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -287,7 +317,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/detect/channel_peak",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -306,7 +336,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/reshape/concat",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -325,7 +355,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/reshape/concat",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -344,7 +374,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/reshape/concat",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -363,7 +393,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/conv1x1",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -382,7 +412,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/conv3x3_relu",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -401,7 +431,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/conv3x3_relu_cin1",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -420,7 +450,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/conv_first_layer",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -439,7 +469,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/conv_universal_tpl",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -458,7 +488,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/conv_universal_tpl",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -477,7 +507,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/conv_universal_tpl",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -496,7 +526,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/conv_universal_wide384",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -515,7 +545,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/reshape/depth_to_space",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -534,7 +564,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/depthwise_conv_stride2_128",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -553,7 +583,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/depthwise_conv_stride2_16",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -572,7 +602,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/depthwise_conv_stride2_narrow",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -591,7 +621,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/depthwise_conv_tpl",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -610,7 +640,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/depthwise_conv_tpl",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -629,7 +659,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/depthwise_conv_tpl",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -648,7 +678,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/depthwise_conv_tpl",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -667,7 +697,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/reshape/fold_16x16x192",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -686,7 +716,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/reshape/fold_32x32x144",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -705,7 +735,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/reshape/fold_8x8x240",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -724,7 +754,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/reshape/identity",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -743,7 +773,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/normalize/l2_normalize_channels",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -762,7 +792,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/normalize/layernorm",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -781,7 +811,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/normalize/layernorm",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -800,7 +830,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/normalize/layernorm",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -819,7 +849,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/normalize/layernorm",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -838,7 +868,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/matmul/matmul_small",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -857,7 +887,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/matmul/matmul_small",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -876,7 +906,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/matmul/matmul_small",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -895,7 +925,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/matmul/matmul_x128_2tg_c2",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -914,7 +944,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/matmul/matmul_x128_2tg_c3",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -933,7 +963,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/matmul/matmul_x128_c2",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -952,7 +982,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/matmul/matmul_x128_c3",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -971,7 +1001,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/matmul/matmul_x128_c2",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -990,7 +1020,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/matmul/matmul_x128_c4",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1009,7 +1039,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/matmul/matmul_x128_2tg_c2",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1028,7 +1058,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/matmul/matmul_x128_c2",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1047,7 +1077,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/matmul/matmul_x128_2tg_c2",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1066,7 +1096,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/matmul/matmul_x128_c2",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1085,7 +1115,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/matmul/matmul_x128_c2_qkv",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1104,7 +1134,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/matmul/matmul_small",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1123,7 +1153,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/matmul/matmul_x128_c2",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1142,7 +1172,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/pooling/maxpool2d_nms",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1161,7 +1191,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/pooling/maxpool2d_nms",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1180,7 +1210,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/pooling/maxpool2d_stride2",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1199,7 +1229,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/pooling/maxpool2d_stride2_tail",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1218,7 +1248,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/pooling/maxpool2d_window",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1237,7 +1267,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/normalize/packed_layernorm",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1256,7 +1286,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/normalize/packed_layernorm",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1275,7 +1305,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/projections/packed_output_linear_p4",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1294,7 +1324,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/projections/packed_output_linear",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1313,7 +1343,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/projections/packed_output_linear_p4",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1332,7 +1362,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/projections/packed_output_linear",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1351,7 +1381,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/reshape/packed_pack",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1370,7 +1400,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/reshape/packed_pack",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1389,7 +1419,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/elementwise/residual_add_rows",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1408,7 +1438,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/elementwise/residual_add_rows",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1427,7 +1457,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/reshape/packed_unpack",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1446,7 +1476,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/reshape/packed_unpack",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1465,7 +1495,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/pointwise_conv_tpl",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1484,7 +1514,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/pointwise_conv_tpl",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1503,7 +1533,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/convolutions/pointwise_conv_tpl",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1522,7 +1552,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/projections/proj_p4_2tg_silu",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1541,7 +1571,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/projections/proj_p4",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1560,7 +1590,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/projections/proj_p4",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1579,7 +1609,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/projections/proj_p4_2tg",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1598,7 +1628,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/projections/proj_p4",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1617,7 +1647,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/projections/proj_p4",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1636,7 +1666,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/projections/proj_p4_2tg",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1655,7 +1685,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/projections/proj_p4",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1674,7 +1704,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/projections/proj_p4",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1693,7 +1723,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/projections/proj_p4_2tg",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1712,7 +1742,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/projections/proj_p4",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1731,7 +1761,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/projections/proj_p4",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1750,7 +1780,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/attention/qk_scores_16x60",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1769,7 +1799,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/attention/qk_scores_256x36",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1788,7 +1818,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/attention/qk_scores_64x48",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1807,7 +1837,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/elementwise/residual_add",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1826,7 +1856,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/elementwise/residual_add_rows",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1845,7 +1875,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/elementwise/residual_add_rows",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1864,7 +1894,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/elementwise/residual_add_rows",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1883,7 +1913,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/sampling/sample_descriptors",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1902,7 +1932,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/sampling/sample_descriptors_separable",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1921,7 +1951,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/elementwise/scale",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1940,7 +1970,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/detect/score_threshold",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1959,7 +1989,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/softmax/softmax_columns",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1978,7 +2008,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/softmax/softmax_columns_packed",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -1997,7 +2027,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/softmax/softmax_rows",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -2016,7 +2046,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/softmax/softmax_rows_long",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -2035,7 +2065,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/softmax/softmax_rows_partial",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -2054,7 +2084,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/reshape/unfold_16x16x192",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -2073,7 +2103,7 @@
   "origin": "ipu-emulator",
   "path": "kernels/reshape/unfold_32x32x144",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  },
  {
   "agent": null,
@@ -2092,6 +2122,6 @@
   "origin": "ipu-emulator",
   "path": "kernels/reshape/unfold_8x8x240",
   "status": "passing",
-  "updated_at": 1794233851
+  "updated_at": 1794234115
  }
 ]

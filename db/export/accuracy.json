@@ -350,6 +350,106 @@
   "samples": 8
  },
  {
+  "config": "matmul:nx8_dynamic",
+  "created_at": 1794233875,
+  "dataset": "wikitext-2-raw-v1/test",
+  "methods": {
+   "matmul": "nx8_dynamic"
+  },
+  "metrics": {
+   "batches": 8,
+   "dataset": "wikitext-2-raw-v1/test",
+   "details": {},
+   "hits": {
+    "matmul": 584
+   },
+   "metrics": {
+    "cosine_similarity": 0.9981795880028926,
+    "mae": 1.5932883591620322,
+    "mse": 46.2227953397661,
+    "nonfinite_reference": 0,
+    "nonfinite_simulator": 0,
+    "perfect_match": false,
+    "prediction_agreement": 0.78662109375,
+    "reference_loss": 3.934890567555147,
+    "reference_perplexity": 51.156551463837644,
+    "simulator_loss": 4.034365904564951,
+    "simulator_perplexity": 56.50707799561771,
+    "sqnr_db": 24.366087470627605
+   },
+   "reference_forwards": 8,
+   "simulator_forwards": 8,
+   "task": "language_modeling",
+   "timing": {
+    "individual_model_timing": true,
+    "kind": "cpu_wall",
+    "paired_batches_per_second": null,
+    "paired_examples_per_second": null,
+    "paired_seconds": null,
+    "reference_batches_per_second": 0.9324084589365939,
+    "reference_examples_per_second": 0.9324084589365939,
+    "reference_seconds": 8.57993074100159,
+    "repetitions_per_batch": 1,
+    "simulator_batches_per_second": 0.0779167062697175,
+    "simulator_examples_per_second": 0.0779167062697175,
+    "simulator_seconds": 102.67374460500287
+   }
+  },
+  "model_id": "openai-community/gpt2",
+  "qbench_commit": "2ce4678",
+  "samples": 8
+ },
+ {
+  "config": "matmul:nx8_dynamic_out",
+  "created_at": 1794234025,
+  "dataset": "wikitext-2-raw-v1/test",
+  "methods": {
+   "matmul": "nx8_dynamic_out"
+  },
+  "metrics": {
+   "batches": 8,
+   "dataset": "wikitext-2-raw-v1/test",
+   "details": {},
+   "hits": {
+    "matmul": 584
+   },
+   "metrics": {
+    "cosine_similarity": 0.9956636834738067,
+    "mae": 2.0346056814846687,
+    "mse": 92.4103659922374,
+    "nonfinite_reference": 0,
+    "nonfinite_simulator": 0,
+    "perfect_match": false,
+    "prediction_agreement": 0.69189453125,
+    "reference_loss": 3.934890567555147,
+    "reference_perplexity": 51.156551463837644,
+    "simulator_loss": 4.089632161458334,
+    "simulator_perplexity": 59.71792111056473,
+    "sqnr_db": 21.357442628356786
+   },
+   "reference_forwards": 8,
+   "simulator_forwards": 8,
+   "task": "language_modeling",
+   "timing": {
+    "individual_model_timing": true,
+    "kind": "cpu_wall",
+    "paired_batches_per_second": null,
+    "paired_examples_per_second": null,
+    "paired_seconds": null,
+    "reference_batches_per_second": 1.118148368418403,
+    "reference_examples_per_second": 1.118148368418403,
+    "reference_seconds": 7.1546855730030074,
+    "repetitions_per_batch": 1,
+    "simulator_batches_per_second": 0.057895193747164946,
+    "simulator_examples_per_second": 0.057895193747164946,
+    "simulator_seconds": 138.18072766000114
+   }
+  },
+  "model_id": "openai-community/gpt2",
+  "qbench_commit": "2ce4678",
+  "samples": 8
+ },
+ {
   "config": "matmul:nx8_e4",
   "created_at": 1794233594,
   "dataset": "wikitext-2-raw-v1/test",
@@ -543,6 +643,156 @@
     "simulator_batches_per_second": 0.12767052589707278,
     "simulator_examples_per_second": 0.12767052589707278,
     "simulator_seconds": 62.66129119300058
+   }
+  },
+  "model_id": "openai-community/gpt2",
+  "qbench_commit": "2ce4678",
+  "samples": 8
+ },
+ {
+  "config": "softmax:exp2_fp32",
+  "created_at": 1794234037,
+  "dataset": "wikitext-2-raw-v1/test",
+  "methods": {
+   "softmax": "exp2_fp32"
+  },
+  "metrics": {
+   "batches": 8,
+   "dataset": "wikitext-2-raw-v1/test",
+   "details": {},
+   "hits": {
+    "softmax": 96
+   },
+   "metrics": {
+    "cosine_similarity": 1.0000342198634482,
+    "mae": 2.2974653736159818e-05,
+    "mse": 2.004324868282874e-09,
+    "nonfinite_reference": 0,
+    "nonfinite_simulator": 0,
+    "perfect_match": false,
+    "prediction_agreement": 1.0,
+    "reference_loss": 3.934890567555147,
+    "reference_perplexity": 51.156551463837644,
+    "simulator_loss": 3.934890806908701,
+    "simulator_perplexity": 51.15656370834151,
+    "sqnr_db": 127.99496838177534
+   },
+   "reference_forwards": 8,
+   "simulator_forwards": 8,
+   "task": "language_modeling",
+   "timing": {
+    "individual_model_timing": true,
+    "kind": "cpu_wall",
+    "paired_batches_per_second": null,
+    "paired_examples_per_second": null,
+    "paired_seconds": null,
+    "reference_batches_per_second": 1.9690108332654401,
+    "reference_examples_per_second": 1.9690108332654401,
+    "reference_seconds": 4.062953775999631,
+    "repetitions_per_batch": 1,
+    "simulator_batches_per_second": 1.950921202545687,
+    "simulator_examples_per_second": 1.950921202545687,
+    "simulator_seconds": 4.100626918996568
+   }
+  },
+  "model_id": "openai-community/gpt2",
+  "qbench_commit": "2ce4678",
+  "samples": 8
+ },
+ {
+  "config": "softmax:exp2_nx8_e4",
+  "created_at": 1794234051,
+  "dataset": "wikitext-2-raw-v1/test",
+  "methods": {
+   "softmax": "exp2_nx8_e4"
+  },
+  "metrics": {
+   "batches": 8,
+   "dataset": "wikitext-2-raw-v1/test",
+   "details": {},
+   "hits": {
+    "softmax": 96
+   },
+   "metrics": {
+    "cosine_similarity": 0.9254795005907305,
+    "mae": 31.208443599896533,
+    "mse": 2040.1676880832522,
+    "nonfinite_reference": 0,
+    "nonfinite_simulator": 0,
+    "perfect_match": false,
+    "prediction_agreement": 0.056640625,
+    "reference_loss": 3.934890567555147,
+    "reference_perplexity": 51.156551463837644,
+    "simulator_loss": 9.217432598039215,
+    "simulator_perplexity": 10071.174354599714,
+    "sqnr_db": 7.917990881283358
+   },
+   "reference_forwards": 8,
+   "simulator_forwards": 8,
+   "task": "language_modeling",
+   "timing": {
+    "individual_model_timing": true,
+    "kind": "cpu_wall",
+    "paired_batches_per_second": null,
+    "paired_examples_per_second": null,
+    "paired_seconds": null,
+    "reference_batches_per_second": 2.772467359142413,
+    "reference_examples_per_second": 2.772467359142413,
+    "reference_seconds": 2.8855163879998145,
+    "repetitions_per_batch": 1,
+    "simulator_batches_per_second": 1.017478415281657,
+    "simulator_examples_per_second": 1.017478415281657,
+    "simulator_seconds": 7.8625746549969335
+   }
+  },
+  "model_id": "openai-community/gpt2",
+  "qbench_commit": "2ce4678",
+  "samples": 8
+ },
+ {
+  "config": "softmax:exp2_nx8_e5",
+  "created_at": 1794234081,
+  "dataset": "wikitext-2-raw-v1/test",
+  "methods": {
+   "softmax": "exp2_nx8_e5"
+  },
+  "metrics": {
+   "batches": 8,
+   "dataset": "wikitext-2-raw-v1/test",
+   "details": {},
+   "hits": {
+    "softmax": 96
+   },
+   "metrics": {
+    "cosine_similarity": 0.9257566245690361,
+    "mae": 30.951289745707065,
+    "mse": 2010.3033905724576,
+    "nonfinite_reference": 0,
+    "nonfinite_simulator": 0,
+    "perfect_match": false,
+    "prediction_agreement": 0.060546875,
+    "reference_loss": 3.934890567555147,
+    "reference_perplexity": 51.156551463837644,
+    "simulator_loss": 9.107160500919118,
+    "simulator_perplexity": 9019.647215418412,
+    "sqnr_db": 7.982033479750844
+   },
+   "reference_forwards": 8,
+   "simulator_forwards": 8,
+   "task": "language_modeling",
+   "timing": {
+    "individual_model_timing": true,
+    "kind": "cpu_wall",
+    "paired_batches_per_second": null,
+    "paired_examples_per_second": null,
+    "paired_seconds": null,
+    "reference_batches_per_second": 0.9975731109940349,
+    "reference_examples_per_second": 0.9975731109940349,
+    "reference_seconds": 8.019462344998828,
+    "repetitions_per_batch": 1,
+    "simulator_batches_per_second": 0.4390575170746811,
+    "simulator_examples_per_second": 0.4390575170746811,
+    "simulator_seconds": 18.220847357999446
    }
   },
   "model_id": "openai-community/gpt2",

@@ -15,7 +15,7 @@
 | `linear{bias=1,k=384,m=197,n=384}` | 12 | 29,048,832 | cpu | cpu | - |
 | `conv2d{bias=1,cin=3,cout=384,dilation=1,groups=1,h=224,kh=16,kw=16,out_elements=75264,padding=0,stride=16,w=224}` | 1 | 57,802,752 | cpu | cpu | - |
 | `linear{bias=1,k=384,m=1,n=1000}` | 1 | 384,000 | cpu | cpu | - |
-| `add{broadcast=0,numel=75648,operands=tensor}` | 25 | 0 | chip-emu | chip-emu | residual_add (chip-emu, exact, fp32-exact) |
+| `add{broadcast=0,numel=75648,operands=tensor}` | 25 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact); residual_add (chip-emu, exact, fp32-exact) |
 | `layernorm{channels=384,layout=channels_last,tokens=197}` | 25 | 0 | cpu | cpu | - |
 | `gelu{numel=302592}` | 12 | 0 | cpu | cpu | - |
 | `aten{numel=75264,schema=aten::flatten.using_ints}` | 1 | 0 | cpu | cpu | - |

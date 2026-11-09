@@ -14,7 +14,7 @@
 | `bmm{b=6,k=1370,m=1370,n=64}` | 12 | 720,729,600 | cpu | cpu | - |
 | `bmm{b=6,k=64,m=1370,n=1370}` | 12 | 720,729,600 | cpu | cpu | - |
 | `conv2d{bias=1,cin=3,cout=384,dilation=1,groups=1,h=518,kh=14,kw=14,out_elements=525696,padding=0,stride=14,w=518}` | 1 | 309,109,248 | cpu | cpu | - |
-| `add{broadcast=0,numel=526080,operands=tensor}` | 25 | 0 | cpu | cpu | - |
+| `add{broadcast=0,numel=526080,operands=tensor}` | 25 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
 | `layernorm{channels=384,layout=channels_last,tokens=1370}` | 25 | 0 | cpu | cpu | - |
 | `mul{broadcast=1,numel=526080,operands=tensor}` | 24 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `gelu{numel=2104320}` | 12 | 0 | cpu | cpu | - |

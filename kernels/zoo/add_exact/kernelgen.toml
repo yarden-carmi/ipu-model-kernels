@@ -1,0 +1,14 @@
+kind = "exact"
+method = "exact"
+hw_clean = true
+host_steps = [
+  "broadcast = true: expand b to a's shape before the call (the kernel adds same-shape tensors; the query does not say which axis b broadcasts along)",
+  "operands = scalar: write the scalar as b's first element (the kernel reads b[0] only)",
+]
+unsupported = [
+  '{"broadcast": true, "numel": 2097152, "operands": "tensor"}: above the 699008-element (5461-row) limit, since NX8 XMEM addresses 16384 rows for a, b and y; the host splits it into calls of at most 699008 elements',
+  '{"broadcast": false, "numel": 1048576, "operands": "tensor"}: above the 699008-element limit (NX8 XMEM); split on the host',
+  '{"broadcast": false, "numel": 2097152, "operands": "tensor"}: above the 699008-element limit (NX8 XMEM); split on the host',
+  '{"broadcast": true, "numel": 1048576, "operands": "tensor"}: above the 699008-element limit (NX8 XMEM); split on the host',
+]
+notes = """One XMEM row (128 elements) per iteration, 2 words per row, all hardware instructions, in e4, e5, dynamic and fp32. The IPU has no vector add, so each addend passes through the multiplier against CR1 (1.0 as a MULT constant in every mode, an exact identity) and the accumulator sums them: word 1 is MULT.RC.VE a[r] x CR1 + ACC.ADD.FIRST, word 2 is MULT.VE b[r] x CR1 (tensor mode, b's row in R0) or MULT.EE R0[0] x CR1 (scalar mode, b[0] broadcast to all lanes) + ACC.ADD + ACTIVATE.QUANTIZE identity in the same word. The FP32 sum of two decoded elements is the reference's sum, so the only approximation is the NX8 store's rounding, which the harness applies to the golden too: every variant passes at EXACT. Loads run one word ahead of their MULT (MULT reads its registers at cycle start): word 1 loads b[r] into R0, word 2 loads a[r + 1] into R_CYCLIC, so the last iteration reads one row past a (the next region, never used). Scalar mode stores b[0] in the padding lanes of a partial last row, past numel. broadcast is declared (true and false) but ignored, because the query gives no broadcast shape: the host expands b first. b keeps numel elements in scalar mode too (tensor shapes cannot depend on a str parameter), of which only b[0] is read. Domain: numel 1 to 699008, the NX8 XMEM limit for three regions (5461 rows). It covers 20 of the 24 signatures; the 4 larger ones must be split on the host into calls of at most 699008 elements (elementwise, so any split works). Tested in the default tier: every covered signature size (1, 256, 257 scalar; 512, 768, 1024, 2048, 4096, 4112, 8224, 32768, 49152, 65536, 75264, 100352, 131072, 196608, 200704, 262144 tensor) plus odd sizes; 524288 and 699008 (e4, both modes) are nightly, and all pass."""

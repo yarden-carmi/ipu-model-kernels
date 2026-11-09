@@ -21,18 +21,18 @@
 | `linear{bias=0,k=768,m=1,n=512}` | 1 | 393,216 | cpu | cpu | - |
 | `linear{bias=0,k=512,m=1,n=512}` | 1 | 262,144 | cpu | cpu | - |
 | `bmm{b=1,k=512,m=1,n=1}` | 1 | 512 | cpu | cpu | - |
-| `add{broadcast=0,numel=32768,operands=tensor}` | 25 | 0 | chip-emu | chip-emu | residual_add (chip-emu, exact, fp32-exact) |
-| `add{broadcast=0,numel=38400,operands=tensor}` | 25 | 0 | chip-emu | chip-emu | residual_add (chip-emu, exact, fp32-exact) |
+| `add{broadcast=0,numel=32768,operands=tensor}` | 25 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact); residual_add (chip-emu, exact, fp32-exact) |
+| `add{broadcast=0,numel=38400,operands=tensor}` | 25 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact); residual_add (chip-emu, exact, fp32-exact) |
 | `layernorm{channels=512,layout=channels_last,tokens=64}` | 25 | 0 | cpu | cpu | - |
 | `layernorm{channels=768,layout=channels_last,tokens=50}` | 25 | 0 | cpu | cpu | - |
-| `add{broadcast=1,numel=32768,operands=tensor}` | 12 | 0 | cpu | cpu | - |
+| `add{broadcast=1,numel=32768,operands=tensor}` | 12 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
 | `mul{broadcast=0,numel=30000,operands=scalar}` | 12 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `mul{broadcast=0,numel=32768,operands=scalar}` | 12 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `quick_gelu{numel=131072}` | 12 | 0 | cpu | cpu | - |
 | `quick_gelu{numel=153600}` | 12 | 0 | cpu | cpu | - |
 | `softmax{dim_last=1,n=50,rows=600}` | 12 | 0 | chip-emu | chip-emu | softmax_rows_partial (chip-emu, exact, fp32-exact) |
 | `softmax{dim_last=1,n=64,rows=512}` | 12 | 0 | chip-emu | chip-emu | softmax_rows_partial (chip-emu, exact, fp32-exact) |
-| `add{broadcast=0,numel=64,operands=scalar}` | 2 | 0 | cpu | cpu | - |
+| `add{broadcast=0,numel=64,operands=scalar}` | 2 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact) |
 | `div{broadcast=1,numel=512,operands=tensor}` | 2 | 0 | cpu | cpu | - |
 | `pow{numel=1}` | 2 | 0 | cpu | cpu | - |
 | `pow{numel=512}` | 2 | 0 | cpu | cpu | - |

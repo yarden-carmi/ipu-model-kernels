@@ -14,7 +14,7 @@
 | `bmm{b=12,k=256,m=256,n=32}` | 6 | 25,165,824 | cpu | cpu | - |
 | `bmm{b=12,k=32,m=256,n=256}` | 6 | 25,165,824 | cpu | cpu | - |
 | `linear{bias=1,k=384,m=1,n=384}` | 1 | 147,456 | cpu | cpu | - |
-| `add{broadcast=0,numel=98304,operands=tensor}` | 14 | 0 | chip-emu | chip-emu | residual_add (chip-emu, exact, fp32-exact) |
+| `add{broadcast=0,numel=98304,operands=tensor}` | 14 | 0 | chip+host | chip+host | add_exact (chip+host, exact, exact); residual_add (chip-emu, exact, fp32-exact) |
 | `layernorm{channels=384,layout=channels_last,tokens=256}` | 13 | 0 | cpu | cpu | - |
 | `gelu{numel=393216}` | 6 | 0 | cpu | cpu | - |
 | `mul{broadcast=0,numel=786432,operands=scalar}` | 6 | 0 | cpu | cpu | - |
