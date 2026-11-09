@@ -16,7 +16,7 @@
 | `conv2d{bias=1,cin=3,cout=384,dilation=1,groups=1,h=518,kh=14,kw=14,out_elements=525696,padding=0,stride=14,w=518}` | 1 | 309,109,248 | cpu | cpu | - |
 | `add{broadcast=0,numel=526080,operands=tensor}` | 25 | 0 | cpu | cpu | - |
 | `layernorm{channels=384,layout=channels_last,tokens=1370}` | 25 | 0 | cpu | cpu | - |
-| `mul{broadcast=1,numel=526080,operands=tensor}` | 24 | 0 | cpu | cpu | - |
+| `mul{broadcast=1,numel=526080,operands=tensor}` | 24 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `gelu{numel=2104320}` | 12 | 0 | cpu | cpu | - |
 | `mul{broadcast=0,numel=11261400,operands=scalar}` | 12 | 0 | cpu | cpu | - |
 | `softmax{dim_last=1,n=1370,rows=8220}` | 12 | 0 | chip-emu | chip-emu | softmax_rows_long (chip-emu, exact, fp32-exact) |

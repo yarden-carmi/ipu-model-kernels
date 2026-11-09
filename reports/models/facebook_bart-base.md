@@ -26,8 +26,8 @@
 | `layernorm{channels=768,layout=channels_last,tokens=256}` | 13 | 0 | cpu | cpu | - |
 | `concat{numel=196608}` | 12 | 0 | cpu | cpu | - |
 | `concat{numel=49152}` | 12 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=196608,operands=scalar}` | 7 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=49152,operands=scalar}` | 7 | 0 | cpu | cpu | - |
+| `mul{broadcast=0,numel=196608,operands=scalar}` | 7 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
+| `mul{broadcast=0,numel=49152,operands=scalar}` | 7 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `add{broadcast=1,numel=49152,operands=tensor}` | 6 | 0 | cpu | cpu | - |
 | `gelu{numel=196608}` | 6 | 0 | cpu | cpu | - |
 | `gelu{numel=786432}` | 6 | 0 | cpu | cpu | - |

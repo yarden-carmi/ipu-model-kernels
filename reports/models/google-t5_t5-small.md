@@ -26,7 +26,7 @@
 | `rmsnorm{channels=512,tokens=256}` | 13 | 0 | cpu | cpu | - |
 | `concat{numel=131072}` | 12 | 0 | cpu | cpu | - |
 | `concat{numel=32768}` | 12 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=32768,operands=scalar}` | 7 | 0 | cpu | cpu | - |
+| `mul{broadcast=0,numel=32768,operands=scalar}` | 7 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `add{broadcast=0,numel=4096,operands=scalar}` | 6 | 0 | cpu | cpu | - |
 | `add{broadcast=0,numel=524288,operands=tensor}` | 6 | 0 | cpu | cpu | - |
 | `add{broadcast=0,numel=65536,operands=scalar}` | 6 | 0 | cpu | cpu | - |
@@ -34,9 +34,9 @@
 | `amin{numel=4096,out=4096}` | 6 | 0 | cpu | cpu | - |
 | `div{broadcast=0,numel=4096,operands=scalar}` | 6 | 0 | cpu | cpu | - |
 | `div{broadcast=0,numel=65536,operands=scalar}` | 6 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=131072,operands=scalar}` | 6 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=524288,operands=scalar}` | 6 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=65536,operands=scalar}` | 6 | 0 | cpu | cpu | - |
+| `mul{broadcast=0,numel=131072,operands=scalar}` | 6 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
+| `mul{broadcast=0,numel=524288,operands=scalar}` | 6 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
+| `mul{broadcast=0,numel=65536,operands=scalar}` | 6 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `relu{numel=131072}` | 6 | 0 | cpu | cpu | - |
 | `relu{numel=524288}` | 6 | 0 | cpu | cpu | - |
 | `softmax{dim_last=1,n=256,rows=2048}` | 6 | 0 | chip-emu | chip-emu | softmax_rows_long (chip-emu, exact, fp32-exact) |
@@ -52,7 +52,7 @@
 | `embedding{dim=8,tokens=65536,vocab=32}` | 3 | 0 | cpu | cpu | - |
 | `log{numel=4096}` | 3 | 0 | cpu | cpu | - |
 | `log{numel=65536}` | 3 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=4096,operands=scalar}` | 3 | 0 | cpu | cpu | - |
+| `mul{broadcast=0,numel=4096,operands=scalar}` | 3 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `neg{numel=4096}` | 3 | 0 | cpu | cpu | - |
 | `select_where{numel=65536}` | 3 | 0 | cpu | cpu | - |
 | `sub{broadcast=1,numel=4096,operands=tensor}` | 3 | 0 | cpu | cpu | - |

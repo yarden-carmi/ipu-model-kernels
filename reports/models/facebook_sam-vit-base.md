@@ -38,7 +38,7 @@
 | `bmm{b=8,k=7,m=7,n=32}` | 2 | 12,544 | cpu | cpu | - |
 | `linear{bias=1,k=256,m=1,n=4}` | 1 | 1,024 | cpu | cpu | - |
 | `bmm{b=1,k=2,m=2,n=128}` | 1 | 512 | cpu | cpu | - |
-| `mul{broadcast=0,numel=14,operands=scalar}` | 48 | 0 | cpu | cpu | - |
+| `mul{broadcast=0,numel=14,operands=scalar}` | 48 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `add{broadcast=0,numel=3145728,operands=tensor}` | 25 | 0 | cpu | cpu | - |
 | `add{broadcast=0,numel=196,operands=scalar}` | 24 | 0 | cpu | cpu | - |
 | `aten{numel=823200,schema=aten::einsum}` | 24 | 0 | cpu | cpu | - |
@@ -57,7 +57,7 @@
 | `relu{numel=256}` | 10 | 0 | cpu | cpu | - |
 | `add{broadcast=0,numel=1048576,operands=tensor}` | 8 | 0 | cpu | cpu | - |
 | `layernorm{channels=256,layout=channels_last,tokens=7}` | 7 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=229376,operands=scalar}` | 5 | 0 | cpu | cpu | - |
+| `mul{broadcast=0,numel=229376,operands=scalar}` | 5 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `select_where{numel=512}` | 4 | 0 | cpu | cpu | - |
 | `softmax{dim_last=1,n=4096,rows=56}` | 3 | 0 | chip-emu | chip-emu | softmax_rows_long (chip-emu, exact, fp32-exact) |
 | `add{broadcast=1,numel=512,operands=tensor}` | 2 | 0 | cpu | cpu | - |
@@ -67,7 +67,7 @@
 | `div{broadcast=0,numel=4096,operands=scalar}` | 2 | 0 | cpu | cpu | - |
 | `layernorm{channels=256,layout=channels_last,tokens=4096}` | 2 | 0 | cpu | cpu | - |
 | `layernorm{channels=64,layout=channels_last,tokens=16384}` | 2 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=392,operands=scalar}` | 2 | 0 | cpu | cpu | - |
+| `mul{broadcast=0,numel=392,operands=scalar}` | 2 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `relu{numel=14336}` | 2 | 0 | cpu | cpu | - |
 | `softmax{dim_last=1,n=7,rows=32768}` | 2 | 0 | chip-emu | chip-emu | softmax_rows_partial (chip-emu, exact, fp32-exact) |
 | `softmax{dim_last=1,n=7,rows=56}` | 2 | 0 | chip-emu | chip-emu | softmax_rows_partial (chip-emu, exact, fp32-exact) |
@@ -86,10 +86,10 @@
 | `gelu{numel=1048576}` | 1 | 0 | cpu | cpu | - |
 | `gelu{numel=2097152}` | 1 | 0 | cpu | cpu | - |
 | `layernorm{channels=128,layout=channels_last,tokens=8192}` | 1 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=256,operands=scalar}` | 1 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=4,operands=scalar}` | 1 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=524288,operands=scalar}` | 1 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=8192,operands=scalar}` | 1 | 0 | cpu | cpu | - |
+| `mul{broadcast=0,numel=256,operands=scalar}` | 1 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
+| `mul{broadcast=0,numel=4,operands=scalar}` | 1 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
+| `mul{broadcast=0,numel=524288,operands=scalar}` | 1 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
+| `mul{broadcast=0,numel=8192,operands=scalar}` | 1 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `neg{numel=1}` | 1 | 0 | cpu | cpu | - |
 | `repeat{numel=1048576}` | 1 | 0 | cpu | cpu | - |
 | `repeat{numel=1280}` | 1 | 0 | cpu | cpu | - |

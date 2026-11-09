@@ -47,7 +47,7 @@
 | `batchnorm{channels=128,hw=784}` | 9 | 0 | cpu | cpu | - |
 | `add{broadcast=0,numel=62720,operands=tensor}` | 8 | 0 | chip-emu | chip-emu | residual_add (chip-emu, exact, fp32-exact) |
 | `mean{numel=62720,out=320}` | 8 | 0 | cpu | cpu | - |
-| `mul{broadcast=1,numel=62720,operands=tensor}` | 8 | 0 | cpu | cpu | - |
+| `mul{broadcast=1,numel=62720,operands=tensor}` | 8 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `relu{numel=62720}` | 8 | 0 | cpu | cpu | - |
 | `relu{numel=80}` | 8 | 0 | cpu | cpu | - |
 | `sigmoid{numel=320}` | 8 | 0 | cpu | cpu | - |
@@ -55,13 +55,13 @@
 | `add{broadcast=0,numel=100352,operands=tensor}` | 3 | 0 | chip-emu | chip-emu | residual_add (chip-emu, exact, fp32-exact) |
 | `batchnorm{channels=64,hw=3136}` | 3 | 0 | cpu | cpu | - |
 | `mean{numel=100352,out=128}` | 3 | 0 | cpu | cpu | - |
-| `mul{broadcast=1,numel=100352,operands=tensor}` | 3 | 0 | cpu | cpu | - |
+| `mul{broadcast=1,numel=100352,operands=tensor}` | 3 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `relu{numel=100352}` | 3 | 0 | cpu | cpu | - |
 | `relu{numel=32}` | 3 | 0 | cpu | cpu | - |
 | `sigmoid{numel=128}` | 3 | 0 | cpu | cpu | - |
 | `add{broadcast=0,numel=37632,operands=tensor}` | 2 | 0 | chip-emu | chip-emu | residual_add (chip-emu, exact, fp32-exact) |
 | `mean{numel=37632,out=768}` | 2 | 0 | cpu | cpu | - |
-| `mul{broadcast=1,numel=37632,operands=tensor}` | 2 | 0 | cpu | cpu | - |
+| `mul{broadcast=1,numel=37632,operands=tensor}` | 2 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `relu{numel=37632}` | 2 | 0 | cpu | cpu | - |
 | `sigmoid{numel=768}` | 2 | 0 | cpu | cpu | - |
 | `adaptive_avgpool2d{channels=768,h=7,out=1,w=7}` | 1 | 0 | cpu | cpu | - |
@@ -73,7 +73,7 @@
 | `batchnorm{channels=64,hw=12544}` | 1 | 0 | cpu | cpu | - |
 | `batchnorm{channels=768,hw=196}` | 1 | 0 | cpu | cpu | - |
 | `mean{numel=200704,out=64}` | 1 | 0 | cpu | cpu | - |
-| `mul{broadcast=1,numel=200704,operands=tensor}` | 1 | 0 | cpu | cpu | - |
+| `mul{broadcast=1,numel=200704,operands=tensor}` | 1 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `relu{numel=16}` | 1 | 0 | cpu | cpu | - |
 | `relu{numel=192}` | 1 | 0 | cpu | cpu | - |
 | `relu{numel=200704}` | 1 | 0 | cpu | cpu | - |

@@ -64,7 +64,7 @@
 | `batchnorm{channels=40,hw=784}` | 3 | 0 | cpu | cpu | - |
 | `batchnorm{channels=672,hw=196}` | 3 | 0 | cpu | cpu | - |
 | `batchnorm{channels=72,hw=3136}` | 3 | 0 | cpu | cpu | - |
-| `mul{broadcast=1,numel=94080,operands=tensor}` | 3 | 0 | cpu | cpu | - |
+| `mul{broadcast=1,numel=94080,operands=tensor}` | 3 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `add{broadcast=0,numel=31360,operands=tensor}` | 2 | 0 | chip-emu | chip-emu | residual_add (chip-emu, exact, fp32-exact) |
 | `add{broadcast=0,numel=7840,operands=tensor}` | 2 | 0 | cpu | cpu | - |
 | `batchnorm{channels=112,hw=196}` | 2 | 0 | cpu | cpu | - |
@@ -76,7 +76,7 @@
 | `hardsigmoid{numel=960}` | 2 | 0 | cpu | cpu | - |
 | `mean{numel=47040,out=960}` | 2 | 0 | cpu | cpu | - |
 | `mean{numel=94080,out=120}` | 2 | 0 | cpu | cpu | - |
-| `mul{broadcast=1,numel=47040,operands=tensor}` | 2 | 0 | cpu | cpu | - |
+| `mul{broadcast=1,numel=47040,operands=tensor}` | 2 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `relu{numel=168}` | 2 | 0 | cpu | cpu | - |
 | `relu{numel=240}` | 2 | 0 | cpu | cpu | - |
 | `relu{numel=32}` | 2 | 0 | cpu | cpu | - |
@@ -98,9 +98,9 @@
 | `mean{numel=32928,out=672}` | 1 | 0 | cpu | cpu | - |
 | `mean{numel=56448,out=72}` | 1 | 0 | cpu | cpu | - |
 | `mean{numel=94080,out=480}` | 1 | 0 | cpu | cpu | - |
-| `mul{broadcast=1,numel=131712,operands=tensor}` | 1 | 0 | cpu | cpu | - |
-| `mul{broadcast=1,numel=32928,operands=tensor}` | 1 | 0 | cpu | cpu | - |
-| `mul{broadcast=1,numel=56448,operands=tensor}` | 1 | 0 | cpu | cpu | - |
+| `mul{broadcast=1,numel=131712,operands=tensor}` | 1 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
+| `mul{broadcast=1,numel=32928,operands=tensor}` | 1 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
+| `mul{broadcast=1,numel=56448,operands=tensor}` | 1 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `relu{numel=120}` | 1 | 0 | cpu | cpu | - |
 | `relu{numel=24}` | 1 | 0 | cpu | cpu | - |
 

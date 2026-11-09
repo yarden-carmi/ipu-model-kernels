@@ -55,7 +55,7 @@
 | `groupnorm{channels=256,groups=32,hw=16384}` | 1 | 0 | cpu | cpu | - |
 | `groupnorm{channels=256,groups=32,hw=262144}` | 1 | 0 | cpu | cpu | - |
 | `groupnorm{channels=512,groups=32,hw=65536}` | 1 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=16384,operands=scalar}` | 1 | 0 | cpu | cpu | - |
+| `mul{broadcast=0,numel=16384,operands=scalar}` | 1 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `pad{numel=16908544}` | 1 | 0 | cpu | cpu | - |
 | `pad{numel=33685632}` | 1 | 0 | cpu | cpu | - |
 | `pad{numel=8520192}` | 1 | 0 | cpu | cpu | - |

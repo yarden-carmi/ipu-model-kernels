@@ -26,8 +26,8 @@
 | `layernorm{channels=512,layout=channels_last,tokens=64}` | 25 | 0 | cpu | cpu | - |
 | `layernorm{channels=768,layout=channels_last,tokens=50}` | 25 | 0 | cpu | cpu | - |
 | `add{broadcast=1,numel=32768,operands=tensor}` | 12 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=30000,operands=scalar}` | 12 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=32768,operands=scalar}` | 12 | 0 | cpu | cpu | - |
+| `mul{broadcast=0,numel=30000,operands=scalar}` | 12 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
+| `mul{broadcast=0,numel=32768,operands=scalar}` | 12 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `quick_gelu{numel=131072}` | 12 | 0 | cpu | cpu | - |
 | `quick_gelu{numel=153600}` | 12 | 0 | cpu | cpu | - |
 | `softmax{dim_last=1,n=50,rows=600}` | 12 | 0 | chip-emu | chip-emu | softmax_rows_partial (chip-emu, exact, fp32-exact) |
@@ -46,6 +46,6 @@
 | `exp{numel=1}` | 1 | 0 | cpu | cpu | - |
 | `gather{numel=512}` | 1 | 0 | cpu | cpu | - |
 | `layernorm{channels=768,layout=channels_last,tokens=1}` | 1 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=1,operands=tensor}` | 1 | 0 | cpu | cpu | - |
+| `mul{broadcast=0,numel=1,operands=tensor}` | 1 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `select_where{numel=4096}` | 1 | 0 | cpu | cpu | - |
 

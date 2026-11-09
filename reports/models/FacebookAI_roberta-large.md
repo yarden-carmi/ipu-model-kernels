@@ -27,5 +27,5 @@
 | `embedding{dim=1024,tokens=256,vocab=514}` | 1 | 0 | cpu | cpu | - |
 | `gather{numel=256}` | 1 | 0 | cpu | cpu | - |
 | `gelu{numel=262144}` | 1 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=256,operands=tensor}` | 1 | 0 | cpu | cpu | - |
+| `mul{broadcast=0,numel=256,operands=tensor}` | 1 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 

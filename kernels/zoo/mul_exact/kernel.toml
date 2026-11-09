@@ -1,0 +1,87 @@
+# mul_exact: y = a * b elementwise over numel elements, exact in FP32 terms
+# (the .asm header has the dataflow). Hardware-clean: every store is
+# ACTIVATE.QUANTIZE identity; in NX8 that store's rounding is the only
+# approximation.
+[kernel]
+op = "mul"
+formats = ["e4", "e5", "dynamic", "fp32"]
+
+[params]
+# Any element count: a, b and y take ceil(numel / 128) rows each, and NX8
+# XMEM addresses 16384 rows, so at most 5461 rows (699008 elements) per call.
+numel     = { type = "int", min = 1, max = 699008 }
+# "tensor": y = a * b. "scalar": y = a * b[0] (the scalar is b's first element).
+operands  = { type = "str", choices = ["scalar", "tensor"] }
+# The program ignores it: a broadcast b is expanded to a's shape on the host.
+broadcast = { type = "bool" }
+
+[derived]
+rows = "ceil(numel / 128)"
+last = "ceil(numel / 128) - 1"               # scalar mode: BLT.S reads the row before its INC
+qf   = "case_qf"                             # the case's QF half (0 in FP32)
+
+[inputs.a]
+shape = ["numel"]                            # ceil(numel / 128) rows, zero past numel
+range = [-4, 4]
+
+[inputs.b]
+shape = ["numel"]                            # scalar mode reads b[0] only
+range = [-4, 4]
+
+[outputs.y]
+shape = ["numel"]                            # one ACTIVATE.QUANTIZE identity row per row
+
+[abi]
+a    = "CR2"
+b    = "CR3"
+y    = { register = "CR4", offset = -1 }     # LR1 is row + 1 at the store
+rows = "CR5"
+last = "CR6"
+qf   = "CR7"
+
+[golden]
+reference = "reference.py:reference"
+tolerance = { fp32 = "EXACT", nx8 = "EXACT" }
+
+[cases.default]                              # Qwen3 / Qwen2.5 / phi-2: broadcast tensor, 1024
+numel = 1024
+operands = "tensor"
+broadcast = true
+
+[cases.scalar_one_row]
+numel = 128
+operands = "scalar"
+broadcast = false
+
+[cases.scalar_sweep]                         # scalar signatures (and odd sizes)
+numel = [1, 64, 200, 256, 8224, 16384, 32768]
+operands = "scalar"
+broadcast = false
+
+[cases.tensor_one_row]
+numel = 128
+operands = "tensor"
+broadcast = false
+
+[cases.broadcast_sweep]                      # broadcast tensor signatures (b expanded on the host)
+numel = [64, 128, 2048, 4096, 8192, 16384]
+operands = "tensor"
+broadcast = true
+
+[cases.tensor_sweep]                         # same-shape tensor signatures (and odd sizes)
+numel = [1, 200, 8192, 8224]
+operands = "tensor"
+broadcast = false
+
+[cases.mid]
+numel = [65536, 262144]
+operands = ["scalar", "tensor"]
+broadcast = false
+formats = ["e4", "fp32"]
+
+[cases.large]                                # 524288 and the largest call (5461 rows)
+numel = [524288, 699008]
+operands = ["scalar", "tensor"]
+broadcast = true
+formats = ["e4"]
+tier = "nightly"

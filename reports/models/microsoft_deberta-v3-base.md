@@ -16,7 +16,7 @@
 | `bmm{b=12,k=256,m=256,n=64}` | 12 | 50,331,648 | cpu | cpu | - |
 | `bmm{b=12,k=64,m=256,n=256}` | 12 | 50,331,648 | cpu | cpu | - |
 | `aten{numel=0,schema=aten::size.int}` | 60 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=1,operands=scalar}` | 36 | 0 | cpu | cpu | - |
+| `mul{broadcast=0,numel=1,operands=scalar}` | 36 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `sqrt{numel=1}` | 36 | 0 | cpu | cpu | - |
 | `add{broadcast=0,numel=65536,operands=scalar}` | 25 | 0 | cpu | cpu | - |
 | `layernorm{channels=768,layout=channels_last,tokens=256}` | 25 | 0 | cpu | cpu | - |
@@ -42,9 +42,9 @@
 | `layernorm{channels=768,layout=channels_last,tokens=512}` | 1 | 0 | cpu | cpu | - |
 | `log{numel=1}` | 1 | 0 | cpu | cpu | - |
 | `log{numel=65536}` | 1 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=65536,operands=scalar}` | 1 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=65536,operands=tensor}` | 1 | 0 | cpu | cpu | - |
-| `mul{broadcast=1,numel=196608,operands=tensor}` | 1 | 0 | cpu | cpu | - |
-| `mul{broadcast=1,numel=65536,operands=tensor}` | 1 | 0 | cpu | cpu | - |
+| `mul{broadcast=0,numel=65536,operands=scalar}` | 1 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
+| `mul{broadcast=0,numel=65536,operands=tensor}` | 1 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
+| `mul{broadcast=1,numel=196608,operands=tensor}` | 1 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
+| `mul{broadcast=1,numel=65536,operands=tensor}` | 1 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `sub{broadcast=1,numel=65536,operands=tensor}` | 1 | 0 | cpu | cpu | - |
 

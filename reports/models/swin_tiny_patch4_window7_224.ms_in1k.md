@@ -43,7 +43,7 @@
 | `pad{numel=75264}` | 7 | 0 | cpu | cpu | - |
 | `gather{numel=28812}` | 6 | 0 | cpu | cpu | - |
 | `gelu{numel=301056}` | 6 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=75264,operands=scalar}` | 6 | 0 | cpu | cpu | - |
+| `mul{broadcast=0,numel=75264,operands=scalar}` | 6 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `softmax{dim_last=1,n=49,rows=2352}` | 6 | 0 | chip-emu | chip-emu | softmax_rows_partial (chip-emu, exact, fp32-exact) |
 | `layernorm{channels=768,layout=channels_last,tokens=49}` | 5 | 0 | cpu | cpu | - |
 | `layernorm{channels=96,layout=channels_last,tokens=3136}` | 5 | 0 | cpu | cpu | - |
@@ -62,9 +62,9 @@
 | `gelu{numel=1204224}` | 2 | 0 | cpu | cpu | - |
 | `gelu{numel=150528}` | 2 | 0 | cpu | cpu | - |
 | `gelu{numel=602112}` | 2 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=150528,operands=scalar}` | 2 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=301056,operands=scalar}` | 2 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=37632,operands=scalar}` | 2 | 0 | cpu | cpu | - |
+| `mul{broadcast=0,numel=150528,operands=scalar}` | 2 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
+| `mul{broadcast=0,numel=301056,operands=scalar}` | 2 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
+| `mul{broadcast=0,numel=37632,operands=scalar}` | 2 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `pad{numel=37632}` | 2 | 0 | cpu | cpu | - |
 | `softmax{dim_last=1,n=49,rows=1176}` | 2 | 0 | chip-emu | chip-emu | softmax_rows_partial (chip-emu, exact, fp32-exact) |
 | `softmax{dim_last=1,n=49,rows=4704}` | 2 | 0 | chip-emu | chip-emu | softmax_rows_partial (chip-emu, exact, fp32-exact) |

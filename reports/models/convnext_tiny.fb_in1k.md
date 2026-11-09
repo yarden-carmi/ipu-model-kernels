@@ -28,7 +28,7 @@
 | `add{broadcast=0,numel=75264,operands=tensor}` | 9 | 0 | chip-emu | chip-emu | residual_add (chip-emu, exact, fp32-exact) |
 | `gelu{numel=301056}` | 9 | 0 | cpu | cpu | - |
 | `layernorm{channels=384,layout=channels_last,tokens=196}` | 9 | 0 | cpu | cpu | - |
-| `mul{broadcast=1,numel=75264,operands=tensor}` | 9 | 0 | cpu | cpu | - |
+| `mul{broadcast=1,numel=75264,operands=tensor}` | 9 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `add{broadcast=0,numel=150528,operands=tensor}` | 3 | 0 | cpu | cpu | - |
 | `add{broadcast=0,numel=301056,operands=tensor}` | 3 | 0 | cpu | cpu | - |
 | `add{broadcast=0,numel=37632,operands=tensor}` | 3 | 0 | chip-emu | chip-emu | residual_add (chip-emu, exact, fp32-exact) |
@@ -38,9 +38,9 @@
 | `layernorm{channels=192,layout=channels_last,tokens=784}` | 3 | 0 | cpu | cpu | - |
 | `layernorm{channels=768,layout=channels_last,tokens=49}` | 3 | 0 | cpu | cpu | - |
 | `layernorm{channels=96,layout=channels_last,tokens=3136}` | 3 | 0 | cpu | cpu | - |
-| `mul{broadcast=1,numel=150528,operands=tensor}` | 3 | 0 | cpu | cpu | - |
-| `mul{broadcast=1,numel=301056,operands=tensor}` | 3 | 0 | cpu | cpu | - |
-| `mul{broadcast=1,numel=37632,operands=tensor}` | 3 | 0 | cpu | cpu | - |
+| `mul{broadcast=1,numel=150528,operands=tensor}` | 3 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
+| `mul{broadcast=1,numel=301056,operands=tensor}` | 3 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
+| `mul{broadcast=1,numel=37632,operands=tensor}` | 3 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `layernorm{channels=96,layout=channels_first,tokens=3136}` | 2 | 0 | cpu | cpu | - |
 | `adaptive_avgpool2d{channels=768,h=7,out=1,w=7}` | 1 | 0 | cpu | cpu | - |
 | `aten{numel=768,schema=aten::flatten.using_ints}` | 1 | 0 | cpu | cpu | - |

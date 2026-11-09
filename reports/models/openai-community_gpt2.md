@@ -20,7 +20,7 @@
 | `concat{numel=197376}` | 24 | 0 | cpu | cpu | - |
 | `add{broadcast=1,numel=3084,operands=tensor}` | 12 | 0 | cpu | cpu | - |
 | `gelu_tanh{numel=3072}` | 12 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=3084,operands=scalar}` | 12 | 0 | cpu | cpu | - |
+| `mul{broadcast=0,numel=3084,operands=scalar}` | 12 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `softmax{dim_last=1,n=257,rows=12}` | 12 | 0 | chip-emu | chip-emu | softmax_rows_long (chip-emu, exact, fp32-exact) |
 | `add{broadcast=0,numel=1,operands=scalar}` | 2 | 0 | cpu | cpu | - |
 | `add{broadcast=0,numel=257,operands=scalar}` | 1 | 0 | cpu | cpu | - |

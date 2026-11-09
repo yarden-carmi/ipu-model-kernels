@@ -57,9 +57,9 @@
 | `rmsnorm{channels=32,tokens=32768}` | 7 | 0 | cpu | cpu | - |
 | `rmsnorm{channels=64,tokens=8192}` | 7 | 0 | cpu | cpu | - |
 | `add{broadcast=0,numel=1048576,operands=tensor}` | 6 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=204800,operands=scalar}` | 6 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=524288,operands=scalar}` | 6 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=80000,operands=scalar}` | 6 | 0 | cpu | cpu | - |
+| `mul{broadcast=0,numel=204800,operands=scalar}` | 6 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
+| `mul{broadcast=0,numel=524288,operands=scalar}` | 6 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
+| `mul{broadcast=0,numel=80000,operands=scalar}` | 6 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `relu{numel=204800}` | 6 | 0 | cpu | cpu | - |
 | `rmsnorm{channels=128,tokens=8192}` | 6 | 0 | cpu | cpu | - |
 | `softmax{dim_last=1,n=100,rows=800}` | 6 | 0 | chip-emu | chip-emu | softmax_rows_partial (chip-emu, exact, fp32-exact) |
@@ -84,13 +84,13 @@
 | `div{broadcast=0,numel=128,operands=scalar}` | 2 | 0 | cpu | cpu | - |
 | `div{broadcast=1,numel=256,operands=tensor}` | 2 | 0 | cpu | cpu | - |
 | `div{broadcast=1,numel=32768,operands=tensor}` | 2 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=256,operands=scalar}` | 2 | 0 | cpu | cpu | - |
+| `mul{broadcast=0,numel=256,operands=scalar}` | 2 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `relu{numel=25600}` | 2 | 0 | cpu | cpu | - |
 | `sin{numel=16384}` | 2 | 0 | cpu | cpu | - |
 | `aten{numel=256,schema=aten::flatten.using_ints}` | 1 | 0 | cpu | cpu | - |
 | `concat{numel=65536}` | 1 | 0 | cpu | cpu | - |
 | `maxpool2d{channels=64,h=256,k=3,padding=1,stride=2,w=256}` | 1 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=128,operands=scalar}` | 1 | 0 | cpu | cpu | - |
+| `mul{broadcast=0,numel=128,operands=scalar}` | 1 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `pow{numel=128}` | 1 | 0 | cpu | cpu | - |
 | `repeat{numel=25600}` | 1 | 0 | cpu | cpu | - |
 | `rmsnorm{channels=128,tokens=16384}` | 1 | 0 | cpu | cpu | - |

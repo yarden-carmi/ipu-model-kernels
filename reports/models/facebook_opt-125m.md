@@ -18,8 +18,8 @@
 | `layernorm{channels=768,layout=channels_last,tokens=1}` | 25 | 0 | cpu | cpu | - |
 | `concat{numel=197376}` | 24 | 0 | cpu | cpu | - |
 | `add{broadcast=1,numel=3084,operands=tensor}` | 12 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=3084,operands=scalar}` | 12 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=768,operands=scalar}` | 12 | 0 | cpu | cpu | - |
+| `mul{broadcast=0,numel=3084,operands=scalar}` | 12 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
+| `mul{broadcast=0,numel=768,operands=scalar}` | 12 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `relu{numel=3072}` | 12 | 0 | cpu | cpu | - |
 | `softmax{dim_last=1,n=257,rows=12}` | 12 | 0 | chip-emu | chip-emu | softmax_rows_long (chip-emu, exact, fp32-exact) |
 | `add{broadcast=0,numel=1,operands=scalar}` | 2 | 0 | cpu | cpu | - |
@@ -27,7 +27,7 @@
 | `cumsum{numel=257,out=257}` | 1 | 0 | cpu | cpu | - |
 | `embedding{dim=768,tokens=1,vocab=2050}` | 1 | 0 | cpu | cpu | - |
 | `embedding{dim=768,tokens=1,vocab=50272}` | 1 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=257,operands=tensor}` | 1 | 0 | cpu | cpu | - |
+| `mul{broadcast=0,numel=257,operands=tensor}` | 1 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `select_where{numel=257}` | 1 | 0 | cpu | cpu | - |
 | `sub{broadcast=0,numel=257,operands=scalar}` | 1 | 0 | cpu | cpu | - |
 
@@ -44,7 +44,7 @@
 | `add{broadcast=0,numel=196608,operands=tensor}` | 25 | 0 | cpu | cpu | - |
 | `layernorm{channels=768,layout=channels_last,tokens=256}` | 25 | 0 | cpu | cpu | - |
 | `add{broadcast=1,numel=786432,operands=tensor}` | 12 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=196608,operands=scalar}` | 12 | 0 | cpu | cpu | - |
+| `mul{broadcast=0,numel=196608,operands=scalar}` | 12 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `mul{broadcast=0,numel=786432,operands=scalar}` | 12 | 0 | cpu | cpu | - |
 | `relu{numel=786432}` | 12 | 0 | cpu | cpu | - |
 | `softmax{dim_last=1,n=256,rows=3072}` | 12 | 0 | chip-emu | chip-emu | softmax_rows_long (chip-emu, exact, fp32-exact) |
@@ -52,7 +52,7 @@
 | `cumsum{numel=256,out=256}` | 1 | 0 | cpu | cpu | - |
 | `embedding{dim=768,tokens=256,vocab=2050}` | 1 | 0 | cpu | cpu | - |
 | `embedding{dim=768,tokens=256,vocab=50272}` | 1 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=256,operands=tensor}` | 1 | 0 | cpu | cpu | - |
+| `mul{broadcast=0,numel=256,operands=tensor}` | 1 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `select_where{numel=65536}` | 1 | 0 | cpu | cpu | - |
 | `sub{broadcast=0,numel=256,operands=scalar}` | 1 | 0 | cpu | cpu | - |
 

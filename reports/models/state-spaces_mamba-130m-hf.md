@@ -15,7 +15,7 @@
 | `bmm{b=1,k=48,m=1536,n=256}` | 24 | 18,874,368 | cpu | cpu | - |
 | `bmm{b=1,k=16,m=1536,n=1}` | 6144 | 24,576 | cpu | cpu | - |
 | `add{broadcast=0,numel=24576,operands=tensor}` | 6144 | 0 | chip-emu | chip-emu | residual_add (chip-emu, exact, fp32-exact) |
-| `mul{broadcast=0,numel=24576,operands=tensor}` | 6144 | 0 | cpu | cpu | - |
+| `mul{broadcast=0,numel=24576,operands=tensor}` | 6144 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `mul{broadcast=1,numel=6291456,operands=tensor}` | 72 | 0 | cpu | cpu | - |
 | `silu{numel=393216}` | 48 | 0 | chip | cpu | silu_exp2_recip (chip, approximation, exp2_recip) |
 | `rmsnorm{channels=768,tokens=256}` | 25 | 0 | cpu | cpu | - |
@@ -26,8 +26,8 @@
 | `concat{numel=393216}` | 24 | 0 | cpu | cpu | - |
 | `exp{numel=24576}` | 24 | 0 | cpu | cpu | - |
 | `exp{numel=6291456}` | 24 | 0 | cpu | cpu | - |
-| `mul{broadcast=0,numel=393216,operands=tensor}` | 24 | 0 | cpu | cpu | - |
-| `mul{broadcast=1,numel=393216,operands=tensor}` | 24 | 0 | cpu | cpu | - |
+| `mul{broadcast=0,numel=393216,operands=tensor}` | 24 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
+| `mul{broadcast=1,numel=393216,operands=tensor}` | 24 | 0 | chip+host | chip+host | mul_exact (chip+host, exact, exact) |
 | `neg{numel=24576}` | 24 | 0 | cpu | cpu | - |
 | `softplus{numel=393216}` | 24 | 0 | cpu | cpu | - |
 | `embedding{dim=768,tokens=256,vocab=50280}` | 1 | 0 | cpu | cpu | - |
