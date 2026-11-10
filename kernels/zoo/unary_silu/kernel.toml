@@ -1,0 +1,179 @@
+# unary: y = fn(x) elementwise over numel elements, tiled into 128-lane rows.
+#
+# One parameterised program for every (fn, numel): the rows are a dynamic loop
+# whose bound is a CR, so a whole call is one launch (294912 elements is 2304
+# iterations of the same words) and the host tiles nothing but numel. The layout
+# is the plain activation layout -- entity e holds its features in ceil(F/128)
+# consecutive rows, row e*ceil(F/128)+c holding features 128c .. 128c+127, lanes
+# past F zero -- and y is written back exactly as x was read, so this kernel's
+# output is the next kernel's input. Every fn here satisfies fn(0) = 0, so a
+# zero-padded input row keeps a zero-padded output row and no pass has to know
+# where the data ends.
+#
+# Hardware-clean NX8 (formats = ["dynamic"], the chip's one NX8 type): every store
+# is an ACTIVATE.QUANTIZE (identity, exp2 or reciprocal), the accumulators are
+# FP32, and no emulator-only instruction appears.
+#
+# The dataflow of the two sigmoid-shaped functions (silu and quick_gelu, y =
+# x/(1+exp(-x)), and gelu_tanh, the same with the sigmoid's argument replaced by
+# 1.5957691216057308 (x + 0.044715 x^3), which keeps the sign of x):
+#
+#   e = exp2(-|z| log2 e)      the AaQ exp2 store, on a row whose argument is <= 0
+#                              in every lane (|z| >= 0 and both log2(e) terms are
+#                              negative): exp2 of a positive input is an AaQ error,
+#                              so every transcendental here goes through -|z| and
+#                              |x| is built first with ACC.MAX of x*1.0 and x*(-1.0).
+#   q = 1 / (1 + e)            the AaQ reciprocal store; the +1 is the ones row
+#                              broadcast by MULT.EE, and that row is its own
+#                              exp2(0) store in the program's prologue, so the host
+#                              prepares no constant.
+#   w = e q = e/(1+e)            one more row, the product of the two stored rows.
+#                              It is the sigmoid of -|z|; 1 - q from an 8-bit q would
+#                              cancel every lane with |z| > 6 away (a q row whose
+#                              largest lane is 1.0 has a step of 2^-7, and e/(1+e)
+#                              at |z| = 8 is 3e-4), while the product is quantized
+#                              with a scale of its own.
+#   y = max(x q, x w)          two MULT.RC.VV of x's row against the q and w rows
+#                              held in Ra, joined by ACC.MAX: for x >= 0 the larger
+#                              is x q = x sigmoid(x) (q >= 1/2 >= w), for x < 0 both
+#                              products are negative and the smaller magnitude, x w =
+#                              x e/(1+e) = x sigmoid(x), wins. No compare, and no
+#                              sign test, exists in the program.
+#
+# gelu_tanh pays one more pass, t = t (1 + 0.044715 x^2), because its sigmoid
+# argument is cubic; it is the magnitude of that argument (x carries the sign into
+# the output multiply), so no |z| rebuild is needed. relu, relu6 and neg are one
+# word per row: the AaQ has relu and relu6 itself and neg is that word with the
+# -1.0 constant and an identity store.
+#
+# log2(e) enters as the sum of two dyadic terms, one MULT.RC.VE each, because an
+# NX8 MULT constant holds at most 7 significant bits: one of them would move the
+# exponent -- and every output with it -- by 4e-2 relative.
+#
+# Cost: 11 words per row for the sigmoid family (2 + 2 + 2 + 2 + 3, and 14 with
+# gelu_tanh's cubic pass), 10 of which multiply; 1 word per row for relu, relu6 and
+# neg. 30720 elements is 2742 cycles at 91% multiplier use.
+#
+# Memory: 6 rows per 128 lanes (x, y, and the t/e/q/w intermediates) plus the ones
+# row and the mask row: 6*rows + 2 <= 16384 addressable NX8 rows, hence the numel
+# maximum of 349440 (2730 rows). There is no FP32 variant: dynamic is the chip's
+# NX8 type, and FP32 addresses 4096 rows only.
+
+[kernel]
+op = "unary"
+formats = ["dynamic"]
+
+[params]
+fn    = { type = "str", choices = ["silu", "gelu", "gelu_tanh", "quick_gelu", "sigmoid", "tanh", "relu", "relu6", "hardswish", "hardsigmoid", "exp", "rsqrt", "neg", "cos", "sin", "erf"], default = "silu" }
+numel = { type = "int", min = 1, max = 349440 }           # 2730 rows: 6*rows + 2 XMEM rows
+# The program's constants: dyadic fractions, so the NX8 MULT constant (8 bits with
+# its own scale and type) holds them exactly. The -1.0 an earlier draft needed is
+# gone: ACC.SUB.FIRST is the negate.
+c1   = { type = "float", choices = [-1.4375], default = -1.4375 }                      # -log2(e), first term
+c2   = { type = "float", choices = [-0.00518798828125], default = -0.00518798828125 }  # -log2(e), second
+k1   = { type = "float", choices = [0.044921875], default = 0.044921875 }              # gelu_tanh's cubic term
+
+[derived]
+rows      = "ceil(numel / 128)"                        # x's and y's rows, and every pass's: the loop's trips
+tail      = "numel - 128 * (rows - 1)"                 # the last row's live lanes
+bound     = "max(rows - 2 - ceil((128 - tail) / 127), 0)"  # CR11: the row loop's bound (trips - 1; the straight-line rows are not in it)
+qf        = "case_qf"                                  # CR14: the case's QF half
+ds        = "halves(ds(128), ds(tail))"                # CR15: full row / last row
+
+[inputs.x]
+shape = ["numel"]
+range = { nx8 = [-8, 8] }         # activations: exp2's argument stays <= 0
+
+[outputs.y]
+shape = ["numel"]
+
+[scratch.t]
+shape = ["rows", 128]             # |z|, then |z| (1 + 0.044715 x^2) for gelu_tanh
+
+[scratch.e]
+shape = ["rows", 128]             # exp(-|z|)
+
+[scratch.q]
+shape = ["rows", 128]             # 1/(1+e) = sigmoid(|z|)
+
+[scratch.w]
+shape = ["rows", 128]             # e q = sigmoid(-|z|), the product of the two rows
+
+[scratch.one]
+shape = [1, 128]                  # exp2(0): the ones row the +1 broadcasts from
+
+[scratch.maskr]
+shape = [1, 128]
+bytes = "pack.py:mask_ones"       # LD.MASK: every lane active, whatever a previous kernel left
+
+[abi]
+x         = "CR2"
+t         = "CR3"                 # |z| (the sigmoid family's first intermediate)
+e         = "CR4"                 # exp(-|z|)
+q         = "CR5"                 # 1/(1+e) = sigmoid(|z|)
+w         = "CR6"                 # e q   = sigmoid(-|z|)
+y         = "CR7"
+c2        = "CR8"
+one       = "CR9"
+maskr     = "CR10"
+bound     = "CR11"                # the row loop's bound: trips - 1
+k1        = "CR12"
+c1        = "CR13"
+qf        = "CR14"
+ds        = "CR15"
+
+[golden]
+reference = "reference.py:reference"
+# NX8: the four intermediates are each rounded to an 8-bit row, so q and w carry
+# ~2^-5 relative and y's row scale (from its largest |y|) turns that into a couple
+# of steps on the smaller lanes; measured below.
+tolerance = { nx8 = { tier = "NX8_STEP", ulps = 3, why = "5 NX8 row round-trips (|x|, e, q, w and the output store), each quantized against its own row's largest lane; measured max 2 steps" } }
+
+[cases.default]                              # mobilevit_s cvnets_in1k SE/silu, x3 per forward
+fn = "silu"
+numel = 30720
+
+[cases.silu_98304]                           # the same model, x4 per forward
+fn = "silu"
+numel = 98304
+
+[cases.silu_294912]                          # the same model, x2 per forward, the largest call
+fn = "silu"
+numel = 294912
+tier = "nightly"
+
+[cases.quick_gelu]
+fn = "quick_gelu"
+numel = 200
+
+[cases.gelu_tanh]                            # the cubic pass
+fn = "gelu_tanh"
+numel = 1000
+
+[cases.relu]
+fn = "relu"
+numel = 1280
+
+[cases.relu6]
+fn = "relu6"
+numel = 300
+
+[cases.neg]
+fn = "neg"
+numel = 129
+
+[cases.one]                                  # the narrowest call: one lane, one row
+fn = "silu"
+numel = 1
+
+[cases.tile]                                 # exactly one 128-lane row
+fn = "silu"
+numel = 128
+
+[cases.tail]                                 # one row and a lane
+fn = "silu"
+numel = 129
+
+[cases.sweep]                                # the structure of the calls, scaled down
+fn = ["silu", "quick_gelu", "gelu_tanh", "relu", "relu6", "neg"]
+numel = [1, 127, 128, 129, 1000, 4096]

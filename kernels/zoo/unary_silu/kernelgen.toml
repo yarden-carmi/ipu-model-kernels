@@ -1,0 +1,61 @@
+kind = "approximation"
+method = "exp2_recip"
+task = "unary_silu"
+hw_clean = true                       # every store is ACTIVATE.QUANTIZE; no AAQ_EXACT, no BREAK
+host_steps = []                       # one launch per call: the row loop is dynamic, the shape is CRs
+chain_in = "x"                        # the activation input the previous kernel's output feeds
+chain_out = "y"                       # the activation output the next kernel reads
+unsupported = [
+  "{\"fn\": \"sigmoid\", \"numel\": 30720}: the AaQ has no sigmoid and none of its seven functions can be composed into one without a per-lane sign test: sigmoid(x) is 1/(1+e) for x >= 0 and e/(1+e) for x < 0 with e = exp(-|x|), and the two branches cross at 1/2, so the ACC.MAX that selects between two products (which is what makes x*sigmoid(x) selectable, the factor x flipping which product has the larger magnitude) cannot be used on the sigmoid alone. gelu/transformers' sigmoid is reached as silu(x)/x by the model's own graph, or by a kernel that has the multiply by x.",
+  "{\"fn\": \"tanh\", \"numel\": 30720}: tanh(z) = sign(z) (1 - e)/(1 + e) with e = exp(-2|z|): an odd function, and the datapath has neither a compare nor a way to negate one lane conditionally (the AaQ activation set is identity, relu, relu6, reciprocal, rsqrt, exp2, generic, and the accumulator adds, maxes and subtracts).",
+  "{\"fn\": \"erf\", \"numel\": 30720}: no polynomial fits in the passes a row round trip allows without an unbounded number of them, and the AaQ ``generic`` LUT cannot be used by a kernel: the function it evaluates is declared by the test that loads it, not by the program (docs/content/reference/isa/activate-quantize.md).",
+  "{\"fn\": \"gelu\", \"numel\": 30720}: the erf form 0.5 x (1 + erf(x / sqrt 2)) needs erf (above). gelu_tanh, which this kernel does take, is the standard approximation of it and agrees to ~1e-3 absolute over the declared input range; declared unsupported rather than silently substituting an approximation for the exact form under the same name.",
+  "{\"fn\": \"hardswish\", \"numel\": 30720}: x * clip((x + 3)/6, 0, 1) = x * relu6(x + 3)/6, and relu6 is an AaQ function, so it is realisable (two more passes than silu, with the /6 free in the row scale); out of this kernel because its constants are not dyadic (1/6 and 3 are not both exact in one 8-bit MULT constant) and the case data has not been surveyed here.",
+  "{\"fn\": \"hardsigmoid\", \"numel\": 30720}: clip((x + 3)/6, 0, 1) needs the upper clamp of relu6 at 1 rather than 6, which is a scale on the argument and so is not free, and it has no x factor to select a branch with: same non-dyadic-constant reason as hardswish.",
+  "{\"fn\": \"exp\", \"numel\": 30720}: exp2 of a positive argument is an AaQ error (not a saturation), so exp(x) can only be built as the reciprocal of exp2(-x log2 e) -- which is itself positive exactly when x is negative, so both forms need a per-lane sign test the datapath cannot build. A model's exp belongs to the softmax kernel, whose rows all share the one -|z| form.",
+  "{\"fn\": \"rsqrt\", \"numel\": 30720}: the AaQ has rsqrt, but rsqrt of a lane at or below 0 is NaN and a NaN in an NX8 row is an emulator error, while the input of a general unary layer spans negatives; layernorm's rsqrt is taken by kernels/zoo/row_norm_layernorm, whose input is a variance plus an epsilon and so is positive by construction.",
+  "{\"fn\": \"cos\", \"numel\": 30720}: no trigonometric function in the AaQ set and no range reduction that fits the accumulator (sin/cos of an argument outside [-pi, pi] need a modulo the datapath cannot build, and the LUT is test-declared, not program-declared). Same for sin.",
+  "{\"fn\": \"sin\", \"numel\": 30720}: as cos.",
+  "{\"fn\": \"silu\", \"numel\": 0}: an empty call: numel starts at 1 (rows would be 0 and every loop's bound rows - 3).",
+  "{\"fn\": \"silu\", \"numel\": 349568}: above the declared maximum. numel <= 349440 = 2730 rows: x, y and the four intermediates take one row each per 128 lanes, so a call is 6*rows + 2 = 16382 of the 16384 addressable NX8 rows. The program loops any number of rows; the maximum is the memory a single launch fits in.",
+]
+notes = """One parameterised program for every (fn, numel): y = fn(x) elementwise, x and y
+the plain activation layout (row r holds lanes 128r .. 128r+127, lanes past numel zero),
+so the kernel reads the rows the previous kernel wrote and writes the rows the next one
+reads, with no repack and no host step between them. Hardware-clean NX8: formats =
+["dynamic"], every store an ACTIVATE.QUANTIZE (identity, exp2 or reciprocal), the
+accumulators FP32, no ACTIVATE.EXACT and no BREAK. The three must-cover calls (silu at
+30720, 98304 and 294912 elements, mobilevit_s cvnets_in1k) are three shapes of the same
+program: the row loop's bound is a CR, so a call is one launch (2304 iterations of the
+loop for the largest). Dataflow, the exp2_recip sigmoid: |x| by ACC.MAX of x*1.0 and its
+negation, e = AaQ exp2 of -|x| log2 e (the argument is <= 0 in every lane because exp2 of
+a positive input is an AaQ error; log2 e enters as the sum of two dyadic MULT constants,
+one 8-bit constant alone would move the exponent by 4e-2 relative), q = AaQ reciprocal of
+1 + e (the +1 is the ones row, which the program's own prologue stores with exp2(0), so
+the host prepares no constant), w = e q (not 1 - q: a q row whose largest lane is 1.0 has
+a 2^-7 step and e/(1+e) at |x| = 8 is 3e-4, so the difference would cancel; as a product
+of the two rows it is quantized with a scale of its own), and the two signed branches are
+joined by y = ACC.MAX of the products x q and x w -- for x >= 0 the larger is x q =
+x sigmoid(x), for x < 0 both are negative and the smaller magnitude x w = x e/(1+e) wins,
+which is why no compare and no sign test exists in the program. gelu_tanh is the same with
+the sigmoid's argument 1.59576... (x + 0.044715 x^3), which is of x's sign, so only |a| is
+built (one extra pass, t = t (1 + 0.044715 x^2) by ACC.ADD.FIRST of a MULT.RC.VV of the
+row against itself held in Ra); relu, relu6 and neg are one word per row (the AaQ has relu
+and relu6, neg is ACC.SUB.FIRST with an identity store). Cost: 11 words per row for the
+sigmoid family (2 + 2 + 2 + 2 + 3, 14 with the cubic pass), 10 of which multiply -- 30720
+elements in 2660 cycles at 87% multiplier use, 98304 in 8451; 1 word per row for relu,
+relu6 and neg. The short last row of a call is emitted straight-line in every pass with
+the DS half that names exactly its live lanes, so its row scale comes from real data and
+the lanes past numel are written 0; the last full row is emitted straight-line too, which
+keeps every one-row-ahead prefetch inside the regions. Every LR the program reads is set
+by it, R_MASK is loaded from its own all-ones scratch row, every accumulation is seeded
+with a .FIRST form and each pass's prologue primes the registers its MULTs read, so it
+runs after another kernel as well as from reset (test_calls.py runs it twice back to back
+in one XMEM, the second reading the first's y as its x). Limits: fn in silu | quick_gelu |
+gelu_tanh | relu | relu6 | neg and numel 1..349440 (2730 rows: 6*rows + 2 of the 16384
+addressable NX8 rows); the other nine names of the signature are in `unsupported`, each
+for a stated reason, and there is no FP32 variant (dynamic is the chip's NX8 type and
+FP32 addresses 4096 rows only). Accuracy: kind approximation -- the golden is the exact
+float64 fn, and the kernel reaches it through five 8-bit row round-trips (|x|, e, q, w and
+the output store), so the tolerance is NX8_STEP 3 ulps, measured max 2 steps of the output
+row's grid over every case."""
