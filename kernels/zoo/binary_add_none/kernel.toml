@@ -1,0 +1,153 @@
+# binary_add_none: y = a (op) b elementwise, one parameterised program.
+#
+#   op        : add | sub | mul | max
+#   broadcast : none  -- b is numel values, y[i] = a[i] op b[i]
+#
+# The broadcast modes the signature offers (row: b is one row of `inner` values
+# repeated over the rows; col: b holds `inner` values, one per row of a; scalar:
+# b is one value) are out of this kernel's domain, and `inner` therefore takes
+# only 0: they need b's row pointer to cycle over a shorter tensor and, unless
+# `inner` is a multiple of 128, a lane rotation the multiply stage cannot build
+# (see the folder's kernelgen.toml `unsupported`). `div` and `min` are out too:
+# the AaQ stage has no exact reciprocal and the accumulator no min.
+#
+# Every tensor is the layout every activation on the chip uses: entity e holds
+# its features in ceil(F/128) consecutive rows, row e*chunks + c holding
+# features 128c .. 128c+127, lanes past F zero. Here F is numel and the whole
+# tensor is one entity, so a and b are rows 0 .. ceil(numel/128)-1 of their
+# regions and y exactly the same shape -- the kernel reads what the previous
+# kernel wrote and leaves what the next one reads, with no repack between them.
+#
+# Dataflow, per 128-lane row: an operand that lives in XMEM costs a LOAD and a
+# word has one LOAD slot, and a row of y needs one multiply per operand (the
+# only way into R_ACC is MULT_RES), so an elementwise row costs two words and
+# both run the multiplier: word A multiplies the b row resident in R1 by the CR
+# constant 1.0 and initialises the accumulator with it, word B multiplies the a
+# row resident in R0 by 1.0, accumulates it and stores the row; each word loads
+# the row the *next* word multiplies, so neither waits on a load. A row of `mul`
+# is a single product instead of two, so its second word carries only the b
+# load -- two words per row for every op, the floor a datapath with one LOAD and
+# one MULT slot per word allows for a two-operand elementwise op.
+#
+# The shape reaches the program only through CRs and the row loop is dynamic, so
+# the whole of a call is one launch: 262144 elements is 2048 iterations of the
+# same two words. `numel` is the only dimension the host tiles.
+#
+# XMEM: a, b and y are ceil(numel/128) rows each and the mask row is the only
+# scratch, so the declared corner takes 3*2048+1 = 6145 of the 16384 addressable
+# NX8 rows and a chain has room for a second launch. There is no FP32 variant:
+# it addresses 4096 rows only, and dynamic is the chip's type.
+
+[kernel]
+op = "binary"
+formats = ["dynamic"]
+
+[params]
+op = { type = "str", choices = ["add", "sub", "mul", "max"], default = "add" }
+numel = { type = "int", min = 1, max = 262144 }          # elements of a and of y
+inner = { type = "int", min = 0, max = 0, default = 0 }  # b's row length: 0, nothing is broadcast
+broadcast = { type = "str", choices = ["none"], default = "none" }
+
+[derived]
+qf = "case_qf"                                  # CR14: the case's QF half
+rows = "ceil(numel / 128)"                      # a's, b's and y's rows: the loop's trips
+tail = "numel - 128 * (rows - 1)"               # the last row's active lanes
+ds = "halves(ds(128), ds(tail))"                # CR15: full row / last row
+slot1 = "128"                                   # CR12: R1's element offset in Ra
+bound = "rows - ceil((128 - tail) / 127) - 1"   # CR13: the row loop's bound
+
+[inputs.a]
+shape = ["numel"]
+range = [-1, 1]
+
+[inputs.b]
+shape = ["numel"]                               # nothing is broadcast: b is a's shape
+range = [-1, 1]
+
+[outputs.y]
+shape = ["numel"]
+
+[scratch.maskr]
+shape = [1, 128]
+bytes = "pack.py:mask_ones"                     # LD.MASK: every lane active, whatever a previous kernel left
+
+[abi]
+a = "CR2"
+b = "CR3"
+y = "CR4"
+maskr = "CR5"
+slot1 = "CR12"
+bound = "CR13"
+qf = "CR14"
+ds = "CR15"
+
+[golden]
+reference = "reference.py:reference"
+# NX8: only the store rounds; the golden is quantized the same way, so the
+# kernel's own datapath is two exact products and an exact accumulator add.
+tolerance = { nx8 = { tier = "NX8_STEP", ulps = 1, why = "the store's row quantization, measured exact; one step of margin for a row scale that moves" } }
+
+[cases.default]                                 # mobilevit_s cvnets_in1k residual add, x6 per forward
+op = "add"
+broadcast = "none"
+numel = 15360
+
+[cases.surveyed_49152]                          # mobilevit_s: x8 per forward
+op = "add"
+broadcast = "none"
+numel = 49152
+
+[cases.surveyed_147456]                         # mobilevit_s: x4 per forward
+op = "add"
+broadcast = "none"
+numel = 147456
+
+[cases.surveyed_262144]                         # mobilevit_s: x2 per forward, the largest
+op = "add"
+broadcast = "none"
+numel = 262144
+tier = "nightly"
+
+[cases.one]                                     # the narrowest call: one lane, one row
+op = "add"
+broadcast = "none"
+numel = 1
+
+[cases.tile]                                    # exactly one 128-lane row
+op = "add"
+broadcast = "none"
+numel = 128
+
+[cases.tail]                                    # one row and a lane
+op = "add"
+broadcast = "none"
+numel = 129
+
+[cases.two_rows]                                # the loop's shortest trip
+op = "add"
+broadcast = "none"
+numel = 200
+
+[cases.sub]
+op = "sub"
+broadcast = "none"
+numel = 1000
+
+[cases.mul]                                     # the one-word loop
+op = "mul"
+broadcast = "none"
+numel = 1000
+
+[cases.max]
+op = "max"
+broadcast = "none"
+numel = 1000
+
+[cases.mul_wide]                                # the one-word loop over many rows
+op = "mul"
+broadcast = "none"
+numel = 49152
+
+[cases.sweep]                                   # the structure of the calls, scaled down
+op = ["add", "sub", "mul", "max"]
+numel = [1, 2, 5, 127, 128, 129, 130, 255, 256, 257, 1000, 4096, 5000]

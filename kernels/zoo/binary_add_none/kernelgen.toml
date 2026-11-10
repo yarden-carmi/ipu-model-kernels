@@ -1,0 +1,49 @@
+kind = "exact"
+method = "exact"
+task = "binary_add_none"
+hw_clean = true
+host_steps = []
+chain_in = "a"
+chain_out = "y"
+unsupported = [
+  "{\"broadcast\": \"none\", \"inner\": 0, \"numel\": 15360, \"op\": \"div\"}: no exact reciprocal: the AaQ stage's `reciprocal` is a hardware approximation and its result lands in an 8-bit block row before the multiply that uses it, so a quotient would carry an error the kernel's `exact` kind does not allow. Two reciprocal passes over the row and a fixed-point correction would be a different (approximation) kernel.",
+  "{\"broadcast\": \"none\", \"inner\": 0, \"numel\": 15360, \"op\": \"min\"}: the accumulator has ADD, MAX and SUB only, so min needs a negation, and the AaQ stage's activation set (identity, relu, relu6, reciprocal, rsqrt, exp2, generic) holds none. ACC.MAX of the two negated operands would have to be negated again, which costs a row round trip through XMEM.",
+  "{\"broadcast\": \"row\", \"inner\": 240, \"numel\": 15360, \"op\": \"add\"}: b's row pointer has to cycle over ceil(inner/128) rows while a's runs on; the LR stage has no non-power-of-two wrap (INC.MODP2 masks to 2^k) and taking the modulus with a compare-and-reset costs a word of the two-word row loop. Same for any inner that is not a multiple of 128, which also needs a lane rotation the multiply stage cannot build (MULT.RC.VV reads 128 consecutive lanes of the cyclic window, never a tiled pattern).",
+  "{\"broadcast\": \"col\", \"inner\": 64, \"numel\": 15360, \"op\": \"mul\"}: one scalar per row of a, repeated along it, would be MULT.RC.VE with the element index of the resident b row as its scalar source -- one word per row -- but only while a's rows and b's stay aligned, which needs inner to divide numel and the row length to be known to the render; declared out with the other broadcast modes rather than half-supported.",
+  "{\"broadcast\": \"scalar\", \"inner\": 1, \"numel\": 15360, \"op\": \"mul\"}: a scalar b is MULT.RC.VE against the resident b row's element 0 (one word per row) and needs no load of b at all; declared out with the broadcast modes, which this kernel does not take.",
+  "{\"broadcast\": \"scalar\", \"inner\": 0, \"numel\": 15360, \"op\": \"add\"}: as above, the scalar's one element: out with the broadcast modes.",
+  "{\"broadcast\": \"none\", \"inner\": 0, \"numel\": 262272, \"op\": \"add\"}: above the declared numel maximum (262144 = 2048 rows). a, b and y take one row per 128 elements, so 262272 needs 3*2049+1 = 6148 of the 16384 addressable NX8 rows; the maximum is a size choice, not a limit of the program, which loops any number of rows.",
+  "{\"broadcast\": \"none\", \"inner\": 128, \"numel\": 15360, \"op\": \"add\"}: `inner` is b's row length and the kernel takes only 0 with broadcast = none (b is numel values, like a).",
+  "{\"broadcast\": \"none\", \"inner\": 0, \"numel\": 0, \"op\": \"add\"}: an empty call: numel starts at 1.",
+]
+notes = """One parameterised program for every (op, numel): y[i] = a[i] op b[i] for op in
+add, sub, mul, max, nothing broadcast, so `inner` takes only 0. a, b and y are the chip's
+activation layout with one entity (row i holds elements 128i .. 128i+127, lanes past numel
+zero), so the kernel reads the rows the previous kernel wrote and leaves rows the next one
+reads, with no repack and no host step between them. The shape reaches the program through
+CRs only and the row loop is dynamic, so a whole call is one launch: 262144 elements is 2048
+iterations of the same two words (4107 cycles) and the host tiles nothing. Dataflow per row:
+the only way into R_ACC is a multiply result and a word has one MULT and one LOAD slot, so an
+elementwise row is two words and both run the multiplier -- one word multiplies the b row
+resident in R1 by the CR constant 1.0 and initialises R_ACC with it (ACC.ADD/SUB/MAX.FIRST),
+the next multiplies the a row resident in R0 by 1.0, accumulates (ACC.ADD / ACC.ADD /
+ACC.MAX) and stores the row with ACTIVATE.QUANTIZE identity; each word loads the row the *next*
+one multiplies, so no word waits on a load and no separate counter or store word exists. `mul`
+is one product per row instead of two (MULT.RC.VV of the cyclic a row against the resident b
+row, ACC.ADD.FIRST and the store in one word) and its second word carries only the b load.
+Two words per row is the floor for a two-operand elementwise op on a datapath with one LOAD and
+one MULT slot per word: 15360 elements in 251 cycles, 262144 in 4107, both at 128 lanes busy in
+every word that multiplies. The last row of a call is
+short (numel - 128*(rows-1) lanes) and is emitted straight-line with its own DS half, as is the
+row before it, which keeps the one-row-ahead prefetch inside the regions; a store's DS names
+exactly the live lanes, so the row's scale never sees a lane past numel and those lanes are
+written 0 for whatever reads y next. Every LR the program reads is set by it, R_ACC is
+initialised by the .FIRST accumulate of every row and R_MASK is loaded from its own scratch
+row, so it runs after another kernel as well as from reset (test_calls.py runs it twice back
+to back in one XMEM, the second reading the first's y as its a). Limits: numel 1..262144
+(2048 rows; the call takes 3*rows+1 of the 16384 addressable NX8 rows, so a chain has room for
+a second launch), op add|sub|mul|max, broadcast none with inner 0 (row/col/scalar and div/min
+are in `unsupported`, each for a stated reason); there is no FP32 variant -- FP32 addresses
+4096 rows only and dynamic is the chip's NX8 type. Accuracy: the products and the accumulator
+adds are exact in FP32 and only the store rounds, so the golden (float64, quantized row by row
+like the store) matches at max |err| 0 on every case, tolerance NX8_STEP 1 ulp."""
