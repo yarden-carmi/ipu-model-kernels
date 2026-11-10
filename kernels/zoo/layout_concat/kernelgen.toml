@@ -1,0 +1,48 @@
+kind = "exact"
+method = "exact"
+task = "layout_concat"
+hw_clean = true
+host_steps = []
+chain_in = "a"
+chain_out = "y"
+unsupported = [
+  "{\"kind\": \"transpose\", \"numel\": 20480}: a transpose permutes elements ACROSS lanes, and this datapath moves whole rows only: LOAD lands a row in R0/R1/R_CYCLIC, MULT reads 128 consecutive lanes of it and ACTIVATE.QUANTIZE stores the row it was given. A lane permutation needs either the stride decimator (ACC.STRIDE, which decimates, never interlaces) or ACC.RESHAPE (8 elements per word through LRD index pairs, i.e. 16 words per row for a shuffle), and a real transpose of an (m, n) tile needs the two dimensions, which a signature that carries only numel cannot state. Declared out with the other kinds rather than approximated.",
+  "{\"kind\": \"concat\", \"numel\": 128}: below the declared minimum: numel is a multiple of 256, because a concat splits y's rows evenly between the two sources (rows/2 each) and the split must fall on a row boundary -- rows of 128 lanes are the smallest unit this ISA moves. 128 is one row, which no two operands share.",
+  "{\"kind\": \"concat\", \"numel\": 1025}: not a multiple of 256: y would have 8.0078 rows and the a/b split would fall in the middle of a row, which needs a lane shift the multiply stage cannot build (LD.MULT.CYCLIC's cyclic index is 0, 128, 256 or 384, never 1).",
+  "{\"kind\": \"concat\", \"numel\": 699136}: above the declared maximum (698880 = 5460 rows). a, b and y take numel/128 rows each and the mask row is one more, so 699136 (5462 rows) needs 3*5462+1 = 16387 of the 16384 addressable NX8 rows; the maximum is a size choice, not a limit of the program, which loops any number of rows.",
+  "{\"kind\": \"concat\", \"numel\": 0}: an empty call: numel starts at 256, and rows - 1 for the loop bound would underflow.",
+  "{\"kind\": \"scale\", \"numel\": 20480}: not a kind of layout: scaling is an arithmetic op (the elementwise family's scale), and this kernel's only multiply is by the constant 1.0.",
+  "{\"kind\": \"concat\", \"numel\": 20480, \"axis\": 1}: unknown parameter: layout carries kind and numel only. The axis a concat runs along is fixed by the layout (the entity/row axis, the one the chip's activation layout makes a whole-row move); an axis inside a row would be a lane permutation, out with transpose.",
+]
+notes = """One parameterised program for every (kind, numel): kind = concat puts y's leading
+rows/2 rows from a's leading rows/2 rows and y's trailing rows/2 rows from b's leading rows/2
+rows -- the channel-axis concat every MobileViT transformer block ends with, cat((x, out), dim=1)
+-- and kind = copy is the slice copy, y's rows from a's rows with nothing read from b; a, b and y
+are each numel elements, rows = numel/128 of the chip's activation layout (row i holds elements
+128i .. 128i+127), so a producer that wrote a numel/2-element tensor left exactly the rows the
+concat reads. Nothing interprets what is inside a row, so the kernel reads the rows the previous
+kernel wrote and leaves rows the next one reads, with no repack and no host step. Dataflow per
+row: the only way into R_ACC is a multiply result and a word has one LOAD, one MULT, one ACC and
+one AAQ slot, so a copied row is exactly one word -- MULT.VE of the row resident in R0 by the CR
+constant 1.0, ACC.ADD.FIRST, ACTIVATE.QUANTIZE identity to y row (LR1 at cycle start, added to the
+pass's y offset) -- while the same word loads the row the *next* word multiplies (LOAD reads LRs
+after the word's own writes, MULT reads R0 at cycle start) and steps the source pointer, the store
+index and the branch counter, which is kept one ahead. That is one word per row, the floor for a
+datapath with one load and one multiply per word: 20480 elements runs in 173 cycles, 196608 in
+1549 and the declared corner of 698880 in 5473, with the multiply issuing in every word of both
+loops (its lane occupancy is 100%; the MAC utilization the report prints is 0% because every
+multiply is the identity by 1.0 -- a copy retires no MACs). The last row of each pass is peeled
+straight-line without its prefetch, so no load ever names a row past a region, and a pass of no
+rows (a copy's second) is skipped by its guard word, which is what lets one program serve both
+kinds; the store's DS names all 128 lanes because numel is a multiple of 256 and every row is
+full. Every LR the program reads is set by it, R_ACC is written (never accumulated) by
+ACC.ADD.FIRST, and R_MASK is loaded from the folder's own mask row, so it runs after another
+kernel as well as from reset -- test_calls.py runs it twice back to back in one XMEM, the second
+reading the first's y as its a. Limits: numel 256..698880 in steps of 256 (5460 rows; a, b and y
+take numel/128 rows each plus the mask row, so the corner fits 3*5460+1 = 16381 of the 16384
+addressable NX8 rows, and a chain has room for a second smaller launch), kind concat | copy
+(transpose and any intra-row permute are in `unsupported`, each for a stated reason); there is no
+FP32 variant -- dynamic is the chip's NX8 type and FP32 addresses 4096 rows only. Accuracy: a row
+travels through one exact multiply by 1.0 and an exact accumulator write, so only the store rounds
+and it rounds to the grid the row was packed with: max |err| 0 on every case, tolerance NX8_STEP
+1 ulp."""
