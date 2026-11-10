@@ -1,0 +1,47 @@
+kind = "approximation"
+method = "exp2"
+task = "row_softmax"
+hw_clean = true
+host_steps = []
+chain_in = "x"
+chain_out = "y"
+unsupported = []
+notes = """One program for every (rows, n): the row loop is dynamic and the row's 128-lane
+chunks are rendered per call, so the shape reaches the program only through CRs and one launch takes a
+whole call; the host only launches, and tiles `rows` when a call's two row-major regions would not fit
+the 16384 addressable NX8 rows (2*rows*ceil(n/128) <= 16384, i.e. 4096 rows at n <= 256, which is the
+declared maximum). Dataflow, the exp2 recipe -- max, exp2, sum, reciprocal -- four passes over the row,
+one word per chunk where the single MULT slot allows: pass 1 aggregates x*1.0 into one R_ACC slot with
+AGG.MAX (the first chunk seeds it, the rest take the running max) and ACTIVATE.QUANTIZE relu-stores it
+into the row's scalar lane -- relu, not identity, because a row whose logits are all negative must shift
+by 0 and not by a negative amount, which is what keeps the exp2 argument <= 0 (exp2 of a positive input
+is an AaQ error); 2*max(x,0) >= log2(e)*max(x) in every lane, and the 0.56*max of slack swallows the
+scalar row's own 2^-7 quantization. Pass 2 forms exp2(c1*x + c2*x - 2*max) chunk by chunk -- c = log2(e)
+as two exactly representable dyadic terms, one MULT.RC.VE each, because an NX8 MULT constant holds at
+most 7 significant bits and one of them alone would move the temperature, and every probability with it,
+by 4e-2 relative -- and ACTIVATE.QUANTIZE exp2-stores the numerator row. Pass 3 reloads the numerator
+chunks and AGG.SUMs them into R_ACC[0], then ACTIVATE.QUANTIZE reciprocal puts 1/sum in the scalar lane;
+that value's own quantization, and the max's, are factors common to the row, so they cancel in the
+output row's scale.
+Pass 4 multiplies each chunk by the scalar (MULT.RC.VE with the scalar named by LR0, read out of R0[0])
+and ACTIVATE.QUANTIZE identity-stores y. There is no numerator or scratch region: 2*rows*tiles is every
+row a call owns (the widest call uses all 16384), so the numerators live in y's own rows, which pass 4
+overwrites, and both scalars round-trip through y's last row -- safe because a row has at most two
+chunks (n <= 256) and every chunk of it is resident in its own R_CYCLIC slot before a scalar lands on
+it. R_CYCLIC's four slots hold the row's x chunks (indices 0, 128) and its numerator chunks (256, 384)
+at once, which is what removes every redundant load: each row is read from XMEM the minimum number of
+times, one load word per chunk plus the one word the 1/sum's read-back needs. Pipelined per the timing
+contract -- the next chunk's load rides in the word that multiplies the current one, multiply + accumulate
++ store share a word, the row pointer's advance and the loop branch ride in pass 4's last word on the
+pre-DEC counter, and the two y rows are named by two LRs set once per row because an ACTIVATE's
+table_offset is a forwarded read and a walk it names is never stepped in its own word. Cost 9 words per
+row at one chunk, 14 at two (4096x256 = 57348 cycles, 1024x64 = 9220), 44-62% of the multiplier slots
+in use -- the four passes over one accumulator and the two scalar round-trips are the reduction's
+inherent shape. x and y are the plain row-major activation layout (entity e in ceil(F/128) consecutive
+rows, lanes past F zero, which the last chunk's DS guarantees), so y is the next kernel's input as it
+stands and nothing leaves XMEM between kernels. Domain: rows 1..4096, n 1..256; the input range [-8, 8]
+is the generator's, not a program limit -- the max subtraction makes the exp2 argument non-positive for
+any logits. Accuracy: the probabilities are quantized twice (pass 2's numerator row, at the dynamic
+format's own 5 or 6 mantissa bits, then pass 4's output row), which is the kernel's only real error and
+is worth 2 steps of the output grid over every case and the whole sweep and 5 over the 4096 x 256 call's
+million elements -- declared as NX8_STEP/8; the chain run (softmax of softmax) measures the same."""

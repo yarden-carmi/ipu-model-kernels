@@ -1,0 +1,22 @@
+load("//kernels:defs.bzl", "ipu_kernel")
+load("@ipu_deps//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_binary")
+
+# 12 sweep x 1 variant runs plus the eight named cases in the default tier (20
+# runs); the two whole-model shapes (1024 x 64 and 4096 x 256) are nightly.
+ipu_kernel(shard_count = 5)
+
+# Not a test: run one case and print its rows against the reference.
+#     bazel run //kernels/zoo/row_softmax:dbg -- [case] [format] [anything-for-a-dump]
+py_binary(
+    name = "dbg",
+    main = "_dbg.py",
+    srcs = ["_dbg.py"],
+    data = glob(["**"], exclude = ["BUILD.bazel"]) + ["//kernels/zoo:files"],
+    deps = [
+        "//kernels/zoo:lib",
+        "//src/ipu-harness:kernel_test_lib",
+        requirement("numpy"),
+    ],
+    legacy_create_init = False,
+)
