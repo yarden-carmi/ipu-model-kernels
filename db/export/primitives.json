@@ -1,0 +1,44 @@
+[
+ {
+  "doc": "a data-movement kernel: transpose / permute / concat / slice copy of numel elements.",
+  "name": "layout",
+  "params": "{\"kind\": \"str: transpose | concat | copy\", \"numel\": \"int\"}",
+  "tensors": null
+ },
+ {
+  "doc": "per-row normalisation over `channels` for `rows` rows: layernorm (mean, var, eps, gamma, beta) | rmsnorm (mean of squares, eps, gamma) | groupnorm handled as rows of a group.",
+  "name": "row_norm",
+  "params": "{\"channels\": \"int\", \"kind\": \"str: layernorm | rmsnorm\", \"rows\": \"int\"}",
+  "tensors": "inputs x [rows, channels], gamma [channels], beta [channels] (layernorm); output y"
+ },
+ {
+  "doc": "softmax over n along each of `rows` rows.",
+  "name": "row_softmax",
+  "params": "{\"n\": \"int\", \"rows\": \"int\"}",
+  "tensors": "input x [rows, n]; output y [rows, n]"
+ },
+ {
+  "doc": "sum / mean / max over each row.",
+  "name": "reduce_rows",
+  "params": "{\"kind\": \"str: sum | mean | max\", \"n\": \"int\", \"rows\": \"int\"}",
+  "tensors": null
+ },
+ {
+  "doc": "y = a (op) b elementwise; broadcast: none (same shape) | row (b is one row of `inner` values repeated over the rows: a bias) | col (b holds `inner` values, one per row of a, each repeated along its row: a per-channel NCHW scale) | scalar.",
+  "name": "binary",
+  "params": "{\"broadcast\": \"str: none | row | col | scalar\", \"inner\": \"int: length of b's row\", \"numel\": \"int\", \"op\": \"str: add | sub | mul | div | max | min\"}",
+  "tensors": "inputs a [numel], b [numel] (none) / [inner] (row, col) / [1] (scalar); output y [numel]"
+ },
+ {
+  "doc": "y = fn(x) elementwise over numel elements (tiled), fn one of the activations.",
+  "name": "unary",
+  "params": "{\"fn\": \"str: silu | gelu | gelu_tanh | quick_gelu | sigmoid | tanh | relu | relu6 | hardswish | hardsigmoid | exp | rsqrt | neg | cos | sin | erf\", \"numel\": \"int\"}",
+  "tensors": "input x [rows, 128] (numel = rows * 128 rounded up; pad lanes are zero); output y, same shape"
+ },
+ {
+  "doc": "y[m, n] = act(x[m, k] @ W[n, k]^T + bias[n]). Any m, k, n: k is reduced in 128-element chunks inside the kernel (one accumulator), m and n are tiled by the kernel's loops. Linear, batched matmul, attention and convolution (implicit im2col) all lower to it.",
+  "name": "gemm",
+  "params": "{\"act\": \"str: none | relu | silu | gelu_tanh (fused at the store)\", \"bias\": \"bool: add bias[n]\", \"k\": \"reduction\", \"m\": \"rows of x (tokens)\", \"n\": \"outputs\"}",
+  "tensors": "inputs x [m, k], w [n, k] (logical; pack it as the kernel needs), bias [n] (when bias); output y [m, n]"
+ }
+]

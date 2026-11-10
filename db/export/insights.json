@@ -1,0 +1,28 @@
+[
+ {
+  "body": "Every elementwise kernel measured (the emulator's own `scale` and `residual_add`, and Qwen's\n`binary_mul_col`) spends five instruction words per 128-element row (load; multiply + accumulate; store;\ncounters; branch), so the multiplier works 20% of the time.\n\nThe timing contract already allows one word per row: LOAD reads LRs after the word's LR writes, MULT\nreads its registers at cycle start (so it multiplies the previous word's load), ACC/AAQ take this word's\nresults, and the LR sub-slots and the branch read cycle-start LRs.\n\nMeasured on the emulator, no ISA change:\n- `scale` (y = x*s, 128 rows): 642 -> 132 cycles (4.9x), multiplier 20% -> 97%.\n- Qwen's `binary_mul_col` (87 cases, e4/e5/dynamic, hardware-clean): 1302 -> 280 cycles (4.65x), 20% -> 91%.\n\nCaveat: the last iteration loads one row past the input (harmless unless the input ends XMEM).\nThe agent prompt now has this pattern (harness change, 2026-11-10).",
+  "created_at": 1794300775.388615,
+  "id": 1,
+  "kind": "note",
+  "model_id": null,
+  "numbers": "{\"binary_mul_col\": {\"after\": 280, \"before\": 1302, \"util_after\": 0.914, \"util_before\": 0.197}, \"scale\": {\"after\": 132, \"before\": 642, \"util_after\": 0.97, \"util_before\": 0.2}}",
+  "op": null,
+  "origin": "review",
+  "scope": "isa",
+  "step_id": null,
+  "title": "Elementwise loops run at 5 words per row; the timing contract allows 1"
+ },
+ {
+  "body": "Multiplier utilisation on the emulator (largest cases):\n\n| kernel | Qwen | emulator's own |\n|---|---|---|\n| gemm | 94-98% | matmul_x128_c2 95.5%, matmul_small 46%, fully_connected 48% |\n| row softmax | 36% (4096x256) | softmax_rows_long 10-11%, softmax_rows_partial 1-6% |\n| layernorm | 15-24% | layernorm 46% |\n| elementwise mul | 20% | scale / residual_add 20% (both pipelinable to ~95%) |\n\nQwen's gemm matches the best hand-written matmul and its softmax beats the emulator's; its layernorm is\nabout half as efficient as the emulator's. (The gemm, softmax and layernorm numbers come from attempts the\nharness wrongly rejected; those kernels are being rewritten.)",
+  "created_at": 1794300775.402844,
+  "id": 2,
+  "kind": "note",
+  "model_id": null,
+  "numbers": null,
+  "op": null,
+  "origin": "review",
+  "scope": "global",
+  "step_id": null,
+  "title": "Qwen's kernels vs the emulator's known-good kernels (MobileViT visit)"
+ }
+]
