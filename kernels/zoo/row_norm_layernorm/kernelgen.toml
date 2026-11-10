@@ -1,0 +1,47 @@
+kind = "approximation"
+method = "rsqrt"
+task = "row_norm_layernorm"
+hw_clean = true
+host_steps = []
+chain_in = "x"
+chain_out = "y"
+unsupported = [
+  "{\"channels\": 1, \"kind\": \"layernorm\", \"rows\": 128}: an NX8 row is a block format (one scale, from its largest lane); a reduction over one lane leaves room for a constant row whose A is 1/sqrt(eps) = 316 against its neighbours' 1.7, and the row's scale then costs every other lane 5 bits. Measured max |err| 75 steps of the output row's grid at channels 1, 1-2 from 32 up.",
+  "{\"channels\": 8, \"kind\": \"rmsnorm\", \"rows\": 300}: same limit: over 8 lanes the group's A values spread by more than the 4x an 8-bit block row resolves, so p carries an error of max(A)/128 * x. The kernel declares channels >= 32.",
+]
+notes = """One parameterised program for every (kind, rows, channels): layernorm
+y[r] = (x[r] - mean_r) * A_r * gamma + beta and rmsnorm y[r] = x[r] * A_r * gamma, with
+A_r = rsqrt(max(var_r, eps)) taken by the AaQ stage's hardware rsqrt (the approximation; the
+variance is floored at eps by ACC.MAX first so the rsqrt never sees a negative). The shape
+reaches the program through CRs and the row loop is dynamic, so a whole layer -- 1024 tokens x
+144 channels -- is one launch; the host only launches (it may tile `rows`, the one dimension the
+kernel does not loop over on its own, while `channels` is the kernel's own chunk loop, rendered
+per call). x and y are the chip's activation layout (entity r owns ceil(channels/128) consecutive
+rows, lanes past channels zero), so the output is the next kernel's input unchanged; gamma, beta,
+the 1/channels and eps constant rows and the mask row are constants prepared offline. Dataflow,
+per group of up to 128 rows whose bookkeeping lives one value per R_ACC lane: two reduction
+passes at one word per (row, chunk) each (MULT.RC.VV of the row against the resident 1/channels
+row then AGG.SUM, so the mean reduces directly with no quantized sum in front of it; then
+MULT.RC.VS and AGG.SUM for the squares), the group's scalars straight-line (A = rsqrt of
+squares/channels - mean^2 floored at eps, D = -(mean*A)), then p = A_r*x + D_r and y = p*gamma +
+beta at two words per (row, chunk) -- a word holds one multiply-accumulate pair and y's three
+products cannot meet in one of them, so the intermediate is stored once; rmsnorm needs neither D
+nor beta and runs three words per (row, chunk). Every operand address is a CR base plus an LR
+row, every LR is set before it is read, R_ACC is zeroed before each reduction and R_MASK is
+loaded from its own row, so the program runs after another kernel as well as from reset (the
+folder's test_calls.py runs the kernel twice back to back on one XMEM, the second reading the
+first's y as its x). Limits: rows 1..1024 (128 per group), channels 32..512 (128 per chunk),
+kind layernorm|rmsnorm, eps any float >= 1e-8. A call takes 3*rows*ceil(channels/128) +
+2*ceil(channels/128) + 8 NX8 rows, so the declared corner (1024 x 512) fits the 16384 addressable
+rows with room to chain; there is no FP32 variant for that reason. `rows` is known when the
+program is rendered, so the full groups are emitted once as a dynamic loop and the short last
+group is emitted a second time with its own DS half on the row of A: an NX8 row takes its scale
+from its largest ACTIVE lane, and a group's unused bookkeeping lanes would hold rsqrt(eps) = 316
+against a real A of ~1.7 and flush every real A of that row to zero. The channels >= 32 floor is
+the same block-format limit: the group's A and D rows hold one value per row, and a reduction
+over few lanes lets one nearly-constant row drag the whole row's scale (see `unsupported`).
+Accuracy: means, squares, A, D and p each pass through one 8-bit row that the golden does not;
+measured max |err| 1-2 steps of the output row's grid on every case (tolerance NX8_STEP, 3 ulps).
+Cost: 6 words per (row, chunk) for layernorm and 3 for rmsnorm, e.g. 1024 x 144 in 12871 cycles
+at 64% effective MAC utilisation and 128 x 128 in 838 at 62%; each row loop is one word per row
+per multiply, the load of the next row riding in the word that multiplies the current one."""

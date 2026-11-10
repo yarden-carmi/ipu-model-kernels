@@ -30,15 +30,21 @@
   "tensors": "inputs a [numel], b [numel] (none) / [inner] (row, col) / [1] (scalar); output y [numel]"
  },
  {
+  "doc": "y = conv(x, W) + bias for a kh x kw window (stride, padding, groups; groups = cin: depthwise). The kernel walks each output pixel's window itself by row address (one row per input pixel), so no im2col or padding is ever built by the host: out-of-image taps are skipped or read as zero rows. Dense: per tap, a [pixels, cin] x [cin, cout] product accumulated over the taps; depthwise: per tap, a lane-wise multiply of a pixel row by the tap's weight row.",
+  "name": "conv2d",
+  "params": "{\"bias\": \"bool\", \"cin\": \"input channels\", \"cout\": \"output channels\", \"groups\": \"int\", \"h\": \"input height\", \"kh\": \"window height\", \"kw\": \"window width\", \"padding\": \"int\", \"stride\": \"int\", \"w\": \"input width\"}",
+  "tensors": "activations x [h * w, cin] in, y [out_h * out_w, cout] out, pixels in row-major (y, x) order, both in the row layout; constants: weights [cout, cin / groups, kh, kw] and bias [cout], laid out offline as the program wants"
+ },
+ {
   "doc": "y = fn(x) elementwise over numel elements (tiled), fn one of the activations.",
   "name": "unary",
   "params": "{\"fn\": \"str: silu | gelu | gelu_tanh | quick_gelu | sigmoid | tanh | relu | relu6 | hardswish | hardsigmoid | exp | rsqrt | neg | cos | sin | erf\", \"numel\": \"int\"}",
   "tensors": "input x [rows, 128] (numel = rows * 128 rounded up; pad lanes are zero); output y, same shape"
  },
  {
-  "doc": "y[m, n] = act(x[m, k] @ W[n, k]^T + bias[n]). Any m, k, n: k is reduced in 128-element chunks inside the kernel (one accumulator), m and n are tiled by the kernel's loops. Linear, batched matmul, attention and convolution (implicit im2col) all lower to it.",
+  "doc": "y[m, n] = act(x[m, k] @ W[n, k]^T + bias[n]). Any m, k, n: k is reduced in 128-element chunks inside the kernel (one accumulator), n is looped over inside the kernel. Linear, batched matmul, attention and 1x1 convolution (pixels as tokens) lower to it.",
   "name": "gemm",
   "params": "{\"act\": \"str: none | relu | silu | gelu_tanh (fused at the store)\", \"bias\": \"bool: add bias[n]\", \"k\": \"reduction\", \"m\": \"rows of x (tokens)\", \"n\": \"outputs\"}",
-  "tensors": "inputs x [m, k], w [n, k] (logical; pack it as the kernel needs), bias [n] (when bias); output y [m, n]"
+  "tensors": "activations x [m, k] in, y [m, n] out, both in the row layout (so y is the next gemm's x); constants w [n, k] and bias [n], laid out offline as the program wants"
  }
 ]

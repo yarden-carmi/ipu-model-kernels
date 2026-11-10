@@ -786,6 +786,20 @@
  {
   "agent_run_id": null,
   "code": null,
+  "description": "folded into the conv before it: weights scaled by gamma/sqrt(var+eps) offline, the shift is the conv's bias (the emulator's conv *_bias kernels)",
+  "hw_path": "the conv's MULT + ACC, the accumulator seeded with the bias",
+  "id": 90,
+  "kind": "variation",
+  "name": "fold",
+  "on_chip": 1,
+  "op": "batchnorm",
+  "origin": "catalogue",
+  "status": "accepted",
+  "status_note": null
+ },
+ {
+  "agent_run_id": null,
+  "code": null,
   "description": "hardsigmoid: relu/relu6 are hardware functions",
   "hw_path": "ACTIVATE.QUANTIZE relu/relu6 (+ MULT)",
   "id": 46,
