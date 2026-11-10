@@ -1,49 +1,54 @@
-# gemm: y = a @ w^T (+ b): one parameterised program for every (m, k, n).
+# gemm: y = a @ w (+ b): one parameterised program for every (m, k, n).
 #
-# a is token-major (token i's k elements in rows i * chunks + c), w is
-# output-major (channel j's k weights in rows j * chunks + c), b is the n
-# biases. Per token row i, per k chunk c and per output channel j the program
-# multiplies the two 128-element vectors element-wise (MULT.RC.VV) and reduces
-# the products with AGG.SUM into R_ACC slot j; the chunks add onto the same
-# slots, so k is contracted inside the kernel. One ACTIVATE.QUANTIZE stores the
-# row. R_ACC is FP32 in every variant, so the only rounding is the store's: it
-# is exact in the FP32 sense.
+# a is token-major (token i's k elements in rows i * chunks + c) and w is
+# *input-major*: row t * wtiles + tt holds the n+1 weights of input channel t for
+# the output-channel tile tt (wtiles = ceil((n + 1) / 128)), so one word
+# multiplies that 128-lane row by the scalar a[i][t] (MULT.RC.VE) and adds the
+# products into the 128 R_ACC slots of the tile (ACC.ADD). One word therefore
+# does 128 useful MACs; a tile's k inputs chain through R_ACC, so nothing leaves
+# XMEM between chunks.
 #
-# The shape reaches the program only through CRs. A call wider than the tile in
-# an independent dimension is the same kernel launched once per tile of it:
-# tokens for m, output channels for n (one row of R_ACC holds 128 of them).
+# Everything is a loop in this one program: the token loop (m rows) and the input
+# loop inside a chunk are dynamic; the output-channel tile loop (n / 128 tiles,
+# R_ACC is one tile wide) and the k chunk loop (a's 128-lane rows) are rendered
+# per call around the same input loop. The shape reaches the program only through
+# CRs, so a whole layer -- 4096 tokens x 1024 channels -- is one call, not one
+# call per tile.
 #
-# No FP32 variant: FP32 addresses only 4096 XMEM rows (512 B each), fewer than
-# a tile's a + w + y needs at the declared k maximum. The variants below all
-# keep the FP32 accumulator and quantize only at the store, and their goldens
-# are float64, so the datapath is checked exactly.
+# No FP32 variant: FP32 addresses only 4096 XMEM rows (512 B each) and a tile's
+# a + w + y needs more from k = 600 up. The variants below all keep the FP32
+# accumulator and quantize only at the store, and their goldens are float64, so
+# the datapath is checked exactly. A call must also fit in the 16384 NX8 rows:
+# m * chunks + (k + 1) * ceil((n + 1) / 128) + m * ceil(n / 128) + ceil(n / 128).
+
 [kernel]
 op = "gemm"
 formats = ["e4", "e5", "dynamic"]
 
 [params]
-m    = { type = "int", min = 1, max = 128 }           # tokens: rows of a and y
+m    = { type = "int", min = 1, max = 4096 }          # tokens: rows of a and of y
 k    = { type = "int", min = 1, max = 2944 }          # contraction: 128 lanes per chunk
-n    = { type = "int", min = 1, max = 128 }           # output channels: R_ACC slots
+n    = { type = "int", min = 1, max = 1024 }          # output channels: 128 per R_ACC tile
 act  = { type = "str", choices = ["none"], default = "none" }  # no fused activation
 bias = { type = "bool", default = false }             # add b[j] to every output row
 
 [derived]
-qf        = "case_qf"                    # CR14: the QF half of the case's variant
-ds        = "halves(ds(128), ds(n))"     # CR15.L: all 128 lanes of a product; .H: n stored lanes
-slot1     = "128"                        # CR8:  the weights' R_CYCLIC slot
-slot2     = "256"                        # CR9:  the bias row's R_CYCLIC slot
-chunks    = "ceil(k / 128)"              # CR10: rows per vector, and the j loop's row stride
-c_limit   = "chunks - 1"                 # CR11: the chunk loop's bound (the branch reads c pre-INC)
-j_limit   = "n - 2"                      # CR7:  the j loop's bound (the branch reads j pre-INC)
-i_limit   = "m - 1"                      # CR6:  the row loop's bound
+qf            = "case_qf"                 # CR14: the QF half of the case's variant
+ds            = "halves(ds(128), ds(n - 128 * (ceil(n / 128) - 1)))"
+wtiles        = "ceil((n + 1) / 128)"     # CR6:  w rows per input (the input loop's row stride)
+chunks        = "ceil(k / 128)"           # CR7:  a rows per token
+lanes_full_m2 = "126"                     # CR9:  a full chunk's input loop bound (128 - 2)
+lanes_tail_m2 = "k - 128 * (chunks - 1) - 2"  # CR10: the last, short chunk's bound
+rows_bound    = "m - 2"                     # CR11: the token loop's bound (its branch reads pre-DEC)
+slot1         = "128"                     # CR12: Ra's R1 element offset (the resident bias row)
+y_stride      = "ceil(n / 128)"           # CR13: output rows per token (one per channel tile)
 
 [inputs.a]
 shape = ["m", "k"]
 range = [-1, 1]
 
 [inputs.w]
-shape = ["n + 1", "k"]                   # row n is padding: the j loop's last prefetch reads it
+shape = ["k + 1", "n + 1"]                # row k pads the prefetch, column n the last tile
 range = [-1, 1]
 
 [inputs.b]
@@ -55,18 +60,19 @@ when = "bias"
 shape = ["m", "n"]
 
 [abi]
-a       = "CR2"
-w       = "CR3"
-y       = { register = "CR4", offset = -1 }   # LR1 is row + 1 at the store
-b       = { register = "CR5", when = "bias" }
-i_limit = "CR6"
-j_limit = "CR7"
-slot1   = "CR8"
-slot2   = "CR9"
-chunks  = "CR10"
-c_limit = "CR11"
-qf      = "CR14"
-ds      = "CR15"
+a            = "CR2"
+w            = "CR3"
+y            = "CR4"
+b            = { register = "CR5", when = "bias" }
+wtiles       = "CR6"
+chunks       = "CR7"
+lanes_full_m2 = "CR9"
+lanes_tail_m2 = "CR10"
+rows_bound   = "CR11"
+slot1        = "CR12"
+y_stride     = "CR13"
+qf           = "CR14"
+ds           = "CR15"
 
 [golden]
 reference = "reference.py:reference"
@@ -74,8 +80,8 @@ reference = "reference.py:reference"
 # quantized the same way (measured max |err| 0 on every case); one step of
 # margin for a row whose largest value moves across a rounding edge between the
 # float64 golden's quantization and the kernel's accumulation. The FP32
-# accumulator lane rounds once per AGG.SUM (~1 ulp of the partial, ~1e-6 at
-# k = 128 with inputs in [-1, 1]): far inside one step of any row's grid.
+# accumulator lane rounds once per input (~1 ulp of the partial, ~1e-5 at
+# k = 2880 with inputs in [-1, 1]): far inside one step of any row's grid.
 tolerance = { nx8 = { tier = "NX8_STEP", ulps = 1, why = "the store's row quantization, measured exact (max |err| 0); one step of margin for a row scale that moves" } }
 
 [cases.default]
@@ -88,7 +94,7 @@ m = 64
 k = 64
 n = 64
 
-[cases.tile]                                 # the 128 x 128 x 128 tile
+[cases.tile]                                 # one full 128 x 128 x 128 tile
 m = 128
 k = 128
 n = 128
@@ -115,34 +121,154 @@ m = 1
 k = 12
 n = 3
 
-[cases.mv_stem]                              # mobilevit_s {k 36, m 256, n 256}: one 128-channel tile
-m = 64
-k = 36
-n = 128
+[cases.wide]                                 # n over several tiles, a short last one
+m = 4
+k = 40
+n = 300
+bias = true
 
-[cases.mv_expand]                            # {bias, k 144, m 1024, n 432}: one 128 x 128 tile
+[cases.many_rows]                            # m over several calls' worth of tokens
+m = 300
+k = 24
+n = 40
+
+[cases.mv_stem2]                             # the earlier version's case: {k 36, m 128, n 32}
 m = 128
+k = 36
+n = 32
+bias = false
+
+[cases.mv_narrow_n]                          # the earlier version's case: {k 96, m 128, n 96}
+m = 128
+k = 96
+n = 96
+bias = false
+
+[cases.mv_stem]                              # mobilevit_s {k 36, m 256, n 256}, whole
+m = 256
+k = 36
+n = 256
+tier = "nightly"
+formats = ["e4"]
+
+[cases.mv_stem_s]                            # ... the same, one 128-token tile
+m = 128
+k = 36
+n = 256
+
+[cases.mv_expand]                            # {bias, k 144, m 1024, n 432}, whole
+m = 1024
 k = 144
-n = 128
+n = 432
+bias = true
+tier = "nightly"
+formats = ["e4"]
+
+[cases.mv_expand_s]                          # ... the same, one 64-token tile
+m = 64
+k = 144
+n = 432
 bias = true
 
-[cases.mv_classifier]                        # {bias, k 640, m 1, n 1000}: one 128-channel tile
-m = 1
-k = 640
-n = 128
+[cases.mv_proj]                              # {bias, k 192, m 256, n 576}, whole
+m = 256
+k = 192
+n = 576
 bias = true
 
-[cases.mv_head]                              # {k 2880, m 64, n 160}: one 128-channel tile
+[cases.mv_proj_b]                            # {bias, k 192, m 256, n 384}, whole
+m = 256
+k = 192
+n = 384
+bias = true
+tier = "nightly"
+formats = ["e4"]
+
+[cases.mv_proj_c]                            # {bias, k 384, m 256, n 192}, whole
+m = 256
+k = 384
+n = 192
+bias = true
+tier = "nightly"
+formats = ["e4"]
+
+[cases.mv_short]                             # {bias, k 144, m 1024, n 144}, whole
+m = 1024
+k = 144
+n = 144
+bias = true
+tier = "nightly"
+formats = ["e4"]
+
+[cases.mv_short_s]                           # ... the same, one 64-token tile
+m = 64
+k = 144
+n = 144
+bias = true
+
+[cases.mv_gate]                              # {bias, k 288, m 1024, n 144}, whole
+m = 1024
+k = 288
+n = 144
+bias = true
+tier = "nightly"
+formats = ["e4"]
+
+[cases.mv_gate_s]                            # ... the same, one 64-token tile
+m = 64
+k = 288
+n = 144
+bias = true
+
+[cases.mv_head]                              # {k 2880, m 64, n 160}, whole
 m = 64
 k = 2880
+n = 160
+tier = "nightly"
+formats = ["e4"]
+
+[cases.mv_classifier]                        # {bias, k 640, m 1, n 1000}, whole
+m = 1
+k = 640
+n = 1000
+bias = true
+
+[cases.mv_qkv]                               # {k 96, m 1024, n 384}, whole
+m = 1024
+k = 96
+n = 384
+tier = "nightly"
+formats = ["e4"]
+
+[cases.mv_qkv_s]                             # ... the same, one 64-token tile
+m = 64
+k = 96
+n = 384
+
+[cases.mv_stem1]                             # {k 64, m 4096, n 256}, whole
+m = 4096
+k = 64
+n = 256
+tier = "nightly"
+formats = ["e4"]
+
+[cases.mv_stem1_s]                           # ... the same, one 64-token tile
+m = 64
+k = 64
+n = 256
+
+[cases.max_tile]                             # the declared maxima: 4096 x 2880 x 128
+m = 4096
+k = 128
 n = 128
 tier = "nightly"
 formats = ["e4"]
 
-[cases.max_tile]                             # the declared maxima: 128 x 2944 x 128
-m = 128
+[cases.max_k]                                # the k maximum, over two channel tiles
+m = 16
 k = 2944
-n = 128
+n = 200
+bias = true
 tier = "nightly"
 formats = ["e4"]
 
@@ -151,4 +277,12 @@ tier = "nightly"
 m = [1, 5, 128]
 k = [1, 63, 128, 129, 1024]
 n = [1, 3, 96]
+bias = [false, true]
+
+[cases.sweep_tiles]                          # over the 128-lane tile edges, both dimensions
+tier = "nightly"
+formats = ["e4"]
+m = [1, 129]
+k = [1, 127, 128, 257]
+n = [128, 129, 300]
 bias = [false, true]

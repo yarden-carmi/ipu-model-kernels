@@ -1,5 +1,23 @@
 load("//kernels:defs.bzl", "ipu_kernel")
+load("@ipu_deps//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_binary")
 
-# 272 case x format runs in the nightly tier (the 128 x 2944 x 128 corner and
-# the sweep), 34 in the default one: four shards keep each inside the budget.
+# 255 case x format runs in the nightly tier (the twelve whole surveyed calls at
+# their real shapes, the k = 2944 and m = 4096 corners and the two sweeps), 57
+# in the default one: four shards keep each inside the budget.
 ipu_kernel(shard_count = 4)
+
+# Not a test: run one case and print its rows against the reference.
+#     bazel run //kernels/zoo/gemm:dbg -- [case] [format] [anything-for-a-dump]
+py_binary(
+    name = "dbg",
+    main = "_dbg.py",
+    srcs = ["_dbg.py"],
+    data = glob(["**"], exclude = ["BUILD.bazel"]) + ["//kernels/zoo:files"],
+    deps = [
+        "//kernels/zoo:lib",
+        "//src/ipu-harness:kernel_test_lib",
+        requirement("numpy"),
+    ],
+    legacy_create_init = False,
+)

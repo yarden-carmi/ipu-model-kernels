@@ -3,47 +3,32 @@ method = "exact"
 task = "gemm"
 hw_clean = true
 host_steps = []
-unsupported = [
-  '{"act": "none", "bias": false, "k": 64, "m": 4096, "n": 256}: m is above the 128 tokens one call holds (one R_ACC row per token, one XMEM row each for a and y) and n is above the 128 channels one row accumulates; the host launches one call per 128-token x 128-channel tile (32 x 2 = 64 calls)',
-  '{"act": "none", "bias": false, "k": 1728, "m": 1024, "n": 96}: m above 128; one call per 128-token tile (8 calls)',
-  '{"act": "none", "bias": false, "k": 36, "m": 256, "n": 256}: m and n above the tile; one call per 128-token x 128-channel tile (4 calls)',
-  '{"act": "none", "bias": true, "k": 144, "m": 1024, "n": 432}: m and n above the tile; one call per 128-token x 128-channel tile (32 calls)',
-  '{"act": "none", "bias": true, "k": 192, "m": 256, "n": 576}: m and n above the tile; one call per 128-token x 128-channel tile (12 calls)',
-  '{"act": "none", "bias": false, "k": 864, "m": 1024, "n": 96}: m above 128; one call per 128-token tile (8 calls)',
-  '{"act": "none", "bias": false, "k": 2880, "m": 64, "n": 160}: n above the 128 channels one R_ACC row holds; one call per 128-channel tile (2 calls), all 2880 weights contracted inside each',
-  '{"act": "none", "bias": true, "k": 640, "m": 1, "n": 1000}: n above 128; one call per 128-channel tile (8 calls)',
-  '{"act": "none", "bias": true, "k": 144, "m": 1024, "n": 288}: m and n above the tile; one call per 128-token x 128-channel tile (16 calls)',
-  '{"act": "none", "bias": true, "k": 288, "m": 1024, "n": 144}: m and n above the tile; one call per 128-token x 128-channel tile (16 calls)',
-  '{"act": "none", "bias": true, "k": 192, "m": 256, "n": 384}: m and n above the tile; one call per 128-token x 128-channel tile (8 calls)',
-  '{"act": "none", "bias": true, "k": 384, "m": 256, "n": 192}: m and n above the tile; one call per 128-token x 128-channel tile (4 calls)',
-]
-notes = """One program for every (m, k, n): the shape reaches it only through CRs, and a call
-bigger than the tile is that same program launched per tile of an independent dimension. a is
-token-major (token i's k elements in rows i*chunks+c), w is output-major (channel j's k weights in
-rows j*chunks+c, with one padding row the j loop's last prefetch reads and no multiply ever uses),
-b is the n biases in its own region, y is one row per token. chunks = ceil(k/128) and the k chunks
-are contracted inside the kernel: per token row R_ACC is zeroed by one word (a's row times the CR
-constant 0, ACC.ADD.FIRST), then per chunk and channel one word does MULT.RC.VV of the channel's
-128 weights against the token's 128 elements (the lanes past k hold the packer's zeros) and
-AGG.SUM, which reduces the products into R_ACC slot j; the next chunk's AGG.SUM adds onto the same
-slot, so no partial ever leaves XMEM and no host step joins them. The j loop is software-pipelined:
-each word multiplies the row the word before loaded into R_CYCLIC slot 1 (MULT reads it at cycle
-start) and advances the pointer by chunks, and the slot counter starts at -1 because AGG reads it
-after the word's INC while the branch reads it before. Bias is one word per row: the bias row,
-resident in R_CYCLIC slot 2 from a single load, times the CR constant 1.0 with ACC.ADD. The store is
-ACTIVATE.QUANTIZE identity with a DS of valid_elements = n, so the n accumulators quantize to the
-case's QF with the row's own scale and the lanes past them are written 0. Every instruction is a
-hardware one and R_ACC is FP32 in all three variants, so the only rounding is the store's; the
-goldens are float64 matmuls of the values XMEM holds and pass with max |err| 0. Domain: m, n from 1
-to 128 (one row of R_ACC is one token's 128 outputs) and k from 1 to 2944 = 23 chunks; act takes
-only "none" (nothing is fused: an activation is a separate kernel's job) and bias folds b in inside
-the kernel. One call must also fit in XMEM, which addresses 16384 NX8 rows: (m + n + 1) * chunks +
-m + 1 rows, whose worst declared corner (128 x 2944 x 128) takes 6040. There is no FP32 variant for
-that reason: FP32 addresses only 4096 rows (512 B each), which a tile of a + w + y exceeds from
-k = 1921 up. The 12 surveyed signatures all exceed the tile in m and/or n and are listed above as
-per-tile launches; each of its tiles the kernel takes in one call, k included: the 12 calls run as
-ceil(m / 128) x ceil(n / 128) launches of this one program, with no host work between them. Cost:
-chunks * (n + 4) + 4 words per token row (one more with a bias), so the 128 x 128 x 128 tile runs in
-17.4k cycles at 94.8% lane occupancy; the 128 x 2944 x 128 corner, the 64 x 2880 x 128 tile and a
-90-point sweep are nightly, while the default tier runs up to the 128 x 128 x 128 tile and a
-32 x 1024 x 64 chunked call."""
+unsupported = []
+notes = """One program for every (m, k, n): the shape reaches it through CRs and four loops -- the
+token loop (dynamic, m rows of y), the output-channel tile loop (one row of R_ACC is 128 channels),
+the k chunk loop (a's 128-lane rows) and the input loop inside a chunk -- so a whole layer
+(4096 tokens x 1024 channels x 2880 inputs) is one launch, not one launch per tile, and the host
+only launches. a is token-major (token i's k elements in rows i*chunks+c); w is *input-major*, row
+t*wtiles+tt holding input channel t's weights for the tile of channels tt*128..tt*128+127 (column n
+pads the last tile, row k the input loop's last prefetch); b is the n biases in its own region, one
+row per tile; y is one row per token and tile. The inner loop is the outer product: one word does
+MULT.RC.VE of the tile's 128 weights (R_CYCLIC slot 0) against the scalar a[i,t] (R0[t mod 128]) and
+ACC.ADD into the tile's 128 FP32 accumulators, so each word is 128 useful MACs and the whole of k is
+contracted inside the kernel -- no partial ever leaves XMEM and no host step joins anything. The word
+also prefetches the next input's w row (MULT reads R_CYCLIC at cycle start) and advances the two
+counters kept one ahead, so the multiply, the accumulate, the load and the branch all ride in one
+word; the tile's b row sits in R1 for the whole pass, which lets the store word do the bias add
+(MULT.VE x CR1 + ACC.ADD) and ACTIVATE.QUANTIZE identity in the same word. A short last chunk stops
+at k - 128*(chunks-1) inputs and lanes past k multiply the packer's zeros, so nothing is wasted on
+the k tail; the store's DS names 128 lanes for a full tile and n - 128*(ytiles-1) for the last, so a
+row's scale never sees a lane past n. Every instruction is a hardware one, the golden is a float64
+matmul of the values XMEM holds, and the cases pass with the store's quantization as the only
+rounding (max |err| inside one step of the row grid). Domain: m 1..4096, k 1..2944, n 1..1024,
+act only "none" (an activation is another kernel's job), bias folded in. A call must also fit the
+16384 addressable NX8 rows: m*chunks + (k+1)*ceil((n+1)/128) + m*ceil(n/128) + ceil(n/128); the
+worst surveyed call (4096 x 64 x 256) takes 12483. There is no FP32 variant for that reason: FP32
+addresses only 4096 rows (512 B each). Cost: ytiles * (m * (k + chunks + 2) + 1) + 3 words, i.e. one
+word per (token, tile, input) plus a prologue per chunk and one per row -- the 128 x 128 x 128 tile
+runs at 94.8% lane occupancy and the whole mobilevit_s calls measured 93-99% MAC utilization; a 4096
+x 64 x 256 call is 565k cycles. The 12 surveyed signatures all run as one call each (the four
+largest and the sweep are nightly, e4; a 64-token tile of each runs in the default tier)."""
