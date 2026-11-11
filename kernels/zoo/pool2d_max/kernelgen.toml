@@ -1,0 +1,42 @@
+kind = "exact"
+method = "exact"
+task = "pool2d_max"
+hw_clean = true                       # the store is ACTIVATE.QUANTIZE; no emulator-only ops
+host_steps = []
+chain_in = "x"
+chain_out = "y"
+unsupported = [
+  "{\"kind\": \"avg\", \"channels\": 64, \"h\": 112, \"w\": 112, \"k\": 3, \"stride\": 2, \"padding\": 1}: no exact division on the datapath: the accumulator has MAX/ADD/SUB and the AaQ stage's `reciprocal` is a hardware approximation whose result lands in an 8-bit block row, so an average would carry an error the kernel's `exact` kind does not allow. Summing k*k taps with ACC.ADD is exact; the divide is not.",
+  "{\"kind\": \"max\", \"channels\": 64, \"h\": 112, \"w\": 112, \"k\": 4, \"stride\": 2, \"padding\": 1}: windows above 3 x 3 are out of the declared k range (1..3): the tap loop is dynamic and would take any k, but each extra ring of taps costs 8*k words per pixel and the 4x4 calls of the surveyed models do not exist, so the domain stays at the shapes the models run.",
+  "{\"kind\": \"max\", \"channels\": 64, \"h\": 112, \"w\": 112, \"k\": 3, \"stride\": 2, \"padding\": 3}: padding above k-1 is refused (kernel.toml's guard folded into y's shape): a window can then cover no pixel of the image at all, R_ACC would keep the previous output's maximum, and the kernel has no -inf seed row to re-initialise from.",
+  "{\"kind\": \"max\", \"channels\": 300, \"h\": 112, \"w\": 112, \"k\": 3, \"stride\": 2, \"padding\": 1}: above the declared channels maximum (256): three chunks per pixel would render and run, but no surveyed model needs them and each chunk re-walks the whole window, so the domain stays at two chunks.",
+  "{\"kind\": \"max\", \"channels\": 64, \"h\": 200, \"w\": 112, \"k\": 3, \"stride\": 2, \"padding\": 1}: above the declared h maximum (128): the program loops any size (every bound is a register), but a stride-2 call that big is 10k output pixels at ~100 words each, past the 1M-cycle launch budget, so the domain stops at the surveyed shapes.",
+]
+notes = """One parameterised program for every pool2d max call: y[oy,ox,c] =
+max over the k x k window of x, padding dropped (a tap outside the image
+contributes nothing to a max, which is exactly the padding the reference
+computes). x and y are the chip's activation layout (pixel p holds its
+channels in ceil(channels/128) consecutive rows, row p*chunks+c holding
+channels 128c..128c+127, lanes past channels zero), so the kernel reads what
+the previous kernel wrote and leaves what the next one reads, with no repack
+and no host step. Dataflow: the only way into R_ACC is a multiply result, so
+every tap is a MULT.RC.VE of R_CYCLIC slot 0 by the CR constant 1.0 and an
+ACC.MAX; the first valid tap of each chunk walk takes ACC.MAX.FIRST (a flag
+LR routes it), which clean-initialises R_ACC, so no -inf seed row is needed
+and no register a previous kernel left can matter. The store is
+ACTIVATE.QUANTIZE, preceded in its word by an idempotent MULT+ACC.MAX of the
+last tap (AAQ reads the cycle's ACC result). The whole call is one dynamic
+launch: a loop over the output pixels with the k x k tap grid inside it per
+chunk (chunks unrolled, at most two), every bound a register (LR13 h, LR14 w,
+LR15 k, CR11 out_w, CR12 out_h), so nothing is baked into the instruction
+stream and one binary serves the whole domain; out-of-image taps fall
+straight through to the pointer walk, and a skipped window row advances the
+tap pointer by a whole spatial row, which keeps LR1 = (gy*w+gx)*chunks + c
+exact. The resnet18.a1_in1k call (64 channels, 112x112, 3x3, stride 2,
+padding 1) is 290039 cycles. Limits: kind max (avg is in `unsupported`),
+channels 1..256, h,w 1..128, k 1..3, stride 1..4, padding 0..k-1 (the guard
+is folded into y's shape: padding > k-1 leaves windows with no valid tap and
+ACC.MAX.FIRST would seed from a stale register). Accuracy: the datapath is a
+chain of exact FP32 maxima and only the store rounds, so the golden (float64,
+quantized row by row like the store) matches at max |err| 0 on every case;
+tolerance NX8_STEP 1 ulp."""

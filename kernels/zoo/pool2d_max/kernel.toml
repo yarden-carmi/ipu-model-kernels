@@ -1,0 +1,234 @@
+# pool2d_max: y = maxpool2d(x, k x k, stride, padding) for the row layout every
+# activation on the chip uses (pixel p holds its channels in rows p*chunks + c).
+#
+# kind = max is the only op this kernel takes: the accumulator has MAX (and
+# ADD/SUB), so an average would need a division the datapath has no exact
+# multiplier for (see kernelgen.toml `unsupported`). padding takes 0..k-1 (the
+# guard folded into y's shape refuses the rest): every tap is bounds-checked
+# at run time, so a padding above the stride is fine -- the out-of-image taps
+# are simply skipped.
+[kernel]
+op = "pool2d"
+formats = ["dynamic"]
+
+[params]
+kind = { type = "str", choices = ["max"], default = "max" }
+channels = { type = "int", min = 1, max = 256, default = 64 }  # lanes per pixel
+h = { type = "int", min = 1, max = 128, default = 112 }        # input rows
+w = { type = "int", min = 1, max = 128, default = 112 }        # input columns
+k = { type = "int", min = 1, max = 3, default = 3 }            # window rows = columns
+stride = { type = "int", min = 1, max = 4, default = 2 }
+padding = { type = "int", min = 0, max = 2, default = 1 }      # at most k-1 (the guard)
+
+[derived]
+chunks = "ceil(channels / 128)"
+out_h = "(h + 2 * padding - k) // stride + 1"   # output rows (PyTorch's floor form)
+out_w = "(w + 2 * padding - k) // stride + 1"   # output pixels per row
+wkr = "(w - k) * chunks"                        # CR6: after the kx walk -> the next tap row
+spr = "stride * chunks"                         # CR7: one pixel -> the next pixel's origin
+rowstep = "stride * (w - out_w) * chunks"       # CR8: a row's last origin -> the next row's
+pre = "padding * (w + 1) * chunks"              # CR9: pixel (0,0) sits before the image corner
+pad = "padding"                                 # CR10: x0/y0 reset to -padding per row
+wr = "w * chunks"                               # CR13: a skipped window row -> the next one
+# 1 when padding <= k - 1, which is what makes every output pixel have at
+# least one valid tap (ACC.MAX.FIRST must always seed from real data);
+# anything else makes y's rows non-positive, which check_params refuses, so
+# such a call never routes here. Padding above the stride is fine: every tap
+# is bounds-checked at run time, so an out-of-image tap is just skipped.
+guard = "1 // (padding // k + 1)"
+ds = "halves(ds(min(128, channels)), ds(channels - 128 * (chunks - 1)))"
+qf = "case_qf"
+
+[inputs.x]
+shape = ["h", "w", "channels"]                  # pixels in row-major (y, x) order
+range = [-1, 1]
+
+[outputs.y]
+shape = ["out_h * guard", "out_w", "channels"]  # the guard: padding <= stride, k - 1
+
+[scratch.maskr]
+shape = [1, 128]
+bytes = "pack.py:mask_ones"                     # LD.MASK: every lane active
+
+[abi]
+x = "CR2"
+y = "CR3"
+maskr = "CR4"
+chunks = "CR5"
+wkr = "CR6"
+spr = "CR7"
+rowstep = "CR8"
+pre = "CR9"
+pad = "CR10"
+out_w = "CR11"
+out_h = "CR12"
+wr = "CR13"
+qf = "CR14"
+ds = "CR15"
+h = "LR13"
+w = "LR14"
+k = "LR15"
+
+[golden]
+reference = "reference.py:reference"
+# NX8: only the store rounds; the golden is quantized the same way, so the
+# kernel's own datapath is a chain of exact maxima.
+tolerance = { nx8 = { tier = "NX8_STEP", ulps = 1, why = "the store's row quantization, measured exact; one step of margin for a row scale that moves" } }
+
+[cases.default]                                 # resnet18.a1_in1k maxpool, x1 per forward
+kind = "max"
+channels = 64
+h = 112
+w = 112
+k = 3
+stride = 2
+padding = 1
+
+[cases.one_pixel]                               # one output pixel: the loop-free render
+kind = "max"
+channels = 64
+h = 1
+w = 1
+k = 3
+stride = 2
+padding = 1
+
+[cases.no_padding]                              # valid pooling: no tap clamps
+kind = "max"
+channels = 64
+h = 6
+w = 8
+k = 3
+stride = 2
+padding = 0
+
+[cases.stride1]                                 # stride 1: every pixel an interior pixel
+kind = "max"
+channels = 64
+h = 7
+w = 9
+k = 3
+stride = 1
+padding = 1
+
+[cases.one_row]                                 # an image one pixel tall
+kind = "max"
+channels = 64
+h = 1
+w = 9
+k = 3
+stride = 1
+padding = 1
+
+[cases.one_col]                                 # ... and one pixel wide
+kind = "max"
+channels = 64
+h = 9
+w = 1
+k = 3
+stride = 1
+padding = 1
+
+[cases.k1]                                      # a 1x1 window: a lane-wise identity
+kind = "max"
+channels = 64
+h = 4
+w = 5
+k = 1
+stride = 1
+padding = 0
+
+[cases.k2]                                      # a 2x2 window
+kind = "max"
+channels = 64
+h = 5
+w = 6
+k = 2
+stride = 2
+padding = 0
+
+[cases.p2s2]                                    # padding == stride: two taps clamp per edge
+kind = "max"
+channels = 64
+h = 12
+w = 12
+k = 3
+stride = 2
+padding = 2
+
+[cases.p2s1]                                    # padding above the stride: fine, taps are checked
+kind = "max"
+channels = 64
+h = 6
+w = 7
+k = 3
+stride = 1
+padding = 2
+
+[cases.ch128]                                   # a full first chunk
+kind = "max"
+channels = 128
+h = 4
+w = 5
+k = 3
+stride = 1
+
+[cases.ch129]                                   # ... and one lane of a second
+kind = "max"
+channels = 129
+h = 4
+w = 5
+k = 3
+stride = 1
+
+[cases.ch256]                                   # two full chunks
+kind = "max"
+channels = 256
+h = 4
+w = 5
+k = 3
+stride = 1
+
+[cases.ch1]                                     # one channel: the narrowest
+kind = "max"
+channels = 1
+h = 5
+w = 6
+k = 3
+stride = 1
+
+[cases.wide]                                    # the grid real size, small channels
+kind = "max"
+channels = 8
+h = 32
+w = 32
+k = 3
+stride = 2
+padding = 1
+
+[cases.sweep]                                  # the default structure's corners
+kind = "max"
+k = 3
+stride = 2
+padding = 1
+channels = [1, 64, 129]
+h = [1, 5]
+w = [1, 4]
+
+[cases.sweep_s1]                               # ... at stride 1
+kind = "max"
+k = 3
+stride = 1
+padding = 1
+channels = [64, 128]
+h = [1, 4]
+w = [1, 6]
+
+[cases.sweep_k]                                # ... and the smaller windows
+kind = "max"
+k = [1, 2]
+stride = 2
+padding = 0
+channels = 64
+h = 5
+w = 6
