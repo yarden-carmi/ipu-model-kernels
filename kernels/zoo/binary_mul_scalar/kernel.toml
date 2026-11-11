@@ -1,0 +1,178 @@
+# binary_mul_scalar: y = a (op) b[0], one parameterised program.
+#
+#   op        : add | sub | mul | max
+#   broadcast : scalar -- b is one value, y[i] = a[i] op b[0]
+#   inner     : 0      -- a scalar has no row length
+#
+# The calls this kernel serves (whisper-large-v3, all-MLiniLM) are all
+# broadcast = scalar, op = mul; add/sub/max come with the same two-word
+# datapath and are declared with it.
+#
+# Every tensor is the layout every activation on the chip uses: a and y are
+# ceil(numel/128) rows each, row i holding elements 128i .. 128i+127, lanes
+# past numel zero -- so the kernel reads what the previous kernel wrote and
+# leaves what the next one reads, with no repack between them. b is one row:
+# element 0 in lane 0, the rest zero.
+#
+# Dataflow, per 128-lane row: an operand that lives in XMEM costs a LOAD and a
+# word has one LOAD slot, and a row of y needs one multiply per operand (the
+# only way into R_ACC is MULT_RES). The scalar is loaded once into R1 and
+# selected lane 0 by LR (MULT.RC.VE src 128 -> R1[0], or MULT.EE ra_idx 128 ->
+# R1[0] broadcast), so it costs no load per row: a row of `mul` is one word --
+# load the next a row, multiply the resident one by the scalar, accumulate
+# (.FIRST) and store, all in the same word. add/sub/max need the scalar as a
+# second product: word A multiplies the resident a row by 1.0 and initialises
+# the accumulator, word B broadcasts b (MULT.EE), accumulates it and stores.
+#
+# The shape reaches the program only through CRs and the row loop is dynamic,
+# so the whole of a call is one launch: 45000000 elements is 351563 iterations
+# of the same one-word loop. `numel` is the only dimension the host tiles.
+#
+# XMEM: a and y are ceil(numel/128) rows each and b and the mask row are one
+# row each; the declared corner takes 2*351563+2 rows of a transparently
+# unlimited XMEM.
+
+[kernel]
+op = "binary"
+formats = ["dynamic"]
+
+[params]
+op = { type = "str", choices = ["add", "sub", "mul", "max"], default = "mul" }
+numel = { type = "int", min = 1, max = 45000000 }        # elements of a and of y
+inner = { type = "int", min = 0, max = 0, default = 0 }  # a scalar has no row length
+broadcast = { type = "str", choices = ["scalar"], default = "scalar" }
+
+[derived]
+qf = "case_qf"                    # CR14: the case's QF half
+rows = "ceil(numel / 128)"        # a's and y's rows: the loop's trips
+tail = "numel - 128 * (rows - 1)" # the last row's active lanes
+ds = "halves(ds(128), ds(tail))"  # CR15: full row / last row
+slot1 = "128"                     # CR11: the scalar's element index in Ra (R1[0])
+bound = "rows - 1"                # CR13: the last row's index
+
+[inputs.a]
+shape = ["numel"]
+range = [-1, 1]
+
+[inputs.b]
+shape = [1]                       # the scalar
+range = [-1, 1]
+
+[outputs.y]
+shape = ["numel"]
+
+[scratch.maskr]
+shape = [1, 128]
+bytes = "pack.py:mask_ones"       # LD.MASK: every lane active, whatever a previous kernel left
+
+[abi]
+a = "CR2"
+b = "CR3"
+y = "CR4"
+maskr = "CR5"
+slot1 = "CR11"
+rows = "CR12"
+bound = "CR13"
+qf = "CR14"
+ds = "CR15"
+
+[golden]
+reference = "reference.py:reference"
+# NX8: only the store rounds; the golden is quantized the same way, so the
+# kernel's own datapath is exact products and an exact accumulator add.
+tolerance = { nx8 = { tier = "NX8_STEP", ulps = 1, why = "the store's row quantization, measured exact; one step of margin for a row scale that moves" } }
+
+[cases.default]                                   # whisper-large-v3, x64 per forward
+op = "mul"
+broadcast = "scalar"
+inner = 0
+numel = 40960
+
+[cases.whisper_20480]                             # whisper-large-v3, x32 per forward
+op = "mul"
+broadcast = "scalar"
+inner = 0
+numel = 20480
+
+[cases.one]                                       # the narrowest call: one lane, one row
+op = "mul"
+broadcast = "scalar"
+inner = 0
+numel = 1
+
+[cases.tile]                                      # exactly one 128-lane row
+op = "mul"
+broadcast = "scalar"
+inner = 0
+numel = 128
+
+[cases.tail]                                      # one row and a lane
+op = "mul"
+broadcast = "scalar"
+inner = 0
+numel = 129
+
+[cases.two_rows]                                  # the loop's shortest trip
+op = "mul"
+broadcast = "scalar"
+inner = 0
+numel = 200
+
+[cases.add]
+op = "add"
+broadcast = "scalar"
+inner = 0
+numel = 1000
+
+[cases.sub]
+op = "sub"
+broadcast = "scalar"
+inner = 0
+numel = 1000
+
+[cases.max]
+op = "max"
+broadcast = "scalar"
+inner = 0
+numel = 1000
+
+[cases.mul_wide]                                  # the one-word loop over many rows
+op = "mul"
+broadcast = "scalar"
+inner = 0
+numel = 50000
+tier = "nightly"
+
+[cases.whisper_1920000]                           # whisper-large-v3, x32 per forward
+op = "mul"
+broadcast = "scalar"
+inner = 0
+numel = 1920000
+tier = "nightly"
+
+[cases.whisper_960000]                            # whisper-large-v3, x32 per forward
+op = "mul"
+broadcast = "scalar"
+inner = 0
+numel = 960000
+tier = "nightly"
+
+[cases.minilm_786432]                             # all-MiniLM-L6-v2, x6 per forward
+op = "mul"
+broadcast = "scalar"
+inner = 0
+numel = 786432
+tier = "nightly"
+
+[cases.whisper_45000000]                          # whisper-large-v3, x32 per forward, the largest
+op = "mul"
+broadcast = "scalar"
+inner = 0
+numel = 45000000
+tier = "nightly"
+
+[cases.sweep]                                     # the structure of the calls, scaled down
+op = ["add", "sub", "mul", "max"]
+broadcast = "scalar"
+inner = 0
+numel = [1, 2, 5, 127, 128, 129, 130, 255, 256, 257, 1000, 4096]
