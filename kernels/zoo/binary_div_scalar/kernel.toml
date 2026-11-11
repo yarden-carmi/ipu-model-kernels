@@ -1,0 +1,129 @@
+# binary_div_scalar: y = a / b with b one scalar broadcast over the rows.
+#
+#   op        : div        (the only op this program renders)
+#   broadcast : scalar    (b is one value, y[i] = a[i] / b)
+#   inner     : 0
+#
+# y = a * (r + e) is computed with r the AaQ `reciprocal` of the scalar and
+# e = (1 - b*r)/b a once-per-call correction (see binary_div_scalar.asm), so
+# the quotient carries ~2^-13 relative error: far inside one step of the
+# output row's NX8 grid, which is what the golden is held to.
+#
+# Every tensor is the layout every activation on the chip uses: entity e holds
+# its features in ceil(F/128) consecutive rows, lanes past F zero. Here F is
+# numel and the whole tensor is one entity, so a and y are rows 0 ..
+# ceil(numel/128)-1 of their regions and b is one row holding the scalar in
+# lane 0 -- the kernel reads what the previous kernel wrote and leaves what the
+# next one reads, with no repack between them.
+#
+# XMEM: a and y are ceil(numel/128) rows each, b and the five scratch rows
+# (mask, r, t, e, ones) one row each, so the declared corner takes 2*2048+6 = 4102
+# of the 16384 addressable NX8 rows.
+
+[kernel]
+op = "binary"
+formats = ["dynamic"]
+
+[params]
+op = { type = "str", choices = ["div"], default = "div" }
+numel = { type = "int", min = 1, max = 262144 }          # elements of a and of y
+inner = { type = "int", min = 0, max = 0, default = 0 }  # unused: b is one value
+broadcast = { type = "str", choices = ["scalar"], default = "scalar" }
+
+[derived]
+qf = "case_qf"                    # CR14: the case's QF half
+rows = "ceil(numel / 128)"        # a's and y's rows: the loop's trips
+slot1 = "128"                     # CR12: R1's element offset in Ra
+bound = "rows - 1"                # CR13: the row loop's bound (last row is straight-line)
+ds = "halves(ds(128), ds(1))"     # CR15: full row / the one-lane half for e
+
+[inputs.a]
+shape = ["numel"]
+range = [-1, 1]
+
+[inputs.b]
+shape = [1]                       # the scalar, lane 0 of one row
+range = [0.25, 4]                 # away from 0: 1/0 is an infinity, not a value
+
+[outputs.y]
+shape = ["numel"]
+
+[scratch.maskr]
+shape = [1, 128]
+bytes = "pack.py:mask_ones"       # LD.MASK: every lane active, whatever a previous kernel left
+
+[scratch.rcp]
+shape = [1, 128]                  # r = 1/b, the AaQ reciprocal of the scalar
+
+[scratch.t]
+shape = [1, 128]                  # t = 1 - b*r, the correction's numerator (lane 0 only)
+
+[scratch.e]
+shape = [1, 128]                  # e = t*r = (1 - b*r)/b, the correction (lane 0 only)
+
+[scratch.ones]
+shape = [1, 128]                  # exp2(0) = 1, seeds R_ACC for the subtraction
+
+[abi]
+a = "CR2"
+b = "CR3"
+y = "CR4"
+maskr = "CR5"
+rcp = "CR6"
+t = "CR9"
+e = "CR7"
+ones = "CR8"
+slot1 = "CR12"
+bound = "CR13"
+qf = "CR14"
+ds = "CR15"
+
+[golden]
+reference = "reference.py:reference"
+# The products and the accumulator add are exact in FP32 and the correction
+# leaves ~2^-13 relative error, so the kernel lands on the golden's own NX8
+# value; one step of margin for a row scale that moves.
+tolerance = { nx8 = { tier = "NX8_STEP", ulps = 1, why = "the store's row quantization, measured exact; one step of margin for a row scale that moves" } }
+
+[cases.default]                                   # google-t5/t5-small, x6 per forward
+op = "div"
+broadcast = "scalar"
+inner = 0
+numel = 4096
+
+[cases.surveyed_65536]                            # google-t5/t5-small, x6 per forward
+op = "div"
+broadcast = "scalar"
+inner = 0
+numel = 65536
+tier = "nightly"
+
+[cases.one]                                       # the narrowest call: one lane, one row
+op = "div"
+broadcast = "scalar"
+inner = 0
+numel = 1
+
+[cases.tile]                                      # exactly one 128-lane row
+op = "div"
+broadcast = "scalar"
+inner = 0
+numel = 128
+
+[cases.tail]                                      # one row and a lane
+op = "div"
+broadcast = "scalar"
+inner = 0
+numel = 129
+
+[cases.two_rows]                                  # the loop's shortest trip
+op = "div"
+broadcast = "scalar"
+inner = 0
+numel = 200
+
+[cases.sweep]                                     # the structure of the calls, scaled down
+op = "div"
+broadcast = "scalar"
+inner = 0
+numel = [1, 2, 5, 127, 128, 129, 130, 255, 256, 257, 1000, 4096]
