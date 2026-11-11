@@ -1,0 +1,151 @@
+# binary_div_row: y = a / b elementwise, b broadcast as a ROW, one
+# parameterised program.
+#
+#   op        : div      (the only op this program renders)
+#   broadcast : row     (b holds `inner` values, repeated over the rows of a)
+#   inner     : a power of two in [16, 128]: inner | 128 * ceil(inner/128),
+#               so b's tiled row repeats the values lane-aligned -- no
+#               rotation -- and inner <= 128 keeps b to one row, resident for
+#               the whole call (see kernelgen.toml's `unsupported` for the
+#               multi-row case).
+#
+# The quotient is a * (r + e) with r the AaQ reciprocal of the tiled b row
+# and e its Newton correction, both resident (R1, R0) for the whole call
+# (see binary_div_row.asm): the split is exact Newton for the resident r and
+# e's row is tight, so the measured error is at most 2 steps of the output
+# row's grid over the sweep (the tail case below: a lane where e's own store
+# lands a step off).
+#
+# Every tensor is the layout every activation on the chip uses: a and y are
+# ceil(numel/128) rows, row i holding elements 128i .. 128i+127, lanes past
+# numel zero. b is stored tiled: ceil(inner/128) rows, row j lane l holding
+# b[(128j + l) mod inner] -- exactly the lane the row-broadcast semantics name,
+# so no shuffle is needed and y is the next kernel's input with no repack.
+#
+# XMEM: a and y are ceil(numel/128) rows each and b, the mask, rcp, u, e and
+# twos are one row each -- the largest surveyed call takes 2*256+1+5+1 = 519
+# of the 16384 rows.
+
+[kernel]
+op = "binary"
+formats = ["dynamic"]
+
+[params]
+op = { type = "str", choices = ["div"], default = "div" }
+numel = { type = "int", min = 1, max = 262144 }                # elements of a and of y
+inner = { type = "int", choices = [16, 32, 64, 128], default = 16 }  # b's row length
+broadcast = { type = "str", choices = ["row"], default = "row" }
+
+[derived]
+qf = "case_qf"                                  # CR14: the case's QF half
+rows = "ceil(numel / 128)"                      # a's and y's rows: the loop's trips
+tail = "numel - 128 * (rows - 1)"               # the last row's active lanes
+ds = "halves(ds(128), ds(tail))"                # CR15: full row / last row
+slot1 = "128"                                   # CR10: R_CYCLIC's second slot index
+bound = "rows - ceil((128 - tail) / 127) - 1"   # CR11: the row loop's bound
+
+[inputs.a]
+shape = ["numel"]
+range = [-1, 1]
+
+[inputs.b]
+shape = ["inner"]                               # tiled over the lanes by pack.py
+range = [0.25, 4]                               # away from 0: 1/0 is an infinity, not a value
+pack = "tiled"
+
+[outputs.y]
+shape = ["numel"]
+
+[scratch.maskr]
+shape = [1, 128]
+bytes = "pack.py:mask_ones"                     # LD.MASK: every lane active, whatever a previous kernel left
+
+[scratch.e]
+shape = [1, 128]                                # e = r*(2 - b*r) - r: the tight correction row
+
+[scratch.rcp]
+shape = [1, 128]                                # r = 1/b, the AaQ reciprocal, one b row at a time
+
+[scratch.u]
+shape = [1, 128]                                # u = 2 - b*r, one b row at a time
+
+[scratch.twos]
+shape = [1, 128]
+fill = 2.0                                      # seeds R_ACC for the subtraction
+
+[abi]
+a = "CR2"
+b = "CR3"
+y = "CR4"
+maskr = "CR5"
+rcp = "CR7"
+u = "CR8"
+twos = "CR9"
+slot1 = "CR10"
+bound = "CR11"
+e = "CR12"
+qf = "CR14"
+ds = "CR15"
+
+[golden]
+reference = "reference.py:reference"
+# The split is exact Newton for the resident r: r + e = (1/b)(1 - eps^2) with
+# eps = b*r - 1, whatever r's own store did, and e's row is tight (its scale
+# is max|r*(1-b*r)|, ~b*r*eps < 6% of a lane's magnitude), so its store costs
+# ~2^-8 of a lane's magnitude. The measured distance over the sweep is at
+# most 2 steps of the output row's grid; the tolerance holds one step more.
+tolerance = { nx8 = { tier = "NX8_STEP", ulps = 3, why = "the three NX8 round trips of the split (rcp corrected by Newton, e tight); measured at most 2 steps over the sweep, one step of margin" } }
+
+[cases.default]                                 # facebook/detr-resnet-50, x1 per forward
+op = "div"
+broadcast = "row"
+inner = 16
+numel = 256
+
+[cases.detr_128]                                # facebook/detr-resnet-50, x2 per forward
+op = "div"
+broadcast = "row"
+inner = 128
+numel = 32768
+
+[cases.one]                                     # the narrowest call: one lane, one row
+op = "div"
+broadcast = "row"
+inner = 16
+numel = 1
+
+[cases.tile]                                    # exactly one 128-lane row
+op = "div"
+broadcast = "row"
+inner = 128
+numel = 128
+
+[cases.tail]                                    # one row and a lane
+op = "div"
+broadcast = "row"
+inner = 16
+numel = 129
+
+[cases.two_rows]                                # the loop's shortest trip
+op = "div"
+broadcast = "row"
+inner = 16
+numel = 200
+
+[cases.inner_128]                               # detr's x2 call, the widest inner
+op = "div"
+broadcast = "row"
+inner = 128
+numel = 1000
+
+[cases.wide]                                    # many rows, one b row
+op = "div"
+broadcast = "row"
+inner = 64
+numel = 4096
+
+[cases.sweep]                                   # the structure of the calls, scaled down
+op = "div"
+broadcast = "row"
+inner = [16, 32, 64, 128]
+numel = [1, 2, 5, 127, 128, 129, 130, 255, 256, 257, 300, 500, 700, 1000]
