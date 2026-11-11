@@ -46,5 +46,11 @@
   "name": "gemm",
   "params": "{\"act\": \"str: none | relu | silu | gelu_tanh (fused at the store)\", \"bias\": \"bool: add bias[n]\", \"k\": \"reduction\", \"m\": \"rows of x (tokens)\", \"n\": \"outputs\"}",
   "tensors": "activations x [m, k] in, y [m, n] out, both in the row layout (so y is the next gemm's x); constants w [n, k] and bias [n], laid out offline as the program wants"
+ },
+ {
+  "doc": "y[t, :] = table[idx[t], :]: embeddings, index_select, KV-cache reads.",
+  "name": "gather_rows",
+  "params": "{\"count\": \"int: rows gathered\", \"dim\": \"int\", \"rows\": \"int: table rows\"}",
+  "tensors": "inputs table [rows, dim], idx [count] (row numbers); output y [count, dim]"
  }
 ]

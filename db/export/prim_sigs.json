@@ -252,9 +252,23 @@
   "task_id": 4
  },
  {
+  "canonical": "binary{broadcast=none,inner=0,numel=1920000,op=add}",
+  "id": 180,
+  "params": "{\"broadcast\": \"none\", \"inner\": 0, \"numel\": 1920000, \"op\": \"add\"}",
+  "primitive": "binary",
+  "task_id": 4
+ },
+ {
   "canonical": "binary{broadcast=none,inner=0,numel=262144,op=add}",
   "id": 24,
   "params": "{\"broadcast\": \"none\", \"inner\": 0, \"numel\": 262144, \"op\": \"add\"}",
+  "primitive": "binary",
+  "task_id": 4
+ },
+ {
+  "canonical": "binary{broadcast=none,inner=0,numel=40960,op=add}",
+  "id": 196,
+  "params": "{\"broadcast\": \"none\", \"inner\": 0, \"numel\": 40960, \"op\": \"add\"}",
   "primitive": "binary",
   "task_id": 4
  },
@@ -271,6 +285,55 @@
   "params": "{\"broadcast\": \"none\", \"inner\": 0, \"numel\": 49152, \"op\": \"add\"}",
   "primitive": "binary",
   "task_id": 4
+ },
+ {
+  "canonical": "binary{broadcast=row,inner=1024,numel=20480,op=add}",
+  "id": 205,
+  "params": "{\"broadcast\": \"row\", \"inner\": 1024, \"numel\": 20480, \"op\": \"add\"}",
+  "primitive": "binary",
+  "task_id": 20
+ },
+ {
+  "canonical": "binary{broadcast=scalar,inner=0,numel=1920000,op=mul}",
+  "id": 183,
+  "params": "{\"broadcast\": \"scalar\", \"inner\": 0, \"numel\": 1920000, \"op\": \"mul\"}",
+  "primitive": "binary",
+  "task_id": 17
+ },
+ {
+  "canonical": "binary{broadcast=scalar,inner=0,numel=20480,op=mul}",
+  "id": 204,
+  "params": "{\"broadcast\": \"scalar\", \"inner\": 0, \"numel\": 20480, \"op\": \"mul\"}",
+  "primitive": "binary",
+  "task_id": 17
+ },
+ {
+  "canonical": "binary{broadcast=scalar,inner=0,numel=32,op=add}",
+  "id": 193,
+  "params": "{\"broadcast\": \"scalar\", \"inner\": 0, \"numel\": 32, \"op\": \"add\"}",
+  "primitive": "binary",
+  "task_id": 18
+ },
+ {
+  "canonical": "binary{broadcast=scalar,inner=0,numel=40960,op=mul}",
+  "id": 200,
+  "params": "{\"broadcast\": \"scalar\", \"inner\": 0, \"numel\": 40960, \"op\": \"mul\"}",
+  "primitive": "binary",
+  "task_id": 17
+ },
+ {
+  "canonical": "binary{broadcast=scalar,inner=0,numel=45000000,op=mul}",
+  "id": 186,
+  "params": "{\"broadcast\": \"scalar\", \"inner\": 0, \"numel\": 45000000, \"op\": \"mul\"}",
+  "primitive": "binary",
+  "task_id": 17
+ },
+ {
+  "canonical": "binary{broadcast=scalar,inner=0,numel=960000,op=mul}",
+  "id": 210,
+  "params": "{\"broadcast\": \"scalar\", \"inner\": 0, \"numel\": 960000, \"op\": \"mul\"}",
+  "primitive": "binary",
+  "task_id": 17
  },
  {
   "canonical": "conv2d{bias=False,cin=128,cout=128,groups=1,h=16,kh=3,kw=3,padding=1,stride=1,w=16}",
@@ -378,6 +441,20 @@
   "task_id": 14
  },
  {
+  "canonical": "conv2d{bias=True,cin=128,cout=1280,groups=1,h=1,kh=1,kw=3,padding=1,stride=1,w=3000}",
+  "id": 175,
+  "params": "{\"bias\": true, \"cin\": 128, \"cout\": 1280, \"groups\": 1, \"h\": 1, \"kh\": 1, \"kw\": 3, \"padding\": 1, \"stride\": 1, \"w\": 3000}",
+  "primitive": "conv2d",
+  "task_id": 13
+ },
+ {
+  "canonical": "conv2d{bias=True,cin=1280,cout=1280,groups=1,h=1,kh=1,kw=3,padding=1,stride=2,w=3000}",
+  "id": 177,
+  "params": "{\"bias\": true, \"cin\": 1280, \"cout\": 1280, \"groups\": 1, \"h\": 1, \"kh\": 1, \"kw\": 3, \"padding\": 1, \"stride\": 2, \"w\": 3000}",
+  "primitive": "conv2d",
+  "task_id": 13
+ },
+ {
   "canonical": "conv2d{bias=True,cin=160,cout=160,groups=1,h=8,kh=3,kw=3,padding=1,stride=1,w=8}",
   "id": 135,
   "params": "{\"bias\": true, \"cin\": 160, \"cout\": 160, \"groups\": 1, \"h\": 8, \"kh\": 3, \"kw\": 3, \"padding\": 1, \"stride\": 1, \"w\": 8}",
@@ -455,6 +532,20 @@
   "task_id": 13
  },
  {
+  "canonical": "gather_rows{count=1500,dim=1280,rows=1500}",
+  "id": 179,
+  "params": "{\"count\": 1500, \"dim\": 1280, \"rows\": 1500}",
+  "primitive": "gather_rows",
+  "task_id": 16
+ },
+ {
+  "canonical": "gather_rows{count=32,dim=1280,rows=51866}",
+  "id": 192,
+  "params": "{\"count\": 32, \"dim\": 1280, \"rows\": 51866}",
+  "primitive": "gather_rows",
+  "task_id": 16
+ },
+ {
   "canonical": "gemm{act=none,bias=False,k=1152,m=256,n=128}",
   "id": 55,
   "params": "{\"act\": \"none\", \"bias\": false, \"k\": 1152, \"m\": 256, \"n\": 128}",
@@ -490,6 +581,27 @@
   "task_id": 1
  },
  {
+  "canonical": "gemm{act=none,bias=False,k=1280,m=1500,n=1280}",
+  "id": 184,
+  "params": "{\"act\": \"none\", \"bias\": false, \"k\": 1280, \"m\": 1500, \"n\": 1280}",
+  "primitive": "gemm",
+  "task_id": 1
+ },
+ {
+  "canonical": "gemm{act=none,bias=False,k=1280,m=32,n=1280}",
+  "id": 201,
+  "params": "{\"act\": \"none\", \"bias\": false, \"k\": 1280, \"m\": 32, \"n\": 1280}",
+  "primitive": "gemm",
+  "task_id": 1
+ },
+ {
+  "canonical": "gemm{act=none,bias=False,k=1280,m=32,n=51866}",
+  "id": 216,
+  "params": "{\"act\": \"none\", \"bias\": false, \"k\": 1280, \"m\": 32, \"n\": 51866}",
+  "primitive": "gemm",
+  "task_id": 1
+ },
+ {
   "canonical": "gemm{act=none,bias=False,k=144,m=1024,n=96}",
   "id": 43,
   "params": "{\"act\": \"none\", \"bias\": false, \"k\": 144, \"m\": 1024, \"n\": 96}",
@@ -500,6 +612,20 @@
   "canonical": "gemm{act=none,bias=False,k=1440,m=64,n=160}",
   "id": 79,
   "params": "{\"act\": \"none\", \"bias\": false, \"k\": 1440, \"m\": 64, \"n\": 160}",
+  "primitive": "gemm",
+  "task_id": 1
+ },
+ {
+  "canonical": "gemm{act=none,bias=False,k=1500,m=1500,n=64}",
+  "id": 188,
+  "params": "{\"act\": \"none\", \"bias\": false, \"k\": 1500, \"m\": 1500, \"n\": 64}",
+  "primitive": "gemm",
+  "task_id": 1
+ },
+ {
+  "canonical": "gemm{act=none,bias=False,k=1500,m=32,n=64}",
+  "id": 212,
+  "params": "{\"act\": \"none\", \"bias\": false, \"k\": 1500, \"m\": 32, \"n\": 64}",
   "primitive": "gemm",
   "task_id": 1
  },
@@ -623,6 +749,13 @@
   "task_id": 1
  },
  {
+  "canonical": "gemm{act=none,bias=False,k=32,m=32,n=64}",
+  "id": 207,
+  "params": "{\"act\": \"none\", \"bias\": false, \"k\": 32, \"m\": 32, \"n\": 64}",
+  "primitive": "gemm",
+  "task_id": 1
+ },
+ {
   "canonical": "gemm{act=none,bias=False,k=36,m=256,n=256,x_from=heads:3:4:36}",
   "id": 151,
   "params": "{\"act\": \"none\", \"bias\": false, \"k\": 36, \"m\": 256, \"n\": 256, \"x_from\": \"heads:3:4:36\"}",
@@ -679,9 +812,30 @@
   "task_id": 1
  },
  {
+  "canonical": "gemm{act=none,bias=False,k=64,m=1500,n=1500}",
+  "id": 185,
+  "params": "{\"act\": \"none\", \"bias\": false, \"k\": 64, \"m\": 1500, \"n\": 1500}",
+  "primitive": "gemm",
+  "task_id": 1
+ },
+ {
   "canonical": "gemm{act=none,bias=False,k=64,m=16384,n=32}",
   "id": 8,
   "params": "{\"act\": \"none\", \"bias\": false, \"k\": 64, \"m\": 16384, \"n\": 32}",
+  "primitive": "gemm",
+  "task_id": 1
+ },
+ {
+  "canonical": "gemm{act=none,bias=False,k=64,m=32,n=1500}",
+  "id": 209,
+  "params": "{\"act\": \"none\", \"bias\": false, \"k\": 64, \"m\": 32, \"n\": 1500}",
+  "primitive": "gemm",
+  "task_id": 1
+ },
+ {
+  "canonical": "gemm{act=none,bias=False,k=64,m=32,n=32}",
+  "id": 203,
+  "params": "{\"act\": \"none\", \"bias\": false, \"k\": 64, \"m\": 32, \"n\": 32}",
   "primitive": "gemm",
   "task_id": 1
  },
@@ -780,6 +934,34 @@
   "canonical": "gemm{act=none,bias=True,k=128,m=4096,n=64}",
   "id": 118,
   "params": "{\"act\": \"none\", \"bias\": true, \"k\": 128, \"m\": 4096, \"n\": 64}",
+  "primitive": "gemm",
+  "task_id": 1
+ },
+ {
+  "canonical": "gemm{act=none,bias=True,k=1280,m=1500,n=1280}",
+  "id": 182,
+  "params": "{\"act\": \"none\", \"bias\": true, \"k\": 1280, \"m\": 1500, \"n\": 1280}",
+  "primitive": "gemm",
+  "task_id": 1
+ },
+ {
+  "canonical": "gemm{act=none,bias=True,k=1280,m=1500,n=5120}",
+  "id": 189,
+  "params": "{\"act\": \"none\", \"bias\": true, \"k\": 1280, \"m\": 1500, \"n\": 5120}",
+  "primitive": "gemm",
+  "task_id": 1
+ },
+ {
+  "canonical": "gemm{act=none,bias=True,k=1280,m=32,n=1280}",
+  "id": 199,
+  "params": "{\"act\": \"none\", \"bias\": true, \"k\": 1280, \"m\": 32, \"n\": 1280}",
+  "primitive": "gemm",
+  "task_id": 1
+ },
+ {
+  "canonical": "gemm{act=none,bias=True,k=1280,m=32,n=5120}",
+  "id": 213,
+  "params": "{\"act\": \"none\", \"bias\": true, \"k\": 1280, \"m\": 32, \"n\": 5120}",
   "primitive": "gemm",
   "task_id": 1
  },
@@ -994,6 +1176,20 @@
   "task_id": 1
  },
  {
+  "canonical": "gemm{act=none,bias=True,k=5120,m=1500,n=1280}",
+  "id": 191,
+  "params": "{\"act\": \"none\", \"bias\": true, \"k\": 5120, \"m\": 1500, \"n\": 1280}",
+  "primitive": "gemm",
+  "task_id": 1
+ },
+ {
+  "canonical": "gemm{act=none,bias=True,k=5120,m=32,n=1280}",
+  "id": 215,
+  "params": "{\"act\": \"none\", \"bias\": true, \"k\": 5120, \"m\": 32, \"n\": 1280}",
+  "primitive": "gemm",
+  "task_id": 1
+ },
+ {
   "canonical": "gemm{act=none,bias=True,k=64,m=16384,n=32}",
   "id": 115,
   "params": "{\"act\": \"none\", \"bias\": true, \"k\": 64, \"m\": 16384, \"n\": 32}",
@@ -1022,6 +1218,13 @@
   "task_id": 1
  },
  {
+  "canonical": "layout{kind=concat,numel=1920000}",
+  "id": 208,
+  "params": "{\"kind\": \"concat\", \"numel\": 1920000}",
+  "primitive": "layout",
+  "task_id": 8
+ },
+ {
   "canonical": "layout{kind=concat,numel=196608}",
   "id": 44,
   "params": "{\"kind\": \"concat\", \"numel\": 196608}",
@@ -1036,6 +1239,13 @@
   "task_id": 8
  },
  {
+  "canonical": "layout{kind=concat,numel=40960}",
+  "id": 202,
+  "params": "{\"kind\": \"concat\", \"numel\": 40960}",
+  "primitive": "layout",
+  "task_id": 8
+ },
+ {
   "canonical": "layout{kind=concat,numel=65536}",
   "id": 68,
   "params": "{\"kind\": \"concat\", \"numel\": 65536}",
@@ -1043,11 +1253,46 @@
   "task_id": 8
  },
  {
+  "canonical": "layout{kind=copy,numel=1024}",
+  "id": 197,
+  "params": "{\"kind\": \"copy\", \"numel\": 1024}",
+  "primitive": "layout",
+  "task_id": 19
+ },
+ {
+  "canonical": "layout{kind=copy,numel=32}",
+  "id": 194,
+  "params": "{\"kind\": \"copy\", \"numel\": 32}",
+  "primitive": "layout",
+  "task_id": 19
+ },
+ {
+  "canonical": "layout{kind=copy,numel=40960}",
+  "id": 195,
+  "params": "{\"kind\": \"copy\", \"numel\": 40960}",
+  "primitive": "layout",
+  "task_id": 19
+ },
+ {
   "canonical": "reduce_rows{kind=mean,n=64,rows=640}",
   "id": 97,
   "params": "{\"kind\": \"mean\", \"n\": 64, \"rows\": 640}",
   "primitive": "reduce_rows",
   "task_id": 9
+ },
+ {
+  "canonical": "row_norm{channels=1280,kind=layernorm,rows=1500}",
+  "id": 181,
+  "params": "{\"channels\": 1280, \"kind\": \"layernorm\", \"rows\": 1500}",
+  "primitive": "row_norm",
+  "task_id": 5
+ },
+ {
+  "canonical": "row_norm{channels=1280,kind=layernorm,rows=32}",
+  "id": 198,
+  "params": "{\"channels\": 1280, \"kind\": \"layernorm\", \"rows\": 32}",
+  "primitive": "row_norm",
+  "task_id": 5
  },
  {
   "canonical": "row_norm{channels=144,kind=layernorm,rows=1024,x_from=patches:2}",
@@ -1113,6 +1358,20 @@
   "task_id": 5
  },
  {
+  "canonical": "row_softmax{n=1500,rows=30000}",
+  "id": 187,
+  "params": "{\"n\": 1500, \"rows\": 30000}",
+  "primitive": "row_softmax",
+  "task_id": 6
+ },
+ {
+  "canonical": "row_softmax{n=1500,rows=640}",
+  "id": 211,
+  "params": "{\"n\": 1500, \"rows\": 640}",
+  "primitive": "row_softmax",
+  "task_id": 6
+ },
+ {
   "canonical": "row_softmax{n=16,rows=256}",
   "id": 84,
   "params": "{\"n\": 16, \"rows\": 256}",
@@ -1127,11 +1386,46 @@
   "task_id": 6
  },
  {
+  "canonical": "row_softmax{n=32,rows=640}",
+  "id": 206,
+  "params": "{\"n\": 32, \"rows\": 640}",
+  "primitive": "row_softmax",
+  "task_id": 6
+ },
+ {
   "canonical": "row_softmax{n=64,rows=1024}",
   "id": 60,
   "params": "{\"n\": 64, \"rows\": 1024}",
   "primitive": "row_softmax",
   "task_id": 6
+ },
+ {
+  "canonical": "unary{fn=gelu,numel=163840}",
+  "id": 214,
+  "params": "{\"fn\": \"gelu\", \"numel\": 163840}",
+  "primitive": "unary",
+  "task_id": 15
+ },
+ {
+  "canonical": "unary{fn=gelu,numel=1920000}",
+  "id": 178,
+  "params": "{\"fn\": \"gelu\", \"numel\": 1920000}",
+  "primitive": "unary",
+  "task_id": 15
+ },
+ {
+  "canonical": "unary{fn=gelu,numel=3840000}",
+  "id": 176,
+  "params": "{\"fn\": \"gelu\", \"numel\": 3840000}",
+  "primitive": "unary",
+  "task_id": 15
+ },
+ {
+  "canonical": "unary{fn=gelu,numel=7680000}",
+  "id": 190,
+  "params": "{\"fn\": \"gelu\", \"numel\": 7680000}",
+  "primitive": "unary",
+  "task_id": 15
  },
  {
   "canonical": "unary{fn=silu,numel=10240}",

@@ -1,5 +1,31 @@
 [
  {
+  "body": "- **General GEMM kernel is the highest-priority unlock**: It serves 100.0% of off-chip MACs across both surveyed models, whereas other proposed changes (indexed loads, LayerNorm/RMSNorm) offer 0.0% benefit and complete zero models.\n- **LayerNorm and RMSNorm fixes are currently ineffective**: Implementing eps support or RMSNorm kernels would complete 0 models and serve 0.0% of off-chip MACs, indicating these are not the current bottlenecks for the surveyed set.\n- **Indexed loads offer negligible return**: Supporting gather rows would only serve 0.0% of off-chip MACs and complete 0 models, making it a low-priority ISA change compared to matmul optimizations.\n- **Softmax substitution via `exp2` is the safest approximation**: It achieves the highest SQNR (13.8 dB) among catalogue-based approximations, though the agent-generated `silu` split-range variation is superior at 16.5 dB.\n- **BatchNorm folding is risky**: The `fold` method yields the lowest SQNR (12.4 dB) among listed substitutes, suggesting it may degrade accuracy more than other variations in NX8.\n- **Prioritize unblocking `conv2d` and `gemm` tasks**: These are the only \"running\" tasks with multiple models waiting (2 and 1 respectively), while 45 models remain queued and 11 failed, indicating a severe throughput bottleneck in core compute kernels.",
+  "created_at": 1794379214.5399356,
+  "id": 10,
+  "kind": "summary",
+  "model_id": null,
+  "numbers": "{\"digest\": \"a3a335b070a78c04\"}",
+  "op": null,
+  "origin": "agent:nvidia/Qwen3.8-Flash-Next-FP4-Local",
+  "scope": "global",
+  "step_id": 241,
+  "title": "Summary"
+ },
+ {
+  "body": "- `aten`: 1 models",
+  "created_at": 1794379196.239973,
+  "id": 5,
+  "kind": "blocking_op",
+  "model_id": null,
+  "numbers": "[{\"models\": 1, \"op\": \"aten\"}]",
+  "op": null,
+  "origin": "computed",
+  "scope": "global",
+  "step_id": 241,
+  "title": "Ops with no lowering yet"
+ },
+ {
   "body": "Every elementwise kernel measured (the emulator's own `scale` and `residual_add`, and Qwen's\n`binary_mul_col`) spends five instruction words per 128-element row (load; multiply + accumulate; store;\ncounters; branch), so the multiplier works 20% of the time.\n\nThe timing contract already allows one word per row: LOAD reads LRs after the word's LR writes, MULT\nreads its registers at cycle start (so it multiplies the previous word's load), ACC/AAQ take this word's\nresults, and the LR sub-slots and the branch read cycle-start LRs.\n\nMeasured on the emulator, no ISA change:\n- `scale` (y = x*s, 128 rows): 642 -> 132 cycles (4.9x), multiplier 20% -> 97%.\n- Qwen's `binary_mul_col` (87 cases, e4/e5/dynamic, hardware-clean): 1302 -> 280 cycles (4.65x), 20% -> 91%.\n\nCaveat: the last iteration loads one row past the input (harmless unless the input ends XMEM).\nThe agent prompt now has this pattern (harness change, 2026-11-10).",
   "created_at": 1794300775.388615,
   "id": 1,
@@ -13,6 +39,19 @@
   "title": "Elementwise loops run at 5 words per row; the timing contract allows 1"
  },
  {
+  "body": "MACs on chip 54.6% -> 76.4%, calls on chip 32.7% -> 98.5%.\n\n- **not attempted**: conv2d\n- **no lowering**: aten\n- **no realisation**: aten",
+  "created_at": 1794379196.233087,
+  "id": 3,
+  "kind": "model",
+  "model_id": 43,
+  "numbers": "{\"after_calls_pct\": 98.45, \"after_macs_pct\": 76.37, \"attempts\": 51, \"before_calls_pct\": 32.74, \"before_macs_pct\": 54.6, \"finished\": null, \"harness_id\": 1, \"id\": 1, \"llm_s\": 111490.9, \"model_id\": 43, \"outcome\": \"partial\", \"phase\": \"back_out\", \"started\": 1794249050.0702572}",
+  "op": null,
+  "origin": "computed",
+  "scope": "model",
+  "step_id": 241,
+  "title": "mobilevit_s.cvnets_in1k: visit 1"
+ },
+ {
   "body": "Multiplier utilisation on the emulator (largest cases):\n\n| kernel | Qwen | emulator's own |\n|---|---|---|\n| gemm | 94-98% | matmul_x128_c2 95.5%, matmul_small 46%, fully_connected 48% |\n| row softmax | 36% (4096x256) | softmax_rows_long 10-11%, softmax_rows_partial 1-6% |\n| layernorm | 15-24% | layernorm 46% |\n| elementwise mul | 20% | scale / residual_add 20% (both pipelinable to ~95%) |\n\nQwen's gemm matches the best hand-written matmul and its softmax beats the emulator's; its layernorm is\nabout half as efficient as the emulator's. (The gemm, softmax and layernorm numbers come from attempts the\nharness wrongly rejected; those kernels are being rewritten.)",
   "created_at": 1794300775.402844,
   "id": 2,
@@ -24,5 +63,70 @@
   "scope": "global",
   "step_id": null,
   "title": "Qwen's kernels vs the emulator's known-good kernels (MobileViT visit)"
+ },
+ {
+  "body": "Serves off-chip layers of **1** of 2 surveyed models (0.0% of off-chip MACs); would complete **0** of them.\n\nWhy: indexed rows have no load form.",
+  "created_at": 1794379196.242269,
+  "id": 6,
+  "kind": "isa_whatif",
+  "model_id": null,
+  "numbers": "{\"macs_share\": 0.0, \"models_completed\": [], \"models_served\": 1, \"ops\": [\"concat\", \"embedding\", \"gather\", \"scatter\", \"select_where\"]}",
+  "op": null,
+  "origin": "computed",
+  "scope": "isa",
+  "step_id": 241,
+  "title": "If an indexed (gather) load"
+ },
+ {
+  "body": "Serves off-chip layers of **1** of 2 surveyed models (0.0% of off-chip MACs); would complete **0** of them.\n\nWhy: the emulator's LayerNorm drops eps (Q57); RMSNorm has none.",
+  "created_at": 1794379196.2435622,
+  "id": 7,
+  "kind": "isa_whatif",
+  "model_id": null,
+  "numbers": "{\"macs_share\": 0.0, \"models_completed\": [], \"models_served\": 1, \"ops\": [\"groupnorm\", \"layernorm\", \"rmsnorm\"]}",
+  "op": null,
+  "origin": "computed",
+  "scope": "isa",
+  "step_id": 241,
+  "title": "If LayerNorm eps and an RMSNorm kernel"
+ },
+ {
+  "body": "Serves off-chip layers of **2** of 2 surveyed models (100.0% of off-chip MACs); would complete **0** of them.\n\nWhy: most MACs are matmuls; today's kernels take m <= 128 or k <= 128.",
+  "created_at": 1794379196.2446625,
+  "id": 8,
+  "kind": "isa_whatif",
+  "model_id": null,
+  "numbers": "{\"macs_share\": 1.0, \"models_completed\": [], \"models_served\": 2, \"ops\": [\"attention\", \"bmm\", \"conv1d\", \"conv2d\", \"linear\"]}",
+  "op": null,
+  "origin": "computed",
+  "scope": "isa",
+  "step_id": 241,
+  "title": "If a general GEMM kernel (any m, k, n)"
+ },
+ {
+  "body": "| op | method | kind | origin | SQNR dB (NX8) | model |\n|---|---|---|---|---:|---|\n| batchnorm | fold | variation | catalogue | 12.4 | mobilevit_s.cvnets_in1k |\n| layernorm | qwen3_8_flash_ne_variation_fused_mean_var | variation | agent | 14.5 | mobilevit_s.cvnets_in1k |\n| silu | qwen3_8_flash_ne_silu_split_range | variation | agent | 16.5 | mobilevit_s.cvnets_in1k |\n| softmax | exp2 | approximation | catalogue | 13.8 | mobilevit_s.cvnets_in1k |",
+  "created_at": 1794379196.2457602,
+  "id": 9,
+  "kind": "substitute",
+  "model_id": null,
+  "numbers": "[{\"kind\": \"variation\", \"method\": \"fold\", \"model_id\": 43, \"op\": \"batchnorm\", \"origin\": \"catalogue\", \"sqnr\": 12.40995365255593}, {\"kind\": \"variation\", \"method\": \"qwen3_8_flash_ne_variation_fused_mean_var\", \"model_id\": 43, \"op\": \"layernorm\", \"origin\": \"agent\", \"sqnr\": 14.494406273396956}, {\"kind\": \"variation\", \"method\": \"qwen3_8_flash_ne_silu_split_range\", \"model_id\": 43, \"op\": \"silu\", \"origin\": \"agent\", \"sqnr\": 16.511857194562275}, {\"kind\": \"approximation\", \"method\": \"exp2\", \"model_id\": 43, \"op\": \"softmax\", \"origin\": \"catalogue\", \"sqnr\": 13.834408783649781}]",
+  "op": null,
+  "origin": "computed",
+  "scope": "global",
+  "step_id": 241,
+  "title": "Best substitute per op (NX8 dynamic)"
+ },
+ {
+  "body": "| task | status | models waiting | layer types |\n|---|---|---:|---:|\n| conv2d | running | 2 | 4 |\n| gemm | running | 1 | 11 |\n| binary_mul_scalar | running | 1 | 5 |\n| gather_rows | open | 1 | 2 |\n| row_norm_layernorm | open | 1 | 2 |\n| row_softmax | open | 1 | 2 |\n| binary_add_row | open | 1 | 1 |\n| binary_add_scalar | open | 1 | 1 |\n| layout_copy | open | 1 | 1 |",
+  "created_at": 1794379196.238851,
+  "id": 4,
+  "kind": "blocking_op",
+  "model_id": null,
+  "numbers": "[{\"layers\": 4, \"models\": 2, \"task\": \"conv2d\", \"task_status\": \"running\"}, {\"layers\": 11, \"models\": 1, \"task\": \"gemm\", \"task_status\": \"running\"}, {\"layers\": 5, \"models\": 1, \"task\": \"binary_mul_scalar\", \"task_status\": \"running\"}, {\"layers\": 2, \"models\": 1, \"task\": \"gather_rows\", \"task_status\": \"open\"}, {\"layers\": 2, \"models\": 1, \"task\": \"row_norm_layernorm\", \"task_status\": \"open\"}, {\"layers\": 2, \"models\": 1, \"task\": \"row_softmax\", \"task_status\": \"open\"}, {\"layers\": 1, \"models\": 1, \"task\": \"binary_add_row\", \"task_status\": \"open\"}, {\"layers\": 1, \"models\": 1, \"task\": \"binary_add_scalar\", \"task_status\": \"open\"}, {\"layers\": 1, \"models\": 1, \"task\": \"layout_copy\", \"task_status\": \"open\"}]",
+  "op": null,
+  "origin": "computed",
+  "scope": "global",
+  "step_id": 241,
+  "title": "Kernel tasks blocking the most models"
  }
 ]

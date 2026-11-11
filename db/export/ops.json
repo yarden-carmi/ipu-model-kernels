@@ -1,6 +1,12 @@
 [
  {
   "category": "activation",
+  "isa_path": "no erf: tanh/sigmoid estimation, or the generic LUT",
+  "isa_support": "none",
+  "name": "gelu"
+ },
+ {
+  "category": "activation",
   "isa_path": "x * sigmoid(x) via exp2 + reciprocal",
   "isa_support": "composed",
   "name": "silu"
@@ -18,16 +24,58 @@
   "name": "conv2d"
  },
  {
+  "category": "conv",
+  "isa_path": null,
+  "isa_support": "native",
+  "name": "conv1d"
+ },
+ {
   "category": "data",
   "isa_path": null,
   "isa_support": "native",
   "name": "concat"
  },
  {
+  "category": "data",
+  "isa_path": null,
+  "isa_support": "native",
+  "name": "embedding"
+ },
+ {
+  "category": "data",
+  "isa_path": null,
+  "isa_support": "native",
+  "name": "gather"
+ },
+ {
+  "category": "data",
+  "isa_path": null,
+  "isa_support": "native",
+  "name": "repeat"
+ },
+ {
+  "category": "data",
+  "isa_path": null,
+  "isa_support": "native",
+  "name": "select_where"
+ },
+ {
   "category": "elementwise",
   "isa_path": "ACC.ADD",
   "isa_support": "native",
   "name": "add"
+ },
+ {
+  "category": "elementwise",
+  "isa_path": "MULT",
+  "isa_support": "native",
+  "name": "mul"
+ },
+ {
+  "category": "matmul",
+  "isa_path": "MULT + ACC",
+  "isa_support": "native",
+  "name": "bmm"
  },
  {
   "category": "matmul",
@@ -66,6 +114,12 @@
   "name": "adaptive_avgpool2d"
  },
  {
+  "category": "softmax",
+  "isa_path": "AGG.MAX, MULT, exp2, AGG.SUM, reciprocal",
+  "isa_support": "composed",
+  "name": "softmax"
+ },
+ {
   "category": null,
   "isa_path": "2 sigmoid(2x) - 1 via exp2 + reciprocal",
   "isa_support": "composed",
@@ -88,12 +142,6 @@
   "isa_path": "ACTIVATE.QUANTIZE rsqrt",
   "isa_support": "native",
   "name": "rsqrt"
- },
- {
-  "category": null,
-  "isa_path": "AGG.MAX, MULT, exp2, AGG.SUM, reciprocal",
-  "isa_support": "composed",
-  "name": "softmax"
  },
  {
   "category": null,
@@ -124,12 +172,6 @@
   "isa_path": "no erf: tanh form via exp2 + reciprocal",
   "isa_support": "none",
   "name": "erf"
- },
- {
-  "category": null,
-  "isa_path": "no erf: tanh/sigmoid estimation, or the generic LUT",
-  "isa_support": "none",
-  "name": "gelu"
  },
  {
   "category": null,
