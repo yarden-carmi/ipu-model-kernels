@@ -1,29 +1,25 @@
 # row_softmax: y[r, :] = softmax(x[r, :]) over each row of a (rows, n) matrix.
 #
-# One parameterised program for every (rows, n): the row loop is dynamic and the
-# row's 128-lane chunks are rendered per call, so the shape reaches the program
-# only through CRs and one launch takes a whole (rows, n) call. The host only
-# launches (and tiles `rows` when a call's two regions would not fit XMEM).
+# One parameterised program for every (rows, n): the row loop is dynamic and
+# the row's 128-lane chunks are a rendered per-call unroll, so the shape
+# reaches the program only through CRs and one launch takes a whole (rows, n)
+# tile. The host only launches; it tiles `rows` when a call's two regions
+# would not fit one XMEM (2 * tile_rows * tiles <= 16384, so a 1500-wide call
+# tiles at 682 rows and whisper's 30000-row call is 44 launches) -- per-row
+# softmax makes the tiles independent, and the program loops over any rows.
 #
 # Hardware-clean NX8 (formats = ["dynamic"], the chip's one NX8 type): every
 # store is an ACTIVATE.QUANTIZE -- relu for the row's max, exp2 for the
 # numerators, reciprocal for the row's 1/sum, identity for the output -- the
 # accumulator is FP32, and no emulator-only instruction appears.
 #
-# Four passes over the row (max, exp2, sum, reciprocal), one word per chunk
-# where the slot allows: 9 words per row at one chunk, 14 at two. R_CYCLIC holds
-# the row's x chunks in slots 0 and 1 and its numerator chunks in slots 2 and 3
-# at once, so each row is read from XMEM exactly the minimum number of times.
-#
-# Memory: x is rows*tiles rows and y is rows*tiles (tiles = ceil(n / 128)), and
-# that is all the program owns -- 2 * rows * tiles <= 16384 is exactly what the
-# widest call (4096 rows at n = 256) uses, so there is no separate numerator
-# region: pass 2 stores the numerators INTO y and pass 4 overwrites them with
-# the probabilities. The one scratch row the two scalars (the row's max, then
-# its 1/sum) round-trip through is y's own last row, which is written last of
-# all; and every chunk of the row is already resident in its own R_CYCLIC slot
-# when a scalar lands there (tiles <= 2, i.e. n <= 256). A call must therefore
-# fit 2 * rows * ceil(n / 128) <= 16384 rows.
+# Four passes over the row (max, exp2, sum, reciprocal), streamed chunk by
+# chunk through R_CYCLIC slot 0 (the next chunk's load rides in the word that
+# multiplies the current one), so n is bounded only by the rendered unroll,
+# not by the four slots: ~4 words per chunk per row. The numerators live in
+# the y rows themselves (pass 4 overwrites them with the probabilities) and
+# the two scalars -- the row's max, then its 1/sum -- round-trip through y's
+# own last row, which is written last of all.
 #
 # The row-common shift subtracted before exp2 is 2 * max(x, 0), not max(|x|):
 # the store that saves the max is a `relu` store, which floors it at 0 for free
@@ -43,8 +39,8 @@ op = "row_softmax"
 formats = ["dynamic"]
 
 [params]
-rows    = { type = "int", min = 1, max = 4096 }   # softmax along each row
-n       = { type = "int", min = 1, max = 256 }    # row length: 128 lanes per chunk
+rows    = { type = "int", min = 1, max = 30000 }   # softmax along each row; the host tiles rows per launch
+n       = { type = "int", min = 1, max = 2048 }    # row length: 128 lanes per chunk
 # The program's constants, all binary fractions so the NX8 constant layout
 # holds them exactly (its value field is 8 bits with its own scale and type).
 c1      = { type = "float", choices = [1.4375], default = 1.4375 }
@@ -52,14 +48,12 @@ c2      = { type = "float", choices = [0.00518798828125], default = 0.0051879882
 two     = { type = "float", choices = [2.0], default = 2.0 }
 
 [derived]
-tiles     = "ceil(n / 128)"                          # CR12: chunks per row
-slot2     = "256"                                    # CR4:  R_CYCLIC's slot 2 index
-slot3     = "384"                                    # CR5:  R_CYCLIC's slot 3 index
-rows_m1   = "rows - 1"                               # CR6:  the row loop's bound
-scratch   = "rows * tiles - 1"                       # CR11: y's last row, the scalar's home
-qf        = "case_qf"                                # CR14: the case's QF half
+tiles     = "ceil(n / 128)"                        # chunks per row: the rendered unroll
+rows_m1   = "rows - 1"                             # CR6:  the row loop's bound
+scratch   = "rows * tiles - 1"                     # CR11: y's last row, the scalar's home
+qf        = "case_qf"                              # CR14: the case's QF half
 ds_all    = "halves(ds(128), ds(n - 128 * (tiles - 1)))"  # CR15: L full chunk, H the last one
-ds1_128   = "halves(ds(1), 128)"                     # CR13: L one lane (the scalar rows), H 128
+ds1_128   = "halves(ds(1), 128)"                   # CR13: L one lane (the scalar rows), H 128
 
 [inputs.x]
 shape = ["rows", "n"]
@@ -71,8 +65,6 @@ shape = ["rows", "n"]
 [abi]
 x        = "CR2"
 y        = "CR3"
-slot2    = "CR4"
-slot3    = "CR5"
 rows_m1  = "CR6"
 c1       = "CR7"
 c2       = "CR8"
@@ -91,9 +83,8 @@ reference = "reference.py:reference"
 # The two other round trips -- the row's max and its 1/sum -- are factors common
 # to the whole row, and a row's scale comes from its own largest element, so
 # they cancel. Two element steps and their row-average is the floor: measured 2
-# ulps worst over every case and the whole sweep, 5 over the 4096 x 256 call's
-# million elements.
-tolerance = { nx8 = { tier = "NX8_STEP", ulps = 8, why = "the probabilities are quantized twice: pass 2 stores the exp2 numerators as an NX8 row (the dynamic format's own choice, 5 or 6 mantissa bits, so up to 2^-5 relative per element) and pass 4 re-quantizes num * rinv into the output row. The 1/sum's and the 2*max's own quantizations are row-common factors and cancel in the output row's scale, so two element steps plus their row-average is the floor; measured max 2 ulps over every case and 5 on the 4096 x 256 call (a million elements), 8 of margin" } }
+# ulps worst over every case and the whole sweep.
+tolerance = { nx8 = { tier = "NX8_STEP", ulps = 8, why = "the probabilities are quantized twice: pass 2 stores the exp2 numerators as an NX8 row (the dynamic format's own choice, 5 or 6 mantissa bits, so up to 2^-5 relative per element) and pass 4 re-quantizes num * rinv into the output row. The 1/sum's and the 2*max's own quantizations are row-common factors and cancel in the output row's scale, so two element steps plus their row-average is the floor; measured max 2 ulps over every case and the sweep, 8 of margin" } }
 
 [cases.default]
 rows = 8
@@ -127,16 +118,29 @@ n = 64
 rows = 64
 n = 256
 
+[cases.wide_12]                                  # whisper's 1500-wide row: twelve chunks
+rows = 8
+n = 1500
+
+[cases.whisper_tile]                              # openai/whisper-large-v3: 640 rows x 1500, one launch
+rows = 640
+n = 1500
+
+[cases.wide_tile]                                # a whole 682-row launch tile at n = 1500
+rows = 682
+n = 1500
+tier = "nightly"
+
 [cases.long]                                     # the whole mobilevit_s attention row set
 rows = 1024
 n = 64
 tier = "nightly"
 
-[cases.wide]                                     # the widest call: 4096 x 256
+[cases.wide]                                     # the widest n <= 256 call: 4096 x 256
 rows = 4096
 n = 256
 tier = "nightly"
 
 [cases.sweep]                                    # the structure of the domain
 rows = [1, 3, 129]
-n = [1, 16, 64, 128, 129, 200, 256]
+n = [1, 16, 64, 128, 129, 200, 256, 1000, 1500]

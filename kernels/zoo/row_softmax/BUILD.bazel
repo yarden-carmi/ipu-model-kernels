@@ -2,8 +2,9 @@ load("//kernels:defs.bzl", "ipu_kernel")
 load("@ipu_deps//:requirements.bzl", "requirement")
 load("@rules_python//python:defs.bzl", "py_binary")
 
-# 12 sweep x 1 variant runs plus the eight named cases in the default tier (20
-# runs); the two whole-model shapes (1024 x 64 and 4096 x 256) are nightly.
+# 13 sweep x 1 variant runs plus the nine named cases in the default tier (22
+# runs); the whole-model tiles (a 682-row tile of whisper's 1500-wide call,
+# 1024 x 64, 4096 x 256) are nightly.
 ipu_kernel(shard_count = 5)
 
 # Not a test: run one case and print its rows against the reference.

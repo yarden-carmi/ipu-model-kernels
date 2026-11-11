@@ -22,13 +22,14 @@ most 7 significant bits and one of them alone would move the temperature, and ev
 by 4e-2 relative -- and ACTIVATE.QUANTIZE exp2-stores the numerator row. Pass 3 reloads the numerator
 chunks and AGG.SUMs them into R_ACC[0], then ACTIVATE.QUANTIZE reciprocal puts 1/sum in the scalar lane;
 that value's own quantization, and the max's, are factors common to the row, so they cancel in the
-output row's scale.
+output row's scale; the last chunk of each pass parks in R_CYCLIC slot 1, so a scalar's row is
+never re-read after the scalar lands on it -- this is what keeps the round trip safe at every
+chunk count, up to n = 2048.
 Pass 4 multiplies each chunk by the scalar (MULT.RC.VE with the scalar named by LR0, read out of R0[0])
 and ACTIVATE.QUANTIZE identity-stores y. There is no numerator or scratch region: 2*rows*tiles is every
 row a call owns (the widest call uses all 16384), so the numerators live in y's own rows, which pass 4
-overwrites, and both scalars round-trip through y's last row -- safe because a row has at most two
-chunks (n <= 256) and every chunk of it is resident in its own R_CYCLIC slot before a scalar lands on
-it. R_CYCLIC's four slots hold the row's x chunks (indices 0, 128) and its numerator chunks (256, 384)
+overwrites, and both scalars round-trip through y's last row -- safe because the last chunk of
+each pass is resident in R_CYCLIC slot 1 before a scalar lands on its row. R_CYCLIC's four slots hold the row's x chunks (indices 0, 128) and its numerator chunks (256, 384)
 at once, which is what removes every redundant load: each row is read from XMEM the minimum number of
 times, one load word per chunk plus the one word the 1/sum's read-back needs. Pipelined per the timing
 contract -- the next chunk's load rides in the word that multiplies the current one, multiply + accumulate
@@ -39,7 +40,9 @@ row at one chunk, 14 at two (4096x256 = 57348 cycles, 1024x64 = 9220), 44-62% of
 in use -- the four passes over one accumulator and the two scalar round-trips are the reduction's
 inherent shape. x and y are the plain row-major activation layout (entity e in ceil(F/128) consecutive
 rows, lanes past F zero, which the last chunk's DS guarantees), so y is the next kernel's input as it
-stands and nothing leaves XMEM between kernels. Domain: rows 1..4096, n 1..256; the input range [-8, 8]
+stands and nothing leaves XMEM between kernels. Domain: rows 1..30000 (the host tiles ``rows`` when a launch's 2*rows*tiles would
+not fit the 16384 addressable NX8 rows -- whisper-large-v3's 30000 x 1500 call is 44
+launches of 682 rows) and n 1..2048, a 16-chunk unroll; the input range [-8, 8]
 is the generator's, not a program limit -- the max subtraction makes the exp2 argument non-positive for
 any logits. Accuracy: the probabilities are quantized twice (pass 2's numerator row, at the dynamic
 format's own 5 or 6 mantissa bits, then pass 4's output row), which is the kernel's only real error and

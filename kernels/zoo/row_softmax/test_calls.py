@@ -1,11 +1,12 @@
 """The calls row_softmax must serve, and what a launch of it must fit.
 
-The three surveyed mobilevit_s.cvnets_in1k signatures are routed by the
-registry, the largest single launch they need is checked against the 16384
-addressable NX8 rows (``rows`` is the dimension the host tiles when a call does
-not fit in one), and the folder's ``kernelgen.toml`` is read. The last test
-runs the kernel twice on one XMEM, the second step reading the first step's
-``y`` as its ``x`` -- what it is like between two other kernels on the chip.
+The three surveyed mobilevit_s.cvnets_in1k signatures and whisper-large-v3's
+two 1500-wide ones are routed by the registry; the largest single launch each
+needs is checked against the 16384 addressable NX8 rows (``rows`` is the
+dimension the host tiles when a call does not fit in one), and the folder's
+``kernelgen.toml`` is read. The last test runs the kernel twice on one XMEM,
+the second step reading the first step's ``y`` as its ``x`` -- what it is like
+between two other kernels on the chip.
 """
 
 from pathlib import Path
@@ -20,14 +21,17 @@ from ipu_harness.variants import variant
 
 #: The calls found in the models surveyed, per forward at full depth.
 CALLS = (
-    {"rows": 4096, "n": 256},  # x2 per forward
-    {"rows": 1024, "n": 64},  # x4 per forward
-    {"rows": 256, "n": 16},  # x3 per forward
+    {"rows": 4096, "n": 256},  # x2 per forward, mobilevit_s
+    {"rows": 1024, "n": 64},  # x4 per forward, mobilevit_s
+    {"rows": 256, "n": 16},  # x3 per forward, mobilevit_s
+    {"rows": 640, "n": 1500},  # x32 per forward, openai/whisper-large-v3
+    {"rows": 30000, "n": 1500},  # x32 per forward, openai/whisper-large-v3
 )
 
-#: The largest values the program's loops and its XMEM footprint take.
-MAX_ROWS = 4096
-MAX_N = 256
+#: The largest values the program's loops take: any ``rows`` is tiled by the
+#: host, ``n`` reaches the program as a rendered 16-chunk unroll.
+MAX_ROWS = 30000
+MAX_N = 2048
 
 #: The XMEM rows an NX8 call can address.
 XMEM_ROWS = 16384
@@ -91,7 +95,8 @@ def test_a_call_beyond_the_domain_is_refused():
     beyond = (
         {**CALLS[1], "rows": MAX_ROWS + 1},
         {**CALLS[1], "rows": 0},
-        {**CALLS[0], "n": MAX_N + 1},
+        {**CALLS[4], "rows": MAX_ROWS + 1},  # above the declared rows maximum
+        {**CALLS[0], "n": MAX_N + 1},  # above the rendered unroll
         {**CALLS[0], "n": 0},
         {**CALLS[1], "dim": 1},  # unknown parameter
         {**CALLS[1], "act": "none"},  # nothing is fused
@@ -102,16 +107,20 @@ def test_a_call_beyond_the_domain_is_refused():
 
 
 def test_the_domain_holds_the_largest_launch():
-    """The maxima are shapes the kernel really runs."""
+    """The maxima are shapes the kernel really runs, and a launch of each fits."""
     registry = _registry()
     for call in (
         {"rows": MAX_ROWS, "n": 1},
         {"rows": MAX_ROWS, "n": 128},
-        {"rows": rows_per_launch(256), "n": MAX_N},
+        {"rows": MAX_ROWS, "n": 2048},
         {"rows": 1, "n": MAX_N},
+        {"rows": rows_per_launch(1500), "n": 1500},
+        {"rows": rows_per_launch(MAX_N), "n": MAX_N},
     ):
         verdict = registry.resolve("row_softmax", **call)
         assert verdict, f"{call}: {verdict.reason}"
+        if _rows(call) > XMEM_ROWS:
+            call = {**call, "rows": rows_per_launch(call["n"])}
         assert _rows(call) <= XMEM_ROWS, call
 
 
