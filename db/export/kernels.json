@@ -42,7 +42,7 @@
   "path": "kernels/zoo/binary_add_none",
   "status": "passing",
   "task_id": 4,
-  "updated_at": 1794419082.5244188,
+  "updated_at": 1794419873.8113637,
   "version": 1
  },
  {
@@ -65,7 +65,7 @@
   "path": "kernels/zoo/unary_silu",
   "status": "passing",
   "task_id": 7,
-  "updated_at": 1794419083.0557978,
+  "updated_at": 1794419874.1902852,
   "version": 1
  },
  {
@@ -88,7 +88,7 @@
   "path": "kernels/zoo/layout_concat",
   "status": "passing",
   "task_id": 8,
-  "updated_at": 1794419082.7756324,
+  "updated_at": 1794419874.0574305,
   "version": 1
  },
  {
@@ -111,7 +111,7 @@
   "path": "kernels/zoo/reduce_rows_mean",
   "status": "passing",
   "task_id": 9,
-  "updated_at": 1794419082.7991843,
+  "updated_at": 1794419874.079589,
   "version": 1
  },
  {
@@ -134,7 +134,7 @@
   "path": "kernels/zoo/conv2d_depthwise",
   "status": "passing",
   "task_id": 14,
-  "updated_at": 1794419082.751316,
+  "updated_at": 1794419874.032561,
   "version": 1
  },
  {
@@ -157,7 +157,7 @@
   "path": "kernels/zoo/binary_div_scalar",
   "status": "passing",
   "task_id": 28,
-  "updated_at": 1794419082.5420878,
+  "updated_at": 1794419873.829055,
   "version": 1
  },
  {
@@ -180,7 +180,7 @@
   "path": "kernels/zoo/binary_add_row",
   "status": "passing",
   "task_id": 20,
-  "updated_at": 1794419082.534461,
+  "updated_at": 1794419873.8211348,
   "version": 1
  },
  {
@@ -203,7 +203,7 @@
   "path": "kernels/zoo/binary_mul_scalar",
   "status": "passing",
   "task_id": 17,
-  "updated_at": 1794419082.5486946,
+  "updated_at": 1794419873.8352401,
   "version": 1
  },
  {
@@ -226,7 +226,7 @@
   "path": "kernels/zoo/gemm",
   "status": "passing",
   "task_id": 1,
-  "updated_at": 1794419082.7682338,
+  "updated_at": 1794419874.0500495,
   "version": 3
  },
  {
@@ -249,7 +249,7 @@
   "path": "kernels/zoo/row_norm_layernorm",
   "status": "passing",
   "task_id": 5,
-  "updated_at": 1794419082.8222604,
+  "updated_at": 1794419874.1030433,
   "version": 2
  },
  {
@@ -272,7 +272,7 @@
   "path": "kernels/zoo/unary_gelu",
   "status": "passing",
   "task_id": 15,
-  "updated_at": 1794419083.020318,
+  "updated_at": 1794419874.154403,
   "version": 1
  },
  {
@@ -295,7 +295,7 @@
   "path": "kernels/zoo/row_softmax",
   "status": "passing",
   "task_id": 6,
-  "updated_at": 1794419082.9787433,
+  "updated_at": 1794419874.114379,
   "version": 2
  },
  {
@@ -318,7 +318,7 @@
   "path": "kernels/zoo/unary_log",
   "status": "passing",
   "task_id": 45,
-  "updated_at": 1794419083.0314093,
+  "updated_at": 1794419874.1657522,
   "version": 1
  },
  {
@@ -341,7 +341,7 @@
   "path": "kernels/zoo/pool2d_max",
   "status": "passing",
   "task_id": 23,
-  "updated_at": 1794419082.791103,
+  "updated_at": 1794419874.0711305,
   "version": 1
  },
  {
@@ -364,13 +364,13 @@
   "path": "kernels/zoo/unary_abs",
   "status": "passing",
   "task_id": 36,
-  "updated_at": 1794419082.9945698,
+  "updated_at": 1794419874.1197493,
   "version": 1
  },
  {
   "agent_run_id": 95,
-  "audit_note": null,
-  "audit_rules": null,
+  "audit_note": "it does not compute what qbench's binary (exact) computes: 50% of the elements identical, up to 64.0 NX8 steps apart",
+  "audit_rules": 1,
   "chain_note": null,
   "chain_ok": 1,
   "created_at": 1794416744.8880126,
@@ -381,13 +381,36 @@
   "kind": "exact",
   "method_id": null,
   "name": "binary_sub_row",
-  "notes": "One parameterised program for every (op, inner, numel): y = a (op) b with\nbroadcast = row -- b is one row of `inner` values (1..128, lanes past `inner` zero) that\nevery row of a combines with, so the kernel loads b once into R1 and its pointer never\nmoves; a and y are the chip's activation layout (row i holds elements 128i..128i+127,\nlanes past numel zero), so the kernel reads the rows the previous kernel wrote and leaves\nrows the next one reads. add/sub/max are two words per row of a: word A multiplies the\nresident b row by the CR constant 1.0 and initialises R_ACC (ACC.SUB.FIRST lands -b in\nR_ACC for sub, ACC.MAX.FIRST seeds max), word B multiplies the a row resident in R0 by\n1.0, accumulates and stores the row with ACTIVATE.QUANTIZE identity; each word loads the\na row the next word multiplies. `mul` is one product per row (MULT.RC.VV of the cyclic a\nrow against the resident b row) so its word carries the store and the next a load. The\nshape reaches the program through CRs only and the row loop is dynamic, so the whole call\nis one launch: the surveyed t5-small call (sub, inner 64, numel 4096, 32 rows) is 65\nwords. The last row of a call is short and is emitted straight-line with its own DS half,\nas is the row before it, which keeps the one-row-ahead loads inside the regions; a\nstore's DS names exactly the live lanes, so lanes past numel are written 0. Every LR the\nprogram reads is set by it, R_ACC is initialised by the .FIRST accumulate of every row\nand R_MASK is loaded from its own scratch row, so it runs after another kernel as well as\nfrom reset. Limits: op add|sub|mul|max, broadcast row, inner 1..128, numel 1..262144;\nnone/col/scalar broadcast and div/min are in `unsupported`, each for a stated reason;\nthere is no FP32 variant -- dynamic is the chip's NX8 type. Accuracy: the products and\nthe accumulator adds are exact in FP32 and only the store rounds, so the golden (float64,\nquantized row by row like the store) matches at max |err| 0, tolerance NX8_STEP 1 ulp",
+  "notes": "quarantined: the audit: it does not compute what qbench's binary (exact) computes: 50% of the elements identical, up to 64.0 NX8 steps apart",
   "op": "binary",
   "origin": "zoo",
   "path": "kernels/zoo/binary_sub_row",
-  "status": "passing",
+  "status": "failing",
   "task_id": 35,
-  "updated_at": 1794419082.5585773,
+  "updated_at": 1794419691.4456017,
+  "version": 1
+ },
+ {
+  "agent_run_id": 96,
+  "audit_note": null,
+  "audit_rules": null,
+  "chain_note": null,
+  "chain_ok": 1,
+  "created_at": 1794419869.5439813,
+  "domain": "{\"c1\": {\"choices\": [1.4375], \"default\": 1.4375, \"type\": \"float\"}, \"c2\": {\"choices\": [0.00518798828125], \"default\": 0.00518798828125, \"type\": \"float\"}, \"d1\": {\"choices\": [2976.0], \"default\": 2976.0, \"type\": \"float\"}, \"d2\": {\"choices\": [4.9375], \"default\": 4.9375, \"type\": \"float\"}, \"fn\": {\"choices\": [\"exp\"], \"default\": \"exp\", \"type\": \"str\"}, \"numel\": {\"max\": 698880, \"min\": 1, \"type\": \"int\"}, \"o1\": {\"choices\": [-11.5], \"default\": -11.5, \"type\": \"float\"}, \"o2\": {\"choices\": [-0.04150390625], \"default\": -0.04150390625, \"type\": \"float\"}}",
+  "formats": "dynamic",
+  "hw_clean": 1,
+  "id": 148,
+  "kind": "exact",
+  "method_id": 60,
+  "name": "unary_exp",
+  "notes": "One parameterised program for every numel: y = exp(x) elementwise, x the\nplain activation layout (row r holds lanes 128r..128r+127, lanes past numel zero) and y\nwritten back the same way, so the kernel reads the previous kernel's rows and leaves rows\nthe next one reads. The shape reaches the program through CRs only and the row loop is\ndynamic, so a whole call is one launch. Dataflow: the AaQ's exp2 rejects a positive\nargument, so the exponent is shifted below the range's upper bound and the shift paid back\nwith exact dyadic MULT constants -- e = exp2((x - 8) log2 e) (x in two MULT.RC.VE terms and\n-8 log2 e in two MULT.EE terms against the ones row, the program's own exp2(0) store, so a\nconstant term does not scale with x; the exp2 store rides the fourth word) and y = e *\nexp(8) (two MULT.RC.VE terms, the identity store in the third word), 7 words per row. All\nconstants are exact dyadics an NX8 MULT constant holds; the only errors are log2 e's 7e-6\ntruncation on the argument (<= 1.1e-4 over x in [-8, 8], an 8e-5 relative error on y) and\nthe two 8-bit row round trips (e and the output store), measured ~1 NX8 step. The range's\nupper bound is 2, not the 8 the -8 log2 e shift would allow, because the chip chains: the\nnext launch of this kernel reads this one's y = exp(x) as its x, and its exp2 argument\n(y - 8) log2 e must stay <= 0, i.e. x <= ln 8 = 2.079; declared 2 (exp(2) = 7.39, a 7%\nmargin under 8), so a call at the range top leaves the chained call's argument at -0.89.\nx below 8 would make the exp2 argument\npositive (an AaQ error): declared [-8, 2]. Limits: numel 1..698880 (5460 rows; the call\ntakes 3*rows+2 of the 16384 addressable NX8 rows), fn exp only. Every LR the program reads\nis set by it, every accumulation is seeded with a .FIRST form and R_MASK is loaded from\nits own scratch row, so it runs after another kernel as well as from reset.",
+  "op": "unary",
+  "origin": "zoo",
+  "path": "kernels/zoo/unary_exp",
+  "status": "passing",
+  "task_id": 29,
+  "updated_at": 1794419874.1295059,
   "version": 1
  },
  {
@@ -410,7 +433,7 @@
   "path": "kernels/zoo/layout_copy",
   "status": "passing",
   "task_id": 19,
-  "updated_at": 1794419082.7806315,
+  "updated_at": 1794419874.061989,
   "version": 1
  },
  {
@@ -433,7 +456,7 @@
   "path": "kernels/conformance/vector_tour",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.5068228,
+  "updated_at": 1794419872.8296754,
   "version": 1
  },
  {
@@ -456,7 +479,7 @@
   "path": "kernels/elementwise/residual_add_rows",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.86738,
+  "updated_at": 1794419873.1860359,
   "version": 1
  },
  {
@@ -479,7 +502,7 @@
   "path": "kernels/elementwise/residual_add_rows",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.8687265,
+  "updated_at": 1794419873.1878645,
   "version": 1
  },
  {
@@ -502,7 +525,7 @@
   "path": "kernels/elementwise/residual_add_rows",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.8708487,
+  "updated_at": 1794419873.1893637,
   "version": 1
  },
  {
@@ -525,7 +548,7 @@
   "path": "kernels/elementwise/residual_add_rows",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.8722293,
+  "updated_at": 1794419873.1906843,
   "version": 1
  },
  {
@@ -548,7 +571,7 @@
   "path": "kernels/elementwise/residual_add_rows",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.8735282,
+  "updated_at": 1794419873.1922674,
   "version": 1
  },
  {
@@ -571,7 +594,7 @@
   "path": "kernels/matmul/matmul_small",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.8884537,
+  "updated_at": 1794419873.2066488,
   "version": 1
  },
  {
@@ -594,7 +617,7 @@
   "path": "kernels/matmul/matmul_small",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.8908396,
+  "updated_at": 1794419873.207864,
   "version": 1
  },
  {
@@ -617,7 +640,7 @@
   "path": "kernels/matmul/matmul_small",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.8929007,
+  "updated_at": 1794419873.2088482,
   "version": 1
  },
  {
@@ -640,7 +663,7 @@
   "path": "kernels/matmul/matmul_small",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.8952615,
+  "updated_at": 1794419873.2106743,
   "version": 1
  },
  {
@@ -663,7 +686,7 @@
   "path": "kernels/elementwise/residual_add_rows",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.4782846,
+  "updated_at": 1794419873.7747242,
   "version": 1
  },
  {
@@ -686,7 +709,7 @@
   "path": "kernels/matmul/matmul_small",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.479963,
+  "updated_at": 1794419873.7762344,
   "version": 1
  },
  {
@@ -709,7 +732,7 @@
   "path": "kernels/attention/attn_scores_km_16x60",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.3202605,
+  "updated_at": 1794419872.6469553,
   "version": 1
  },
  {
@@ -732,7 +755,7 @@
   "path": "kernels/attention/attn_scores_km_256x36",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.3404946,
+  "updated_at": 1794419872.6659262,
   "version": 1
  },
  {
@@ -755,7 +778,7 @@
   "path": "kernels/attention/qk_scores_16x60",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.4112396,
+  "updated_at": 1794419872.7362936,
   "version": 1
  },
  {
@@ -778,7 +801,7 @@
   "path": "kernels/attention/qk_scores_256x36",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.4205298,
+  "updated_at": 1794419872.7457192,
   "version": 1
  },
  {
@@ -801,7 +824,7 @@
   "path": "kernels/matmul/matmul_x128_2tg_c2",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.9083285,
+  "updated_at": 1794419873.2224007,
   "version": 1
  },
  {
@@ -824,7 +847,7 @@
   "path": "kernels/matmul/matmul_x128_2tg_c2",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.9100406,
+  "updated_at": 1794419873.2238777,
   "version": 1
  },
  {
@@ -847,7 +870,7 @@
   "path": "kernels/matmul/matmul_x128_2tg_c2",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.9116797,
+  "updated_at": 1794419873.2252634,
   "version": 1
  },
  {
@@ -870,7 +893,7 @@
   "path": "kernels/matmul/matmul_x128_2tg_c3",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.9261088,
+  "updated_at": 1794419873.2395277,
   "version": 1
  },
  {
@@ -893,7 +916,7 @@
   "path": "kernels/matmul/matmul_x128_c2",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.931596,
+  "updated_at": 1794419873.244276,
   "version": 1
  },
  {
@@ -916,7 +939,7 @@
   "path": "kernels/matmul/matmul_x128_c2",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.9332883,
+  "updated_at": 1794419873.2456949,
   "version": 1
  },
  {
@@ -939,7 +962,7 @@
   "path": "kernels/matmul/matmul_x128_c2",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.9345682,
+  "updated_at": 1794419873.2471726,
   "version": 1
  },
  {
@@ -962,7 +985,7 @@
   "path": "kernels/matmul/matmul_x128_c2",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.9363623,
+  "updated_at": 1794419873.2492654,
   "version": 1
  },
  {
@@ -985,7 +1008,7 @@
   "path": "kernels/matmul/matmul_x128_c2",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.9384294,
+  "updated_at": 1794419873.2506864,
   "version": 1
  },
  {
@@ -1008,7 +1031,7 @@
   "path": "kernels/matmul/matmul_x128_c2_qkv",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.942809,
+  "updated_at": 1794419873.2552884,
   "version": 1
  },
  {
@@ -1031,7 +1054,7 @@
   "path": "kernels/matmul/matmul_x128_c3",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.9483838,
+  "updated_at": 1794419873.2602656,
   "version": 1
  },
  {
@@ -1054,7 +1077,7 @@
   "path": "kernels/matmul/matmul_x128_c4",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.9541056,
+  "updated_at": 1794419873.2658405,
   "version": 1
  },
  {
@@ -1077,7 +1100,7 @@
   "path": "kernels/matmul/matmul_x128_2tg_c2",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.4810789,
+  "updated_at": 1794419873.7778244,
   "version": 1
  },
  {
@@ -1100,7 +1123,7 @@
   "path": "kernels/matmul/matmul_x128_2tg_c3",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.4828503,
+  "updated_at": 1794419873.779153,
   "version": 1
  },
  {
@@ -1123,7 +1146,7 @@
   "path": "kernels/matmul/matmul_x128_c2",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.4852629,
+  "updated_at": 1794419873.7811282,
   "version": 1
  },
  {
@@ -1146,7 +1169,7 @@
   "path": "kernels/matmul/matmul_x128_c2_qkv",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.4872005,
+  "updated_at": 1794419873.7826993,
   "version": 1
  },
  {
@@ -1169,7 +1192,7 @@
   "path": "kernels/matmul/matmul_x128_c3",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.4894056,
+  "updated_at": 1794419873.7841218,
   "version": 1
  },
  {
@@ -1192,7 +1215,7 @@
   "path": "kernels/matmul/matmul_x128_c4",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.491322,
+  "updated_at": 1794419873.7856936,
   "version": 1
  },
  {
@@ -1215,7 +1238,7 @@
   "path": "kernels/elementwise/residual_add",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.8572206,
+  "updated_at": 1794419873.1763172,
   "version": 1
  },
  {
@@ -1238,7 +1261,7 @@
   "path": "kernels/convolutions/conv_first_layer",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.571859,
+  "updated_at": 1794419872.8931768,
   "version": 1
  },
  {
@@ -1261,7 +1284,7 @@
   "path": "kernels/convolutions/pointwise_conv_tpl",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.8069265,
+  "updated_at": 1794419873.1278238,
   "version": 1
  },
  {
@@ -1284,7 +1307,7 @@
   "path": "kernels/convolutions/pointwise_conv_tpl",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.8091018,
+  "updated_at": 1794419873.1292207,
   "version": 1
  },
  {
@@ -1307,7 +1330,7 @@
   "path": "kernels/convolutions/pointwise_conv_tpl",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.8104255,
+  "updated_at": 1794419873.13061,
   "version": 1
  },
  {
@@ -1330,7 +1353,7 @@
   "path": "kernels/linear/fully_connected",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.883339,
+  "updated_at": 1794419873.2023726,
   "version": 1
  },
  {
@@ -1353,7 +1376,7 @@
   "path": "kernels/normalize/layernorm",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.9821172,
+  "updated_at": 1794419873.2937932,
   "version": 1
  },
  {
@@ -1376,7 +1399,7 @@
   "path": "kernels/normalize/layernorm",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.9839337,
+  "updated_at": 1794419873.295367,
   "version": 1
  },
  {
@@ -1399,7 +1422,7 @@
   "path": "kernels/normalize/layernorm",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.9855733,
+  "updated_at": 1794419873.2973754,
   "version": 1
  },
  {
@@ -1422,7 +1445,7 @@
   "path": "kernels/normalize/layernorm",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.9882822,
+  "updated_at": 1794419873.298872,
   "version": 1
  },
  {
@@ -1445,7 +1468,7 @@
   "path": "kernels/reshape/unfold_16x16x192",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.3277066,
+  "updated_at": 1794419873.6276736,
   "version": 1
  },
  {
@@ -1468,7 +1491,7 @@
   "path": "kernels/reshape/unfold_32x32x144",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.3424706,
+  "updated_at": 1794419873.6422482,
   "version": 1
  },
  {
@@ -1491,7 +1514,7 @@
   "path": "kernels/reshape/unfold_8x8x240",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.3484604,
+  "updated_at": 1794419873.6484272,
   "version": 1
  },
  {
@@ -1514,7 +1537,7 @@
   "path": "kernels/convolutions/pointwise_conv_tpl",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.4759688,
+  "updated_at": 1794419873.7722392,
   "version": 1
  },
  {
@@ -1537,7 +1560,7 @@
   "path": "kernels/normalize/layernorm",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.4932272,
+  "updated_at": 1794419873.787924,
   "version": 1
  },
  {
@@ -1560,7 +1583,7 @@
   "path": "kernels/softmax/softmax_columns",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.4106078,
+  "updated_at": 1794419873.709718,
   "version": 1
  },
  {
@@ -1583,7 +1606,7 @@
   "path": "kernels/softmax/softmax_columns_packed",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.4236002,
+  "updated_at": 1794419873.7226202,
   "version": 1
  },
  {
@@ -1606,7 +1629,7 @@
   "path": "kernels/softmax/softmax_rows",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.4331563,
+  "updated_at": 1794419873.73213,
   "version": 1
  },
  {
@@ -1629,7 +1652,7 @@
   "path": "kernels/softmax/softmax_rows_long",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.448031,
+  "updated_at": 1794419873.7465405,
   "version": 1
  },
  {
@@ -1652,7 +1675,7 @@
   "path": "kernels/softmax/softmax_rows_partial",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.4705825,
+  "updated_at": 1794419873.7675054,
   "version": 1
  },
  {
@@ -1675,7 +1698,7 @@
   "path": "kernels/attention/attn_scores_km_64x48",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.3487117,
+  "updated_at": 1794419872.67413,
   "version": 1
  },
  {
@@ -1698,7 +1721,7 @@
   "path": "kernels/attention/attn_v_16x60",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.3566391,
+  "updated_at": 1794419872.6817381,
   "version": 1
  },
  {
@@ -1721,7 +1744,7 @@
   "path": "kernels/attention/attn_v_256x36",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.3700552,
+  "updated_at": 1794419872.695279,
   "version": 1
  },
  {
@@ -1744,7 +1767,7 @@
   "path": "kernels/attention/attn_v_64x48",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.376829,
+  "updated_at": 1794419872.7018058,
   "version": 1
  },
  {
@@ -1767,7 +1790,7 @@
   "path": "kernels/attention/attn_v_bcast_36",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.3868473,
+  "updated_at": 1794419872.7118032,
   "version": 1
  },
  {
@@ -1790,7 +1813,7 @@
   "path": "kernels/attention/attn_v_bcast_48",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.3956208,
+  "updated_at": 1794419872.7199268,
   "version": 1
  },
  {
@@ -1813,7 +1836,7 @@
   "path": "kernels/attention/attn_v_bcast_60",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.404276,
+  "updated_at": 1794419872.7293143,
   "version": 1
  },
  {
@@ -1836,7 +1859,7 @@
   "path": "kernels/attention/qk_scores_64x48",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.429996,
+  "updated_at": 1794419872.7541683,
   "version": 1
  },
  {
@@ -1859,7 +1882,7 @@
   "path": "kernels/convolutions/conv1x1",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.515291,
+  "updated_at": 1794419872.8382084,
   "version": 1
  },
  {
@@ -1882,7 +1905,7 @@
   "path": "kernels/convolutions/conv3x3_relu",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.5286186,
+  "updated_at": 1794419872.8509543,
   "version": 1
  },
  {
@@ -1905,7 +1928,7 @@
   "path": "kernels/convolutions/conv3x3_relu_cin1",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.539958,
+  "updated_at": 1794419872.8611808,
   "version": 1
  },
  {
@@ -1928,7 +1951,7 @@
   "path": "kernels/convolutions/conv_universal_wide384",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.6150906,
+  "updated_at": 1794419872.982083,
   "version": 1
  },
  {
@@ -1951,7 +1974,7 @@
   "path": "kernels/convolutions/depthwise_conv_stride2_128",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.6879137,
+  "updated_at": 1794419873.0114412,
   "version": 1
  },
  {
@@ -1974,7 +1997,7 @@
   "path": "kernels/convolutions/depthwise_conv_stride2_16",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.7178376,
+  "updated_at": 1794419873.0406244,
   "version": 1
  },
  {
@@ -1997,7 +2020,7 @@
   "path": "kernels/convolutions/depthwise_conv_stride2_narrow",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.747655,
+  "updated_at": 1794419873.0710018,
   "version": 1
  },
  {
@@ -2020,7 +2043,7 @@
   "path": "kernels/convolutions/conv_universal_tpl",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.7839003,
+  "updated_at": 1794419873.1058977,
   "version": 1
  },
  {
@@ -2043,7 +2066,7 @@
   "path": "kernels/convolutions/conv_universal_tpl",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.7862403,
+  "updated_at": 1794419873.1078234,
   "version": 1
  },
  {
@@ -2066,7 +2089,7 @@
   "path": "kernels/convolutions/conv_universal_tpl",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.7883346,
+  "updated_at": 1794419873.109427,
   "version": 1
  },
  {
@@ -2089,7 +2112,7 @@
   "path": "kernels/convolutions/depthwise_conv_tpl",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.8358073,
+  "updated_at": 1794419873.1558356,
   "version": 1
  },
  {
@@ -2112,7 +2135,7 @@
   "path": "kernels/convolutions/depthwise_conv_tpl",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.8377957,
+  "updated_at": 1794419873.1583872,
   "version": 1
  },
  {
@@ -2135,7 +2158,7 @@
   "path": "kernels/convolutions/depthwise_conv_tpl",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.8398874,
+  "updated_at": 1794419873.1596935,
   "version": 1
  },
  {
@@ -2158,7 +2181,7 @@
   "path": "kernels/convolutions/depthwise_conv_tpl",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.8413472,
+  "updated_at": 1794419873.1613576,
   "version": 1
  },
  {
@@ -2181,7 +2204,7 @@
   "path": "kernels/detect/channel_peak",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.8465436,
+  "updated_at": 1794419873.1666675,
   "version": 1
  },
  {
@@ -2204,7 +2227,7 @@
   "path": "kernels/detect/score_threshold",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.8525395,
+  "updated_at": 1794419873.1733418,
   "version": 1
  },
  {
@@ -2227,7 +2250,7 @@
   "path": "kernels/elementwise/scale",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.8606064,
+  "updated_at": 1794419873.1791077,
   "version": 1
  },
  {
@@ -2250,7 +2273,7 @@
   "path": "kernels/normalize/l2_normalize_channels",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419081.9593868,
+  "updated_at": 1794419873.2705188,
   "version": 1
  },
  {
@@ -2273,7 +2296,7 @@
   "path": "kernels/normalize/packed_layernorm",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.0189927,
+  "updated_at": 1794419873.3297715,
   "version": 1
  },
  {
@@ -2296,7 +2319,7 @@
   "path": "kernels/normalize/packed_layernorm",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.021302,
+  "updated_at": 1794419873.3316104,
   "version": 1
  },
  {
@@ -2319,7 +2342,7 @@
   "path": "kernels/pooling/maxpool2d_stride2",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.0322692,
+  "updated_at": 1794419873.3429248,
   "version": 1
  },
  {
@@ -2342,7 +2365,7 @@
   "path": "kernels/pooling/maxpool2d_stride2_tail",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.0438013,
+  "updated_at": 1794419873.3533804,
   "version": 1
  },
  {
@@ -2365,7 +2388,7 @@
   "path": "kernels/pooling/maxpool2d_window",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.0500813,
+  "updated_at": 1794419873.3591645,
   "version": 1
  },
  {
@@ -2388,7 +2411,7 @@
   "path": "kernels/pooling/maxpool2d_nms",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.064877,
+  "updated_at": 1794419873.3730764,
   "version": 1
  },
  {
@@ -2411,7 +2434,7 @@
   "path": "kernels/pooling/maxpool2d_nms",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.0661938,
+  "updated_at": 1794419873.37489,
   "version": 1
  },
  {
@@ -2434,7 +2457,7 @@
   "path": "kernels/projections/proj_p4_2tg",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.084953,
+  "updated_at": 1794419873.392347,
   "version": 1
  },
  {
@@ -2457,7 +2480,7 @@
   "path": "kernels/projections/proj_p4_2tg",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.0863252,
+  "updated_at": 1794419873.3938105,
   "version": 1
  },
  {
@@ -2480,7 +2503,7 @@
   "path": "kernels/projections/proj_p4_2tg_silu",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.1037474,
+  "updated_at": 1794419873.4111166,
   "version": 1
  },
  {
@@ -2503,7 +2526,7 @@
   "path": "kernels/projections/proj_p4_2tg",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.1051548,
+  "updated_at": 1794419873.4131181,
   "version": 1
  },
  {
@@ -2526,7 +2549,7 @@
   "path": "kernels/projections/proj_p4",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.1173682,
+  "updated_at": 1794419873.4242773,
   "version": 1
  },
  {
@@ -2549,7 +2572,7 @@
   "path": "kernels/projections/proj_p4",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.1184008,
+  "updated_at": 1794419873.4255033,
   "version": 1
  },
  {
@@ -2572,7 +2595,7 @@
   "path": "kernels/projections/proj_p4",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.124806,
+  "updated_at": 1794419873.426997,
   "version": 1
  },
  {
@@ -2595,7 +2618,7 @@
   "path": "kernels/projections/proj_p4",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.1266892,
+  "updated_at": 1794419873.4291995,
   "version": 1
  },
  {
@@ -2618,7 +2641,7 @@
   "path": "kernels/projections/proj_p4",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.1276717,
+  "updated_at": 1794419873.4305978,
   "version": 1
  },
  {
@@ -2641,7 +2664,7 @@
   "path": "kernels/projections/proj_p4",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.1292703,
+  "updated_at": 1794419873.4321537,
   "version": 1
  },
  {
@@ -2664,7 +2687,7 @@
   "path": "kernels/projections/proj_p4",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.1302671,
+  "updated_at": 1794419873.433507,
   "version": 1
  },
  {
@@ -2687,7 +2710,7 @@
   "path": "kernels/projections/proj_p4",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.1313667,
+  "updated_at": 1794419873.43571,
   "version": 1
  },
  {
@@ -2710,7 +2733,7 @@
   "path": "kernels/projections/packed_output_linear",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.1880307,
+  "updated_at": 1794419873.4929192,
   "version": 1
  },
  {
@@ -2733,7 +2756,7 @@
   "path": "kernels/projections/packed_output_linear",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.191095,
+  "updated_at": 1794419873.4947224,
   "version": 1
  },
  {
@@ -2756,7 +2779,7 @@
   "path": "kernels/projections/packed_output_linear_p4",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.2096448,
+  "updated_at": 1794419873.557374,
   "version": 1
  },
  {
@@ -2779,7 +2802,7 @@
   "path": "kernels/projections/packed_output_linear_p4",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.2108884,
+  "updated_at": 1794419873.559575,
   "version": 1
  },
  {
@@ -2802,7 +2825,7 @@
   "path": "kernels/reshape/depth_to_space",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.2182202,
+  "updated_at": 1794419873.5662382,
   "version": 1
  },
  {
@@ -2825,7 +2848,7 @@
   "path": "kernels/reshape/fold_16x16x192",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.2290082,
+  "updated_at": 1794419873.5767124,
   "version": 1
  },
  {
@@ -2848,7 +2871,7 @@
   "path": "kernels/reshape/fold_32x32x144",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.309608,
+  "updated_at": 1794419873.6114311,
   "version": 1
  },
  {
@@ -2871,7 +2894,7 @@
   "path": "kernels/reshape/fold_8x8x240",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.3175528,
+  "updated_at": 1794419873.6190035,
   "version": 1
  },
  {
@@ -2894,7 +2917,7 @@
   "path": "kernels/reshape/identity",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.3210135,
+  "updated_at": 1794419873.6219604,
   "version": 1
  },
  {
@@ -2917,7 +2940,7 @@
   "path": "kernels/reshape/concat",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.3558853,
+  "updated_at": 1794419873.6551266,
   "version": 1
  },
  {
@@ -2940,7 +2963,7 @@
   "path": "kernels/reshape/concat",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.3579664,
+  "updated_at": 1794419873.6571047,
   "version": 1
  },
  {
@@ -2963,7 +2986,7 @@
   "path": "kernels/reshape/concat",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.3592763,
+  "updated_at": 1794419873.6585093,
   "version": 1
  },
  {
@@ -2986,7 +3009,7 @@
   "path": "kernels/reshape/packed_pack",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.36988,
+  "updated_at": 1794419873.669104,
   "version": 1
  },
  {
@@ -3009,7 +3032,7 @@
   "path": "kernels/reshape/packed_pack",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.3713691,
+  "updated_at": 1794419873.670611,
   "version": 1
  },
  {
@@ -3032,7 +3055,7 @@
   "path": "kernels/reshape/packed_unpack",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.3822465,
+  "updated_at": 1794419873.68152,
   "version": 1
  },
  {
@@ -3055,7 +3078,7 @@
   "path": "kernels/reshape/packed_unpack",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.3838928,
+  "updated_at": 1794419873.683001,
   "version": 1
  },
  {
@@ -3078,7 +3101,7 @@
   "path": "kernels/sampling/sample_descriptors",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.391466,
+  "updated_at": 1794419873.6904888,
   "version": 1
  },
  {
@@ -3101,7 +3124,7 @@
   "path": "kernels/sampling/sample_descriptors_separable",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.3971267,
+  "updated_at": 1794419873.6968265,
   "version": 1
  },
  {
@@ -3124,7 +3147,7 @@
   "path": "kernels/convolutions/conv_universal_tpl",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.472328,
+  "updated_at": 1794419873.7692156,
   "version": 1
  },
  {
@@ -3147,7 +3170,7 @@
   "path": "kernels/convolutions/depthwise_conv_tpl",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.4742162,
+  "updated_at": 1794419873.7707314,
   "version": 1
  },
  {
@@ -3170,7 +3193,7 @@
   "path": "kernels/normalize/packed_layernorm",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.494793,
+  "updated_at": 1794419873.7894237,
   "version": 1
  },
  {
@@ -3193,7 +3216,7 @@
   "path": "kernels/pooling/maxpool2d_nms",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.4967456,
+  "updated_at": 1794419873.7905035,
   "version": 1
  },
  {
@@ -3216,7 +3239,7 @@
   "path": "kernels/projections/packed_output_linear",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.4981213,
+  "updated_at": 1794419873.791715,
   "version": 1
  },
  {
@@ -3239,7 +3262,7 @@
   "path": "kernels/projections/packed_output_linear_p4",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.500424,
+  "updated_at": 1794419873.793818,
   "version": 1
  },
  {
@@ -3262,7 +3285,7 @@
   "path": "kernels/projections/proj_p4",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.5023952,
+  "updated_at": 1794419873.7952209,
   "version": 1
  },
  {
@@ -3285,7 +3308,7 @@
   "path": "kernels/projections/proj_p4_2tg",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.5038214,
+  "updated_at": 1794419873.796813,
   "version": 1
  },
  {
@@ -3308,7 +3331,7 @@
   "path": "kernels/projections/proj_p4_2tg_silu",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.50531,
+  "updated_at": 1794419873.798236,
   "version": 1
  },
  {
@@ -3331,7 +3354,7 @@
   "path": "kernels/reshape/concat",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.5076835,
+  "updated_at": 1794419873.800107,
   "version": 1
  },
  {
@@ -3354,7 +3377,7 @@
   "path": "kernels/reshape/packed_pack",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.5090923,
+  "updated_at": 1794419873.8010974,
   "version": 1
  },
  {
@@ -3377,7 +3400,7 @@
   "path": "kernels/reshape/packed_unpack",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794419082.5104687,
+  "updated_at": 1794419873.8026166,
   "version": 1
  }
 ]

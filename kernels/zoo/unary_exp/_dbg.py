@@ -1,9 +1,9 @@
-"""binary's debug helper: run one case and print its rows against the reference.
+"""unary_exp's debug helper: run one case and print its rows against the reference.
 
-    bazel run //kernels/zoo/binary_sub_row:dbg -- [case] [format]
+    bazel run //kernels/zoo/unary_exp:dbg -- [case] [format] [anything-for-a-dump]
 
 Not a test: it prints, it does not assert (the case x format runs of
-``bazel test //kernels/zoo/binary_sub_row`` are the checks).
+``bazel test //kernels/zoo/unary_exp`` are the checks).
 """
 
 import sys
@@ -27,14 +27,14 @@ CASE = sys.argv[1] if len(sys.argv) > 1 else "default"
 FMT = sys.argv[2] if len(sys.argv) > 2 else "dynamic"
 SHOW = len(sys.argv) > 3
 
-manifest = load_manifest(Path("kernels/zoo/binary_sub_row"))
+manifest = load_manifest(Path("kernels/zoo/unary_exp"))
 case = next(c for c in expand(manifest) if c.name == CASE)
 plan = plan_case(manifest, case.values, FMT, case=case.decl)
 tensors = plan.manifest.tensors
 p = plan.params
 
 rng = np.random.default_rng(0)
-arrays = {"a": rng.uniform(-1, 1, plan.shapes["a"]), "b": rng.uniform(-1, 1, plan.shapes["b"])}
+arrays = {"x": rng.uniform(-8, 8, plan.shapes["x"])}
 
 placement = place(plan, {name: stored_rows(t, plan) for name, t in tensors.items()})
 model = ReferenceModel(plan.format.mode)
@@ -80,24 +80,7 @@ got = unpack(tensors["y"], data, plan, meta)
 want = reference(**arrays, **{k: v for k, v in p.items()})["y"]
 
 print("status:", model.status, "cycles:", model.stats().cycles)
-print("R_ACC:", np.frombuffer(model.read_register("r_acc", 0), dtype=np.float32)[:4])
-print("R0:", bytes(model.read_register("r", 0)[:16]).hex())
-print("R1:", bytes(model.read_register("r", 1)[:16]).hex())
-print("R_CYCLIC:", bytes(model.read_register("r_cyclic", 0)[:16]).hex())
-print("R_MASK:", bytes(model.read_register("r_mask", 0)[:16]).hex())
-print("a row0 bytes:", bytes(model.read_xmem(0, 16)).hex(), hex(model.read_xmem_metadata(0)))
+print("max|err| =", np.abs(np.asarray(got).reshape(-1) - want.reshape(-1)).max())
 g = np.asarray(got).reshape(-1)
-w = want.reshape(-1)
-err = np.abs(g - w)
-print("max|err| =", err.max())
-n = int(p["numel"])
-rows = -(-n // 128)
-for i in range(min(rows, 6)):
-    lo, hi = i * 128, min(n, (i + 1) * 128)
-    e = err[lo:hi]
-    print(f"  row {i}: lanes {lo}..{hi - 1} max|err|={e.max():g} bad={(e > 0.02).sum()}")
 print("row 0 got ", np.round(g[:6], 4))
-print("row 0 want", np.round(w[:6], 4))
-for i in range(rows):
-    print(f"row {i} got", np.round(g[i * 128 : i * 128 + 4], 4), "want", np.round(w[i * 128 : i * 128 + 4], 4))
-print("y row0 meta", hex(model.read_xmem_metadata((placement.region("y").base_row) * row_bytes)))
+print("row 0 want", np.round(want.reshape(-1)[:6], 4))

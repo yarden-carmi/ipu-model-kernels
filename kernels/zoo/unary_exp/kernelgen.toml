@@ -1,0 +1,37 @@
+kind = "exact"
+method = "exp2"
+task = "unary_exp"
+hw_clean = true
+host_steps = []
+chain_in = "x"
+chain_out = "y"
+unsupported = [
+  "{\"fn\": \"relu\", \"numel\": 15360}: the AaQ has relu itself but this program's passes build exp; the relu-family kernels (unary_silu) cover the one-word fns.",
+  "{\"fn\": \"gelu\", \"numel\": 15360}: the erf form has no hardware path (no erf activation, and the LUT's range is far too small); gelu_tanh is unary_silu's, to ~1e-3.",
+  "{\"fn\": \"sigmoid\", \"numel\": 15360}: 1/(1+exp(-x)) needs the ones row and the reciprocal pass of unary_silu, not this kernel's two passes.",
+  "{\"fn\": \"tanh\", \"numel\": 15360}: no tanh in the hardware AaQ list (only the emulator's ACTIVATE.EXACT has it).",
+  "{\"fn\": \"rsqrt\", \"numel\": 15360}: the AaQ has rsqrt itself; one word per row, but not this program's exp passes -- a separate kernel would cover it.",
+  "{\"fn\": \"silu\", \"numel\": 15360}: covered by unary_silu's four-pass program, which this kernel's two-pass exp shape does not render.",
+]
+notes = """One parameterised program for every numel: y = exp(x) elementwise, x the
+plain activation layout (row r holds lanes 128r..128r+127, lanes past numel zero) and y
+written back the same way, so the kernel reads the previous kernel's rows and leaves rows
+the next one reads. The shape reaches the program through CRs only and the row loop is
+dynamic, so a whole call is one launch. Dataflow: the AaQ's exp2 rejects a positive
+argument, so the exponent is shifted below the range's upper bound and the shift paid back
+with exact dyadic MULT constants -- e = exp2((x - 8) log2 e) (x in two MULT.RC.VE terms and
+-8 log2 e in two MULT.EE terms against the ones row, the program's own exp2(0) store, so a
+constant term does not scale with x; the exp2 store rides the fourth word) and y = e *
+exp(8) (two MULT.RC.VE terms, the identity store in the third word), 7 words per row. All
+constants are exact dyadics an NX8 MULT constant holds; the only errors are log2 e's 7e-6
+truncation on the argument (<= 1.1e-4 over x in [-8, 8], an 8e-5 relative error on y) and
+the two 8-bit row round trips (e and the output store), measured ~1 NX8 step. The range's
+upper bound is 2, not the 8 the -8 log2 e shift would allow, because the chip chains: the
+next launch of this kernel reads this one's y = exp(x) as its x, and its exp2 argument
+(y - 8) log2 e must stay <= 0, i.e. x <= ln 8 = 2.079; declared 2 (exp(2) = 7.39, a 7%
+margin under 8), so a call at the range top leaves the chained call's argument at -0.89.
+x below 8 would make the exp2 argument
+positive (an AaQ error): declared [-8, 2]. Limits: numel 1..698880 (5460 rows; the call
+takes 3*rows+2 of the 16384 addressable NX8 rows), fn exp only. Every LR the program reads
+is set by it, every accumulation is seeded with a .FIRST form and R_MASK is loaded from
+its own scratch row, so it runs after another kernel as well as from reset."""
