@@ -1,0 +1,38 @@
+kind = "exact"
+method = "exact"
+task = "layout_copy"
+hw_clean = true
+host_steps = []
+chain_in = "x"
+chain_out = "y"
+unsupported = [
+  "{\"kind\": \"transpose\", \"numel\": 15360}: a transpose permutes lanes across rows: y[j*W+i] = x[i*W+j] needs element i of one row stored to lane j of another. The datapath moves whole rows -- MULT reads 128 consecutive lanes of Ra/R_CYCLIC and ACTIVATE.QUANTIZE stores one row of lanes in place -- so only power-of-two decimations (ACC.STRIDE) are expressible, not a general permute. A row-at-a-time transpose through R_CYCLIC rotations would be a different kernel per (H, W) pair, and the shape reaches the program through CRs only.",
+  "{\"kind\": \"concat\", \"numel\": 15360}: a concat of two inputs needs both tensors' regions and a split point the program does not have -- the signature carries only `numel`, so the inputs' shapes cannot be derived (x and y are one tensor each in the ABI). A concat kernel with x1/x2 ABI entries and a CR split would be a separate kernel, not a parameter of this one.",
+  "{\"kind\": \"copy\", \"numel\": 0}: an empty call: numel starts at 1, and rows - 1 would underflow the loop bound.",
+  "{\"kind\": \"copy\", \"numel\": 262400}: above the declared numel maximum (262144 = 2048 rows). x and y take one row per 128 elements, so 262400 needs 2*2049+1 = 4099 of the 16384 addressable NX8 rows; the maximum is a size choice, not a limit of the program, which loops any number of rows.",
+]
+notes = """One parameterised program for every (kind, numel); kind = copy: y[i] = x[i] for
+i in 0..numel-1. x and y are the chip's activation layout with one entity (row i holds
+elements 128i..128i+127, lanes past numel zero), so the kernel reads the rows the previous
+kernel wrote and leaves rows the next one reads, with no repack and no host step between them.
+The shape reaches the program through CRs only and the row loop is dynamic, so a whole call is
+one launch: 262144 elements is 2048 iterations of the same word (2049 words plus a 4-word
+prologue). Dataflow: the only way into R_ACC is a multiply result, so each row is multiplied
+by the CR constant 1.0 (MULT.VE of the row resident in R1, whose elements sit at Ra offset
+128) and stored with ACTIVATE.QUANTIZE identity -- a copy at the store's own quantization,
+which is the rounding the next kernel's input would see anyway. One word per row: the next
+row's load rides in the same word (LOAD reads LRs after the same word's writes, MULT reads R1
+as the word began), so the multiplier runs in every word of the loop and the loop's last
+iteration loads the row the straight-line tail word stores. The last row is emitted
+straight-line with its own DS half, so a short last row (numel - 128*(rows-1) lanes) stores
+exactly its live lanes and writes lanes past numel 0 for whatever reads y next. Every LR the
+program reads is set by it, R_ACC is initialised by the ACC.ADD.FIRST of every row and R_MASK
+is loaded from its own scratch row, so it runs after another kernel as well as from reset (the
+verifier runs it twice back to back, the second reading the first's y as its x). Limits:
+numel 1..262144 (2048 rows; the call takes 2*rows+1 of the 16384 addressable NX8 rows, so a
+chain has room for a second launch), kind copy only -- transpose (lane permutation across
+rows) and concat (two input regions and a split the signature cannot carry) are in
+`unsupported`, each for a stated reason; there is no FP32 variant -- FP32 addresses 4096 rows
+only and dynamic is the chip's NX8 type. Accuracy: the product by 1.0 is exact in FP32 and
+only the store rounds, so the golden (float64, quantized row by row like the store) matches
+at max |err| 0 on every case, tolerance NX8_STEP 1 ulp."""
