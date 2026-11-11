@@ -1,0 +1,132 @@
+# unary_cos: y = cos(x) elementwise over numel elements, one parameterised program.
+#
+#   fn    : cos (the only function this program realises)
+#   numel : elements of x and of y
+#
+# The input range is [-pi/2, pi/2]: cos is even, so the program works on the
+# square -- s = x^2, one NX8 row round trip -- and evaluates the degree-8
+# Taylor polynomial of cos, whose remainder on this range is x^8/8! <= 9.3e-4,
+# an order under the output row's NX8 grid step. Wider ranges need a range
+# reduction the datapath cannot build (no floor, no compare, no data-driven
+# addressing), so the declared range is the widest the polynomial covers.
+# The host tiles nothing but numel.
+#
+# Hardware-clean NX8 (formats = ["dynamic"]): every store is an
+# ACTIVATE.QUANTIZE (identity or the prologue's exp2(0) ones row), the
+# accumulators are FP32, and no emulator-only instruction appears.
+#
+# Dataflow, per 128-lane row (16 words):
+#
+#   s  = x * x      MULT.RC.VS on the cyclic window (the square kills the sign,
+#                   so no |x| pass is needed), identity store.
+#   p  = b8         MULT.EE off R1[0] = 1.0 (the ones row is the prologue's own
+#                   exp2(0) store, so the host prepares no constant).
+#   p  = p s + bk   one Horner step, degree 8 down to 0: the product is
+#                   MULT.RC.VV (s in the cyclic window, p in R0), the constant
+#                   enters as another MULT_RES (MULT.EE off the ones row) and
+#                   the row is stored after the add -- the one NX8 round trip
+#                   per step. Four steps: b6, b4, b2, then b0 with the store
+#                   of y.
+#
+# The coefficients are dyadic roundings of the Taylor terms (7 significant
+# bits each, the MULT constant's width); reference.py computes the same
+# polynomial with the same constants in float64, so the kernel's residual
+# against the golden is the row round-trips and the FP32 accumulation,
+# measured in output-row steps below.
+#
+# XMEM: x, y and s are one row per 128 elements plus the ones row and the mask
+# row; the four intermediate p rows live in y's region (y is written only by
+# each row's last store), so a call takes 3*rows + 2 <= 16384 addressable NX8
+# rows, hence the numel maximum of 698880 (5460 rows). There is no FP32
+# variant: dynamic is the chip's NX8 type, and FP32 addresses 4096 rows only.
+
+[kernel]
+op = "unary"
+formats = ["dynamic"]
+
+[params]
+fn    = { type = "str", choices = ["cos"], default = "cos" }
+numel = { type = "int", min = 1, max = 698880 }   # 5460 rows: 3*rows + 2 XMEM rows
+# The program's coefficients: dyadic roundings of the degree-8 Taylor terms of
+# cos (7 significant bits each, the MULT constant's width).
+b8 = { type = "float", choices = [2.47955322265625e-05], default = 2.47955322265625e-05 }  # 1/40320 ~ 26/1048576
+b6 = { type = "float", choices = [-0.0013885498046875], default = -0.0013885498046875 }    # -1/720 ~ -91/65536
+b4 = { type = "float", choices = [0.04150390625], default = 0.04150390625 }                # 1/24 ~ 85/2048
+b2 = { type = "float", choices = [-0.5], default = -0.5 }
+b0 = { type = "float", choices = [1.0], default = 1.0 }
+
+[derived]
+rows  = "ceil(numel / 128)"                       # x's, y's and every intermediate's rows
+tail  = "numel - 128 * (rows - 1)"                # the last row's live lanes
+bound = "max(rows - ceil((128 - tail) / 127) - 1, 0)"  # CR12: the row loop's bound: the last row index that still loops (the straight-line rows are not in it)
+slot1 = "128"                                   # CR11: cyclic slot 1, where s lives
+qf    = "case_qf"                                 # CR14: the case's QF half
+ds    = "halves(ds(128), ds(tail))"               # CR15: full row / last row
+
+[inputs.x]
+shape = ["numel"]
+range = { nx8 = [-1.5707963705062866, 1.5707963705062866] }  # [-pi/2, pi/2]: s = x^2 <= pi^2/4, the polynomial's range
+
+[outputs.y]
+shape = ["numel"]
+
+[scratch.s]
+shape = ["rows", 128]                             # x^2
+
+[scratch.one]
+shape = [1, 128]                                  # exp2(0): the ones row every constant add broadcasts from
+
+[scratch.maskr]
+shape = [1, 128]
+bytes = "pack.py:mask_ones"                       # LD.MASK: every lane active, whatever a previous kernel left
+
+[abi]
+x     = "CR2"
+s     = "CR3"
+one   = "CR4"
+y     = "CR5"
+maskr = "CR6"
+b8    = "CR7"
+b6    = "CR8"
+b4    = "CR9"
+b2    = "CR10"
+slot1 = "CR11"
+bound = "CR12"                                    # the row loop's bound: trips - 1
+qf    = "CR14"
+ds    = "CR15"
+
+[golden]
+reference = "reference.py:reference"
+# NX8: the golden (reference.py) runs the same polynomial with the same dyadic
+# constants and models the kernel's every FP32 product/accumulate and NX8 row
+# round trip, so the kernel's residual is the last rounding only.
+tolerance = { nx8 = { tier = "NX8_STEP", ulps = 2, why = "the golden models the kernel's round trips; what is left is the output store's own quantization against a row scale the accumulation order can move by a step" } }
+
+[cases.default]                                   # facebook/sam-vit-base
+fn = "cos"
+numel = 256
+
+[cases.cos_524288]                                # facebook/sam-vit-base, the largest call
+fn = "cos"
+numel = 524288
+tier = "nightly"
+
+[cases.one]                                       # the narrowest call: one lane, one row
+fn = "cos"
+numel = 1
+
+[cases.tile]                                      # exactly one 128-lane row
+fn = "cos"
+numel = 128
+
+[cases.tail]                                      # one row and a lane
+fn = "cos"
+numel = 129
+
+[cases.two_rows]                                  # straight-line bodies, no loop
+fn = "cos"
+numel = 200
+
+[cases.sweep]                                     # the structure of the calls, scaled down
+fn = "cos"
+numel = [1, 2, 5, 127, 128, 129, 130, 255, 256, 257, 1000, 4096]

@@ -1,0 +1,37 @@
+kind = "approximation"
+method = "polynomial"
+task = "unary_cos"
+hw_clean = true                       # every store is an ACTIVATE.QUANTIZE, no emulator-only instruction
+host_steps = []                       # the host only launches; the whole call is one launch
+chain_in = "x"                        # the activation input the previous kernel's output feeds
+chain_out = "y"                       # the activation output the next kernel reads
+unsupported = []                      # the declared domain is everything the program runs
+notes = """One parameterised program for every numel: y = cos(x) elementwise, one 128-lane row
+per iteration of a dynamic loop whose bound is a CR, so a whole call is one launch and the host
+tiles nothing but numel (524288 elements is 4096 rows, 65552 cycles; a call takes 3*rows + 2 of
+the 16384 addressable NX8 rows, so the declared numel maximum is 698880). x and y are the plain
+activation layout, so the kernel reads the rows the previous kernel wrote and leaves the rows the
+next one reads. The AaQ activates into memory only, so every multiplicand is an NX8 row: cos is
+even, so the program works on the square -- s = x*x is one MULT.RC.VS of the cyclic window (the
+square kills the sign, so no |x| pass; the pad lanes' zeros are harmless) and one identity store
+-- and then the degree-8 Taylor polynomial runs as Horner over s with dyadic coefficients b8..b0
+(7 significant bits, the MULT constant's width): p starts at b8 (MULT.EE off R0[0] = 1.0, the
+ones row the prologue stores itself with exp2(0), so the host prepares no constant) and each
+step p = p*s + bk is a MULT.RC.VV (s in cyclic slot 1, p in R1) plus one more MULT_RES (MULT.EE
+off the ones row; b0 is CR1) and an identity store -- one NX8 round trip per degree, the four
+intermediate p rows living in y's region. 16 words per row. The last row of a call is short and
+is emitted straight-line with its own DS half (as is the row before it), so every store's scale
+comes from the live lanes and lanes past numel are written 0; the intermediates of that row use
+the same half, which is why the golden (reference.py) runs the same polynomial with the same
+constants and models the kernel's every FP32 product/accumulate and NX8 round trip -- the
+kernel's residual against it is one store's rounding, held at 2 steps. Every LR the program
+reads is set by it, R_MASK is loaded from its own all-ones row and every accumulation is seeded
+with a .FIRST form, so it runs after another kernel as well as from reset. Limits: numel
+1..698880, input range [-pi/2, pi/2] (the widest the degree-8 polynomial covers; wider needs a
+range reduction the datapath cannot build -- no floor, no compare, no data-driven addressing --
+so the domain is declared, not silently narrower); there is no FP32 variant -- FP32 addresses
+4096 rows only and dynamic is the chip's NX8 type. Accuracy against true cos: the Taylor
+remainder is at most (pi/2)^8/8! = 9.3e-4 and the coefficients' dyadic rounding ~2e-4 relative,
+but the s round trip costs up to ~0.02 absolute near the range ends (where |dy/ds| is largest
+and cos is small), measured 0.021 worst over the cases -- a substitute to measure in qbench
+against the model, not an exact cos."""
