@@ -1,5 +1,17 @@
 [
  {
+  "agent_run_id": 108,
+  "applied": "[\"conv_transpose2d{bias=1,cin=256,cout=64,dilation=1,groups=1,h=64,kh=2,kw=2,out_elements=1048576,padding=0,stride=2,w=64}: conv2d -> upsample_nearest (not used yet: conv_transpose2d: no torch reference of the original op here (several inputs, or unknown))\", \"conv_transpose2d{bias=1,cin=64,cout=32,dilation=1,groups=1,h=128,kh=2,kw=2,out_elements=2097152,padding=0,stride=2,w=128}: conv2d -> upsample_nearest (not used yet: conv_transpose2d: no torch reference of the original op here (several inputs, or unknown))\", \"substitute conv_transpose2d_via_conv_upsample (to measure in qbench against the full version)\"]",
+  "created_at": 1794419912.0002599,
+  "harness_id": 24,
+  "id": 34,
+  "model_id": 48,
+  "op": "conv_transpose2d",
+  "possible": 1,
+  "proposal": "{\"possible\": true, \"why\": \"A stride-2 2x2 conv_transpose2d with groups=1 and no padding is exactly the dense 2x2 conv2d on the upsampled feature map: it spreads each input channel over cout output channels at each of the four (dy,dx) phases, then nearest-upsamples by 2 in both spatial dims. conv2d already walks windows itself and stores [pixels, cout] in the row layout, and upsample_nearest reads that layout directly, so the two kernels chain with no host step.\", \"primitives\": {}, \"lowering\": [{\"signature\": \"conv_transpose2d{bias=1,cin=256,cout=64,dilation=1,groups=1,h=64,kh=2,kw=2,out_elements=1048576,padding=0,stride=2,w=64}\", \"calls\": [[\"conv2d\", {\"h\": 64, \"w\": 64, \"cin\": 256, \"cout\": 64, \"kh\": 2, \"kw\": 2, \"stride\": 1, \"padding\": 0, \"groups\": 1, \"bias\": true}], [\"upsample_nearest\", {\"channels\": 64, \"h\": 64, \"w\": 64, \"mode\": \"nearest2d\", \"out_elements\": 1048576}]]}, {\"signature\": \"conv_transpose2d{bias=1,cin=64,cout=32,dilation=1,groups=1,h=128,kh=2,kw=2,out_elements=2097152,padding=0,stride=2,w=128}\", \"calls\": [[\"conv2d\", {\"h\": 128, \"w\": 128, \"cin\": 64, \"cout\": 32, \"kh\": 2, \"kw\": 2, \"stride\": 1, \"padding\": 0, \"groups\": 1, \"bias\": true}], [\"upsample_nearest\", {\"channels\": 32, \"h\": 128, \"w\": 128, \"mode\": \"nearest2d\", \"out_elements\": 2097152}]]}], \"substitute\": {\"name\": \"conv_transpose2d_via_conv_upsample\", \"description\": \"Reference for qbench: applies the 2x2 kernel as a dense stride-1 conv2d on the input, then nearest-upsamples by the stride in both spatial dimensions; measured against torch.nn.functional.conv_transpose2d in FP32 and NX8.\", \"code\": \"def fn(x, weight, bias, stride=2):\\n    # x: [1, cin, h, w]; weight: [cin, cout, kh, kw] (transposed from the conv_transpose2d layout)\\n    y = torch.nn.functional.conv2d(x, weight, bias, stride=1, padding=0)\\n    y = torch.nn.functional.interpolate(y, scale_factor=stride, mode='nearest')\\n    return y\"}, \"isa_change\": null}",
+  "reason": "A stride-2 2x2 conv_transpose2d with groups=1 and no padding is exactly the dense 2x2 conv2d on the upsampled feature map: it spreads each input channel over cout output channels at each of the four (dy,dx) phases, then nearest-upsamples by 2 in both spatial dims. conv2d already walks windows itself and stores [pixels, cout] in the row layout, and upsample_nearest reads that layout directly, so the two kernels chain with no host step."
+ },
+ {
   "agent_run_id": 62,
   "applied": "[\"embedding{dim=384,tokens=256,vocab=30522}: gather_rows\", \"embedding{dim=384,tokens=256,vocab=2}: gather_rows\", \"embedding{dim=384,tokens=256,vocab=512}: gather_rows\"]",
   "created_at": 1794396213.082738,
