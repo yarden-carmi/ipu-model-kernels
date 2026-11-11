@@ -1,0 +1,61 @@
+kind = "exact"
+method = "exact"
+task = "conv2d_depthwise"
+hw_clean = true
+host_steps = []
+chain_in = "x"
+chain_out = "y"
+unsupported = [
+  "{\"bias\": true, \"cin\": 128, \"cout\": 128, \"groups\": 1, \"h\": 16, \"kh\": 3, \"kw\": 3, \"padding\": 1, \"stride\": 2, \"w\": 16}: a dense conv (groups = 1) multiplies each output pixel's [cin] input row by a [cin, cout] weight *matrix*, so a tap's 128 output channels need 128 different weight rows; the kernel holds one weight row per tap and multiplies lane-wise, which is the depthwise case only. A dense conv is a gemm over the taps (k = cin * kh * kw), where each output tile consumes an input scalar per word (MULT.RC.VE) -- a different program.",
+  "{\"bias\": true, \"cin\": 128, \"cout\": 128, \"groups\": 64, \"h\": 16, \"kh\": 3, \"kw\": 3, \"padding\": 1, \"stride\": 2, \"w\": 16}: a grouped conv has cout / groups = 2 filters per input channel, so one lane-wise product of a pixel row by a tap row cannot produce the two output channels that share those lanes; the [derived] dw guard (cin / groups == cout / groups == 1) refuses it. Two depthwise passes, one per filter, would need R_ACC to hold two output tiles at once.",
+  "{\"bias\": true, \"cin\": 128, \"cout\": 256, \"groups\": 128, \"h\": 16, \"kh\": 3, \"kw\": 3, \"padding\": 1, \"stride\": 2, \"w\": 16}: cout != cin is not a depthwise conv (one filter per channel); refused by the same guard, and the weight layout pack.py writes (one row per tap per channel chunk) has no room for the second filter.",
+  "{\"bias\": true, \"cin\": 128, \"cout\": 128, \"groups\": 128, \"h\": 16, \"kh\": 5, \"kw\": 5, \"padding\": 1, \"stride\": 2, \"w\": 16}: the taps are rendered (kh * kw of them, one LR each holding the tap's input row), and LR4..LR12 is nine taps -- a 5x5 window needs 25 LRs. 3x3 is every depthwise window in the surveyed models; 1x1, 1x3, 2x2, 3x1 and 3x2 all fit and are tested.",
+  "{\"bias\": true, \"cin\": 128, \"cout\": 128, \"groups\": 128, \"h\": 16, \"kh\": 3, \"kw\": 3, \"padding\": 2, \"stride\": 1, \"w\": 16}: padding > stride puts two taps of the window outside the image at once, and only the first and last pixel of a row and the first and last row are emitted with their clamped taps: the interior pixel loop and the middle row loop assume every tap addresses an input pixel. padding <= stride (the [derived] dw guard) keeps every interior tap inside the image; padding = stride = 2 (two taps clamped at the edge) is in the domain and tested.",
+  "{\"bias\": true, \"cin\": 128, \"cout\": 128, \"groups\": 128, \"h\": 16, \"kh\": 3, \"kw\": 3, \"padding\": 3, \"stride\": 3, \"w\": 16}: above the declared padding maximum (2), and out-of-image taps are read from a zero row rather than skipped, so a window with more clamped than live taps would spend most of its words multiplying zeros.",
+  "{\"bias\": true, \"cin\": 640, \"cout\": 640, \"groups\": 640, \"h\": 16, \"kh\": 3, \"kw\": 3, \"padding\": 1, \"stride\": 2, \"w\": 16}: ceil(cout / 128) chunk copies of the body are rendered (each with its own DS half and its own loop over the rows and pixels), and one copy is ~185 words of the 1024-word program: four chunks fit, five do not. cin <= 512 for that reason, not because of the datapath.",
+  "{\"bias\": true, \"cin\": 128, \"cout\": 128, \"groups\": 128, \"h\": 140, \"kh\": 3, \"kw\": 3, \"padding\": 1, \"stride\": 2, \"w\": 140}: above the declared h and w maxima (128), the largest activation grid of the surveyed models. Nothing in the program is fixed at 128 -- the row and pixel loops are dynamic and every address is CR- and LR-relative -- so a bigger grid is the same launch with more trips; the host may also tile it by input rows.",
+  "{\"bias\": true, \"cin\": 128, \"cout\": 128, \"groups\": 128, \"h\": 16, \"kh\": 3, \"kw\": 3, \"padding\": 1, \"stride\": 0, \"w\": 16}: a zero stride divides the output size by zero; the smallest stride is 1.",
+  "{\"bias\": true, \"cin\": 128, \"cout\": 128, \"groups\": 128, \"h\": 0, \"kh\": 3, \"kw\": 3, \"padding\": 1, \"stride\": 2, \"w\": 16}: an empty image: x, and with it the launch, has no rows.",
+]
+notes = """y = conv2d(x, W) + bias for a depthwise window (groups == cin == cout), one
+parameterised program for every (h, w, cin, cout, kh, kw, stride, padding, groups, bias):
+the four mobilevit_s cvnets_in1k depthwise convolutions -- 128 channels at 128x128, 256 at
+64x64, 384 at 32x32, 512 at 16x16, each 3x3 stride 2 same-padding with a bias -- are all in
+the domain and each runs in ONE launch (cases.default/mv32/mv64/mv128 are those four at their
+real shapes), the kernel walking each output pixel's window itself by row address (one row per
+input pixel), so no im2col and no padded copy is ever built and no host step exists. x and y
+are the chip's activation layout (pixel p holds its channels in rows p*ceil(cin/128)+c, lanes
+past cin zero), so the kernel reads what the previous kernel wrote and leaves what the next one
+reads, and the weights are prepared offline tap-major (row t*chunks+c is tap t's weight for
+those 128 channels) so that one word multiplies a pixel's channel row by a tap's weight row
+lane-wise: 128 channels of a window per multiply. Dataflow: the only way into R_ACC is a
+multiply result and a word has one MULT and one LOAD slot, so a tap costs its two loads (input
+row -> an R_CYCLIC slot, weight row -> R0) two words, each of which multiplies the previous tap,
+and the word after the last load multiplies, accumulates and stores (MULT+ACC+ACTIVATE.QUANTIZE
+ride one word): 19 words per output pixel per channel chunk at 3x3, 9 of them multiplying
+(46% of the run's words, every multiplying word at all 128 lanes), which is what a window that
+reads both of its operands from memory costs this datapath; 78095 cycles for the 128x128x128
+call, 5037 for the 16x16x512 one. The output row loop and the interior-pixel loop are dynamic
+(the shape reaches them through CRs and LRs only, so 4096 output pixels is 4096 trips of the
+same words); the channel chunks (<= 4, so cin <= 512 by the 1024-word program) and the taps are
+rendered. Out-of-image taps are not skipped -- a copy that loaded a different number of rows
+would desync the weight and input pointers -- they read a scratch row whose 512 bytes are the
+value 0 in every lane, and are multiplied by the CR constant 1.0 rather than by their weight row
+so that they contribute +0.0 rather than the signed zero a product with a negative weight
+leaves; the tap pointers advance regardless, so every copy of the body has the same shape.
+padding <= stride keeps every tap of every interior pixel of every middle output row inside the
+image, which leaves the edge copies (first/last pixel of a row, first/last row) to be emitted
+with their clamped taps known at render time; nothing is read outside a region. Format: FP32,
+not NX8, and the reason is XMEM addressing, not the datapath -- an NX8 program addresses only
+the first 16384 rows (2 MB) of XMEM and the 128x128 grid of 128-channel pixels is exactly that
+many rows of x, leaving no row for y, the weights or the mask (x + y + constants is 20492);
+FP32 rows address 1048576 of the 512 MB, so the whole call is one launch. It stays
+hardware-clean: every store is the hardware ACTIVATE.QUANTIZE (in FP32 mode it writes 512 bytes
+of FP32 and ignores the QF half), and the program holds no ACTIVATE.EXACT and no BREAK.
+Accuracy: exact -- the products and the accumulator adds are the FP32 datapath's, the store
+writes them unchanged -- and the float64 golden sums the same taps in the same order, measured
+max |err| 9.5e-7 (accumulation order only), tolerance FP32_ORDER with atol 8e-6 (nine FP32
+accumulator adds of partial sums bounded by kh*kw + 1). The program sets every LR it
+reads, opens every output row with an ACC.ADD.FIRST and loads its own mask row, so it runs
+after another kernel as well as from reset: test_calls.py runs it twice back to back in one
+XMEM, the second reading the first's y as its x."""

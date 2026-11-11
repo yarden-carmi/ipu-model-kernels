@@ -1,0 +1,364 @@
+# conv2d_depthwise: y = conv2d(x, W) + b for a DEPTHWISE window (groups == cin
+# == cout), one parameterised program for every shape.
+#
+# The four calls this kernel exists for are mobilevit_s cvnets_in1k's depthwise
+# convolutions: {cin cout groups} 128 at 128x128, 256 at 64x64, 384 at 32x32 and
+# 512 at 16x16, each kh = kw = 3, stride = 2, padding = 1, bias = true. Every
+# output pixel's window is walked by row address (one row per input pixel), so
+# the host never builds an im2col, never pads and never repacks: x and y are the
+# row layout every activation on the chip uses (pixel p holds its channels in
+# rows p*chunks + c) and the weights are prepared offline as kh*kw rows per
+# channel chunk (row t*chunks + c is tap t's weight for those 128 channels,
+# pack.py's tap_major), so one word multiplies a pixel's channel row by a tap's
+# weight row lane-wise -- 128 channels of the window at once.
+#
+# Dataflow: the only way into R_ACC is a multiply result and a word has one MULT
+# and one LOAD slot, so a tap costs its two loads (input row -> an R_CYCLIC
+# slot, weight row -> R0) two words, each of which multiplies an earlier tap;
+# the word after the last load multiplies, accumulates and stores the row
+# (MULT + ACC + ACTIVATE.QUANTIZE ride one word). With a bias the pixel's first
+# word opens R_ACC from the chunk's bias row, resident in R1 for the pass. A
+# row of y is 19 words at 3x3: 9 taps x 2 loads and the store in the last of
+# them -- 9 of the 19 words multiply, and 9 loads a tap plus 9 loads a weight
+# is what a lane-wise window costs a datapath with one LOAD and one MULT slot.
+#
+# Out-of-image taps contribute nothing, and they are not skipped (a copy that
+# loaded a different number of rows would desync the weight and input pointers):
+# they read the scratch zeros row instead, so every copy of the body has the
+# same words and one LR per tap serves all of them. padding <= stride (the guard
+# below) keeps every tap of every interior pixel of every middle output row
+# inside the image, which leaves only a row's first and last pixel and the
+# image's first and last row -- whose clamped taps are known when the program
+# renders. Nothing is ever read outside a region.
+#
+# Loops: the interior pixel loop and the output row loop are dynamic (the shape
+# reaches them through CRs and LRs only, so 4096 output pixels is 4096 trips of
+# the same words); the channel-chunk loop (ceil(cout/128) copies, at most 4) and
+# the kh*kw taps are rendered around them, which is what lets the last, short
+# chunk store with its own DS half and frees the loop counters' LR sub-slots.
+#
+# XMEM: a launch holds the whole call, so it is the resource that bounds the
+# corner. A call takes chunks * (h*w + out_h*out_w + kh*kw + 1) + 2 rows (x, y,
+# the taps' weight rows, the bias row, the mask row and the zeros row). All four
+# surveyed calls run in one launch at their real shape (128x128x128: 20492 rows,
+# 64x64x256: 10262, 32x32x384: 3878, 16x16x512: 1330), of the 1048576 FP32 rows
+# the 512 MB addressable space holds. The same shapes do not fit NX8 -- its
+# programs address 16384 rows (2 MB) and the widest call's x alone is that many
+# -- which is why this kernel is FP32 (see [kernel] formats); its stores are the
+# hardware ACTIVATE.QUANTIZE all the same. The other bound is the instruction
+# memory (1024 words): the ceil(cout/128) rendered chunk copies cost ~185 words
+# each, so cin <= 512.
+
+[kernel]
+op = "conv2d"
+# FP32, like every convolution on this chip: the widest surveyed call is a
+# 128x128 grid of 128-channel pixels, whose x alone is 16384 rows -- exactly the
+# rows an NX8 program may address (the first 2 MB of XMEM), leaving no row for
+# y, the weights or the mask. FP32 rows are 512 bytes of one addressable 512 MB
+# space (1048576 rows), so the whole call is one launch, and the store is still
+# the hardware ACTIVATE.QUANTIZE (in FP32 mode it writes 512 bytes of FP32 and
+# ignores the QF half): no emulator-only instruction anywhere in the program.
+formats = ["fp32"]
+
+[params]
+h = { type = "int", min = 1, max = 128, default = 8 }    # input rows
+w = { type = "int", min = 1, max = 128, default = 8 }    # input columns per row
+cin = { type = "int", min = 1, max = 512, default = 64 } # input channels: 128 per row
+cout = { type = "int", min = 1, max = 512, default = 64 }# output channels: depthwise, so = cin
+kh = { type = "int", min = 1, max = 3, default = 3 }     # window rows
+kw = { type = "int", min = 1, max = 3, default = 3 }     # window columns
+stride = { type = "int", min = 1, max = 4, default = 2 }
+padding = { type = "int", min = 0, max = 2, default = 1 }# at most stride: see [derived] dw
+groups = { type = "int", min = 1, max = 512, default = 64 }# depthwise: = cin (the dw guard)
+bias = { type = "bool", default = true }
+
+[derived]
+chunks = "ceil(cin / 128)"                              # x rows per pixel
+out_h = "(h + 2 * padding - kh) // stride + 1"          # output rows (PyTorch's floor form)
+out_w = "(w + 2 * padding - kw) // stride + 1"          # output pixels per row
+# 1 for a depthwise conv (cin / groups == cout / groups == 1) with padding <=
+# stride; anything else makes this region's row count non-positive, which
+# check_params refuses, so a dense or grouped call never routes here.
+dw = "(1 // (cin // groups)) * (1 // (cout // groups)) * (1 // (padding // (stride + 1) + 1))"
+# The XMEM rows one launch takes, for the budget in the header and test_calls.
+xrows = "chunks * (h * w + out_h * out_w + kh * kw + 1) + 2"
+rowfix = "stride * chunks * (w - out_w)"                # CR10: a row's end, per tap
+negbase = "-(padding * w + padding) * chunks"           # CR11: tap (0,0)'s row of pixel (0,0)
+wchunk = "w * chunks"                                   # CR12: one input row, in x rows
+rowcount = "out_h - 3"                                  # CR13: the row loop's bound
+nint1 = "out_w - 3"                                     # CR14: the pixel loop's bound
+ds = "halves(ds(128), ds(cout - 128 * (ceil(cout / 128) - 1)))"
+qf = "case_qf"
+
+[inputs.x]
+shape = ["h", "w", "cin"]                               # pixels in row-major (y, x) order
+range = [-1, 1]
+
+[inputs.wt]
+shape = ["cout", "cin / groups", "kh", "kw"]            # canonical; pack.py lays it out per tap
+range = [-1, 1]
+pack = "tap_major"
+
+[inputs.b]
+shape = [1, "cout"]
+range = [-1, 1]
+when = "bias"
+
+[outputs.y]
+shape = ["out_h", "out_w", "cout"]
+
+[scratch.maskr]
+shape = [1, 128]
+bytes = "pack.py:mask_ones"                             # LD.MASK: every lane active
+
+[scratch.zeros]
+shape = ["dw", 128]                                     # the guard, and the zero row
+bytes = "pack.py:zero_row"                              # the taps out of the image read this
+
+[abi]
+x = "CR2"
+y = "CR3"
+wt = "CR4"
+b = { register = "CR5", when = "bias" }
+maskr = "CR6"
+zeros = "CR7"
+ds = "CR8"
+qf = "CR9"
+rowfix = "CR10"
+negbase = "CR11"
+wchunk = "CR12"
+rowcount = "CR13"
+nint1 = "CR14"
+
+[golden]
+reference = "reference.py:reference"
+# FP32: the taps are multiplied and accumulated on the FP32 vector path, the
+# store writes them unchanged (identity, 512 bytes), and the golden sums the same
+# taps in the same order in float64 -- so only accumulation order differs.
+tolerance = { fp32 = { tier = "FP32_ORDER", atol = 8e-6, why = "the FP32 rounding of a kh*kw-tap sum: nine accumulator adds of partial sums bounded by kh*kw + 1 in magnitude (the harness's inputs are [-1, 1]) put the worst case near 4e-6; measured max |err| 9.5e-7 over every case and both sweeps" } }
+
+# ---- the surveyed calls (mobilevit_s cvnets_in1k, x2 per forward) -----------
+
+[cases.default]                                         # {cin cout groups} 512 at 16x16
+h = 16
+w = 16
+cin = 512
+cout = 512
+groups = 512
+
+[cases.mv32]                                            # {cin cout groups} 384 at 32x32
+h = 32
+w = 32
+cin = 384
+cout = 384
+groups = 384
+
+[cases.mv64]                                            # {cin cout groups} 256 at 64x64
+h = 64
+w = 64
+cin = 256
+cout = 256
+groups = 256
+
+[cases.mv128]                                          # {cin cout groups} 128 at 128x128
+# The widest surveyed call: x is 16384 rows of FP32 and y 4096 more, 20492 rows
+# of the 1048576 the FP32 window addresses -- and the reason this kernel is not
+# NX8, whose programs address 16384 rows in total.
+h = 128
+w = 128
+cin = 128
+cout = 128
+groups = 128
+tier = "nightly"
+
+# ---- the corners of the program's structure ---------------------------------
+
+[cases.valid1]                                          # no padding, no bias, 1x1: a lane-wise scale
+h = 8
+w = 8
+kh = 1
+kw = 1
+stride = 1
+padding = 0
+bias = false
+
+[cases.s1]                                              # stride 1, same padding: every edge clamps
+h = 9
+w = 13
+cin = 100
+cout = 100
+groups = 100
+stride = 1
+
+[cases.pad0]                                            # valid conv: nothing clamps
+h = 10
+w = 10
+cin = 130
+cout = 130
+groups = 130
+stride = 1
+padding = 0
+
+[cases.k2]                                              # a 2x3 window
+h = 4
+w = 5
+cin = 40
+cout = 40
+groups = 40
+
+[cases.one_pixel]                                       # one output pixel, one row, no padding
+h = 3
+w = 3
+cin = 96
+cout = 96
+groups = 96
+stride = 1
+padding = 0
+
+[cases.corner]                                          # one pixel of image: 7 of the 9 taps clamp
+h = 1
+w = 1
+cin = 40
+cout = 40
+groups = 40
+stride = 1
+
+[cases.one_row]                                         # a strip of image one pixel tall
+h = 1
+w = 12
+cin = 40
+cout = 40
+groups = 40
+stride = 1
+
+[cases.one_col]                                         # ... and one pixel wide
+h = 12
+w = 1
+cin = 40
+cout = 40
+groups = 40
+stride = 1
+
+[cases.wide]                                            # several channel chunks, short last one
+h = 6
+w = 7
+cin = 300
+cout = 300
+groups = 300
+
+[cases.tall]                                            # more output rows than one
+h = 30
+w = 4
+cin = 8
+cout = 8
+groups = 8
+
+[cases.two_rows]                                        # out_h == 2: no middle row loop
+h = 4
+w = 9
+cin = 40
+cout = 40
+groups = 40
+
+[cases.two_cols]                                        # out_w == 2: no interior pixel loop
+h = 9
+w = 4
+cin = 40
+cout = 40
+groups = 40
+
+[cases.p2s2]                                            # padding == stride == 2: two taps clamp
+h = 12
+w = 12
+cin = 100
+cout = 100
+groups = 100
+stride = 2
+padding = 2
+
+[cases.s4]                                              # the widest stride, with two taps clamping
+h = 12
+w = 20
+cin = 70
+cout = 70
+groups = 70
+stride = 4
+padding = 2
+
+# ---- the channel corners: the chunk loop, 1..4 chunks and their tails -------
+
+[cases.ch1]
+cin = 1
+cout = 1
+groups = 1
+
+[cases.ch4]
+cin = 4
+cout = 4
+groups = 4
+
+[cases.ch127]
+cin = 127
+cout = 127
+groups = 127
+
+[cases.ch128]
+cin = 128
+cout = 128
+groups = 128
+
+[cases.ch129]
+cin = 129
+cout = 129
+groups = 129
+
+[cases.ch256]
+cin = 256
+cout = 256
+groups = 256
+
+[cases.ch384]
+cin = 384
+cout = 384
+groups = 384
+
+[cases.ch512]
+h = 5
+w = 5
+cin = 512
+cout = 512
+groups = 512
+
+[cases.ch512_grid]                                      # four chunks over a real-sized grid
+# The four-chunk body (the program's longest render) with a dynamic pixel and
+# row loop: 16x16 output pixels, 4 chunks, 19 words each.
+h = 32
+w = 32
+cin = 512
+cout = 512
+groups = 512
+
+# ---- the sweeps -------------------------------------------------------------
+
+[cases.sweep]                                           # the structure of the calls, scaled down
+h = [3, 5]
+w = [3, 7]
+cin = 96
+cout = 96
+groups = 96
+kh = [1, 3]
+kw = [1, 3]
+stride = [1, 2]
+padding = [0, 1]
+bias = [false, true]
+
+[cases.sweep_wide]                                      # the other windows and the wide strides
+h = 11
+w = 13
+cin = 40
+cout = 40
+groups = 40
+kh = [1, 2, 3]
+kw = [2, 3]
+stride = [2, 3, 4]
+padding = [0, 1, 2]
