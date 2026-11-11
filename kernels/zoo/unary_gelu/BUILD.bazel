@@ -1,0 +1,22 @@
+load("//kernels:defs.bzl", "ipu_kernel")
+load("@ipu_deps//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_binary")
+
+# 6 named cases plus the 11-run numel sweep in the default tier (17 runs); the
+# whole-model gelu call (393216 elements) is nightly.
+ipu_kernel(shard_count = 4)
+
+# Not a test: run one case and print its rows against the reference.
+#     bazel run //kernels/zoo/unary_gelu:dbg -- [case] [format] [anything-for-a-dump]
+py_binary(
+    name = "dbg",
+    main = "_dbg.py",
+    srcs = ["_dbg.py"],
+    data = glob(["**"], exclude = ["BUILD.bazel"]) + ["//kernels/zoo:files"],
+    deps = [
+        "//kernels/zoo:lib",
+        "//src/ipu-harness:kernel_test_lib",
+        requirement("numpy"),
+    ],
+    legacy_create_init = False,
+)

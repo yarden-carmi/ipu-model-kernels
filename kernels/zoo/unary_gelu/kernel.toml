@@ -1,0 +1,143 @@
+# unary_gelu: y = gelu(x) elementwise over numel elements, tiled into 128-lane rows.
+#
+# One parameterised program for every (fn, numel): the rows are a dynamic loop
+# whose bound is a CR, so a whole call is one launch (3072 rows for the
+# 393216-element call is 3072 iterations of the same words) and the host tiles
+# nothing but numel. The layout is the plain activation layout -- entity e holds
+# its features in ceil(F/128) consecutive rows, row e*ceil(F/128)+c holding
+# features 128c .. 128c+127, lanes past F zero -- and y is written back exactly
+# as x was read, so this kernel's output is the next kernel's input. gelu(0) = 0,
+# so a zero-padded input row keeps a zero-padded output row.
+#
+# Hardware-clean NX8 (formats = ["dynamic"]): every store is an ACTIVATE.QUANTIZE
+# (identity or exp2) and no emulator-only instruction appears.
+#
+# The dataflow: gelu is x * sigmoid(z), z = c (x + 0.044715 x^3) with
+# c = 2 sqrt(2/pi) -- the tanh form of GELU, whose deviation from the erf form is
+# at most ~3.4e-4 absolute (kind estimation). The sigmoid goes through -|z|
+# (exp2 of a positive input is an AaQ error, so every transcendental goes the
+# negative way) and the two signed branches are joined with ACC.MAX:
+#
+#   s = x^2                    one MULT.RC.VS of the x row, ACC.ADD.FIRST.
+#   m = -(LC + LD s)           the exp2 argument per unit |x|: -(log2 e) c and
+#                              -(log2 e) c 0.044715 as two MULT constants, the
+#                              second one MULT.RC.VE, the first one MULT.EE (the
+#                              ones row broadcast; the row is the program's own
+#                              exp2(0) store, the host prepares no constant).
+#   t = |x|                    ACC.SUB.FIRST of x*1.0, then ACC.MAX: max(-x, x).
+#   e = exp2(t m)              the product is one MULT.RC.VV, and the store is
+#                              ACTIVATE.QUANTIZE exp2 on the same R_ACC: the
+#                              argument is <= 0 in every lane (m < 0, t >= 0).
+#   q = 1 / (1 + e)            e*1.0, then the ones row broadcast by MULT.EE,
+#                              AaQ reciprocal, stored into t's rows (t is spent).
+#   w = e q                    one MULT.RC.VV of e's row against q's row in Ra,
+#                              identity store into e's rows (e is spent too).
+#   y = max(x q, x w)          for x >= 0 the larger product is x q, for x < 0
+#                              both are negative and the smaller magnitude, x w
+#                              = x e/(1+e) = x sigmoid(z), wins. No compare and
+#                              no sign test exists in the program.
+#
+# Two row registers serve all four intermediates: the s rows hold x^2, then m,
+# then e, then w; the t rows hold |x|, then t m, then q. A call takes
+# 4*rows + 2 XMEM rows, so numel <= 524160 (4095 rows).
+#
+# Cost: 14 words per row, every one of the first 12 multiplying. 393216 elements
+# is 3072 rows, 43109 cycles at 86% multiplier use.
+
+[kernel]
+op = "unary"
+formats = ["dynamic"]
+
+[params]
+fn    = { type = "str", choices = ["gelu"], default = "gelu" }
+numel = { type = "int", min = 1, max = 524160 }           # 4095 rows: 4*rows + 2 XMEM rows
+# The program's constants, each an exact MULT constant (8-bit element with its
+# own scale): lc = -log2(e) * c and ld = -log2(e) * c * 0.044715, each the sum
+# of two dyadic parts so the NX8 constant holds them to 5e-6 relative -- the tanh
+# approximation itself is 3.4e-4 absolute, so this is far inside it.
+lc1 = { type = "float", choices = [-2.3125], default = -2.3125 }
+lc2 = { type = "float", choices = [0.01025390625], default = 0.01025390625 }
+ld1 = { type = "float", choices = [-0.1015625], default = -0.1015625 }
+ld2 = { type = "float", choices = [-0.00140380859375], default = -0.00140380859375 }
+
+[derived]
+rows      = "ceil(numel / 128)"                        # x's and y's rows, and every pass's: the loop's trips
+tail      = "numel - 128 * (rows - 1)"                 # the last row's live lanes
+bound     = "max(rows - 2 - ceil((128 - tail) / 127), 0)"  # CR8: the row loop's bound (trips - 1; the straight-line rows are not in it)
+qf        = "case_qf"                                  # CR14: the case's QF half
+ds        = "halves(ds(128), ds(tail))"                # CR15: full row / last row
+
+[inputs.x]
+shape = ["numel"]
+range = { nx8 = [-8, 8] }         # activations: exp2's argument stays <= 0
+
+[outputs.y]
+shape = ["numel"]
+
+[scratch.s]
+shape = ["rows", 128]             # x^2, then m, then e, then w: one row register
+
+[scratch.t]
+shape = ["rows", 128]             # |x|, then the exp2 argument, then q: the other
+
+[scratch.one]
+shape = [1, 128]                  # exp2(0): the ones row the +1 broadcasts from
+
+[scratch.maskr]
+shape = [1, 128]
+bytes = "pack.py:mask_ones"       # LD.MASK: every lane active, whatever a previous kernel left
+
+[abi]
+x         = "CR2"
+s         = "CR3"                 # x^2, then m, then e, then w
+t         = "CR4"                 # |x|, then q
+y         = "CR5"
+one       = "CR6"
+maskr     = "CR7"
+bound     = "CR8"                 # the row loop's bound: trips - 1
+lc1       = "CR9"                 # -log2(e) c, first dyadic part
+lc2       = "CR10"                # -log2(e) c, second
+ld1       = "CR11"                # -log2(e) c 0.044715, first
+ld2       = "CR12"                # -log2(e) c 0.044715, second
+qf        = "CR14"
+ds        = "CR15"
+
+[golden]
+reference = "reference.py:reference"
+# NX8: the intermediate rows (x^2, m, |x|, e, q, w) are each rounded to an 8-bit
+# row before they are multiplied again, so y carries a few steps of those row
+# grids; measured below.
+tolerance = { nx8 = { tier = "NX8_STEP", ulps = 3, why = "seven 8-bit row round-trips (x^2, m, |x|, e, q, w and the output store), each quantized against its own row's largest lane" } }
+
+[cases.default]                              # a few hundred rows, all loops live
+fn = "gelu"
+numel = 1000
+
+[cases.minilm_393216]                        # sentence-transformers/all-MiniLM-L6-v2, x6 per forward
+fn = "gelu"
+numel = 393216
+tier = "nightly"
+
+[cases.one]                                  # the narrowest call: one lane, one row
+fn = "gelu"
+numel = 1
+
+[cases.tile]                                 # exactly one 128-lane row
+fn = "gelu"
+numel = 128
+
+[cases.tail]                                 # one row and a lane
+fn = "gelu"
+numel = 129
+
+[cases.two_rows]                             # the loop's shortest trip
+fn = "gelu"
+numel = 200
+
+[cases.medium]                               # a few hundred rows, all loops live
+fn = "gelu"
+numel = 4096
+
+[cases.sweep]                                # the structure of the calls, scaled down
+fn = ["gelu"]
+numel = [1, 2, 127, 128, 129, 130, 255, 256, 257, 1000, 4096]
