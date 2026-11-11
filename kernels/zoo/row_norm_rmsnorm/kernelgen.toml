@@ -1,0 +1,42 @@
+kind = "approximation"          # exact | approximation | estimation | variation
+method = "rsqrt"
+task = "row_norm_rmsnorm"
+hw_clean = true                       # false if any emulator-only instruction is used
+host_steps = []                       # must stay empty: see "No host steps" below
+chain_in = "x"                        # the activation input the previous kernel's output feeds
+chain_out = "y"                       # the activation output the next kernel reads
+unsupported = [
+  "{\"kind\": \"layernorm\", \"rows\": 64, \"channels\": 240}: layernorm is the other half of the row_norm family: it needs the mean, the variance and beta, which the sibling kernel kernels/zoo/row_norm_layernorm computes (this program has no subtraction and no beta load at all).",
+  "{\"kind\": \"rmsnorm\", \"rows\": 8192, \"channels\": 15}: below the channels floor of 16: an NX8 row is a block format, one scale from its largest active lane and 6-7 bits of mantissa, so the group's A row (one value per row of the group) carries an absolute error of (its max)/128 -- over 16 channels of real data the A values sit within a couple of factors of each other and that error stays 1-2 steps of the output grid; below that a nearly-zero row's A dwarfs its neighbours' and flushes them to zero.",
+  "{\"kind\": \"rmsnorm\", \"rows\": 32769, \"channels\": 16}: above the declared rows maximum (32768): the group loop takes any number of groups, but the host tiles `rows`, so the maximum is a size choice, not a limit of the program.",
+  "{\"kind\": \"rmsnorm\", \"rows\": 8192, \"channels\": 1281}: above the declared channels maximum (1280): the chunk loop is rendered per call and takes any chunk count, but 1280 covers every surveyed width (whisper's layer norms) and past it the wide-chunk path is untested.",
+  "{\"kind\": \"rmsnorm\", \"rows\": 8192, \"channels\": 16, \"gamma_layout\": \"per_row\"}: gamma is `channels` values, one row per chunk, as prepared offline: a per-row gamma is a different kernel.",
+]
+notes = """One parameterised program for every (rows, channels) of RMSNorm:
+y[r, j] = x[r, j] * rsqrt(max(mean_j x[r,j]^2, eps)) * gamma[j], the detr
+resnet's norm (8192 and 32768 rows of 16 channels, x5 and x4 per forward). x and
+y are the chip's activation layout with one entity per ceil(channels/128) rows
+(row r*chunks + c holds channels 128c..128c+127, lanes past channels zero), so
+the kernel reads the rows the previous kernel wrote and leaves rows the next one
+reads, with no repack and no host step between them. Dataflow per group of up to
+128 rows: the squares reduce at one word per (row, chunk) (MULT.RC.VS + AGG.SUM
+into the row's R_ACC lane, the next row's load riding in the same word), A =
+rsqrt(max(squares/channels, eps)) is one straight-line word (the hardware rsqrt
+of ACTIVATE.QUANTIZE, floored by ACC.MAX), then p = A_r * x and y = p * gamma at
+one word per (row, chunk) each -- three words per (row, chunk) in all, the
+datapath's floor for a norm whose result needs two multiplies after the
+reduction. The full groups of 128 rows are one dynamic loop and a short last
+group is emitted a second time with its own DS half, so a group's unused
+bookkeeping lanes can never set a row's scale; the group's first row is built at
+run time (LR6 += the group stride per group) because rows up to 32768 with
+several chunks exceed a CR half. Every constant (1/channels, eps) is a scratch
+row read through R0 -- in NX8 only CR0 and CR1 stay exact -- and the program
+sets every LR it reads and loads its own mask row, so it runs after another
+kernel as well as from reset (test_calls.py runs it twice back to back in one
+XMEM, the second reading the first's y as its x). Limits: rows 1..32768 (the
+host tiles rows only), channels 16..1280 (16 is the detr calls; the floor is the
+NX8 block scale, not the program), eps > 0. Accuracy: the reduction, the rsqrt
+and the two multiplies are exact in FP32 but the squares, A and p rows are 8-bit
+row quantizations on the way through R_ACC, so the golden (float64, quantized
+row by row like the store) matches at max |err| 1-2 steps of the output row's
+grid on every case, tolerance NX8_STEP 3 ulps."""

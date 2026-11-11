@@ -1,0 +1,31 @@
+load("//kernels:defs.bzl", "ipu_kernel")
+load("@ipu_deps//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_binary")
+
+# One-shot: add row_norm_rmsnorm to kernels/families.bzl's zoo line (the only
+# edit outside kernels/zoo/ this kernel needs; see _register.py).
+py_binary(
+    name = "register",
+    main = "_register.py",
+    srcs = ["_register.py"],
+)
+
+# The detr calls scaled to a group, the group and chunk boundaries, the
+# four-chunk corner and the 1280-chunk stride path, plus a small sweep; eight
+# shards keep each inside the budget (the 32768-row detr call is nightly).
+ipu_kernel(shard_count = 4)
+
+# Not a test: run one case and print its rows against the reference.
+#     bazel run //kernels/zoo/row_norm_rmsnorm:dbg -- [case] [format] [anything-for-a-dump]
+py_binary(
+    name = "dbg",
+    main = "_dbg.py",
+    srcs = ["_dbg.py"],
+    data = glob(["**"], exclude = ["BUILD.bazel"]) + ["//kernels/zoo:files"],
+    deps = [
+        "//kernels/zoo:lib",
+        "//src/ipu-harness:kernel_test_lib",
+        requirement("numpy"),
+    ],
+    legacy_create_init = False,
+)

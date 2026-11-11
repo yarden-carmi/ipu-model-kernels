@@ -1,0 +1,192 @@
+# row_norm: per-row normalisation over `channels`, one parameterised program.
+#
+#   rmsnorm  y[r, j] = x[r, j] * A_r * gamma[j]
+#            A_r      = rsqrt(max(mean_j x[r,j]^2, eps))
+#
+# Every row is one entity of ceil(channels / 128) consecutive XMEM rows (row
+# r * chunks + c holds channels 128c .. 128c + 127, lanes past `channels` zero),
+# which is both what the harness packs and reads and the layout every activation
+# on the chip uses: the kernel is chainable, its y is the next kernel's x.
+#
+# The shape reaches the program only through CRs and the row loop is dynamic, so
+# a whole call -- detr's 8192 rows x 16 channels at once -- is one launch; the
+# group loop runs over ceil(rows / 128) groups of rows and the chunk loop is
+# rendered per call (a call's `channels` is known when it is assembled). The
+# group's first row is built at run time (LR6 += the group stride per group),
+# so rows past 512 with several chunks -- where a CR half could not hold the
+# row number -- still work.
+#
+# The program runs per group of up to 128 rows -- the R_ACC lanes are the
+# bookkeeping, one lane per row of the group, which is what bounds a group at
+# 128 rows:
+#   pass 1  reduce  one word per (row, chunk): MULT.RC.VS of the row
+#                   (squares) and AGG.SUM into the row's R_ACC lane, the next
+#                   row's load riding in the same word. Stored once as the
+#                   `sca` scratch's squares row.
+#   pass 2  scalar  A = rsqrt(max(squares * 1/channels, eps)) with the
+#                   hardware rsqrt of ACTIVATE.QUANTIZE, floored at eps by
+#                   ACC.MAX. Straight-line, ~5 words.
+#   pass 3  p       p[r] = A_r * x[r]. A_r is Ra[R0][r], an element-selected
+#                   scalar, so the group's A row serves every row without
+#                   leaving XMEM. One word per (row, chunk).
+#   pass 4  y       y[r] = p[r] * gamma: MULT.RC.VV against the resident gamma
+#                   row. One word per (row, chunk).
+# Every constant the case needs (1/channels, eps) is a scratch row read through
+# R0, never a CR constant: in NX8 a CR constant is an 8-bit element, so only
+# CR0 = 0.0 and CR1 = 1.0 stay exact.
+#
+# The store's DS names 128 lanes for a full chunk and channels - 128*(chunks-1)
+# for the last one, so a row's scale never sees a lane past `channels` and those
+# lanes are written 0 for whatever kernel reads y next. The reduction always
+# uses 128 lanes: the packer's (and our own store's) zeros cannot move a sum.
+# The short last group's A row is stored with its own DS half, ds(rows % 128),
+# so a group's unused bookkeeping lanes (rsqrt(eps) = 316 against a real A of
+# ~2) can never set the row's scale.
+#
+# `channels` has a floor, and it is the datapath's, not the program's: an NX8
+# row is a block format, one scale for the row's largest lane and 6-7 bits of
+# mantissa, so a value carries an absolute error of (its row's max)/128. The
+# group's A row holds one value per row of the group; if one row of x is nearly
+# zero its A dwarfs the others and the row's scale flushes them to 0. Over 16
+# channels of well-spread data the group's A values sit within a couple of
+# factors of each other and the error is 1-2 steps of the output row's grid --
+# measured, not assumed; the floor of 16 is where the detr calls sit.
+#
+# XMEM is not the constraint: x, p and y are rows * chunks rows each plus the
+# constants, and the memory system is transparent about the size.
+
+[kernel]
+op = "row_norm"
+cost = 1                                          # rmsnorm-specialist: routing ties break to ../row_norm_layernorm
+formats = ["dynamic"]
+
+[params]
+kind     = { type = "str", choices = ["rmsnorm"], default = "rmsnorm" }
+rows     = { type = "int", min = 1, max = 32768 }             # entities, 128 per group; the host tiles rows
+channels = { type = "int", min = 16, max = 1280 }             # the reduction axis, 128 per chunk
+eps      = { type = "float", default = 0.00001, min = 0.00000001 }  # the rsqrt's floor
+
+[derived]
+qf = "case_qf"                                    # CR14: the case's QF half
+ds = "halves(ds(128), ds(channels - 128 * (ceil(channels / 128) - 1)))"  # CR15: full chunk / last chunk
+# CR11: the full groups' count (rows // 128, the dynamic group loop) and the
+# short last group's rows (rows % 128); CR12: the DS the last group's A row is
+# stored with.
+g0 = "halves(rows // 128, rows % 128)"
+tails = "halves(ds(rows % 128), 0)"
+
+[inputs.x]
+shape = ["rows", "channels"]
+range = [-1, 1]
+
+[inputs.gamma]
+shape = ["channels"]                              # one row per chunk, kept as prepared
+range = [-1, 1]
+
+[outputs.y]
+shape = ["rows", "channels"]
+
+[scratch.p]
+shape = ["rows", "channels"]                      # A_r * x, one row per entity and chunk
+
+[scratch.sca]
+shape = [3, 128]                                  # the group's bookkeeping: squares row 1, A row 2
+
+[scratch.invn]
+shape = [1, 128]
+fill = "1 / channels"
+
+[scratch.epsr]
+shape = [1, 128]
+fill = "eps"
+
+[scratch.maskr]
+shape = [1, 128]
+bytes = "pack.py:mask_ones"                       # LD.MASK: every lane active, whatever a previous kernel left
+
+[abi]
+x      = "CR2"
+gamma  = "CR3"
+y      = "CR4"
+p      = "CR5"
+sca    = "CR6"
+invn   = "CR7"
+epsr   = "CR8"
+maskr  = "CR9"
+g0     = "CR10"
+tails  = "CR11"
+qf     = "CR14"
+ds     = "CR15"
+
+[golden]
+reference = "reference.py:reference"
+# NX8: the store quantizes the row to the case's grid and the golden is
+# quantized the same way, so what is left is the kernel's own datapath: the
+# squares and A rows the group's bookkeeping passes through and the p row, each
+# one an 8-bit row quantization of a value R_ACC holds in FP32. The A row's
+# relative error is the largest term; the rows it lands in hold one value per
+# row of the group, all within a couple of binades of each other (which is what
+# the channels >= 16 floor of the header guarantees). Measured max |err| 1-2
+# steps of the output row's grid on every case.
+tolerance = { nx8 = { tier = "NX8_STEP", ulps = 3, why = "three 8-bit row round-trips in the datapath (squares, A, p); measured max 2 steps of the output row's grid" } }
+
+[cases.default]                          # facebook/detr-resnet-50, x5 per forward (rows scaled x1/128)
+kind = "rmsnorm"
+rows = 64
+channels = 16
+
+[cases.detr_tile]                        # one full group of the detr call
+kind = "rmsnorm"
+rows = 128
+channels = 16
+
+[cases.detr_129]                         # a full group plus one row
+kind = "rmsnorm"
+rows = 129
+channels = 16
+
+[cases.detr_32768]                       # the real call, x4 per forward
+kind = "rmsnorm"
+rows = 32768
+channels = 16
+tier = "nightly"
+
+[cases.one_row]                          # the narrowest call: one row, one chunk
+kind = "rmsnorm"
+rows = 1
+channels = 16
+
+[cases.chunk_bound]                      # exactly one 128-lane chunk
+kind = "rmsnorm"
+rows = 32
+channels = 128
+
+[cases.detr_512]                         # four full groups: the multi-group loop, no tail
+kind = "rmsnorm"
+rows = 512
+channels = 16
+
+[cases.chunk_129]                        # one lane in the last chunk
+kind = "rmsnorm"
+rows = 8
+channels = 129
+
+[cases.wide]                             # four chunks, a 16-lane last one
+kind = "rmsnorm"
+rows = 16
+channels = 500
+
+[cases.widest]                           # past four chunks: the dynamic stride path
+kind = "rmsnorm"
+rows = 10
+channels = 1280
+
+[cases.floored]                          # the eps floor binds: every A is 1/sqrt(eps)
+kind = "rmsnorm"
+rows = 40
+channels = 96
+eps = 1.0
+
+[cases.sweep]                            # the structure of the calls, scaled down
+rows = [1, 5, 128, 129, 300]
+channels = [16, 17, 127, 128, 129, 144, 512]
