@@ -66,6 +66,12 @@
   "tensors": "input x [rows, 128] in the row layout (pad lanes are zero); output y [rows, 128], same shape, read as direct by the next kernel"
  },
  {
+  "doc": "y = nearest-neighbor upsample of [channels, h, w] to out_elements outputs; for each output element (oy, ox) it reads the input element (oy // scale, ox // scale) at a compile-time-known index, writing the output in the row layout the next kernel reads.",
+  "name": "upsample_nearest",
+  "params": "{\"channels\": \"int: input channels\", \"h\": \"int: input height\", \"mode\": \"str: nearest2d\", \"out_elements\": \"int: number of output elements\", \"w\": \"int: input width\"}",
+  "tensors": "input x [channels * h * w] activation in the row layout (128-element rows) as stored by the producing kernel; output y [out_elements] activation in the row layout (128-element rows), read as direct by the next kernel"
+ },
+ {
   "doc": "y = x ** p elementwise over numel elements, with p a compile-time immediate; each exponent gets its own kernel: p=2 is a lane-wise x*x (exact), p=0.5 is sqrt computed as rsqrt(x) then reciprocal (x >= 0 guaranteed here since x is a sum of squares); pad lanes stay zero",
   "name": "unary_pow",
   "params": "{\"fn\": \"\\\"pow\\\"\", \"numel\": \"int: number of elements, tiled over rows of 128 (numel = rows * 128 rounded up; pad lanes are zero)\", \"p\": \"float: the exponent, a compile-time constant baked into the kernel\"}",
@@ -82,6 +88,12 @@
   "name": "bmm_gemm",
   "params": "{\"k\": \"reduction\", \"m\": \"rows of a (tokens)\", \"n\": \"outputs\"}",
   "tensors": "activations a [m, k] in, c [k, n] in, y [m, n] out, all in the row layout (128-element rows); a and c are read as stored by the producing kernel, y is stored in the row layout for the next kernel"
+ },
+ {
+  "doc": "y[i] = sum_{j<=i} x[j]: a cumulative sum along a row of numel elements, computed as a lower-triangular matrix-vector product: the input row is broadcast against a constant lower-triangular mask (1 where j<=i, else 0) and reduced per output position.",
+  "name": "cumsum_row",
+  "params": "{\"numel\": \"int: number of elements to cumsum (one row)\", \"out\": \"int: number of output elements (one per row)\"}",
+  "tensors": "input x [out, numel] activation in the row layout (each output row i is the input row broadcast, read as stored by the producing kernel); mask [out, numel] constant (lower-triangular 0/1, laid out offline); output y [out] in the row layout (one element per output position, padded to a full 128-lane row), read as direct by the next kernel"
  },
  {
   "doc": "y[m, n] = act(x[m, k] @ W[n, k]^T + bias[n]). Any m, k, n: k is reduced in 128-element chunks inside the kernel (one accumulator), n is looped over inside the kernel. Linear, batched matmul, attention and 1x1 convolution (pixels as tokens) lower to it.",

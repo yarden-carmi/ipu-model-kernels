@@ -25,6 +25,24 @@
  },
  {
   "category": "activation",
+  "isa_path": "no trig: host-precomputed table",
+  "isa_support": "none",
+  "name": "cos"
+ },
+ {
+  "category": "activation",
+  "isa_path": "no trig: host-precomputed table",
+  "isa_support": "none",
+  "name": "sin"
+ },
+ {
+  "category": "activation",
+  "isa_path": "reciprocal(1 + exp2(-x log2e)) (needs |x| for exp2's domain)",
+  "isa_support": "composed",
+  "name": "sigmoid"
+ },
+ {
+  "category": "activation",
   "isa_path": "x * sigmoid(1.702x) via exp2 + reciprocal",
   "isa_support": "composed",
   "name": "quick_gelu"
@@ -94,6 +112,12 @@
   "isa_path": null,
   "isa_support": "native",
   "name": "select_where"
+ },
+ {
+  "category": "data",
+  "isa_path": null,
+  "isa_support": "native",
+  "name": "upsample"
  },
  {
   "category": "elementwise",
@@ -201,6 +225,12 @@
   "category": "reduce",
   "isa_path": null,
   "isa_support": "native",
+  "name": "cumsum"
+ },
+ {
+  "category": "reduce",
+  "isa_path": null,
+  "isa_support": "native",
   "name": "sum"
  },
  {
@@ -256,24 +286,6 @@
   "isa_path": "no sort/top-k: k passes of AGG.MAX + R_MASK",
   "isa_support": "none",
   "name": "topk"
- },
- {
-  "category": null,
-  "isa_path": "no trig: host-precomputed table",
-  "isa_support": "none",
-  "name": "cos"
- },
- {
-  "category": null,
-  "isa_path": "no trig: host-precomputed table",
-  "isa_support": "none",
-  "name": "sin"
- },
- {
-  "category": null,
-  "isa_path": "reciprocal(1 + exp2(-x log2e)) (needs |x| for exp2's domain)",
-  "isa_support": "composed",
-  "name": "sigmoid"
  },
  {
   "category": null,
