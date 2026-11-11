@@ -1,0 +1,36 @@
+kind = "exact"
+method = "exact"
+task = "binary_add_row"
+hw_clean = true
+host_steps = []
+chain_in = "a"
+chain_out = "y"
+unsupported = [
+  "{\"broadcast\": \"row\", \"inner\": 4096, \"numel\": 32768, \"op\": \"div\"}: no exact reciprocal: the AaQ stage's `reciprocal` is a hardware approximation and its result lands in an 8-bit block row before the multiply that uses it, so a quotient would carry an error the kernel's `exact` kind does not allow.",
+  "{\"broadcast\": \"row\", \"inner\": 4096, \"numel\": 32768, \"op\": \"min\"}: the accumulator has ADD, MAX and SUB only, so min needs a negation, and the AaQ stage's activation set (identity, relu, relu6, reciprocal, rsqrt, exp2, generic) holds none.",
+  "{\"broadcast\": \"none\", \"inner\": 0, \"numel\": 15360, \"op\": \"add\"}: broadcast none is binary_add_none's kernel; this one takes b as a repeated row of `inner` values only.",
+  "{\"broadcast\": \"col\", \"inner\": 64, \"numel\": 15360, \"op\": \"add\"}: one b value per row of a, repeated along the row, needs a lane broadcast of a loaded row (MULT.RC.VE with a per-row scalar index) that this program does not build.",
+  "{\"broadcast\": \"scalar\", \"inner\": 1, \"numel\": 15360, \"op\": \"add\"}: a scalar b is MULT.RC.VE against one element, out with the other non-row broadcasts.",
+  "{\"broadcast\": \"row\", \"inner\": 384, \"numel\": 15360, \"op\": \"add\"}: `inner` must be a multiple of 128 whose row count ceil(inner/128) is a power of two: 384 is 3 rows, and the LR stage has no non-power-of-two wrap (INC.MODP2 masks to 2^k), while a compare-and-reset of b's row pointer would cost a word of the two-word row loop. 384 is also not lane-aligned as a repeat (128 does not divide 384), which would need a lane rotation the multiply stage cannot build.",
+  "{\"broadcast\": \"row\", \"inner\": 4096, \"numel\": 262272, \"op\": \"add\"}: above the declared numel maximum (262144 = 2048 rows); the maximum is a size choice, not a limit of the program.",
+]
+notes = """One parameterised program for every (op, inner, numel): y[i] = a[i] op b[i mod inner]
+for op in add, sub, mul, max, b broadcast as a row (a bias). `inner` is restricted to multiples of
+128 whose row count is a power of two (128..262144), so the repetition is lane-aligned (no
+rotation) and b's row pointer LR2 wraps with INC.MODP2 (mod 2^k, k = log2(ceil(inner/128))).
+a and y are the chip's activation layout (row i holds elements 128i..128i+127, lanes past numel
+zero); b is ceil(inner/128) rows repeating, so a's row r combines with b's row r mod b_rows --
+the t5/clip/whisper bias add, one launch per call (32768 elements = 256 rows = ~520 cycles).
+Dataflow per row is binary_add_none's: two words, both running the multiplier -- word A multiplies
+the b row resident in R1 by the CR constant 1.0 and initialises R_ACC (ACC.ADD/SUB/MAX.FIRST),
+word B multiplies the a row resident in R0 by 1.0, accumulates and stores with ACTIVATE.QUANTIZE
+identity; each word loads the row the next one multiplies. `mul` is one product per row
+(MULT.RC.VV of the cyclic a row against the resident b row) and its second word carries only the
+b load. The last row of a call is short and emitted straight-line with its own DS half, as is the
+row before it, so the one-row-ahead prefetch stays inside the regions and the store's DS names
+exactly the live lanes. Every LR the program reads is set by it and R_MASK is loaded from its own
+scratch row, so it runs after another kernel as well as from reset. Limits: numel 1..262144,
+inner in the power-of-two-row choices, broadcast row only (none/col/scalar and div/min in
+`unsupported`, each for a stated reason); no FP32 variant. Accuracy: the products and the
+accumulator adds are exact in FP32 and only the store rounds, so the golden (float64, quantized
+row by row like the store) matches at max |err| 0, tolerance NX8_STEP 1 ulp."""

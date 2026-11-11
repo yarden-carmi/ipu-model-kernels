@@ -1,6 +1,8 @@
 [
  {
   "agent_run_id": 10,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794300295.3214784,
@@ -22,6 +24,8 @@
  },
  {
   "agent_run_id": 12,
+  "audit_note": null,
+  "audit_rules": 1,
   "chain_note": null,
   "chain_ok": 1,
   "created_at": 1794304762.554979,
@@ -38,11 +42,13 @@
   "path": "kernels/zoo/gemm",
   "status": "passing",
   "task_id": 1,
-  "updated_at": 1794385532.669288,
+  "updated_at": 1794387536.7402427,
   "version": 2
  },
  {
   "agent_run_id": 17,
+  "audit_note": null,
+  "audit_rules": 1,
   "chain_note": null,
   "chain_ok": 1,
   "created_at": 1794331548.69841,
@@ -59,11 +65,13 @@
   "path": "kernels/zoo/row_softmax",
   "status": "passing",
   "task_id": 6,
-  "updated_at": 1794385532.864406,
+  "updated_at": 1794387536.9304569,
   "version": 1
  },
  {
   "agent_run_id": 18,
+  "audit_note": null,
+  "audit_rules": 1,
   "chain_note": null,
   "chain_ok": 1,
   "created_at": 1794329152.822758,
@@ -80,11 +88,13 @@
   "path": "kernels/zoo/row_norm_layernorm",
   "status": "passing",
   "task_id": 5,
-  "updated_at": 1794385532.708924,
+  "updated_at": 1794387536.7770875,
   "version": 1
  },
  {
   "agent_run_id": 19,
+  "audit_note": null,
+  "audit_rules": 1,
   "chain_note": null,
   "chain_ok": 1,
   "created_at": 1794338745.4354448,
@@ -101,11 +111,13 @@
   "path": "kernels/zoo/binary_add_none",
   "status": "passing",
   "task_id": 4,
-  "updated_at": 1794385532.6317666,
+  "updated_at": 1794387536.705676,
   "version": 1
  },
  {
   "agent_run_id": 20,
+  "audit_note": null,
+  "audit_rules": 1,
   "chain_note": null,
   "chain_ok": 1,
   "created_at": 1794345509.8847532,
@@ -122,11 +134,13 @@
   "path": "kernels/zoo/unary_silu",
   "status": "passing",
   "task_id": 7,
-  "updated_at": 1794385532.9006515,
+  "updated_at": 1794387536.9642951,
   "version": 1
  },
  {
   "agent_run_id": 22,
+  "audit_note": null,
+  "audit_rules": 1,
   "chain_note": null,
   "chain_ok": 1,
   "created_at": 1794354580.8195815,
@@ -143,11 +157,13 @@
   "path": "kernels/zoo/layout_concat",
   "status": "passing",
   "task_id": 8,
-  "updated_at": 1794385532.6781564,
+  "updated_at": 1794387536.7470067,
   "version": 1
  },
  {
   "agent_run_id": 25,
+  "audit_note": null,
+  "audit_rules": 1,
   "chain_note": null,
   "chain_ok": 1,
   "created_at": 1794368317.7919426,
@@ -164,11 +180,13 @@
   "path": "kernels/zoo/reduce_rows_mean",
   "status": "passing",
   "task_id": 9,
-  "updated_at": 1794385532.6858516,
+  "updated_at": 1794387536.7547536,
   "version": 1
  },
  {
   "agent_run_id": 26,
+  "audit_note": null,
+  "audit_rules": 1,
   "chain_note": null,
   "chain_ok": 1,
   "created_at": 1794378052.586144,
@@ -185,11 +203,36 @@
   "path": "kernels/zoo/conv2d_depthwise",
   "status": "passing",
   "task_id": 14,
-  "updated_at": 1794385532.6409361,
+  "updated_at": 1794387536.7245808,
+  "version": 1
+ },
+ {
+  "agent_run_id": 54,
+  "audit_note": null,
+  "audit_rules": null,
+  "chain_note": null,
+  "chain_ok": 1,
+  "created_at": 1794387525.6995254,
+  "domain": "{\"broadcast\": {\"choices\": [\"row\"], \"default\": \"row\", \"type\": \"str\"}, \"inner\": {\"choices\": [128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 262144], \"default\": 128, \"type\": \"int\"}, \"numel\": {\"max\": 262144, \"min\": 1, \"type\": \"int\"}, \"op\": {\"choices\": [\"add\", \"sub\", \"mul\", \"max\"], \"default\": \"add\", \"type\": \"str\"}}",
+  "formats": "dynamic",
+  "hw_clean": 1,
+  "id": 140,
+  "kind": "exact",
+  "method_id": null,
+  "name": "binary_add_row",
+  "notes": "One parameterised program for every (op, inner, numel): y[i] = a[i] op b[i mod inner]\nfor op in add, sub, mul, max, b broadcast as a row (a bias). `inner` is restricted to multiples of\n128 whose row count is a power of two (128..262144), so the repetition is lane-aligned (no\nrotation) and b's row pointer LR2 wraps with INC.MODP2 (mod 2^k, k = log2(ceil(inner/128))).\na and y are the chip's activation layout (row i holds elements 128i..128i+127, lanes past numel\nzero); b is ceil(inner/128) rows repeating, so a's row r combines with b's row r mod b_rows --\nthe t5/clip/whisper bias add, one launch per call (32768 elements = 256 rows = ~520 cycles).\nDataflow per row is binary_add_none's: two words, both running the multiplier -- word A multiplies\nthe b row resident in R1 by the CR constant 1.0 and initialises R_ACC (ACC.ADD/SUB/MAX.FIRST),\nword B multiplies the a row resident in R0 by 1.0, accumulates and stores with ACTIVATE.QUANTIZE\nidentity; each word loads the row the next one multiplies. `mul` is one product per row\n(MULT.RC.VV of the cyclic a row against the resident b row) and its second word carries only the\nb load. The last row of a call is short and emitted straight-line with its own DS half, as is the\nrow before it, so the one-row-ahead prefetch stays inside the regions and the store's DS names\nexactly the live lanes. Every LR the program reads is set by it and R_MASK is loaded from its own\nscratch row, so it runs after another kernel as well as from reset. Limits: numel 1..262144,\ninner in the power-of-two-row choices, broadcast row only (none/col/scalar and div/min in\n`unsupported`, each for a stated reason); no FP32 variant. Accuracy: the products and the\naccumulator adds are exact in FP32 and only the store rounds, so the golden (float64, quantized\nrow by row like the store) matches at max |err| 0, tolerance NX8_STEP 1 ulp.",
+  "op": "binary",
+  "origin": "zoo",
+  "path": "kernels/zoo/binary_add_row",
+  "status": "passing",
+  "task_id": 20,
+  "updated_at": 1794387536.7153075,
   "version": 1
  },
  {
   "agent_run_id": 55,
+  "audit_note": null,
+  "audit_rules": 1,
   "chain_note": null,
   "chain_ok": 1,
   "created_at": 1794385527.8248503,
@@ -206,11 +249,13 @@
   "path": "kernels/zoo/binary_mul_scalar",
   "status": "passing",
   "task_id": 17,
-  "updated_at": 1794385532.639158,
+  "updated_at": 1794387536.723144,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input a is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.7044268,
@@ -227,11 +272,13 @@
   "path": "kernels/conformance/vector_tour",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.455678,
+  "updated_at": 1794387536.5160778,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input a is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.8292077,
@@ -248,11 +295,13 @@
   "path": "kernels/elementwise/residual_add_rows",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.4873605,
+  "updated_at": 1794387536.5577934,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input a is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.8338397,
@@ -269,11 +318,13 @@
   "path": "kernels/elementwise/residual_add_rows",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.488347,
+  "updated_at": 1794387536.5587726,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input a is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.8405533,
@@ -290,11 +341,13 @@
   "path": "kernels/elementwise/residual_add_rows",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.4899428,
+  "updated_at": 1794387536.560156,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input a is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.8441246,
@@ -311,11 +364,13 @@
   "path": "kernels/elementwise/residual_add_rows",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.4909465,
+  "updated_at": 1794387536.56155,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input a is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.8483052,
@@ -332,11 +387,13 @@
   "path": "kernels/elementwise/residual_add_rows",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.4919457,
+  "updated_at": 1794387536.5631871,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input a is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.8655796,
@@ -353,11 +410,13 @@
   "path": "kernels/matmul/matmul_small",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5032527,
+  "updated_at": 1794387536.5737786,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input a is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.8709085,
@@ -374,11 +433,13 @@
   "path": "kernels/matmul/matmul_small",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5042756,
+  "updated_at": 1794387536.5753572,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input a is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.8760235,
@@ -395,11 +456,13 @@
   "path": "kernels/matmul/matmul_small",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5052745,
+  "updated_at": 1794387536.5772653,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input a is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.8810868,
@@ -416,11 +479,13 @@
   "path": "kernels/matmul/matmul_small",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.506468,
+  "updated_at": 1794387536.5785546,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input a is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249050.0395608,
@@ -437,11 +502,13 @@
   "path": "kernels/elementwise/residual_add_rows",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5941904,
+  "updated_at": 1794387536.6730332,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input a is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249050.0410955,
@@ -458,11 +525,13 @@
   "path": "kernels/matmul/matmul_small",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5954556,
+  "updated_at": 1794387536.6746883,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input b is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.5315819,
@@ -479,11 +548,13 @@
   "path": "kernels/attention/attn_scores_km_16x60",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.3060842,
+  "updated_at": 1794387536.374227,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input b is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.5458467,
@@ -500,11 +571,13 @@
   "path": "kernels/attention/attn_scores_km_256x36",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.3174853,
+  "updated_at": 1794387536.3855948,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input b is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.5769947,
@@ -521,11 +594,13 @@
   "path": "kernels/attention/qk_scores_16x60",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.3282127,
+  "updated_at": 1794387536.398053,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input b is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.580166,
@@ -542,11 +617,13 @@
   "path": "kernels/attention/qk_scores_256x36",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.3291917,
+  "updated_at": 1794387536.3993042,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input b is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.8869705,
@@ -563,11 +640,13 @@
   "path": "kernels/matmul/matmul_x128_2tg_c2",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5083652,
+  "updated_at": 1794387536.5798569,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input b is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.8919263,
@@ -584,11 +663,13 @@
   "path": "kernels/matmul/matmul_x128_2tg_c2",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5096672,
+  "updated_at": 1794387536.581166,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input b is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.8978615,
@@ -605,11 +686,13 @@
   "path": "kernels/matmul/matmul_x128_2tg_c2",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5108867,
+  "updated_at": 1794387536.5830593,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input b is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.9016523,
@@ -626,11 +709,13 @@
   "path": "kernels/matmul/matmul_x128_2tg_c3",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5122864,
+  "updated_at": 1794387536.584371,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input b is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.9062676,
@@ -647,11 +732,13 @@
   "path": "kernels/matmul/matmul_x128_c2",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5144567,
+  "updated_at": 1794387536.585659,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input b is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.910127,
@@ -668,11 +755,13 @@
   "path": "kernels/matmul/matmul_x128_c2",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5158174,
+  "updated_at": 1794387536.5869615,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input b is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.9146209,
@@ -689,11 +778,13 @@
   "path": "kernels/matmul/matmul_x128_c2",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.517032,
+  "updated_at": 1794387536.588874,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input b is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.9183204,
@@ -710,11 +801,13 @@
   "path": "kernels/matmul/matmul_x128_c2",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5184395,
+  "updated_at": 1794387536.5900667,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input b is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.9227736,
@@ -731,11 +824,13 @@
   "path": "kernels/matmul/matmul_x128_c2",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5201912,
+  "updated_at": 1794387536.591376,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input b is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.926222,
@@ -752,11 +847,13 @@
   "path": "kernels/matmul/matmul_x128_c2_qkv",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5213716,
+  "updated_at": 1794387536.5923917,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input b is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.9297936,
@@ -773,11 +870,13 @@
   "path": "kernels/matmul/matmul_x128_c3",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5224771,
+  "updated_at": 1794387536.5941727,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input b is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.9329073,
@@ -794,11 +893,13 @@
   "path": "kernels/matmul/matmul_x128_c4",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.523578,
+  "updated_at": 1794387536.5957725,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input b is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249050.0434556,
@@ -815,11 +916,13 @@
   "path": "kernels/matmul/matmul_x128_2tg_c2",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5967731,
+  "updated_at": 1794387536.6759226,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input b is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249050.0444705,
@@ -836,11 +939,13 @@
   "path": "kernels/matmul/matmul_x128_2tg_c3",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5987232,
+  "updated_at": 1794387536.6772141,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input b is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249050.046228,
@@ -857,11 +962,13 @@
   "path": "kernels/matmul/matmul_x128_c2",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5999002,
+  "updated_at": 1794387536.6782854,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input b is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249050.0475016,
@@ -878,11 +985,13 @@
   "path": "kernels/matmul/matmul_x128_c2_qkv",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.6009145,
+  "updated_at": 1794387536.6806226,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input b is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249050.0493886,
@@ -899,11 +1008,13 @@
   "path": "kernels/matmul/matmul_x128_c3",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.602681,
+  "updated_at": 1794387536.6816907,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input b is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249050.0504692,
@@ -920,11 +1031,13 @@
   "path": "kernels/matmul/matmul_x128_c4",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.605007,
+  "updated_at": 1794387536.682675,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input b is pinned to row 1024: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.8179002,
@@ -941,11 +1054,13 @@
   "path": "kernels/elementwise/residual_add",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.4853716,
+  "updated_at": 1794387536.5548685,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input x is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.7352116,
@@ -962,11 +1077,13 @@
   "path": "kernels/convolutions/conv_first_layer",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.4617493,
+  "updated_at": 1794387536.5327673,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input x is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.7724593,
@@ -983,11 +1100,13 @@
   "path": "kernels/convolutions/pointwise_conv_tpl",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.4731815,
+  "updated_at": 1794387536.5432317,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input x is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.7770302,
@@ -1004,11 +1123,13 @@
   "path": "kernels/convolutions/pointwise_conv_tpl",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.4748032,
+  "updated_at": 1794387536.5442936,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input x is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.7830005,
@@ -1025,11 +1146,13 @@
   "path": "kernels/convolutions/pointwise_conv_tpl",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.4757543,
+  "updated_at": 1794387536.5455139,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input x is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.860464,
@@ -1046,11 +1169,13 @@
   "path": "kernels/linear/fully_connected",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5015645,
+  "updated_at": 1794387536.5725107,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input x is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.9407136,
@@ -1067,11 +1192,13 @@
   "path": "kernels/normalize/layernorm",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5267758,
+  "updated_at": 1794387536.5977783,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input x is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.944758,
@@ -1088,11 +1215,13 @@
   "path": "kernels/normalize/layernorm",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5279157,
+  "updated_at": 1794387536.599646,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input x is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.9479728,
@@ -1109,11 +1238,13 @@
   "path": "kernels/normalize/layernorm",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5289779,
+  "updated_at": 1794387536.6006832,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input x is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249049.9522235,
@@ -1130,11 +1261,13 @@
   "path": "kernels/normalize/layernorm",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.530808,
+  "updated_at": 1794387536.60167,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input x is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249050.0114694,
@@ -1151,11 +1284,13 @@
   "path": "kernels/reshape/unfold_16x16x192",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5685797,
+  "updated_at": 1794387536.6443992,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input x is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249050.0124617,
@@ -1172,11 +1307,13 @@
   "path": "kernels/reshape/unfold_32x32x144",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5696511,
+  "updated_at": 1794387536.6466463,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input x is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249050.0140598,
@@ -1193,11 +1330,13 @@
   "path": "kernels/reshape/unfold_8x8x240",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.570736,
+  "updated_at": 1794387536.6480145,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input x is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249050.0385692,
@@ -1214,11 +1353,13 @@
   "path": "kernels/convolutions/pointwise_conv_tpl",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.593131,
+  "updated_at": 1794387536.671765,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input x is pinned to row 0: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249050.051669,
@@ -1235,11 +1376,13 @@
   "path": "kernels/normalize/layernorm",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.6062045,
+  "updated_at": 1794387536.683673,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input x is pinned to row 128: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249050.028178,
@@ -1256,11 +1399,13 @@
   "path": "kernels/softmax/softmax_columns",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5831606,
+  "updated_at": 1794387536.6610105,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input x is pinned to row 128: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249050.029405,
@@ -1277,11 +1422,13 @@
   "path": "kernels/softmax/softmax_columns_packed",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.584197,
+  "updated_at": 1794387536.6630425,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input x is pinned to row 128: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249050.0315044,
@@ -1298,11 +1445,13 @@
   "path": "kernels/softmax/softmax_rows",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.585363,
+  "updated_at": 1794387536.6644235,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input x is pinned to row 128: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249050.0330026,
@@ -1319,11 +1468,13 @@
   "path": "kernels/softmax/softmax_rows_long",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5872786,
+  "updated_at": 1794387536.6657064,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": "its input x is pinned to row 128: the previous kernel's output cannot be there (its own input or output is), so the host has to copy it in, as the emulator's own layernorm -> matmul seam does",
   "chain_ok": 0,
   "created_at": 1794249050.0343874,
@@ -1340,11 +1491,13 @@
   "path": "kernels/softmax/softmax_rows_partial",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.588581,
+  "updated_at": 1794387536.6666896,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.5498075,
@@ -1361,11 +1514,13 @@
   "path": "kernels/attention/attn_scores_km_64x48",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.3185081,
+  "updated_at": 1794387536.387335,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.5544558,
@@ -1382,11 +1537,13 @@
   "path": "kernels/attention/attn_v_16x60",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.3198423,
+  "updated_at": 1794387536.389308,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.5580108,
@@ -1403,11 +1560,13 @@
   "path": "kernels/attention/attn_v_256x36",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.3212452,
+  "updated_at": 1794387536.3910387,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.5617805,
@@ -1424,11 +1583,13 @@
   "path": "kernels/attention/attn_v_64x48",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.3229764,
+  "updated_at": 1794387536.3923142,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.5651383,
@@ -1445,11 +1606,13 @@
   "path": "kernels/attention/attn_v_bcast_36",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.324262,
+  "updated_at": 1794387536.3937724,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.5695271,
@@ -1466,11 +1629,13 @@
   "path": "kernels/attention/attn_v_bcast_48",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.3254352,
+  "updated_at": 1794387536.3956761,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.5731282,
@@ -1487,11 +1652,13 @@
   "path": "kernels/attention/attn_v_bcast_60",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.3265924,
+  "updated_at": 1794387536.3969817,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.5838661,
@@ -1508,11 +1675,13 @@
   "path": "kernels/attention/qk_scores_64x48",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.3302126,
+  "updated_at": 1794387536.4013884,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.7191408,
@@ -1529,11 +1698,13 @@
   "path": "kernels/convolutions/conv1x1",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.458205,
+  "updated_at": 1794387536.5270112,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.7249808,
@@ -1550,11 +1721,13 @@
   "path": "kernels/convolutions/conv3x3_relu",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.4594357,
+  "updated_at": 1794387536.5294561,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.7301922,
@@ -1571,11 +1744,13 @@
   "path": "kernels/convolutions/conv3x3_relu_cin1",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.4605806,
+  "updated_at": 1794387536.5314717,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.739865,
@@ -1592,11 +1767,13 @@
   "path": "kernels/convolutions/conv_universal_wide384",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.4635751,
+  "updated_at": 1794387536.5337992,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.7440352,
@@ -1613,11 +1790,13 @@
   "path": "kernels/convolutions/depthwise_conv_stride2_128",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.464758,
+  "updated_at": 1794387536.5347826,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.7489507,
@@ -1634,11 +1813,13 @@
   "path": "kernels/convolutions/depthwise_conv_stride2_16",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.4661279,
+  "updated_at": 1794387536.536754,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.753142,
@@ -1655,11 +1836,13 @@
   "path": "kernels/convolutions/depthwise_conv_stride2_narrow",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.467512,
+  "updated_at": 1794387536.5380268,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.75821,
@@ -1676,11 +1859,13 @@
   "path": "kernels/convolutions/conv_universal_tpl",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.4694002,
+  "updated_at": 1794387536.5390964,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.7619462,
@@ -1697,11 +1882,13 @@
   "path": "kernels/convolutions/conv_universal_tpl",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.4707048,
+  "updated_at": 1794387536.5400872,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.7669666,
@@ -1718,11 +1905,13 @@
   "path": "kernels/convolutions/conv_universal_tpl",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.4720986,
+  "updated_at": 1794387536.5419164,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.788096,
@@ -1739,11 +1928,13 @@
   "path": "kernels/convolutions/depthwise_conv_tpl",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.4769356,
+  "updated_at": 1794387536.5472083,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.7920017,
@@ -1760,11 +1951,13 @@
   "path": "kernels/convolutions/depthwise_conv_tpl",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.478158,
+  "updated_at": 1794387536.5487196,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.7970562,
@@ -1781,11 +1974,13 @@
   "path": "kernels/convolutions/depthwise_conv_tpl",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.4797802,
+  "updated_at": 1794387536.550192,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.8023016,
@@ -1802,11 +1997,13 @@
   "path": "kernels/convolutions/depthwise_conv_tpl",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.4809866,
+  "updated_at": 1794387536.5512972,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.8081818,
@@ -1823,11 +2020,13 @@
   "path": "kernels/detect/channel_peak",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.482511,
+  "updated_at": 1794387536.5528781,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.8123524,
@@ -1844,11 +2043,13 @@
   "path": "kernels/detect/score_threshold",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.4837344,
+  "updated_at": 1794387536.5538733,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.823009,
@@ -1865,11 +2066,13 @@
   "path": "kernels/elementwise/scale",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.4863498,
+  "updated_at": 1794387536.5561135,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.9375408,
@@ -1886,11 +2089,13 @@
   "path": "kernels/normalize/l2_normalize_channels",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5254784,
+  "updated_at": 1794387536.5967872,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.9556167,
@@ -1907,11 +2112,13 @@
   "path": "kernels/normalize/packed_layernorm",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5320697,
+  "updated_at": 1794387536.6031547,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.95999,
@@ -1928,11 +2135,13 @@
   "path": "kernels/normalize/packed_layernorm",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5330708,
+  "updated_at": 1794387536.604786,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.9645035,
@@ -1949,11 +2158,13 @@
   "path": "kernels/pooling/maxpool2d_stride2",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.534133,
+  "updated_at": 1794387536.605781,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.9685502,
@@ -1970,11 +2181,13 @@
   "path": "kernels/pooling/maxpool2d_stride2_tail",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5357933,
+  "updated_at": 1794387536.6070483,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.9777164,
@@ -1991,11 +2204,13 @@
   "path": "kernels/pooling/maxpool2d_window",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5368338,
+  "updated_at": 1794387536.6080897,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.9798758,
@@ -2012,11 +2227,13 @@
   "path": "kernels/pooling/maxpool2d_nms",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5382733,
+  "updated_at": 1794387536.609933,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.9816577,
@@ -2033,11 +2250,13 @@
   "path": "kernels/pooling/maxpool2d_nms",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5396492,
+  "updated_at": 1794387536.6113255,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.9826632,
@@ -2054,11 +2273,13 @@
   "path": "kernels/projections/proj_p4_2tg",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5414462,
+  "updated_at": 1794387536.612743,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.9837554,
@@ -2075,11 +2296,13 @@
   "path": "kernels/projections/proj_p4_2tg",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5426831,
+  "updated_at": 1794387536.6140447,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.9848702,
@@ -2096,11 +2319,13 @@
   "path": "kernels/projections/proj_p4_2tg_silu",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.544136,
+  "updated_at": 1794387536.616044,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.9867187,
@@ -2117,11 +2342,13 @@
   "path": "kernels/projections/proj_p4_2tg",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5457053,
+  "updated_at": 1794387536.61744,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.987996,
@@ -2138,11 +2365,13 @@
   "path": "kernels/projections/proj_p4",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5475342,
+  "updated_at": 1794387536.6188357,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.990172,
@@ -2159,11 +2388,13 @@
   "path": "kernels/projections/proj_p4",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5490081,
+  "updated_at": 1794387536.6201255,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.9916215,
@@ -2180,11 +2411,13 @@
   "path": "kernels/projections/proj_p4",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5504029,
+  "updated_at": 1794387536.6217875,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.9941711,
@@ -2201,11 +2434,13 @@
   "path": "kernels/projections/proj_p4",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.551556,
+  "updated_at": 1794387536.622777,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.9952736,
@@ -2222,11 +2457,13 @@
   "path": "kernels/projections/proj_p4",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5531735,
+  "updated_at": 1794387536.6248398,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.99626,
@@ -2243,11 +2480,13 @@
   "path": "kernels/projections/proj_p4",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5541546,
+  "updated_at": 1794387536.625893,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.997453,
@@ -2264,11 +2503,13 @@
   "path": "kernels/projections/proj_p4",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5552213,
+  "updated_at": 1794387536.6277485,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249049.999056,
@@ -2285,11 +2526,13 @@
   "path": "kernels/projections/proj_p4",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5562465,
+  "updated_at": 1794387536.629733,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249050.0005045,
@@ -2306,11 +2549,13 @@
   "path": "kernels/projections/packed_output_linear",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5578492,
+  "updated_at": 1794387536.631257,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249050.0016682,
@@ -2327,11 +2572,13 @@
   "path": "kernels/projections/packed_output_linear",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5589817,
+  "updated_at": 1794387536.6326315,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249050.0026586,
@@ -2348,11 +2595,13 @@
   "path": "kernels/projections/packed_output_linear_p4",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5601797,
+  "updated_at": 1794387536.6347303,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249050.0042496,
@@ -2369,11 +2618,13 @@
   "path": "kernels/projections/packed_output_linear_p4",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5611575,
+  "updated_at": 1794387536.6360552,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249050.0052617,
@@ -2390,11 +2641,13 @@
   "path": "kernels/reshape/depth_to_space",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5628,
+  "updated_at": 1794387536.6373317,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249050.0062573,
@@ -2411,11 +2664,13 @@
   "path": "kernels/reshape/fold_16x16x192",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.563866,
+  "updated_at": 1794387536.6386347,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249050.007364,
@@ -2432,11 +2687,13 @@
   "path": "kernels/reshape/fold_32x32x144",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5648465,
+  "updated_at": 1794387536.6406279,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249050.0089552,
@@ -2453,11 +2710,13 @@
   "path": "kernels/reshape/fold_8x8x240",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5658433,
+  "updated_at": 1794387536.6420293,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249050.0101953,
@@ -2474,11 +2733,13 @@
   "path": "kernels/reshape/identity",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5674846,
+  "updated_at": 1794387536.643081,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249050.0152743,
@@ -2495,11 +2756,13 @@
   "path": "kernels/reshape/concat",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.572394,
+  "updated_at": 1794387536.6493359,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249050.0162604,
@@ -2516,11 +2779,13 @@
   "path": "kernels/reshape/concat",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.57336,
+  "updated_at": 1794387536.650387,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249050.0172563,
@@ -2537,11 +2802,13 @@
   "path": "kernels/reshape/concat",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5743575,
+  "updated_at": 1794387536.652314,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249050.0188568,
@@ -2558,11 +2825,13 @@
   "path": "kernels/reshape/packed_pack",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5753515,
+  "updated_at": 1794387536.6536984,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249050.0203924,
@@ -2579,11 +2848,13 @@
   "path": "kernels/reshape/packed_pack",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5769618,
+  "updated_at": 1794387536.6549907,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249050.022306,
@@ -2600,11 +2871,13 @@
   "path": "kernels/reshape/packed_unpack",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5781274,
+  "updated_at": 1794387536.6562006,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249050.0240753,
@@ -2621,11 +2894,13 @@
   "path": "kernels/reshape/packed_unpack",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5791829,
+  "updated_at": 1794387536.6577785,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249050.0257945,
@@ -2642,11 +2917,13 @@
   "path": "kernels/sampling/sample_descriptors",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.580415,
+  "updated_at": 1794387536.6587963,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249050.027164,
@@ -2663,11 +2940,13 @@
   "path": "kernels/sampling/sample_descriptors_separable",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5822117,
+  "updated_at": 1794387536.65978,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249050.0357091,
@@ -2684,11 +2963,13 @@
   "path": "kernels/convolutions/conv_universal_tpl",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5898519,
+  "updated_at": 1794387536.6686306,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249050.037385,
@@ -2705,11 +2986,13 @@
   "path": "kernels/convolutions/depthwise_conv_tpl",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.5912504,
+  "updated_at": 1794387536.6701868,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249050.0530832,
@@ -2726,11 +3009,13 @@
   "path": "kernels/normalize/packed_layernorm",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.6074183,
+  "updated_at": 1794387536.685267,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249050.0554507,
@@ -2747,11 +3032,13 @@
   "path": "kernels/pooling/maxpool2d_nms",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.6086462,
+  "updated_at": 1794387536.6861782,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249050.0564735,
@@ -2768,11 +3055,13 @@
   "path": "kernels/projections/packed_output_linear",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.6102607,
+  "updated_at": 1794387536.6871688,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249050.0574617,
@@ -2789,11 +3078,13 @@
   "path": "kernels/projections/packed_output_linear_p4",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.6112518,
+  "updated_at": 1794387536.6880703,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249050.0585432,
@@ -2810,11 +3101,13 @@
   "path": "kernels/projections/proj_p4",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.612671,
+  "updated_at": 1794387536.6901867,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249050.0601819,
@@ -2831,11 +3124,13 @@
   "path": "kernels/projections/proj_p4_2tg",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.6141043,
+  "updated_at": 1794387536.691194,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249050.061362,
@@ -2852,11 +3147,13 @@
   "path": "kernels/projections/proj_p4_2tg_silu",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.6158001,
+  "updated_at": 1794387536.6921766,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249050.0623646,
@@ -2873,11 +3170,13 @@
   "path": "kernels/reshape/concat",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.6171553,
+  "updated_at": 1794387536.6934433,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249050.0633583,
@@ -2894,11 +3193,13 @@
   "path": "kernels/reshape/packed_pack",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.6184525,
+  "updated_at": 1794387536.695083,
   "version": 1
  },
  {
   "agent_run_id": null,
+  "audit_note": null,
+  "audit_rules": null,
   "chain_note": null,
   "chain_ok": null,
   "created_at": 1794249050.0651565,
@@ -2915,7 +3216,7 @@
   "path": "kernels/reshape/packed_unpack",
   "status": "passing",
   "task_id": null,
-  "updated_at": 1794385532.619728,
+  "updated_at": 1794387536.6963222,
   "version": 1
  }
 ]
