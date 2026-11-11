@@ -1,0 +1,43 @@
+kind = "exact"
+method = "exact"
+task = "binary_sub_col"
+hw_clean = true                       # false if any emulator-only instruction is used
+host_steps = []                       # must stay empty: see "No host steps"
+chain_in = "a"
+chain_out = "y"
+unsupported = [
+  "{\"broadcast\": \"col\", \"inner\": 14, \"numel\": 196, \"op\": \"div\"}: no exact reciprocal: the AaQ stage's `reciprocal` is a hardware approximation and its result lands in an 8-bit block row before the multiply that uses it, so a quotient would carry an error the kernel's `exact` kind does not allow.",
+  "{\"broadcast\": \"col\", \"inner\": 14, \"numel\": 196, \"op\": \"min\"}: the accumulator has ADD, MAX and SUB only, so min needs a negation, and the AaQ stage's activation set (identity, relu, relu6, reciprocal, rsqrt, exp2, generic) holds none.",
+  "{\"broadcast\": \"none\", \"inner\": 0, \"numel\": 196, \"op\": \"sub\"}: nothing is broadcast: b is numel values like a, a different kernel (the elementwise binary's), not a col call with inner = numel.",
+  "{\"broadcast\": \"row\", \"inner\": 14, \"numel\": 196, \"op\": \"sub\"}: b is one row of `inner` values repeated over the rows -- a lane-wise op against a resident row, not a per-row scalar.",
+  "{\"broadcast\": \"scalar\", \"inner\": 1, \"numel\": 196, \"op\": \"sub\"}: b is one value; that is the scalar kernel's call, not col with a row per element.",
+  "{\"broadcast\": \"col\", \"inner\": 14, \"numel\": 195, \"op\": \"sub\"}: `inner` must divide `numel` (a's rows are numel / inner): the division in `rows` is not whole and the case is refused when planned.",
+  "{\"broadcast\": \"col\", \"inner\": 256, \"numel\": 196, \"op\": \"sub\"}: `inner` is at most 128 -- b is resident in R1 and the scalar element 128 + r of Ra must stay in range; 256 rows of a would need b reloaded per row, a different program.",
+  "{\"broadcast\": \"col\", \"inner\": 1, \"numel\": 196, \"op\": \"sub\"}: one entity of 196 features spans two memory rows; a row of a is at most 128 lanes (the DS half refuses more), so numel / inner <= 128.",
+]
+notes = """One parameterised program for every (op, numel, inner) with broadcast = col:
+y[r][j] = a[r][j] op b[r]. An entity is one row of a -- b holds `inner` values, one per row,
+so a and y are [inner, numel / inner], one memory row per entity holding its numel / inner
+features (lanes past that zero; ds() refuses a row longer than 128, and the whole quotient
+refuses an inner that does not divide numel) -- the layout every activation on the chip uses,
+so the kernel reads the previous kernel's rows and leaves rows the next one reads with no
+repack; the host tiles only `numel`. Dataflow per row: two products (the only way into
+R_ACC is MULT_RES) for add/sub/max -- word A multiplies the a row resident in R_CYCLIC slot
+128 by the CR constant 1.0 and initialises the accumulator (.FIRST), word B broadcasts b[r]
+(MULT.RC.VE of the resident ones row in slot 0, the scalar element 128 + r of Ra = R1
+selected by LR5, read forwarded after its INC -- so `inner` is at most 128: b is resident
+and the Ra index stays in range) and accumulates (ADD/SUB/MAX) and stores with
+ACTIVATE.QUANTIZE identity; word A carries the load of the row the next word A multiplies,
+so nothing waits. `mul` is one product: its row is one word (load next a row, multiply the
+resident one by b[r], ACC.ADD.FIRST, store). The row loop runs inner - 1 times (the branch
+reads LR1 before its same-word INC, so nothing ever loads row `inner`) and the last row is
+emitted straight-line; every store names exactly its numel / inner live lanes in the DS, so
+the lanes past them are written 0 for whatever reads y next. Every LR the program reads is
+set by it and R_MASK is loaded from its own scratch row, so it runs after another kernel as
+well as from reset. The ones row is a scratch fill (1.0), b is loaded once into R1. Limits:
+op add|sub|mul|max, broadcast col, inner 1..128 dividing `numel` with numel / inner <= 128
+(so numel is at most 16384); div and min and the other broadcasts are in `unsupported`,
+each for a stated reason. Accuracy: the products and the accumulator ops are exact in FP32
+and only the store rounds, so the golden (float64, quantized row by row like the store)
+matches at max |err| 0, tolerance NX8_STEP 1 ulp. The must-cover call (sam-vit-base, sub,
+inner 14, numel 196: 14 rows of 14 lanes) is 14 loop iterations, 36 cycles."""
