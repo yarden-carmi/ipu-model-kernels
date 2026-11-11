@@ -1,0 +1,48 @@
+kind = "exact"
+method = "exact"
+task = "reduce_rows_mean"
+hw_clean = true
+host_steps = []
+chain_in = "x"
+chain_out = "y"
+unsupported = [
+  "{\"kind\": \"min\", \"n\": 64, \"rows\": 640}: the accumulator stage has ADD, MAX and SUB only, so a min needs a negation and a second pass, and the AaQ activation set (identity, relu, relu6, reciprocal, rsqrt, exp2, generic) holds none; AGG.MAX is what the reduction stage offers.",
+  "{\"kind\": \"prod\", \"n\": 64, \"rows\": 640}: a product over a row would need a multiply into the accumulator (the ACC stage adds, maxes and subtracts a multiply result, it never multiplies it); the log-domain route costs an exp/log pair the AaQ cannot do exactly.",
+  "{\"kind\": \"argmax\", \"n\": 64, \"rows\": 640}: the winning lane's index would have to leave the accumulator as data; AGG.MAX writes a value into one R_ACC lane and no instruction carries a lane number out.",
+  "{\"kind\": \"sum\", \"n\": 513, \"rows\": 64}: above the declared n maximum (512 = 4 chunks). The chunk loop is unrolled per call, so n costs render-time words, not a dynamic loop; 512 is four chunks, which the R_CYCLIC ring and the 16384-row XMEM both cover with room for y.",
+  "{\"kind\": \"sum\", \"n\": 64, \"rows\": 3073}: above the declared rows maximum (3072). rows * ceil(n / 128) rows of x plus rows rows of y plus the two scratch rows must fit the 16384 addressable NX8 rows; the worst declared call takes 15362. The program itself loops any number of rows, so the host tiles rows.",
+  "{\"kind\": \"sum\", \"n\": 0, \"rows\": 64}: an empty reduction: max over no lanes and a mean over no lanes have no value, and the last chunk's DS would be ds(0).",
+  "{\"kind\": \"sum\", \"n\": 64, \"rows\": 0}: nothing to reduce; the row loop's bound (rows - 1) * chunks would be negative.",
+  "{\"kind\": \"mean\", \"n\": 64, \"rows\": 640, \"axis\": 1}: unknown parameter. The axis is fixed: the reduction is over a row's n values and the result is one value per row. A reduction over the rows of a (rows, n) matrix is the same program with the two dimensions swapped by the caller, since a row of x is whatever the previous kernel laid out.",
+]
+notes = """One parameterised program for every (kind, rows, n): y[r] = sum / mean / max of the n values
+of row r of a (rows, n) matrix. x is the chip's activation layout (entity r holds its n values in
+ceil(n / 128) consecutive rows, lanes past n zero), so the kernel reads what the previous kernel
+wrote; y holds one value per entity, in lane 0 of its own row -- the shape a horizontal reduction
+lands on, since AGG writes one R_ACC lane and ACTIVATE.QUANTIZE stores a row whose DS names one
+active lane (its scale therefore comes from that lane alone, and the lanes past it are written 0
+for whatever kernel reads y next). The row loop is dynamic (the shape reaches it through CRs only:
+CR12 is the bound, CR15 the two DS halves, CR13 the store's single lane) and the row's chunk loop
+is rendered per call, so a whole call is one launch and the host only tiles rows. Dataflow: one
+word per x row -- MULT.RC.VE of the row resident in R_CYCLIC slot 0 by the exact CR constant 1.0
+(sum, max) or MULT.RC.VV against the resident 1/n row (mean, which therefore reduces to the mean
+directly with no quantized sum in front of it), AGG.SUM / AGG.MAX into R_ACC lane 0 seeded by the
+.FIRST form at the row's first chunk, and at the row's last chunk the ACTIVATE.QUANTIZE identity
+store; the next row's LD.MULT.CYCLIC rides in the same word (MULT reads R_CYCLIC at cycle start,
+LOAD reads LRs after the word's LR writes), so the multiplier, the reduction stage and the load
+unit are all busy every word: mobilevit_s's 640 x 64 mean is 645 cycles (2053 at
+the 1024 x 256 pooling call, 99.8% MAC utilization), one word per row. The
+LR sub-slots and the branch read cycle-start values, so the store's row is named by ADD LR2 LR4 CR0
+from the entity counter before its INC and the branch tests the x row walk before its INC; two LR
+sub-slots never write one register (fault F-3). The last entity of a call is emitted straight-line
+with no load in its last word, which keeps the one-row-ahead prefetch inside x's region. Every LR
+the program reads is set by it, R_ACC is seeded by each row's .FIRST accumulate and R_MASK is
+loaded from its own scratch row, so it runs after another kernel as well as from reset (test_calls
+runs it twice back to back in one XMEM, the second reading the first's y as its x). Limits: kind
+sum|mean|max, rows 1..3072, n 1..512 (four chunks; the unrolled chunk loop is per call, the row
+loop is not) with rows * ceil(n / 128) + rows + 2 <= 16384 XMEM rows; min, prod and argmax are in
+`unsupported` for the accumulator-stage reasons stated there, and there is no FP32 variant because
+FP32 addresses only 4096 rows. Accuracy: the datapath is FP32 in the accumulator and only the
+store rounds, so sum and max land exactly on the golden (max |err| 0 measured); the mean's 1/n is
+one 8-bit element (a factor common to the row, at worst 2^-6 relative), so the golden is matched
+within one step of the output row's grid, tolerance NX8_STEP 2 ulps."""
