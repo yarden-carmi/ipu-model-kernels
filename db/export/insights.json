@@ -104,6 +104,19 @@
   "title": "If a general GEMM kernel (any m, k, n)"
  },
  {
+  "body": "With such an instruction a gather_rows kernel could load each ids[t] into a register and read table[idx[t], :] directly, making the embedding exact on the chip; today addresses and branches may come only from CRs and LRs, never from data.",
+  "created_at": 1794396483.2047062,
+  "id": 11,
+  "kind": "isa_whatif",
+  "model_id": null,
+  "numbers": null,
+  "op": "embedding",
+  "origin": "agent",
+  "scope": "op",
+  "step_id": null,
+  "title": "embedding: A data-indexed row read instruction (indexed gather: read a row of `dim` elements from a constant base at a runtime row index taken from a register loaded from memory), e.g. `gather_row bas"
+ },
+ {
   "body": "| op | method | kind | origin | SQNR dB (NX8) | model |\n|---|---|---|---|---:|---|\n| batchnorm | fold | variation | catalogue | 12.4 | mobilevit_s.cvnets_in1k |\n| layernorm | qwen3_8_flash_ne_variation_fused_mean_var | variation | agent | 14.5 | mobilevit_s.cvnets_in1k |\n| silu | qwen3_8_flash_ne_silu_split_range | variation | agent | 16.5 | mobilevit_s.cvnets_in1k |\n| softmax | exp2 | approximation | catalogue | 13.8 | mobilevit_s.cvnets_in1k |",
   "created_at": 1794379196.2457602,
   "id": 9,

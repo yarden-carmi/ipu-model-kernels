@@ -44,17 +44,25 @@
     its last row would otherwise hold rsqrt(eps) = 316 against a real A of ~1.7,
     and the row's scale would come from them and flush every real A to zero.
 
+    Wide channels: `channels` past 512 is five chunks or more, and the 1..4
+    constants (LR11..LR14) can no longer double as the per-row chunk stride.
+    Then LR14 holds the stride itself (the chunk count, seeded by repeated ADD
+    of LR11 in the prologue) and LR15 walks the chunk offsets: set to 0 before
+    each pass's chunk loop, incremented once per chunk. Up to four chunks the
+    constants 1..4 play both roles, as before, and LR15 stays untouched.
+
     LR: LR0 0; LR1 the row being read (its cycle-start value is the row the word
     multiplies, its forwarded value the row the word loads); LR2 the
     group-relative row index; LR3 the one-word bound (rows_rem - 2); LR4 the p
     or y row being stored; LR5 the D_r element of Ra (128 + the row index); LR6
     the group's first row; LR7 the two-word bound (rows_rem - 1); LR8 the rows
     left in this render; LR9 128 * chunks (the group stride); LR10 128 (beta's
-    element offset in Ra, and the group cap); LR11..LR14 the constants 1..4,
-    which are also the chunk offsets and the `sca` row numbers (means LR0,
-    squares LR11, A LR12, D LR13); LR15 spare. The program sets every LR it
-    reads, zeroes R_ACC before each reduction and loads its own mask row, so it
-    runs after another kernel as well as from reset.
+    element offset in Ra, and the group cap); LR11..LR13 the constants 1..3,
+    which are also the `sca` row numbers (means LR0, squares LR11, A LR12,
+    D LR13); LR14 the constant 4, or (past four chunks) the chunk stride;
+    LR15 (past four chunks) the chunk-offset walker. The program sets every LR
+    it reads, zeroes R_ACC before each reduction and loads its own mask row, so
+    it runs after another kernel as well as from reset.
 -#}
 {% set chunks = (channels + 127) // 128 %}
 {% set ln = kind == "layernorm" %}
@@ -64,20 +72,23 @@
 {% set dall = cr.ds ~ ".L" %}
 {% set dlast = cr.ds ~ (".H" if tail != 128 else ".L") %}
 {% set qfl = cr.qf ~ ".L" %}
+{% set wide = chunks > 4 %}
 {% set coff = ["LR0", "LR11", "LR12", "LR13"] %}
 {% set cstr = ["LR0", "LR11", "LR12", "LR13", "LR14"] %}
-{% macro dsof(c) -%}{{ dlast if c == chunks - 1 else dall }}{%- endmacro -%}
+{% set stride = "LR14" if wide else cstr[chunks] %}
+{% macro chunkoff(c) -%}{{ "LR15" if wide else coff[c] }}{%- endmacro %}
+{% macro dsof(c) -%}{{ dlast if c == chunks - 1 else dall }}{%- endmacro %}
 {% macro zero() -%}
     LD.MULT R0 LR0 {{ cr.invn }} ;;                       {#- a finite row to multiply by 0.0 -#}
     MULT.VE LR0 CR0 0 LR0 {{ dall }} {{ qfl }} ;
     ACC.ADD.FIRST ;;                                      {#- R_ACC := 0 in every lane (a group's unused rows) -#}
-{%- endmacro -%}
+{%- endmacro %}
 {% macro index() -%}
     SET LR2 CR0 ;;
     DEC LR2 1 ;;                                          {#- the row index, one behind: -1 -#}
-{%- endmacro -%}
+{%- endmacro %}
 {% macro redloop(label, c, sq) -%}
-    ADD LR1 LR6 {{ coff[c] }} ;;                          {#- the group's row 0 of chunk {{ c }} -#}
+    ADD LR1 LR6 {{ chunkoff(c) }} ;;                      {#- the group's row 0 of chunk {{ c }} -#}
     LD.MULT.CYCLIC LR1 {{ cr.x }} LR0 ;;                  {#- prime R_CYCLIC[0..127] with x[0, {{ c }}] -#}
 {{ index() }}
 {{ label }}{{ c }}:
@@ -87,10 +98,10 @@
     MULT.RC.VV LR0 R0 0 LR0 {{ dall }} {{ qfl }} ;        {#- x * (1/channels): the mean reduces directly -#}
 {% endif %}
     AGG.SUM LR2 {{ dall }} ;                              {#- into the row's bookkeeping lane -#}
-    ADD LR1 LR1 {{ cstr[chunks] }} ; INC LR2 1 ;
+    ADD LR1 LR1 {{ stride }} ; INC LR2 1 ;
     LD.MULT.CYCLIC LR1 {{ cr.x }} LR0 ;                   {#- the row the NEXT word reduces -#}
     BLT.S LR2 LR3 {{ label }}{{ c }} ;;
-{%- endmacro -%}
+{%- endmacro %}
 {% macro group(pfx, ds_a) -%}
     SET LR7 LR8 ;;                                        {#- rows_rem = the rows left, capped at 128 -#}
     BLT.S LR7 LR10 {{ pfx }}sized ;;
@@ -99,18 +110,22 @@
     ADD LR3 LR7 CR0 ; SUB LR7 LR7 CR1 ;;                  {#- the two-word bound rows_rem - 1 -#}
     SUB LR3 LR3 CR1 ;;
     SUB LR3 LR3 CR1 ;;                                    {#- the one-word bound rows_rem - 2 -#}
+{% if wide %}    SET LR15 CR0 ;;{% endif %}                             {#- the chunk-offset walker -#}
 {% for c in range(chunks) %}
 {% if c == 0 %}
 {{ zero() }}
 {% endif %}
 {{ redloop(pfx ~ "sum", c, false) }}
+{% if wide %}    INC LR15 1 ;;{% endif %}
 {% endfor %}
     ACTIVATE.QUANTIZE identity {{ dall }} {{ qfl }} {{ cr.sca }} LR0 ;;   {#- sca[0] = the group's means -#}
+{% if wide %}    SET LR15 CR0 ;;{% endif %}
 {% for c in range(chunks) %}
 {% if c == 0 %}
 {{ zero() }}
 {% endif %}
 {{ redloop(pfx ~ "sq", c, true) }}
+{% if wide %}    INC LR15 1 ;;{% endif %}
 {% endfor %}
     ACTIVATE.QUANTIZE identity {{ dall }} {{ qfl }} {{ cr.sca }} LR11 ;;  {#- sca[1] = the group's squares -#}
 
@@ -137,8 +152,9 @@
 {% endif %}
 
 {#- -------- pass 3: p = A_r * x + D_r ====================================== -#}
+{% if wide %}    SET LR15 CR0 ;;{% endif %}
 {% for c in range(chunks) %}
-    ADD LR1 LR6 {{ coff[c] }} ;;
+    ADD LR1 LR6 {{ chunkoff(c) }} ;;
     LD.MULT R0 LR12 {{ cr.sca }} ;;                       {#- R0 = the A row, resident for the pass -#}
 {% if ln %}
     LD.MULT R1 LR13 {{ cr.sca }} ;;                       {#- R1 = the D row -#}
@@ -153,7 +169,7 @@
     MULT.EE LR5 CR1 0 LR0 {{ dall }} {{ qfl }} ;          {#- + D_r, broadcast -#}
     ACC.ADD ;
     ACTIVATE.QUANTIZE identity {{ dsof(c) }} {{ qfl }} {{ cr.p }} LR4 ;
-    ADD LR1 LR1 {{ cstr[chunks] }} ;
+    ADD LR1 LR1 {{ stride }} ;
     LD.MULT.CYCLIC LR1 {{ cr.x }} LR0 ;                   {#- the row the next word multiplies -#}
     BLT.S LR2 LR7 {{ pfx }}p{{ c }} ;;
 {% else %}
@@ -163,24 +179,26 @@
     MULT.RC.VE LR0 LR2 0 LR0 {{ dall }} {{ qfl }} ;       {#- A_r * x[r, {{ c }}] -#}
     ACC.ADD.FIRST ;
     ACTIVATE.QUANTIZE identity {{ dsof(c) }} {{ qfl }} {{ cr.p }} LR4 ;
-    ADD LR4 LR1 CR0 ; ADD LR1 LR1 {{ cstr[chunks] }} ; INC LR2 1 ;
+    ADD LR4 LR1 CR0 ; ADD LR1 LR1 {{ stride }} ; INC LR2 1 ;
     LD.MULT.CYCLIC LR1 {{ cr.x }} LR0 ;
     BLT.S LR2 LR3 {{ pfx }}p{{ c }} ;;
 {% endif %}
+{% if wide %}    INC LR15 1 ;;{% endif %}
 {% endfor %}
 
 {#- -------- pass 4: y = p * gamma + beta =================================== -#}
+{% if wide %}    SET LR15 CR0 ;;{% endif %}
 {% for c in range(chunks) %}
-    ADD LR1 LR6 {{ coff[c] }} ;;
-    LD.MULT R0 {{ coff[c] }} {{ cr.gamma }} ;;            {#- R0 = chunk {{ c }}'s gamma, resident -#}
+    ADD LR1 LR6 {{ chunkoff(c) }} ;;
+    LD.MULT R0 {{ chunkoff(c) }} {{ cr.gamma }} ;;        {#- R0 = chunk {{ c }}'s gamma, resident -#}
 {% if ln %}
-    LD.MULT R1 {{ coff[c] }} {{ cr.beta }} ;;             {#- R1 = chunk {{ c }}'s beta -#}
+    LD.MULT R1 {{ chunkoff(c) }} {{ cr.beta }} ;;         {#- R1 = chunk {{ c }}'s beta -#}
     LD.MULT.CYCLIC LR1 {{ cr.p }} LR0 ;;                  {#- prime with p[0, {{ c }}] -#}
 {{ index() }}
 {{ pfx }}y{{ c }}:
     MULT.RC.VV LR0 R0 0 LR0 {{ dall }} {{ qfl }} ;        {#- p * gamma -#}
     ACC.ADD.FIRST ;
-    ADD LR4 LR1 CR0 ; ADD LR1 LR1 {{ cstr[chunks] }} ; INC LR2 1 ;;
+    ADD LR4 LR1 CR0 ; ADD LR1 LR1 {{ stride }} ; INC LR2 1 ;;
     MULT.VE LR10 CR1 0 LR0 {{ dall }} {{ qfl }} ;         {#- + beta, read out of R1 -#}
     ACC.ADD ;
     ACTIVATE.QUANTIZE identity {{ dsof(c) }} {{ qfl }} {{ cr.y }} LR4 ;
@@ -193,10 +211,11 @@
     MULT.RC.VV LR0 R0 0 LR0 {{ dall }} {{ qfl }} ;        {#- p * gamma -#}
     ACC.ADD.FIRST ;
     ACTIVATE.QUANTIZE identity {{ dsof(c) }} {{ qfl }} {{ cr.y }} LR4 ;
-    ADD LR4 LR1 CR0 ; ADD LR1 LR1 {{ cstr[chunks] }} ; INC LR2 1 ;
+    ADD LR4 LR1 CR0 ; ADD LR1 LR1 {{ stride }} ; INC LR2 1 ;
     LD.MULT.CYCLIC LR1 {{ cr.p }} LR0 ;
     BLT.S LR2 LR3 {{ pfx }}y{{ c }} ;;
 {% endif %}
+{% if wide %}    INC LR15 1 ;;{% endif %}
 {% endfor %}
 {%- endmacro -%}
 
@@ -208,8 +227,10 @@
     ADD LR13 LR13 LR13 ;;
     ADD LR13 LR13 CR1 ;;                                  {#- 3 -#}
     SET LR14 CR1 ;;
-    ADD LR14 LR14 LR14 ;;
-    ADD LR14 LR14 LR14 ;;                                 {#- 4 -#}
+{% set fours = 4 if not wide else chunks %}
+{% for _ in range(fours - 1) %}
+    ADD LR14 LR14 LR11 ;;                                 {#- {{ fours }}: 4, or the chunk stride when wide -#}
+{% endfor %}
     SET LR10 CR1 ;;
     ADD LR10 LR10 LR10 ;;
     ADD LR10 LR10 LR10 ;;

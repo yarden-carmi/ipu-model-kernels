@@ -11,9 +11,10 @@
 # on the chip uses: the kernel is chainable, its y is the next kernel's x.
 #
 # The shape reaches the program only through CRs and the row loop is dynamic, so
-# a whole layer -- 1024 rows x 144 channels -- is one launch. `rows` is the only
-# dimension the host tiles; `channels` up to 512 is the kernel's own chunk loop
-# (rendered per call, since a call's `channels` is known when it is assembled).
+# a whole layer -- 1024 rows x 144 channels, or a 512-row tile of whisper's
+# 1280-channel norm -- is one launch. `rows` is the only dimension the host
+# tiles; `channels` up to 1280 is the kernel's own chunk loop (rendered per
+# call, since a call's `channels` is known when it is assembled).
 #
 # The program runs per group of up to 128 rows -- the R_ACC lanes are the
 # bookkeeping, one lane per row of the group, which is what bounds a group at
@@ -54,9 +55,11 @@
 # far inside the floor.
 #
 # The domain is a rectangle the XMEM budget really holds: three matrices of
-# rows * ceil(channels/128) rows (x, p, y) plus gamma, beta and the constants,
-# inside the 16384 addressable NX8 rows (the declared maximum takes 12303).
-# There is no FP32 variant for that reason: FP32 addresses only 4096 rows.
+# rows * chunks rows (x, p, y) plus gamma, beta and the constants, inside the
+# 16384 addressable NX8 rows. At the 1280-channel corner that is a 544-row tile
+# (3 * 544 * 10 + 20 + 7 = 16347), so the host tiles whisper's 1500 rows into
+# 512-row launches -- per-row normalisation makes the tiles independent. There
+# is no FP32 variant for that reason: FP32 addresses only 4096 rows.
 
 [kernel]
 op = "row_norm"
@@ -64,8 +67,10 @@ formats = ["dynamic"]
 
 [params]
 kind     = { type = "str", choices = ["layernorm", "rmsnorm"], default = "layernorm" }
-rows     = { type = "int", min = 1, max = 1024 }              # entities, 128 per group
-channels = { type = "int", min = 32, max = 512 }              # the reduction axis, 128 per chunk
+rows     = { type = "int", min = 1, max = 1500 }              # entities, 128 per group; the host tiles rows (a 1280-channel launch holds 544)
+channels = { type = "int", min = 32, max = 1280 }             # the reduction axis, 128 per chunk
+x_from   = { type = "str", choices = ["direct"], default = "direct" }
+y_to     = { type = "str", choices = ["direct"], default = "direct" }
 eps      = { type = "float", default = 0.00001, min = 0.00000001 }  # the rsqrt's floor
 
 [derived]
@@ -145,6 +150,41 @@ kind = "layernorm"
 rows = 64
 channels = 240
 
+[cases.whisper_32]                       # openai/whisper-large-v3, x97 per forward: 10 chunks
+kind = "layernorm"
+rows = 32
+channels = 1280
+
+[cases.whisper_tile]                     # a 1280-channel tile the host can launch whole
+kind = "layernorm"
+rows = 128
+channels = 1280
+
+[cases.clip_50]                          # openai/clip-vit-base-patch32, x25 per forward
+kind = "layernorm"
+rows = 50
+channels = 768
+
+[cases.clip_one]                         # ... x1 per forward: one row of 768
+kind = "layernorm"
+rows = 1
+channels = 768
+
+[cases.rms_1000]                         # rmsnorm past four chunks, a 104-lane last one
+kind = "rmsnorm"
+rows = 33
+channels = 1000
+
+[cases.ln_129x640]                       # wide chunks with a short last group
+kind = "layernorm"
+rows = 129
+channels = 640
+
+[cases.ln_257x768]                       # two full groups and a tail, past four chunks
+kind = "layernorm"
+rows = 257
+channels = 768
+
 [cases.mobilevit_192]                    # x9 per forward
 kind = "layernorm"
 rows = 256
@@ -223,8 +263,26 @@ rows = 257
 channels = 40
 tier = "nightly"
 
+[cases.whisper_544]                       # the largest 1280-channel launch XMEM holds
+kind = "layernorm"
+rows = 544
+channels = 1280
+tier = "nightly"
+
+[cases.ln_300x1280]                       # the whisper shape over several groups
+kind = "layernorm"
+rows = 300
+channels = 1280
+tier = "nightly"
+
+[cases.rms_257x1000]                      # wide chunks, full groups and a 104-lane tail
+kind = "rmsnorm"
+rows = 257
+channels = 1000
+tier = "nightly"
+
 [cases.sweep]                             # the structure of the calls, scaled down
 kind = ["layernorm", "rmsnorm"]
 rows = [1, 5, 128, 129, 300]
-channels = [32, 40, 64, 100, 128, 129, 144, 240, 512]
+channels = [32, 40, 64, 100, 128, 129, 144, 240, 512, 768, 1280]
 tier = "nightly"

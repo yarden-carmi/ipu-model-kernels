@@ -19,8 +19,14 @@ import tomli as tomllib
 from ipu_harness.chain import Chain
 from ipu_harness.registry import Registry, kernel_tree
 
-#: The calls found in the models surveyed, per forward at full depth.
+#: The calls found in the models surveyed, per forward at full depth: the two
+#: whisper-large-v3 layer norms (1280 channels; the host tiles the 1500 rows),
+#: clip-vit's two, and the three direct-layout mobilevit_s calls.
 CALLS = (
+    {"kind": "layernorm", "channels": 1280, "rows": 32},
+    {"kind": "layernorm", "channels": 1280, "rows": 1500},
+    {"kind": "layernorm", "channels": 768, "rows": 50},
+    {"kind": "layernorm", "channels": 768, "rows": 1},
     {"kind": "layernorm", "channels": 192, "rows": 256},
     {"kind": "layernorm", "channels": 240, "rows": 64},
     {"kind": "layernorm", "channels": 144, "rows": 1024},
@@ -29,8 +35,9 @@ CALLS = (
 #: The largest call the kernel takes in one launch, per dimension, and the
 #: narrowest reduction it serves (see kernel.toml's header: below ~32 lanes a
 #: group can hold a nearly-constant row, whose A drags the block row's scale).
-MAX_ROWS = 1024
-MAX_CHANNELS = 512
+MAX_ROWS = 1500
+TILE_ROWS = 512  # the host's tile at wide channels (544 is the exact bound)
+MAX_CHANNELS = 1280
 MIN_CHANNELS = 32
 
 #: The XMEM rows an NX8 call can address.
@@ -43,9 +50,13 @@ def _registry() -> Registry:
 
 
 def _rows(call: dict) -> int:
-    """The XMEM rows a call packs into: x, gamma, beta, y, p and the constants."""
+    """The XMEM rows a call packs into: x, gamma, beta, y, p and the constants.
+
+    The host tiles `rows` -- per-row normalisation makes the tiles independent
+    -- so what must fit one launch is a tile, not the whole call.
+    """
     chunks = -(-call["channels"] // 128)
-    return 3 * call["rows"] * chunks + 2 * chunks + 7
+    return 3 * min(call["rows"], TILE_ROWS) * chunks + 2 * chunks + 7
 
 
 def test_every_call_routes_to_the_kernel():
@@ -66,7 +77,7 @@ def test_every_call_fits_in_xmem():
 
 def test_the_whole_domain_fits_in_xmem():
     """Every corner of the declared rectangle, not only the surveyed calls."""
-    for rows in (1, 127, 128, 129, MAX_ROWS):
+    for rows in (1, 127, 128, 129, TILE_ROWS):
         for channels in (MIN_CHANNELS, 128, 129, MAX_CHANNELS):
             for kind in ("layernorm", "rmsnorm"):
                 call = {"kind": kind, "rows": rows, "channels": channels}
@@ -77,7 +88,7 @@ def test_a_call_beyond_the_domain_is_refused():
     """The kernel refuses what its loops, its XMEM and its datapath cannot take."""
     registry = _registry()
     beyond = (
-        {**CALLS[2], "rows": MAX_ROWS + 1},
+        {**CALLS[6], "rows": MAX_ROWS + 1},
         {**CALLS[0], "channels": MAX_CHANNELS + 1},
         {**CALLS[0], "channels": MIN_CHANNELS - 1},  # a group's A row cannot hold it
         {**CALLS[0], "kind": "groupnorm"},  # groupnorm lowers to rows of a group
@@ -85,6 +96,12 @@ def test_a_call_beyond_the_domain_is_refused():
         {**CALLS[0], "rows": 0},
         {**CALLS[0], "channels": 0},
         {**CALLS[0], "weights": 3},  # unknown parameter
+        {**CALLS[0], "x_from": "patches:2"},  # the mobilevit patch permutation
+        {**CALLS[0], "x_from": "pixels:2"},
+        {**CALLS[0], "y_to": "patches:2"},
+        {**CALLS[0], "y_to": "pixels:2"},
+        {**CALLS[0], "x_from": "heads:4:64"},
+        {**CALLS[0], "x_from": "merge:4:64"},
     )
     for call in beyond:
         verdict = registry.resolve("row_norm", **call)
@@ -96,7 +113,8 @@ def test_the_domain_holds_the_largest_call():
     registry = _registry()
     for call in (
         {"kind": "layernorm", "rows": MAX_ROWS, "channels": 128},
-        {"kind": "rmsnorm", "rows": MAX_ROWS, "channels": MAX_CHANNELS},
+        {"kind": "rmsnorm", "rows": TILE_ROWS, "channels": MAX_CHANNELS},
+        {"kind": "layernorm", "rows": TILE_ROWS, "channels": MAX_CHANNELS},
         {"kind": "layernorm", "rows": 1, "channels": MIN_CHANNELS},
         {"kind": "rmsnorm", "rows": 1, "channels": MIN_CHANNELS},
     ):

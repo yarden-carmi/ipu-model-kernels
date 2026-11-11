@@ -2,11 +2,12 @@ load("//kernels:defs.bzl", "ipu_kernel")
 load("@ipu_deps//:requirements.bzl", "requirement")
 load("@rules_python//python:defs.bzl", "py_binary")
 
-# 13 case x format runs in the default tier: the three mobilevit_s layer shapes
-# (the 1024-row one is nightly), rmsnorm at a tile and at a wide shape, the
-# narrowest call, the domain's channels floor over three groups, the group and
-# chunk boundaries and the four-chunk corner. The sweep (90 runs) is nightly.
-ipu_kernel(shard_count = 3)
+# 20 case x format runs in the default tier: the mobilevit_s layer shapes, the
+# whisper and clip norms (the 544-row 1280-channel tile is nightly), rmsnorm at
+# a tile and at wide shapes, the narrowest call, the domain's channels floor
+# over three groups, the group and chunk boundaries and the four-chunk corner.
+# The sweep (110 runs) and the wide-channels tall cases are nightly.
+ipu_kernel(shard_count = 4)
 
 # Not a test: run one case and print its rows against the reference.
 #     bazel run //kernels/zoo/row_norm_layernorm:dbg -- [case] [format] [anything-for-a-dump]
