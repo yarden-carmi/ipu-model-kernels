@@ -10,6 +10,19 @@ ipu_kernel(shard_count = 4)
 # Not a test: run one case and print its rows against the reference.
 #     bazel run //kernels/zoo/gemm:dbg -- [case] [format] [anything-for-a-dump]
 py_binary(
+    name = "probe",
+    main = "_probe.py",
+    srcs = ["_probe.py"],
+    data = glob(["**"], exclude = ["BUILD.bazel"]) + ["//kernels/zoo:files"],
+    deps = [
+        "//kernels/zoo:lib",
+        "//src/ipu-harness:kernel_test_lib",
+        requirement("numpy"),
+    ],
+    legacy_create_init = False,
+)
+
+py_binary(
     name = "dbg",
     main = "_dbg.py",
     srcs = ["_dbg.py"],

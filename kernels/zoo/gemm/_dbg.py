@@ -16,7 +16,7 @@ from ipu_harness.abi import apply, register_writes
 from ipu_harness.assembly import assemble
 from ipu_harness.cases import expand
 from ipu_harness.manifest import load_manifest
-from ipu_harness.packing import pack, stored_rows, unpack
+from ipu_harness.packing import pack, region_fill, stored_rows, unpack
 from ipu_harness.params import plan_case
 from ipu_harness.placement import place
 from ipu_isa.codec.disasm import disassemble
@@ -33,9 +33,9 @@ p = plan.params
 m, k, n = p["m"], p["k"], p["n"]
 
 rng = np.random.default_rng(0)
-arrays = {"a": rng.uniform(-1, 1, (m, k)), "w": rng.uniform(-1, 1, (k + 1, n + 1))}
+arrays = {"a": rng.uniform(-1, 1, (m, k)), "w": rng.uniform(-1, 1, (k + 1, n))}
 if "b" in tensors:
-    arrays["b"] = rng.uniform(-1, 1, (1, n))
+    arrays["b"] = rng.uniform(-1, 1, (n,))
 
 placement = place(plan, {name: stored_rows(t, plan) for name, t in tensors.items()})
 model = ReferenceModel(plan.format.mode)
@@ -54,6 +54,11 @@ for name, values in arrays.items():
         bytes(model.read_xmem(base, 8)).hex(),
         hex(model.read_xmem_metadata(base)),
     )
+for name in ("maskr",):
+    if name in tensors:
+        packed = region_fill(tensors[name], plan, placement.region(name).rows)
+        base = placement.region(name).base_row * row_bytes
+        model.write_xmem(base, packed.data)
 apply(model, tuple(register_writes(plan, placement)))
 
 print("derived:", dict(plan.derived))
@@ -62,6 +67,17 @@ print("rows:", {name: (r.base_row, r.rows) for name, r in placement.regions.item
 if SHOW:
     for pc, word in enumerate(words):
         print(f"  {pc:3d} {disassemble(word)}")
+
+if __import__("os").environ.get("GEMM_TRACE"):
+    import numpy as _np
+    for i in range(int(__import__("os").environ["GEMM_TRACE"])):
+        rec = model.step()
+        acc = _np.frombuffer(model.read_register("r_acc", 0), dtype=_np.float32)[:3]
+        cyc = bytes(model.read_register("r_cyclic", 0)[:8]).hex()
+        r0 = _np.frombuffer(model.read_register("r", 0), dtype=_np.float32)[:3]
+        print(f"  cyc {i}: acc={acc} cyc={cyc} r0={r0} lr1={model.read_register('lr', 1)} "
+              f"lr2={model.read_register('lr', 2)}")
+    __import__("sys").exit(0)
 
 model.run(5_000_000)
 region = placement.region("y")
@@ -76,7 +92,7 @@ meta = (
 got = unpack(tensors["y"], data, plan, meta)
 want = arrays["a"][:, :k] @ arrays["w"][:k, :n]
 if "b" in arrays:
-    want = want + arrays["b"][:, :n]
+    want = want + arrays["b"].reshape(-1)[:n]
 
 print("status:", model.status, "cycles:", model.stats().cycles)
 print("R_ACC:", np.frombuffer(model.read_register("r_acc", 0), dtype=np.float32)[:4])
