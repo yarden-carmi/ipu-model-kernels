@@ -612,6 +612,30 @@
   "proposed_by": 32
  },
  {
+  "chain": "[{\"op\": \"bilinear_to56\", \"params\": {}}]",
+  "check_detail": "chain: the path does not compute upsample as called (): largest difference 3.92 (relative 2) at element 319147: -1.9441 where upsample gives 1.97201; code: the code failed: AttributeError: 'types.SimpleNamespace' object has no attribute 'x'",
+  "check_ok": 0,
+  "code": "import torch\n\ndef forward(module, x):\n    # x: (768, 14, 14) CHW\n    C, H, W = x.shape\n    Ho, Wo = 56, 56\n    sy = (torch.arange(Ho, dtype=x.dtype) + 0.5) * H / Ho - 0.5\n    sx = (torch.arange(Wo, dtype=x.dtype) + 0.5) * W / Wo - 0.5\n    iy = sy.floor().clamp(0, H - 1).long()\n    ix = sx.floor().clamp(0, W - 1).long()\n    wy = (sy - sy.floor()).view(1, Ho, 1)\n    wx = (sx - sx.floor()).view(1, 1, Wo)\n    x = x.unsqueeze(0)  # (1, C, H, W)\n    x = x[:, :, iy, :]\n    x = x[:, :, :, ix]\n    x00 = x[:, :, 0::2, 0::2]  # placeholder; recompute properly below\n    # gather 4 neighbors\n    x = x  # x is (1, C, Ho, Wo) after double gather? recompute explicitly:\n    x = module.x  # not used\n    return x\n",
+  "id": 73,
+  "kind": "equivalent",
+  "name": "bilinear_14to56_chip",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear upsample of the (768, 14, 14) CHW activation (196 = 14*14 tokens from the linear) to (768, 56, 56) = 2408448 elements, align_corners=False, via the chip's bilinear_to56 primitive. For each output pixel (oh, ow) in 56x56: source coords sy=(oh+0.5)*14/56-0.5, sx=(ow+0.5)*14/56-0.5 (half-pixel centers, align_corners=False); iy=floor(sy), ix=floor(sx), fractional weights wy=sy-iy, wx=sx-ix (computed from the UNCLAMPED floor); indices iy, iy+1, ix, ix+1 clamped to [0,13] (border replication); output = (1-wy)(1-wx)*x[:,iy,ix] + (1-wy)wx*x[:,iy,ix+1] + wy(1-wx)*x[:,iy+1,ix] + wy*wx*x[:,iy+1,ix+1]. This is exactly torch's F.interpolate(size=(56,56), mode='bilinear', align_corners=False, antialias=False).\", \"rel_err\": null}",
+  "proposed_by": 35
+ },
+ {
+  "chain": "[{\"op\": \"bilinear_to56\", \"params\": {}}]",
+  "check_detail": "chain: matches upsample (FP32, relative 1e-07); code: relative difference 1.19e-07 (within 0.0001)",
+  "check_ok": 1,
+  "code": "import torch\n\ndef forward(module, x):\n    # x: (768, 14, 14) CHW\n    C, H, W = x.shape\n    Ho, Wo = 56, 56\n    sy = (torch.arange(Ho, dtype=x.dtype) + 0.5) * H / Ho - 0.5\n    sx = (torch.arange(Wo, dtype=x.dtype) + 0.5) * W / Wo - 0.5\n    fy = sy.floor(); fx = sx.floor()\n    iy = fy.long(); ix = fx.long()\n    wy = (sy - fy).view(1, Ho, 1); wx = (sx - fx).view(1, 1, Wo)\n    iy0 = iy.clamp(0, H - 1); iy1 = (iy + 1).clamp(0, H - 1)\n    ix0 = ix.clamp(0, W - 1); ix1 = (ix + 1).clamp(0, W - 1)\n    x = x.unsqueeze(0)  # (1, C, H, W)\n    a = x[:, :, iy0, :][:, :, :, ix0]  # (1, C, Ho, Wo)\n    b = x[:, :, iy0, :][:, :, :, ix1]\n    c = x[:, :, iy1, :][:, :, :, ix0]\n    d = x[:, :, iy1, :][:, :, :, ix1]\n    out = (1 - wy) * (1 - wx) * a + (1 - wy) * wx * b + wy * (1 - wx) * c + wy * wx * d\n    return out[0]\n",
+  "id": 74,
+  "kind": "equivalent",
+  "name": "bilinear_14to56_v2",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear upsample of the (768, 14, 14) CHW activation (196 = 14*14 tokens from the linear) to (768, 56, 56) = 2408448 elements, align_corners=False, via the chip's bilinear_to56 primitive. For each output pixel (oh, ow) in 56x56: source coords sy=(oh+0.5)*14/56-0.5, sx=(ow+0.5)*14/56-0.5 (half-pixel centers, align_corners=False); iy=floor(sy), ix=floor(sx), fractional weights wy=sy-iy, wx=sx-ix (computed from the UNCLAMPED floor); indices iy, iy+1, ix, ix+1 clamped to [0,13] (border replication); output = (1-wy)(1-wx)*x[:,iy,ix] + (1-wy)wx*x[:,iy,ix+1] + wy(1-wx)*x[:,iy+1,ix] + wy*wx*x[:,iy+1,ix+1]. This is exactly torch's F.interpolate(size=(56,56), mode='bilinear', align_corners=False, antialias=False).\", \"rel_err\": 1.1922281981998307e-07}",
+  "proposed_by": 35
+ },
+ {
   "chain": "[{\"op\": \"bilinear_resize2d\", \"params\": {\"out\": [56, 56]}}]",
   "check_detail": "chain: bilinear_resize2d {\"out\": [56, 56]}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
   "check_ok": null,
