@@ -64,11 +64,11 @@
   "tensors": null
  },
  {
-  "doc": "Select table rows by id via mask-and-sum over the vocab dimension.",
+  "doc": "Select table rows by ids via mask-compare, broadcast-multiply, and reduce over vocab: out[i] = sum_j (ids[i]==j) * table[j].",
   "name": "masked_row_select",
   "origin": "agent",
   "params": "{}",
-  "reference": "def fn(ids, table):\n    vocab, dim = table.shape\n    ar = torch.arange(vocab, device=table.device)\n    mask = (ids.long().view(-1, 1) == ar.view(1, -1)).to(table.dtype)\n    return (mask.view(-1, vocab, 1) * table.view(1, vocab, dim)).sum(dim=1)",
+  "reference": "def fn(ids, table):\n    ids = ids.long().reshape(-1)\n    mask = (ids[:, None] == torch.arange(table.shape[0], device=table.device)).to(table.dtype)\n    return (mask[:, :, None] * table[None, :, :]).sum(dim=1)",
   "tensors": null
  },
  {
@@ -80,11 +80,11 @@
   "tensors": null
  },
  {
-  "doc": "Fused: build a one-hot matrix (tokens x num_classes) from integer ids, then multiply by a constant table (num_classes x dim).",
+  "doc": "Build a one-hot matrix from ids and multiply it by the table: out = onehot(ids) @ table.",
   "name": "one_hot_gemm",
   "origin": "agent",
   "params": "{\"num_classes\": \"vocab size\"}",
-  "reference": "def fn(ids, table):\n    ids = ids.long().view(-1)\n    onehot = torch.zeros(ids.shape[0], table.shape[0], dtype=table.dtype, device=table.device)\n    onehot.scatter_(1, ids.view(-1, 1), 1.0)\n    return onehot @ table",
+  "reference": "def fn(ids, table, num_classes):\n    ids = ids.long().reshape(-1)\n    oh = torch.zeros(ids.shape[0], num_classes, dtype=table.dtype, device=table.device)\n    oh[torch.arange(ids.shape[0]), ids] = 1.0\n    return oh @ table",
   "tensors": null
  },
  {
