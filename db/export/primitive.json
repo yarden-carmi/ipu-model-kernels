@@ -48,27 +48,27 @@
   "tensors": null
  },
  {
-  "doc": "Select one row of a constant table without indexing: mask = (arange(vocab) == id); return (mask[:, None] * table).sum(0).",
+  "doc": "Select table rows by id via mask-and-sum over the vocab dimension.",
   "name": "masked_row_select",
   "origin": "agent",
-  "params": "{\"vocab\": \"vocabulary size (number of table rows)\"}",
-  "reference": "def fn(ids, vocab, table):\n    mask = (torch.arange(vocab, dtype=ids.dtype) == ids.reshape(-1)[0]).to(table.dtype)\n    return (mask.reshape(vocab, 1) * table).sum(dim=0)",
+  "params": "{}",
+  "reference": "def fn(ids, table):\n    vocab, dim = table.shape\n    ar = torch.arange(vocab, device=table.device)\n    mask = (ids.long().view(-1, 1) == ar.view(1, -1)).to(table.dtype)\n    return (mask.view(-1, vocab, 1) * table.view(1, vocab, dim)).sum(dim=1)",
   "tensors": null
  },
  {
-  "doc": "Build a one-hot row vector of length vocab from a single token id.",
+  "doc": "Build a one-hot matrix from integer ids: out[i, ids[i]] = 1, else 0.",
   "name": "one_hot",
   "origin": "agent",
-  "params": "{}",
-  "reference": "def fn(ids):\n    vocab = 1001\n    idx = int(ids.reshape(-1)[0].item())\n    oh = torch.zeros(1, vocab, dtype=torch.float32)\n    oh[0, idx] = 1.0\n    return oh",
+  "params": "{\"num_classes\": \"vocab size\"}",
+  "reference": "def fn(ids, num_classes):\n    out = torch.zeros(ids.shape[0], num_classes, dtype=torch.float32, device=ids.device)\n    return out.scatter_(1, ids.long().view(-1, 1), 1.0)",
   "tensors": null
  },
  {
-  "doc": "Build a one-hot row from a scalar id and multiply it by a weight matrix: equivalent to selecting one row.",
+  "doc": "Fused: build a one-hot matrix (tokens x num_classes) from integer ids, then multiply by a constant table (num_classes x dim).",
   "name": "one_hot_gemm",
   "origin": "agent",
-  "params": "{\"num_classes\": \"vocabulary size (one-hot length)\"}",
-  "reference": "def fn(ids, num_classes, weight):\n    onehot = torch.zeros(1, num_classes, dtype=weight.dtype)\n    onehot[0, int(ids.reshape(-1)[0])] = 1.0\n    return onehot @ weight",
+  "params": "{\"num_classes\": \"vocab size\"}",
+  "reference": "def fn(ids, table):\n    ids = ids.long().view(-1)\n    onehot = torch.zeros(ids.shape[0], table.shape[0], dtype=table.dtype, device=table.device)\n    onehot.scatter_(1, ids.view(-1, 1), 1.0)\n    return onehot @ table",
   "tensors": null
  },
  {

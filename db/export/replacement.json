@@ -12,6 +12,18 @@
   "proposed_by": 5
  },
  {
+  "chain": "[{\"op\": \"masked_row_select\", \"params\": {}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    table = module.table  # (vocab=21128, dim=512)\n    ids = ids.long().view(-1)\n    vocab, dim = table.shape\n    ar = torch.arange(vocab, device=table.device)\n    mask = (ids.view(-1, 1) == ar.view(1, -1)).to(table.dtype)  # (tokens, vocab)\n    masked = mask.view(-1, vocab, 1) * table.view(1, vocab, dim)  # zero all rows but selected\n    return masked.sum(dim=1)  # (tokens, dim)",
+  "id": 16,
+  "kind": "equivalent",
+  "name": "masked_reduce_embedding_tokens256",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the lookup with masked reduction fused into one primitive. Step 1: compare each token id against arange(vocab=21128) to get a 0/1 mask of shape tokens=256 x vocab. Step 2: broadcast-multiply the mask (as a column per token) with the embedding table rows (21128 x 512), zeroing all rows except the selected one per token. Step 3: sum over the vocab dimension, yielding exactly the selected rows (256 x 512). Mathematically identical to embedding; the table is a constant attribute of the module.\", \"rel_err\": 0.0}",
+  "proposed_by": 14
+ },
+ {
   "chain": "[{\"op\": \"eq_range\", \"params\": {}}, {\"op\": \"binary\", \"params\": {\"op\": \"mul\"}}, {\"op\": \"reduce_rows\", \"params\": {}}]",
   "check_detail": "chain: binary {\"op\": \"mul\"}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
   "check_ok": null,
@@ -94,6 +106,42 @@
   "op": "embedding",
   "proposal": "{\"description\": \"Replace the runtime-index lookup with a dense matmul. Step 1: build a one-hot row vector of length vocab=1001 from the single token id (1 at position id, 0 elsewhere). Step 2: multiply the one-hot row by the embedding table (1001 x 1152) with a GEMM. The result row equals exactly the table row selected by the id, so this is mathematically identical to embedding for tokens=1.\", \"rel_err\": null}",
   "proposed_by": 5
+ },
+ {
+  "chain": "[{\"op\": \"one_hot\", \"params\": {\"num_classes\": 21128}}, {\"op\": \"gemm\", \"params\": {}}]",
+  "check_detail": "chain: gemm {}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
+  "check_ok": null,
+  "code": "def forward(module, ids):\n    table = module.table  # (vocab=21128, dim=512)\n    ids = ids.long().view(-1)\n    onehot = torch.zeros(ids.shape[0], table.shape[0], dtype=table.dtype, device=table.device)\n    onehot.scatter_(1, ids.view(-1, 1), 1.0)\n    # gemm: (tokens x vocab) @ (vocab x dim)\n    return onehot @ table",
+  "id": 15,
+  "kind": "equivalent",
+  "name": "onehot_gemm_embedding_tokens256",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the runtime-index lookup with a dense GEMM. Step 1: one_hot \\u2014 build a one-hot matrix of shape tokens=256 x vocab=21128 from the token ids (row i has 1 at column ids[i], 0 elsewhere; ids cast to long). Step 2: gemm \\u2014 multiply the one-hot matrix (256 x 21128) by the embedding table (21128 x 512), no transposes. Each output row equals exactly the table row selected by the corresponding id, so the result (256 x 512) is mathematically identical to embedding. The table is a constant passed alongside the ids.\", \"rel_err\": 0.0}",
+  "proposed_by": 14
+ },
+ {
+  "chain": "[{\"op\": \"one_hot\", \"params\": {\"num_classes\": 21128}}, {\"op\": \"gemm\", \"params\": {}}]",
+  "check_detail": "chain: gemm takes 2 activations; the path has only 1 left (the layer's inputs, in order: [256]); code: relative difference 0 (within 0.0001)",
+  "check_ok": 0,
+  "code": "def forward(module, ids):\n    table = module.table  # (vocab=21128, dim=512)\n    ids = ids.long().view(-1)\n    onehot = torch.zeros(ids.shape[0], table.shape[0], dtype=table.dtype, device=table.device)\n    onehot.scatter_(1, ids.view(-1, 1), 1.0)\n    return onehot @ table  # gemm: (tokens x vocab) @ (vocab x dim)",
+  "id": 17,
+  "kind": "equivalent",
+  "name": "onehot_gemm_embedding_tokens256_v2",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the runtime-index lookup with a dense GEMM. Step 1: one_hot \\u2014 build a one-hot matrix of shape tokens=256 x vocab=21128 from the token ids (row i has 1 at column ids[i]; ids cast to long). Step 2: gemm \\u2014 multiply the one-hot matrix (256 x 21128) by the embedding table (21128 x 512), no transposes. Each output row equals exactly the table row selected by the corresponding id, so the result (256 x 512) is mathematically identical to embedding. The table is a constant passed alongside the ids.\", \"rel_err\": 0.0}",
+  "proposed_by": 14
+ },
+ {
+  "chain": "[{\"op\": \"one_hot_gemm\", \"params\": {\"num_classes\": 21128}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    table = module.table  # (vocab=21128, dim=512)\n    ids = ids.long().view(-1)\n    onehot = torch.zeros(ids.shape[0], table.shape[0], dtype=table.dtype, device=table.device)\n    onehot.scatter_(1, ids.view(-1, 1), 1.0)\n    return onehot @ table  # one_hot_gemm: fused one-hot construction + GEMM with the constant table",
+  "id": 18,
+  "kind": "equivalent",
+  "name": "onehot_gemm_embedding_tokens256_v3",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the runtime-index lookup with a fused one-hot GEMM primitive. Step 1: build a one-hot matrix of shape tokens=256 x vocab=21128 from the token ids (row i has 1 at column ids[i], 0 elsewhere; ids cast to long). Step 2: GEMM the one-hot matrix by the embedding table (21128 x 512), no transposes. Each output row equals exactly the table row selected by the corresponding id, so the result (256 x 512) is mathematically identical to embedding. The table is a constant passed alongside the ids, so the fused primitive needs only the ids as input.\", \"rel_err\": 0.0}",
+  "proposed_by": 14
  },
  {
   "chain": "[{\"op\": \"one_hot\", \"params\": {}}, {\"op\": \"gemm\", \"params\": {}}]",

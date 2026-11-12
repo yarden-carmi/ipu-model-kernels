@@ -46,7 +46,7 @@
  },
  {
   "body": "The most costly finding is format pressure: across 219 models, 5,526 format choices were made (fp8_e2m5 dominating at 3,963), with the worst tensor multiplication losing 0.8 dB in facebook/DiT-XL-2-256. Next are layout conversions, where 410 of 687 tensors between kernels change arrangement (mostly heads, 230), though no links fail. ISA gaps come third: data addressing (lookup by runtime index) affects 29 operations in 2 models, and 2 operations in 2 models lack a chip-level ATen op \u2014 all with replacements at 0.00 dB and 0 cycles, so no measured cost. Resource limits are mild: 864 operations go through the 256-entry LUT, no kernels exceed 80% IMEM bank use, and least FP32 headroom is 0.0 decades. Compute efficiency is unmeasured (no kernel measured yet), and the what-if analysis shows both ISA gaps could be closed at +0.00% MACs and 0.00 dB recovered, i.e. no measurable cost.",
-  "created_at": 1794520137.3908846,
+  "created_at": 1794520303.256111,
   "id": 7,
   "kind": "summary",
   "numbers": null,
