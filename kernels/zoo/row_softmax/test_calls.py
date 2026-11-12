@@ -26,12 +26,13 @@ CALLS = (
     {"rows": 256, "n": 16},  # x3 per forward, mobilevit_s
     {"rows": 640, "n": 1500},  # x32 per forward, openai/whisper-large-v3
     {"rows": 30000, "n": 1500},  # x32 per forward, openai/whisper-large-v3
+    {"rows": 56, "n": 4096},  # x3 per forward, facebook/sam-vit-base
 )
 
 #: The largest values the program's loops take: any ``rows`` is tiled by the
-#: host, ``n`` reaches the program as a rendered 16-chunk unroll.
+#: host, ``n`` reaches the program as a rendered 32-chunk unroll.
 MAX_ROWS = 30000
-MAX_N = 2048
+MAX_N = 4096
 
 #: The XMEM rows an NX8 call can address.
 XMEM_ROWS = 16384
@@ -113,6 +114,8 @@ def test_the_domain_holds_the_largest_launch():
         {"rows": MAX_ROWS, "n": 1},
         {"rows": MAX_ROWS, "n": 128},
         {"rows": MAX_ROWS, "n": 2048},
+        {"rows": rows_per_launch(MAX_N), "n": 2048},
+        {"rows": rows_per_launch(MAX_N), "n": MAX_N},
         {"rows": 1, "n": MAX_N},
         {"rows": rows_per_launch(1500), "n": 1500},
         {"rows": rows_per_launch(MAX_N), "n": MAX_N},
@@ -163,3 +166,34 @@ def test_a_second_run_reads_the_first_run_output():
     assert all(c.passed for c in second.result.comparisons), [
         c.describe() for c in second.result.comparisons
     ]
+
+
+def test_the_chain_holds_over_shapes_and_kinds_of_input():
+    """The shift must keep the exp2 argument <= 0 for any x a kernel writes.
+
+    Each case runs twice on one XMEM, the second step reading the first step's
+    ``y`` as its ``x``: probabilities (all in [0, 1], rows of them with a
+    single dominant lane), uniform logits and all-negative ones -- the last is
+    the row the relu floor exists for.
+    """
+    for rows, n, seed, (low, high) in (
+        (12, 100, 3, (-4.0, 4.0)),  # the shape of test_a_second_run...
+        (1, 1, 4, (-4.0, 4.0)),  # the narrowest chain
+        (3, 128, 5, (-4.0, 4.0)),
+        (5, 4096, 6, (-4.0, 4.0)),  # the widest row, chained
+        (9, 64, 7, (0.0, 1.0)),  # probabilities: x = softmax outputs
+        (9, 64, 8, (-4.0, -0.5)),  # all-negative logits: the relu floor's row
+        (17, 129, 9, (-4.0, 4.0)),  # a ragged tail, chained
+    ):
+        x = np.random.default_rng(seed).uniform(low, high, (rows, n))
+        chain = Chain(variant("dynamic"))
+        manifest = load_manifest(FOLDER)
+        first = chain.run(manifest, {"rows": rows, "n": n}, {"x": x}, check=True)
+        assert all(c.passed for c in first.result.comparisons), (rows, n, span)
+        try:
+            second = chain.run(manifest, {"rows": rows, "n": n}, {"x": first.resident["y"]}, check=True)
+        except Exception as e:
+            raise AssertionError(f"chain failed for rows={rows} n={n} x=uniform({low},{high}) seed={seed}") from e
+        assert all(c.passed for c in second.result.comparisons), (
+            rows, n, span, [c.describe() for c in second.result.comparisons],
+        )

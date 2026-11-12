@@ -19,17 +19,24 @@ is an AaQ error); 2*max(x,0) >= log2(e)*max(x) in every lane, and the 0.56*max o
 scalar row's own 2^-7 quantization. Pass 2 forms exp2(c1*x + c2*x - 2*max) chunk by chunk -- c = log2(e)
 as two exactly representable dyadic terms, one MULT.RC.VE each, because an NX8 MULT constant holds at
 most 7 significant bits and one of them alone would move the temperature, and every probability with it,
-by 4e-2 relative -- and ACTIVATE.QUANTIZE exp2-stores the numerator row. Pass 3 reloads the numerator
+by 4e-2 relative -- and ACTIVATE.QUANTIZE exp2-stores the numerator row. A chunk needs BOTH its multiplies
+to see the chunk's own slot (a load lands one word after the word that issues it), so pass 2 streams the
+x chunks through slots 0 and 128 alternately: chunk c reads slot c%2 (LR0/LR1) in both its words and
+loads chunk c+1 into the other slot -- one stream in slot 0 would leave the c2 multiply reading the next
+chunk (harmless for x, bounded by (c-2)*max, but at the last chunk the same word primes pass 3 with the
+numerator's chunk 0, whose exp2 value is ~1, and c2 of that is positive: with a small row max the exp2
+argument goes positive, an AaQ error -- the chained softmax(softmax) case). Pass 3 reloads the numerator
 chunks and AGG.SUMs them into R_ACC[0], then ACTIVATE.QUANTIZE reciprocal puts 1/sum in the scalar lane;
 that value's own quantization, and the max's, are factors common to the row, so they cancel in the
 output row's scale; the last chunk of each pass parks in R_CYCLIC slot 1, so a scalar's row is
 never re-read after the scalar lands on it -- this is what keeps the round trip safe at every
-chunk count, up to n = 2048.
+chunk count, up to n = 4096 (a 32-chunk unroll -- sam-vit-base's 4096-wide
+attention rows, x3 per forward, are one launch of 56 rows).
 Pass 4 multiplies each chunk by the scalar (MULT.RC.VE with the scalar named by LR0, read out of R0[0])
 and ACTIVATE.QUANTIZE identity-stores y. There is no numerator or scratch region: 2*rows*tiles is every
 row a call owns (the widest call uses all 16384), so the numerators live in y's own rows, which pass 4
 overwrites, and both scalars round-trip through y's last row -- safe because the last chunk of
-each pass is resident in R_CYCLIC slot 1 before a scalar lands on its row. R_CYCLIC's four slots hold the row's x chunks (indices 0, 128) and its numerator chunks (256, 384)
+each pass is resident in R_CYCLIC slot 1 before a scalar lands on its row. R_CYCLIC's four slots hold the row's x chunks (indices 0, 128) in pass 2's alternating stream and its numerator chunks (0, with the last one 128) in passes 3 and 4
 at once, which is what removes every redundant load: each row is read from XMEM the minimum number of
 times, one load word per chunk plus the one word the 1/sum's read-back needs. Pipelined per the timing
 contract -- the next chunk's load rides in the word that multiplies the current one, multiply + accumulate
@@ -42,7 +49,8 @@ inherent shape. x and y are the plain row-major activation layout (entity e in c
 rows, lanes past F zero, which the last chunk's DS guarantees), so y is the next kernel's input as it
 stands and nothing leaves XMEM between kernels. Domain: rows 1..30000 (the host tiles ``rows`` when a launch's 2*rows*tiles would
 not fit the 16384 addressable NX8 rows -- whisper-large-v3's 30000 x 1500 call is 44
-launches of 682 rows) and n 1..2048, a 16-chunk unroll; the input range [-8, 8]
+launches of 682 rows, and a 4096-wide call tiles at 256 rows) and n 1..4096, a 32-chunk
+unroll; the input range [-8, 8]
 is the generator's, not a program limit -- the max subtraction makes the exp2 argument non-positive for
 any logits. Accuracy: the probabilities are quantized twice (pass 2's numerator row, at the dynamic
 format's own 5 or 6 mantissa bits, then pass 4's output row), which is the kernel's only real error and

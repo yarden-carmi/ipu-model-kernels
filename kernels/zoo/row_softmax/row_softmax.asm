@@ -5,10 +5,10 @@
     whole (rows, n) tile -- the host tiles `rows` across launches.
 
     The exp2 recipe (max, exp2, sum, reciprocal), four passes over the row,
-    streamed chunk by chunk through R_CYCLIC slot 0 (the next chunk's load
-    rides in the word that multiplies the current one, per the timing
-    contract: a LOAD reads LRs after the same word's LR writes, and MULT
-    reads R_CYCLIC as the word began, so a load into the window a word
+    streamed chunk by chunk (the next chunk's load rides in the word that
+    multiplies the current one, per the timing contract: a LOAD reads LRs
+    after the same word's LR writes, and MULT reads R_CYCLIC as the word
+    began, so a load into the window a word
     multiplies lands one word later than it is needed -- i.e. exactly when
     the next word multiplies it):
 
@@ -33,9 +33,20 @@
               which chunk 0's first word loaded) and ACTIVATE.QUANTIZE
               exp2-stores the numerator into a y row -- there is no
               numerator region: 2 * rows * tiles rows is all a call owns,
-              and pass 4 overwrites these rows with the probabilities. The
-              argument is <= (c - 2) * max <= 0 in every lane; a row-common
-              shift cancels in the normalisation, so only its sign matters.
+              and pass 4 overwrites these rows with the probabilities. A
+              load lands one word after the word that issues it, so both of
+              a chunk's multiplies must read the chunk's own slot: the x
+              chunks stream through slots 0 and 128 alternately (chunk c
+              reads slot c % 2 in both its words, and loads chunk c + 1 into
+              the other slot). One shared slot would leave the c2 multiply
+              reading the next x chunk -- harmless for x, whose bound
+              arg <= (c - 2) * max <= 0 holds either way, but at the LAST
+              chunk the same word primes pass 3 with the numerator's chunk 0,
+              whose exp2 value is ~1: c2 of that against a small row max
+              (softmax of softmax) drives the argument positive -- an AaQ
+              error. The argument is <= (c - 2) * max <= 0 in every lane; a
+              row-common shift cancels in the normalisation, so only its
+              sign matters.
               The last chunk's word primes pass 3: it loads the numerator's
               chunk 0 (a separate word when tiles == 1, where that row is
               the store's own).
@@ -87,7 +98,8 @@
       cr.ds_all     CR15: L = ds(128) a full chunk, H = ds(n - 128*(tiles-1))
       LR0 0 (R_CYCLIC slot 0, AGG's destination slot, the mask shift, and
       Ra's R0 element 0 -- pass 4's scalar) ; LR1 128 (Ra's R1 element 0 --
-      pass 2's max, and slot 1's R_CYCLIC index) ; LR2 the row counter ;
+      pass 2's max; pass 2's odd chunks' R_CYCLIC slot; slot 1's R_CYCLIC
+      index) ; LR2 the row counter ;
       LR3 the chunk read walk ; LR6 this row's base row ; LR7 the scalar
       row ; LR8 LR9 the two y-row walkers. The program sets every LR it
       reads, and R_ACC is initialised by the .FIRST aggregate of every
@@ -121,17 +133,26 @@ row_loop:
 {#- ========= pass 2: num = exp2(c*x - 2*max), stored into y's rows ========
     three words per chunk: c1*x (and the next x chunk's load), then c2*x and
     the max's load into R1, then 2*max subtracted and the row stored. The
+    MULT stage reads R_CYCLIC as the word began and a load lands one word
+    later, so the chunk's TWO multiplies must both see the chunk's own slot:
+    the x chunks stream through slots 0 and 128 alternately (LR0/LR1, even
+    chunk -> 0, odd -> 128; the next chunk's slot is the other one), and each
+    chunk's slot survives until both of its words have multiplied it. The
+    last chunk's word A primes pass 3 by loading the numerator's chunk 0 into
+    slot 0 -- the same word's MULT still reads the cycle-start slot. The
     MULT stage reads R0/R1 as the word began, so the max's load is the word
     before the MULT.EE that uses it. -#}
 {% for c in range(T) %}
+{% set rc = "LR0" if c % 2 == 0 else "LR1" %}
+{% set nx = "LR1" if c % 2 == 0 else "LR0" %}
 {% if c < T - 1 %}
-    INC LR3 1 ; LD.MULT.CYCLIC LR3 {{ cr.x }} LR0 ; MULT.RC.VE LR0 {{ cr.c1 }} 0 LR0 {{ dall }} {{ qfl }} ; ACC.ADD.FIRST{% if c > 0 %} ; INC LR8 1{% endif %} ;;
+    INC LR3 1 ; LD.MULT.CYCLIC LR3 {{ cr.x }} {{ nx }} ; MULT.RC.VE {{ rc }} {{ cr.c1 }} 0 LR0 {{ dall }} {{ qfl }} ; ACC.ADD.FIRST{% if c > 0 %} ; INC LR8 1{% endif %} ;;
 {% else %}
-    MULT.RC.VE LR0 {{ cr.c1 }} 0 LR0 {{ dall }} {{ qfl }} ; ACC.ADD.FIRST{% if T > 1 %} ;
+    MULT.RC.VE {{ rc }} {{ cr.c1 }} 0 LR0 {{ dall }} {{ qfl }} ; ACC.ADD.FIRST{% if T > 1 %} ;
     INC LR8 1 ; SET LR3 LR6 ;
     LD.MULT.CYCLIC LR3 {{ cr.y }} LR0{% endif %} ;;       {#- prime pass 3 with the numerator's chunk 0 -#}
 {% endif %}
-    MULT.RC.VE LR0 {{ cr.c2 }} 0 LR0 {{ dall }} {{ qfl }} ; ACC.ADD{% if c == 0 %} ;
+    MULT.RC.VE {{ rc }} {{ cr.c2 }} 0 LR0 {{ dall }} {{ qfl }} ; ACC.ADD{% if c == 0 %} ;
     LD.MULT R1 LR7 {{ cr.y }}{% endif %} ;;               {#- R1[0] = the row's max, for every MULT.EE -#}
     MULT.EE LR1 {{ cr.two }} 0 LR0 {{ dall }} {{ qfl }} ; ACC.SUB ;
     ACTIVATE.QUANTIZE exp2 {{ dlast if c == T - 1 else dall }} {{ qfl }} {{ cr.y }} LR8 ;;

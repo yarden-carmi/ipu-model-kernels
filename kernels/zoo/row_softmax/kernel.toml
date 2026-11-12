@@ -40,7 +40,7 @@ formats = ["dynamic"]
 
 [params]
 rows    = { type = "int", min = 1, max = 30000 }   # softmax along each row; the host tiles rows per launch
-n       = { type = "int", min = 1, max = 2048 }    # row length: 128 lanes per chunk
+n       = { type = "int", min = 1, max = 4096 }    # row length: 128 lanes per chunk, a 32-chunk unroll
 # The program's constants, all binary fractions so the NX8 constant layout
 # holds them exactly (its value field is 8 bits with its own scale and type).
 c1      = { type = "float", choices = [1.4375], default = 1.4375 }
@@ -126,6 +126,15 @@ n = 1500
 rows = 640
 n = 1500
 
+[cases.sam_vit]                                  # facebook/sam-vit-base: 56 x 4096, x3 per forward
+rows = 56
+n = 4096
+
+[cases.sam_tile]                                 # a whole 256-row launch tile at n = 4096 (16384/64)
+rows = 256
+n = 4096
+tier = "nightly"
+
 [cases.wide_tile]                                # a whole 682-row launch tile at n = 1500
 rows = 682
 n = 1500
@@ -143,4 +152,4 @@ tier = "nightly"
 
 [cases.sweep]                                    # the structure of the domain
 rows = [1, 3, 129]
-n = [1, 16, 64, 128, 129, 200, 256, 1000, 1500]
+n = [1, 16, 64, 128, 129, 200, 256, 1000, 1500, 2048, 4096]

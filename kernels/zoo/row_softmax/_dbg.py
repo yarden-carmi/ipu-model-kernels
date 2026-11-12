@@ -69,7 +69,7 @@ meta = (
 got = unpack(tensors["y"], data, plan, meta)
 
 xh = x  # the harness's own input is already the variant's values
-shift = np.maximum(xh, 0.0) * 2  # the kernel's own shift, a row constant
+shift = np.maximum(xh, 0.0).max(axis=1, keepdims=True) * 2  # the kernel's row shift
 num = 2 ** (xh * 1.437500 + xh * 0.00518798828125 - shift)
 rinv = 1.0 / num.sum(axis=1, keepdims=True)
 want = num * rinv
@@ -85,7 +85,7 @@ if err.size:
     big = np.argsort(-err[r])[:4]
     print("  row's worst lanes:", [(int(j), round(float(err[r, j]), 6)) for j in big])
 for i in range(min(rows, 4)):
-    for t in range(tiles):
+    for t in range(-(-n // 128)):
         lo, hi = 128 * t, min(n, 128 * (t + 1))
         ratio = got[i, lo:hi] / np.maximum(want[i, lo:hi], 1e-12)
         print(
