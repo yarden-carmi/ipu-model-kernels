@@ -7396,5 +7396,1427 @@
   "parent_id": 762,
   "path": "maxpool",
   "repeat": 1
+ },
+ {
+  "capture_id": 22,
+  "class": null,
+  "first_seq": 0,
+  "id": 824,
+  "parent_id": 823,
+  "path": "(input)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 22,
+  "class": "BertModel",
+  "first_seq": 0,
+  "id": 823,
+  "parent_id": null,
+  "path": "(top)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 22,
+  "class": "BertEmbeddings",
+  "first_seq": 1,
+  "id": 825,
+  "parent_id": 823,
+  "path": "embeddings",
+  "repeat": 1
+ },
+ {
+  "capture_id": 22,
+  "class": "LayerNorm",
+  "first_seq": 7,
+  "id": 828,
+  "parent_id": 825,
+  "path": "embeddings.LayerNorm",
+  "repeat": 1
+ },
+ {
+  "capture_id": 22,
+  "class": "Embedding",
+  "first_seq": 5,
+  "id": 829,
+  "parent_id": 825,
+  "path": "embeddings.position_embeddings",
+  "repeat": 1
+ },
+ {
+  "capture_id": 22,
+  "class": "Embedding",
+  "first_seq": 3,
+  "id": 830,
+  "parent_id": 825,
+  "path": "embeddings.token_type_embeddings",
+  "repeat": 1
+ },
+ {
+  "capture_id": 22,
+  "class": "Embedding",
+  "first_seq": 2,
+  "id": 831,
+  "parent_id": 825,
+  "path": "embeddings.word_embeddings",
+  "repeat": 1
+ },
+ {
+  "capture_id": 22,
+  "class": "BertEncoder",
+  "first_seq": 8,
+  "id": 826,
+  "parent_id": 823,
+  "path": "encoder",
+  "repeat": 1
+ },
+ {
+  "capture_id": 22,
+  "class": "ModuleList",
+  "first_seq": 8,
+  "id": 832,
+  "parent_id": 826,
+  "path": "encoder.layer",
+  "repeat": 1
+ },
+ {
+  "capture_id": 22,
+  "class": "BertLayer",
+  "first_seq": 8,
+  "id": 835,
+  "parent_id": 832,
+  "path": "encoder.layer.*",
+  "repeat": 12
+ },
+ {
+  "capture_id": 22,
+  "class": "BertAttention",
+  "first_seq": 8,
+  "id": 836,
+  "parent_id": 835,
+  "path": "encoder.layer.*.attention",
+  "repeat": 12
+ },
+ {
+  "capture_id": 22,
+  "class": "BertSelfOutput",
+  "first_seq": 15,
+  "id": 839,
+  "parent_id": 836,
+  "path": "encoder.layer.*.attention.output",
+  "repeat": 12
+ },
+ {
+  "capture_id": 22,
+  "class": "LayerNorm",
+  "first_seq": 17,
+  "id": 845,
+  "parent_id": 839,
+  "path": "encoder.layer.*.attention.output.LayerNorm",
+  "repeat": 12
+ },
+ {
+  "capture_id": 22,
+  "class": "Linear",
+  "first_seq": 15,
+  "id": 846,
+  "parent_id": 839,
+  "path": "encoder.layer.*.attention.output.dense",
+  "repeat": 12
+ },
+ {
+  "capture_id": 22,
+  "class": "BertSelfAttention",
+  "first_seq": 8,
+  "id": 840,
+  "parent_id": 836,
+  "path": "encoder.layer.*.attention.self",
+  "repeat": 12
+ },
+ {
+  "capture_id": 22,
+  "class": "Linear",
+  "first_seq": 9,
+  "id": 847,
+  "parent_id": 840,
+  "path": "encoder.layer.*.attention.self.key",
+  "repeat": 12
+ },
+ {
+  "capture_id": 22,
+  "class": "Linear",
+  "first_seq": 8,
+  "id": 848,
+  "parent_id": 840,
+  "path": "encoder.layer.*.attention.self.query",
+  "repeat": 12
+ },
+ {
+  "capture_id": 22,
+  "class": "Linear",
+  "first_seq": 10,
+  "id": 849,
+  "parent_id": 840,
+  "path": "encoder.layer.*.attention.self.value",
+  "repeat": 12
+ },
+ {
+  "capture_id": 22,
+  "class": "BertIntermediate",
+  "first_seq": 18,
+  "id": 837,
+  "parent_id": 835,
+  "path": "encoder.layer.*.intermediate",
+  "repeat": 12
+ },
+ {
+  "capture_id": 22,
+  "class": "Linear",
+  "first_seq": 18,
+  "id": 841,
+  "parent_id": 837,
+  "path": "encoder.layer.*.intermediate.dense",
+  "repeat": 12
+ },
+ {
+  "capture_id": 22,
+  "class": "GELUActivation",
+  "first_seq": 19,
+  "id": 842,
+  "parent_id": 837,
+  "path": "encoder.layer.*.intermediate.intermediate_act_fn",
+  "repeat": 12
+ },
+ {
+  "capture_id": 22,
+  "class": "BertOutput",
+  "first_seq": 20,
+  "id": 838,
+  "parent_id": 835,
+  "path": "encoder.layer.*.output",
+  "repeat": 12
+ },
+ {
+  "capture_id": 22,
+  "class": "LayerNorm",
+  "first_seq": 22,
+  "id": 843,
+  "parent_id": 838,
+  "path": "encoder.layer.*.output.LayerNorm",
+  "repeat": 12
+ },
+ {
+  "capture_id": 22,
+  "class": "Linear",
+  "first_seq": 20,
+  "id": 844,
+  "parent_id": 838,
+  "path": "encoder.layer.*.output.dense",
+  "repeat": 12
+ },
+ {
+  "capture_id": 22,
+  "class": "BertPooler",
+  "first_seq": 188,
+  "id": 827,
+  "parent_id": 823,
+  "path": "pooler",
+  "repeat": 1
+ },
+ {
+  "capture_id": 22,
+  "class": "Tanh",
+  "first_seq": 189,
+  "id": 833,
+  "parent_id": 827,
+  "path": "pooler.activation",
+  "repeat": 1
+ },
+ {
+  "capture_id": 22,
+  "class": "Linear",
+  "first_seq": 188,
+  "id": 834,
+  "parent_id": 827,
+  "path": "pooler.dense",
+  "repeat": 1
+ },
+ {
+  "capture_id": 23,
+  "class": null,
+  "first_seq": 0,
+  "id": 851,
+  "parent_id": 850,
+  "path": "(input)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 23,
+  "class": "TableTransformerForObjectDetection",
+  "first_seq": 0,
+  "id": 850,
+  "parent_id": null,
+  "path": "(top)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 23,
+  "class": "TableTransformerMLPPredictionHead",
+  "first_seq": 424,
+  "id": 852,
+  "parent_id": 850,
+  "path": "bbox_predictor",
+  "repeat": 1
+ },
+ {
+  "capture_id": 23,
+  "class": "ModuleList",
+  "first_seq": 424,
+  "id": 855,
+  "parent_id": 852,
+  "path": "bbox_predictor.layers",
+  "repeat": 1
+ },
+ {
+  "capture_id": 23,
+  "class": "Linear",
+  "first_seq": 424,
+  "id": 860,
+  "parent_id": 855,
+  "path": "bbox_predictor.layers.*",
+  "repeat": 3
+ },
+ {
+  "capture_id": 23,
+  "class": "Linear",
+  "first_seq": 423,
+  "id": 853,
+  "parent_id": 850,
+  "path": "class_labels_classifier",
+  "repeat": 1
+ },
+ {
+  "capture_id": 23,
+  "class": "TableTransformerModel",
+  "first_seq": 1,
+  "id": 854,
+  "parent_id": 850,
+  "path": "model",
+  "repeat": 1
+ },
+ {
+  "capture_id": 23,
+  "class": "TableTransformerConvModel",
+  "first_seq": 1,
+  "id": 856,
+  "parent_id": 854,
+  "path": "model.backbone",
+  "repeat": 1
+ },
+ {
+  "capture_id": 23,
+  "class": "TableTransformerConvEncoder",
+  "first_seq": 1,
+  "id": 861,
+  "parent_id": 856,
+  "path": "model.backbone.conv_encoder",
+  "repeat": 1
+ },
+ {
+  "capture_id": 23,
+  "class": "FeatureListNet",
+  "first_seq": 1,
+  "id": 867,
+  "parent_id": 861,
+  "path": "model.backbone.conv_encoder.model",
+  "repeat": 1
+ },
+ {
+  "capture_id": 23,
+  "class": "ReLU",
+  "first_seq": 3,
+  "id": 870,
+  "parent_id": 867,
+  "path": "model.backbone.conv_encoder.model.act1",
+  "repeat": 1
+ },
+ {
+  "capture_id": 23,
+  "class": "TableTransformerFrozenBatchNorm2d",
+  "first_seq": 2,
+  "id": 871,
+  "parent_id": 867,
+  "path": "model.backbone.conv_encoder.model.bn1",
+  "repeat": 1
+ },
+ {
+  "capture_id": 23,
+  "class": "Conv2d",
+  "first_seq": 1,
+  "id": 872,
+  "parent_id": 867,
+  "path": "model.backbone.conv_encoder.model.conv1",
+  "repeat": 1
+ },
+ {
+  "capture_id": 23,
+  "class": "Sequential",
+  "first_seq": 5,
+  "id": 873,
+  "parent_id": 867,
+  "path": "model.backbone.conv_encoder.model.layer1",
+  "repeat": 1
+ },
+ {
+  "capture_id": 23,
+  "class": "BasicBlock",
+  "first_seq": 5,
+  "id": 892,
+  "parent_id": 873,
+  "path": "model.backbone.conv_encoder.model.layer1.*",
+  "repeat": 2
+ },
+ {
+  "capture_id": 23,
+  "class": "ReLU",
+  "first_seq": 7,
+  "id": 908,
+  "parent_id": 892,
+  "path": "model.backbone.conv_encoder.model.layer1.*.act1",
+  "repeat": 2
+ },
+ {
+  "capture_id": 23,
+  "class": "ReLU",
+  "first_seq": 11,
+  "id": 909,
+  "parent_id": 892,
+  "path": "model.backbone.conv_encoder.model.layer1.*.act2",
+  "repeat": 2
+ },
+ {
+  "capture_id": 23,
+  "class": "TableTransformerFrozenBatchNorm2d",
+  "first_seq": 6,
+  "id": 910,
+  "parent_id": 892,
+  "path": "model.backbone.conv_encoder.model.layer1.*.bn1",
+  "repeat": 2
+ },
+ {
+  "capture_id": 23,
+  "class": "TableTransformerFrozenBatchNorm2d",
+  "first_seq": 9,
+  "id": 911,
+  "parent_id": 892,
+  "path": "model.backbone.conv_encoder.model.layer1.*.bn2",
+  "repeat": 2
+ },
+ {
+  "capture_id": 23,
+  "class": "Conv2d",
+  "first_seq": 5,
+  "id": 912,
+  "parent_id": 892,
+  "path": "model.backbone.conv_encoder.model.layer1.*.conv1",
+  "repeat": 2
+ },
+ {
+  "capture_id": 23,
+  "class": "Conv2d",
+  "first_seq": 8,
+  "id": 913,
+  "parent_id": 892,
+  "path": "model.backbone.conv_encoder.model.layer1.*.conv2",
+  "repeat": 2
+ },
+ {
+  "capture_id": 23,
+  "class": "Sequential",
+  "first_seq": 19,
+  "id": 874,
+  "parent_id": 867,
+  "path": "model.backbone.conv_encoder.model.layer2",
+  "repeat": 1
+ },
+ {
+  "capture_id": 23,
+  "class": "BasicBlock",
+  "first_seq": 19,
+  "id": 893,
+  "parent_id": 874,
+  "path": "model.backbone.conv_encoder.model.layer2.*",
+  "repeat": 2
+ },
+ {
+  "capture_id": 23,
+  "class": "ReLU",
+  "first_seq": 21,
+  "id": 914,
+  "parent_id": 893,
+  "path": "model.backbone.conv_encoder.model.layer2.*.act1",
+  "repeat": 2
+ },
+ {
+  "capture_id": 23,
+  "class": "ReLU",
+  "first_seq": 27,
+  "id": 915,
+  "parent_id": 893,
+  "path": "model.backbone.conv_encoder.model.layer2.*.act2",
+  "repeat": 2
+ },
+ {
+  "capture_id": 23,
+  "class": "TableTransformerFrozenBatchNorm2d",
+  "first_seq": 20,
+  "id": 916,
+  "parent_id": 893,
+  "path": "model.backbone.conv_encoder.model.layer2.*.bn1",
+  "repeat": 2
+ },
+ {
+  "capture_id": 23,
+  "class": "TableTransformerFrozenBatchNorm2d",
+  "first_seq": 23,
+  "id": 917,
+  "parent_id": 893,
+  "path": "model.backbone.conv_encoder.model.layer2.*.bn2",
+  "repeat": 2
+ },
+ {
+  "capture_id": 23,
+  "class": "Conv2d",
+  "first_seq": 19,
+  "id": 918,
+  "parent_id": 893,
+  "path": "model.backbone.conv_encoder.model.layer2.*.conv1",
+  "repeat": 2
+ },
+ {
+  "capture_id": 23,
+  "class": "Conv2d",
+  "first_seq": 22,
+  "id": 919,
+  "parent_id": 893,
+  "path": "model.backbone.conv_encoder.model.layer2.*.conv2",
+  "repeat": 2
+ },
+ {
+  "capture_id": 23,
+  "class": "Sequential",
+  "first_seq": 24,
+  "id": 920,
+  "parent_id": 893,
+  "path": "model.backbone.conv_encoder.model.layer2.*.downsample",
+  "repeat": 1
+ },
+ {
+  "capture_id": 23,
+  "class": "Conv2d",
+  "first_seq": 24,
+  "id": 935,
+  "parent_id": 920,
+  "path": "model.backbone.conv_encoder.model.layer2.*.downsample.*",
+  "repeat": 2
+ },
+ {
+  "capture_id": 23,
+  "class": "Sequential",
+  "first_seq": 35,
+  "id": 875,
+  "parent_id": 867,
+  "path": "model.backbone.conv_encoder.model.layer3",
+  "repeat": 1
+ },
+ {
+  "capture_id": 23,
+  "class": "BasicBlock",
+  "first_seq": 35,
+  "id": 894,
+  "parent_id": 875,
+  "path": "model.backbone.conv_encoder.model.layer3.*",
+  "repeat": 2
+ },
+ {
+  "capture_id": 23,
+  "class": "ReLU",
+  "first_seq": 37,
+  "id": 921,
+  "parent_id": 894,
+  "path": "model.backbone.conv_encoder.model.layer3.*.act1",
+  "repeat": 2
+ },
+ {
+  "capture_id": 23,
+  "class": "ReLU",
+  "first_seq": 43,
+  "id": 922,
+  "parent_id": 894,
+  "path": "model.backbone.conv_encoder.model.layer3.*.act2",
+  "repeat": 2
+ },
+ {
+  "capture_id": 23,
+  "class": "TableTransformerFrozenBatchNorm2d",
+  "first_seq": 36,
+  "id": 923,
+  "parent_id": 894,
+  "path": "model.backbone.conv_encoder.model.layer3.*.bn1",
+  "repeat": 2
+ },
+ {
+  "capture_id": 23,
+  "class": "TableTransformerFrozenBatchNorm2d",
+  "first_seq": 39,
+  "id": 924,
+  "parent_id": 894,
+  "path": "model.backbone.conv_encoder.model.layer3.*.bn2",
+  "repeat": 2
+ },
+ {
+  "capture_id": 23,
+  "class": "Conv2d",
+  "first_seq": 35,
+  "id": 925,
+  "parent_id": 894,
+  "path": "model.backbone.conv_encoder.model.layer3.*.conv1",
+  "repeat": 2
+ },
+ {
+  "capture_id": 23,
+  "class": "Conv2d",
+  "first_seq": 38,
+  "id": 926,
+  "parent_id": 894,
+  "path": "model.backbone.conv_encoder.model.layer3.*.conv2",
+  "repeat": 2
+ },
+ {
+  "capture_id": 23,
+  "class": "Sequential",
+  "first_seq": 40,
+  "id": 927,
+  "parent_id": 894,
+  "path": "model.backbone.conv_encoder.model.layer3.*.downsample",
+  "repeat": 1
+ },
+ {
+  "capture_id": 23,
+  "class": "Conv2d",
+  "first_seq": 40,
+  "id": 936,
+  "parent_id": 927,
+  "path": "model.backbone.conv_encoder.model.layer3.*.downsample.*",
+  "repeat": 2
+ },
+ {
+  "capture_id": 23,
+  "class": "Sequential",
+  "first_seq": 51,
+  "id": 876,
+  "parent_id": 867,
+  "path": "model.backbone.conv_encoder.model.layer4",
+  "repeat": 1
+ },
+ {
+  "capture_id": 23,
+  "class": "BasicBlock",
+  "first_seq": 51,
+  "id": 895,
+  "parent_id": 876,
+  "path": "model.backbone.conv_encoder.model.layer4.*",
+  "repeat": 2
+ },
+ {
+  "capture_id": 23,
+  "class": "ReLU",
+  "first_seq": 53,
+  "id": 928,
+  "parent_id": 895,
+  "path": "model.backbone.conv_encoder.model.layer4.*.act1",
+  "repeat": 2
+ },
+ {
+  "capture_id": 23,
+  "class": "ReLU",
+  "first_seq": 59,
+  "id": 929,
+  "parent_id": 895,
+  "path": "model.backbone.conv_encoder.model.layer4.*.act2",
+  "repeat": 2
+ },
+ {
+  "capture_id": 23,
+  "class": "TableTransformerFrozenBatchNorm2d",
+  "first_seq": 52,
+  "id": 930,
+  "parent_id": 895,
+  "path": "model.backbone.conv_encoder.model.layer4.*.bn1",
+  "repeat": 2
+ },
+ {
+  "capture_id": 23,
+  "class": "TableTransformerFrozenBatchNorm2d",
+  "first_seq": 55,
+  "id": 931,
+  "parent_id": 895,
+  "path": "model.backbone.conv_encoder.model.layer4.*.bn2",
+  "repeat": 2
+ },
+ {
+  "capture_id": 23,
+  "class": "Conv2d",
+  "first_seq": 51,
+  "id": 932,
+  "parent_id": 895,
+  "path": "model.backbone.conv_encoder.model.layer4.*.conv1",
+  "repeat": 2
+ },
+ {
+  "capture_id": 23,
+  "class": "Conv2d",
+  "first_seq": 54,
+  "id": 933,
+  "parent_id": 895,
+  "path": "model.backbone.conv_encoder.model.layer4.*.conv2",
+  "repeat": 2
+ },
+ {
+  "capture_id": 23,
+  "class": "Sequential",
+  "first_seq": 56,
+  "id": 934,
+  "parent_id": 895,
+  "path": "model.backbone.conv_encoder.model.layer4.*.downsample",
+  "repeat": 1
+ },
+ {
+  "capture_id": 23,
+  "class": "Conv2d",
+  "first_seq": 56,
+  "id": 937,
+  "parent_id": 934,
+  "path": "model.backbone.conv_encoder.model.layer4.*.downsample.*",
+  "repeat": 2
+ },
+ {
+  "capture_id": 23,
+  "class": "MaxPool2d",
+  "first_seq": 4,
+  "id": 877,
+  "parent_id": 867,
+  "path": "model.backbone.conv_encoder.model.maxpool",
+  "repeat": 1
+ },
+ {
+  "capture_id": 23,
+  "class": "TableTransformerSinePositionEmbedding",
+  "first_seq": 71,
+  "id": 862,
+  "parent_id": 856,
+  "path": "model.backbone.position_embedding",
+  "repeat": 1
+ },
+ {
+  "capture_id": 23,
+  "class": "TableTransformerDecoder",
+  "first_seq": 254,
+  "id": 857,
+  "parent_id": 854,
+  "path": "model.decoder",
+  "repeat": 1
+ },
+ {
+  "capture_id": 23,
+  "class": "LayerNorm",
+  "first_seq": 422,
+  "id": 863,
+  "parent_id": 857,
+  "path": "model.decoder.layernorm",
+  "repeat": 1
+ },
+ {
+  "capture_id": 23,
+  "class": "ModuleList",
+  "first_seq": 254,
+  "id": 864,
+  "parent_id": 857,
+  "path": "model.decoder.layers",
+  "repeat": 1
+ },
+ {
+  "capture_id": 23,
+  "class": "TableTransformerDecoderLayer",
+  "first_seq": 254,
+  "id": 868,
+  "parent_id": 864,
+  "path": "model.decoder.layers.*",
+  "repeat": 6
+ },
+ {
+  "capture_id": 23,
+  "class": "ReLU",
+  "first_seq": 279,
+  "id": 878,
+  "parent_id": 868,
+  "path": "model.decoder.layers.*.activation_fn",
+  "repeat": 6
+ },
+ {
+  "capture_id": 23,
+  "class": "TableTransformerAttention",
+  "first_seq": 266,
+  "id": 879,
+  "parent_id": 868,
+  "path": "model.decoder.layers.*.encoder_attn",
+  "repeat": 6
+ },
+ {
+  "capture_id": 23,
+  "class": "Linear",
+  "first_seq": 270,
+  "id": 896,
+  "parent_id": 879,
+  "path": "model.decoder.layers.*.encoder_attn.k_proj",
+  "repeat": 6
+ },
+ {
+  "capture_id": 23,
+  "class": "Linear",
+  "first_seq": 275,
+  "id": 897,
+  "parent_id": 879,
+  "path": "model.decoder.layers.*.encoder_attn.out_proj",
+  "repeat": 6
+ },
+ {
+  "capture_id": 23,
+  "class": "Linear",
+  "first_seq": 268,
+  "id": 898,
+  "parent_id": 879,
+  "path": "model.decoder.layers.*.encoder_attn.q_proj",
+  "repeat": 6
+ },
+ {
+  "capture_id": 23,
+  "class": "Linear",
+  "first_seq": 271,
+  "id": 899,
+  "parent_id": 879,
+  "path": "model.decoder.layers.*.encoder_attn.v_proj",
+  "repeat": 6
+ },
+ {
+  "capture_id": 23,
+  "class": "LayerNorm",
+  "first_seq": 265,
+  "id": 880,
+  "parent_id": 868,
+  "path": "model.decoder.layers.*.encoder_attn_layer_norm",
+  "repeat": 6
+ },
+ {
+  "capture_id": 23,
+  "class": "Linear",
+  "first_seq": 278,
+  "id": 881,
+  "parent_id": 868,
+  "path": "model.decoder.layers.*.fc1",
+  "repeat": 6
+ },
+ {
+  "capture_id": 23,
+  "class": "Linear",
+  "first_seq": 280,
+  "id": 882,
+  "parent_id": 868,
+  "path": "model.decoder.layers.*.fc2",
+  "repeat": 6
+ },
+ {
+  "capture_id": 23,
+  "class": "LayerNorm",
+  "first_seq": 277,
+  "id": 883,
+  "parent_id": 868,
+  "path": "model.decoder.layers.*.final_layer_norm",
+  "repeat": 6
+ },
+ {
+  "capture_id": 23,
+  "class": "TableTransformerAttention",
+  "first_seq": 255,
+  "id": 884,
+  "parent_id": 868,
+  "path": "model.decoder.layers.*.self_attn",
+  "repeat": 6
+ },
+ {
+  "capture_id": 23,
+  "class": "Linear",
+  "first_seq": 258,
+  "id": 900,
+  "parent_id": 884,
+  "path": "model.decoder.layers.*.self_attn.k_proj",
+  "repeat": 6
+ },
+ {
+  "capture_id": 23,
+  "class": "Linear",
+  "first_seq": 263,
+  "id": 901,
+  "parent_id": 884,
+  "path": "model.decoder.layers.*.self_attn.out_proj",
+  "repeat": 6
+ },
+ {
+  "capture_id": 23,
+  "class": "Linear",
+  "first_seq": 256,
+  "id": 902,
+  "parent_id": 884,
+  "path": "model.decoder.layers.*.self_attn.q_proj",
+  "repeat": 6
+ },
+ {
+  "capture_id": 23,
+  "class": "Linear",
+  "first_seq": 259,
+  "id": 903,
+  "parent_id": 884,
+  "path": "model.decoder.layers.*.self_attn.v_proj",
+  "repeat": 6
+ },
+ {
+  "capture_id": 23,
+  "class": "LayerNorm",
+  "first_seq": 254,
+  "id": 885,
+  "parent_id": 868,
+  "path": "model.decoder.layers.*.self_attn_layer_norm",
+  "repeat": 6
+ },
+ {
+  "capture_id": 23,
+  "class": "TableTransformerEncoder",
+  "first_seq": 156,
+  "id": 858,
+  "parent_id": 854,
+  "path": "model.encoder",
+  "repeat": 1
+ },
+ {
+  "capture_id": 23,
+  "class": "LayerNorm",
+  "first_seq": 252,
+  "id": 865,
+  "parent_id": 858,
+  "path": "model.encoder.layernorm",
+  "repeat": 1
+ },
+ {
+  "capture_id": 23,
+  "class": "ModuleList",
+  "first_seq": 156,
+  "id": 866,
+  "parent_id": 858,
+  "path": "model.encoder.layers",
+  "repeat": 1
+ },
+ {
+  "capture_id": 23,
+  "class": "TableTransformerEncoderLayer",
+  "first_seq": 156,
+  "id": 869,
+  "parent_id": 866,
+  "path": "model.encoder.layers.*",
+  "repeat": 6
+ },
+ {
+  "capture_id": 23,
+  "class": "ReLU",
+  "first_seq": 169,
+  "id": 886,
+  "parent_id": 869,
+  "path": "model.encoder.layers.*.activation_fn",
+  "repeat": 6
+ },
+ {
+  "capture_id": 23,
+  "class": "Linear",
+  "first_seq": 168,
+  "id": 887,
+  "parent_id": 869,
+  "path": "model.encoder.layers.*.fc1",
+  "repeat": 6
+ },
+ {
+  "capture_id": 23,
+  "class": "Linear",
+  "first_seq": 170,
+  "id": 888,
+  "parent_id": 869,
+  "path": "model.encoder.layers.*.fc2",
+  "repeat": 6
+ },
+ {
+  "capture_id": 23,
+  "class": "LayerNorm",
+  "first_seq": 167,
+  "id": 889,
+  "parent_id": 869,
+  "path": "model.encoder.layers.*.final_layer_norm",
+  "repeat": 6
+ },
+ {
+  "capture_id": 23,
+  "class": "TableTransformerAttention",
+  "first_seq": 157,
+  "id": 890,
+  "parent_id": 869,
+  "path": "model.encoder.layers.*.self_attn",
+  "repeat": 6
+ },
+ {
+  "capture_id": 23,
+  "class": "Linear",
+  "first_seq": 160,
+  "id": 904,
+  "parent_id": 890,
+  "path": "model.encoder.layers.*.self_attn.k_proj",
+  "repeat": 6
+ },
+ {
+  "capture_id": 23,
+  "class": "Linear",
+  "first_seq": 165,
+  "id": 905,
+  "parent_id": 890,
+  "path": "model.encoder.layers.*.self_attn.out_proj",
+  "repeat": 6
+ },
+ {
+  "capture_id": 23,
+  "class": "Linear",
+  "first_seq": 158,
+  "id": 906,
+  "parent_id": 890,
+  "path": "model.encoder.layers.*.self_attn.q_proj",
+  "repeat": 6
+ },
+ {
+  "capture_id": 23,
+  "class": "Linear",
+  "first_seq": 161,
+  "id": 907,
+  "parent_id": 890,
+  "path": "model.encoder.layers.*.self_attn.v_proj",
+  "repeat": 6
+ },
+ {
+  "capture_id": 23,
+  "class": "LayerNorm",
+  "first_seq": 156,
+  "id": 891,
+  "parent_id": 869,
+  "path": "model.encoder.layers.*.self_attn_layer_norm",
+  "repeat": 6
+ },
+ {
+  "capture_id": 23,
+  "class": "Conv2d",
+  "first_seq": 155,
+  "id": 859,
+  "parent_id": 854,
+  "path": "model.input_projection",
+  "repeat": 1
+ },
+ {
+  "capture_id": 24,
+  "class": null,
+  "first_seq": 0,
+  "id": 939,
+  "parent_id": 938,
+  "path": "(input)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 24,
+  "class": "WhisperForConditionalGeneration",
+  "first_seq": 0,
+  "id": 938,
+  "parent_id": null,
+  "path": "(top)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 24,
+  "class": "WhisperModel",
+  "first_seq": 2,
+  "id": 940,
+  "parent_id": 938,
+  "path": "model",
+  "repeat": 1
+ },
+ {
+  "capture_id": 24,
+  "class": "WhisperDecoder",
+  "first_seq": 521,
+  "id": 942,
+  "parent_id": 940,
+  "path": "model.decoder",
+  "repeat": 1
+ },
+ {
+  "capture_id": 24,
+  "class": "WhisperPositionalEmbedding",
+  "first_seq": 524,
+  "id": 944,
+  "parent_id": 942,
+  "path": "model.decoder.embed_positions",
+  "repeat": 1
+ },
+ {
+  "capture_id": 24,
+  "class": "Embedding",
+  "first_seq": 521,
+  "id": 945,
+  "parent_id": 942,
+  "path": "model.decoder.embed_tokens",
+  "repeat": 1
+ },
+ {
+  "capture_id": 24,
+  "class": "LayerNorm",
+  "first_seq": 657,
+  "id": 946,
+  "parent_id": 942,
+  "path": "model.decoder.layer_norm",
+  "repeat": 1
+ },
+ {
+  "capture_id": 24,
+  "class": "ModuleList",
+  "first_seq": 529,
+  "id": 947,
+  "parent_id": 942,
+  "path": "model.decoder.layers",
+  "repeat": 1
+ },
+ {
+  "capture_id": 24,
+  "class": "WhisperDecoderLayer",
+  "first_seq": 529,
+  "id": 953,
+  "parent_id": 947,
+  "path": "model.decoder.layers.*",
+  "repeat": 4
+ },
+ {
+  "capture_id": 24,
+  "class": "GELUActivation",
+  "first_seq": 558,
+  "id": 955,
+  "parent_id": 953,
+  "path": "model.decoder.layers.*.activation_fn",
+  "repeat": 4
+ },
+ {
+  "capture_id": 24,
+  "class": "WhisperAttention",
+  "first_seq": 544,
+  "id": 956,
+  "parent_id": 953,
+  "path": "model.decoder.layers.*.encoder_attn",
+  "repeat": 4
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 546,
+  "id": 969,
+  "parent_id": 956,
+  "path": "model.decoder.layers.*.encoder_attn.k_proj",
+  "repeat": 4
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 554,
+  "id": 970,
+  "parent_id": 956,
+  "path": "model.decoder.layers.*.encoder_attn.out_proj",
+  "repeat": 4
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 544,
+  "id": 971,
+  "parent_id": 956,
+  "path": "model.decoder.layers.*.encoder_attn.q_proj",
+  "repeat": 4
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 547,
+  "id": 972,
+  "parent_id": 956,
+  "path": "model.decoder.layers.*.encoder_attn.v_proj",
+  "repeat": 4
+ },
+ {
+  "capture_id": 24,
+  "class": "LayerNorm",
+  "first_seq": 543,
+  "id": 957,
+  "parent_id": 953,
+  "path": "model.decoder.layers.*.encoder_attn_layer_norm",
+  "repeat": 4
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 557,
+  "id": 958,
+  "parent_id": 953,
+  "path": "model.decoder.layers.*.fc1",
+  "repeat": 4
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 559,
+  "id": 959,
+  "parent_id": 953,
+  "path": "model.decoder.layers.*.fc2",
+  "repeat": 4
+ },
+ {
+  "capture_id": 24,
+  "class": "LayerNorm",
+  "first_seq": 556,
+  "id": 960,
+  "parent_id": 953,
+  "path": "model.decoder.layers.*.final_layer_norm",
+  "repeat": 4
+ },
+ {
+  "capture_id": 24,
+  "class": "WhisperAttention",
+  "first_seq": 530,
+  "id": 961,
+  "parent_id": 953,
+  "path": "model.decoder.layers.*.self_attn",
+  "repeat": 4
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 532,
+  "id": 973,
+  "parent_id": 961,
+  "path": "model.decoder.layers.*.self_attn.k_proj",
+  "repeat": 4
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 541,
+  "id": 974,
+  "parent_id": 961,
+  "path": "model.decoder.layers.*.self_attn.out_proj",
+  "repeat": 4
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 530,
+  "id": 975,
+  "parent_id": 961,
+  "path": "model.decoder.layers.*.self_attn.q_proj",
+  "repeat": 4
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 533,
+  "id": 976,
+  "parent_id": 961,
+  "path": "model.decoder.layers.*.self_attn.v_proj",
+  "repeat": 4
+ },
+ {
+  "capture_id": 24,
+  "class": "LayerNorm",
+  "first_seq": 529,
+  "id": 962,
+  "parent_id": 953,
+  "path": "model.decoder.layers.*.self_attn_layer_norm",
+  "repeat": 4
+ },
+ {
+  "capture_id": 24,
+  "class": "WhisperEncoder",
+  "first_seq": 2,
+  "id": 943,
+  "parent_id": 940,
+  "path": "model.encoder",
+  "repeat": 1
+ },
+ {
+  "capture_id": 24,
+  "class": "Conv1d",
+  "first_seq": 2,
+  "id": 948,
+  "parent_id": 943,
+  "path": "model.encoder.conv1",
+  "repeat": 1
+ },
+ {
+  "capture_id": 24,
+  "class": "Conv1d",
+  "first_seq": 4,
+  "id": 949,
+  "parent_id": 943,
+  "path": "model.encoder.conv2",
+  "repeat": 1
+ },
+ {
+  "capture_id": 24,
+  "class": "Embedding",
+  "first_seq": 6,
+  "id": 950,
+  "parent_id": 943,
+  "path": "model.encoder.embed_positions",
+  "repeat": 1
+ },
+ {
+  "capture_id": 24,
+  "class": "LayerNorm",
+  "first_seq": 520,
+  "id": 951,
+  "parent_id": 943,
+  "path": "model.encoder.layer_norm",
+  "repeat": 1
+ },
+ {
+  "capture_id": 24,
+  "class": "ModuleList",
+  "first_seq": 8,
+  "id": 952,
+  "parent_id": 943,
+  "path": "model.encoder.layers",
+  "repeat": 1
+ },
+ {
+  "capture_id": 24,
+  "class": "WhisperEncoderLayer",
+  "first_seq": 8,
+  "id": 954,
+  "parent_id": 952,
+  "path": "model.encoder.layers.*",
+  "repeat": 32
+ },
+ {
+  "capture_id": 24,
+  "class": "GELUActivation",
+  "first_seq": 21,
+  "id": 963,
+  "parent_id": 954,
+  "path": "model.encoder.layers.*.activation_fn",
+  "repeat": 32
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 20,
+  "id": 964,
+  "parent_id": 954,
+  "path": "model.encoder.layers.*.fc1",
+  "repeat": 32
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 22,
+  "id": 965,
+  "parent_id": 954,
+  "path": "model.encoder.layers.*.fc2",
+  "repeat": 32
+ },
+ {
+  "capture_id": 24,
+  "class": "LayerNorm",
+  "first_seq": 19,
+  "id": 966,
+  "parent_id": 954,
+  "path": "model.encoder.layers.*.final_layer_norm",
+  "repeat": 32
+ },
+ {
+  "capture_id": 24,
+  "class": "WhisperAttention",
+  "first_seq": 9,
+  "id": 967,
+  "parent_id": 954,
+  "path": "model.encoder.layers.*.self_attn",
+  "repeat": 32
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 11,
+  "id": 977,
+  "parent_id": 967,
+  "path": "model.encoder.layers.*.self_attn.k_proj",
+  "repeat": 32
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 17,
+  "id": 978,
+  "parent_id": 967,
+  "path": "model.encoder.layers.*.self_attn.out_proj",
+  "repeat": 32
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 9,
+  "id": 979,
+  "parent_id": 967,
+  "path": "model.encoder.layers.*.self_attn.q_proj",
+  "repeat": 32
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 12,
+  "id": 980,
+  "parent_id": 967,
+  "path": "model.encoder.layers.*.self_attn.v_proj",
+  "repeat": 32
+ },
+ {
+  "capture_id": 24,
+  "class": "LayerNorm",
+  "first_seq": 8,
+  "id": 968,
+  "parent_id": 954,
+  "path": "model.encoder.layers.*.self_attn_layer_norm",
+  "repeat": 32
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 658,
+  "id": 941,
+  "parent_id": 938,
+  "path": "proj_out",
+  "repeat": 1
  }
 ]
