@@ -45,8 +45,8 @@
   "title": "Resource limits"
  },
  {
-  "body": "Across the surveyed models, the largest measured cost is **format pressure**: 221 models require non-standard 8-bit formats (overwhelmingly fp8_e2m5), with the worst tensor-multiply degradation reaching \u22120.8 dB. Second is **layout conversion overhead**: 472 of 928 tensor links between kernels need re-arrangement, mostly for head-dimension changes. Third are **ISA gaps**: 49 operations across several categories (conv2d, runtime-index addressing, cumsum, upsample, and others) lack chip support and must fall back to replacements, though these replacements cost 0 cycles and 0 dB. Fourth, **resource limits** show 1380 operations relying on a 256-entry LUT, with no IMEM overuse or FP32 headroom issues. Notably, no compute-efficiency measurements exist yet, and all what-if analyses show zero MAC or accuracy recovery, suggesting the ISA-gap replacements are already cost-neutral.",
-  "created_at": 1794525457.2787755,
+  "body": "Across the surveyed models, the largest measured cost is format pressure: 221 models must use non-standard 8-bit formats (mostly fp8_e2m5), with the worst tensor-multiply accuracy loss reaching \u22120.8 dB. Layout conversion is the next-biggest overhead, with 478 of 952 tensor links between kernels requiring re-arrangement (mostly head-axis reshuffles). ISA gaps are frequent but currently cheap: 55 operations across the models lack chip-level support (e.g., conv2d, runtime-index addressing, cumsum, upsample), yet their replacements show 0.00 dB loss and 0 extra cycles. Resource limits are minor, with 1430 operations funnelled through the 256-entry LUT but no IMEM bank exceeding 80% utilisation and full FP32 headroom. Compute efficiency has not yet been measured, so its cost is unknown.",
+  "created_at": 1794525982.9343016,
   "id": 7,
   "kind": "summary",
   "numbers": null,
