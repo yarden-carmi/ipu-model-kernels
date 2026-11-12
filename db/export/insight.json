@@ -46,7 +46,7 @@
  },
  {
   "body": "Across the surveyed models, the IPU's most significant cost is **format pressure**: 221 models rely on non-standard FP8 variants (fp8_e2m5 being the most common at 5,323 instances), with the worst tensor-multiplication accuracy loss reaching \u22120.8 dB in facebook/DiT-XL-2-256. Second is **layout conversions**, which affect 424 of 782 tensors passing between kernels \u2014 mostly head rearrangements (244) \u2014 though no links fail. Third is **resource limits**, with 1,098 operations routed through the 256-entry LUT, though no kernels exceed 80% IMEM bank usage and FP32 headroom is unproblematic. **ISA gaps** are comparatively minor: only 33 operations across 6 models lack native chip operations (notably conv2d and runtime-indexed data addressing), and all are replaced at zero accuracy and cycle cost. The **what-if analysis** confirms this, showing that adding the missing chip operations would recover 0.00 dB and change no MACs, so the ISA gaps are effectively free to work around.",
-  "created_at": 1794522951.175027,
+  "created_at": 1794523068.208961,
   "id": 7,
   "kind": "summary",
   "numbers": null,
