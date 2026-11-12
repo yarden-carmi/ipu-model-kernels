@@ -432,6 +432,30 @@
   "proposed_by": 7
  },
  {
+  "chain": "[{\"op\": \"masked_row_select\", \"params\": {\"vocab\": 30522}}]",
+  "check_detail": "chain: RuntimeError: The size of tensor a (30522) must match the size of tensor b (256) at non-singleton dimension 1; code: the code failed: RuntimeError: The size of tensor a (30522) must match the size of tensor b (256) at non-singleton dimension 1",
+  "check_ok": 0,
+  "code": "import torch\n\ndef forward(module, ids):\n    table = module.table  # (30522, 768) constant\n    vocab = table.shape[0]\n    # Step 1: mask (256 x 30522), 1 where arange(vocab) == ids[i]\n    mask = (torch.arange(vocab, device=table.device).unsqueeze(0) == ids.long()).to(table.dtype)\n    # Step 2: zero all rows except the selected one per token\n    masked = mask @ table  # (256 x 768): sum over vocab of mask * rows\n    # Step 3: already reduced; equivalently mask.unsqueeze(2) * table then sum over vocab\n    return masked",
+  "id": 76,
+  "kind": "equivalent",
+  "name": "masked_row_select_embedding_256x30522_c",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the lookup with a fused masked reduction. Step 1: compare each token id against arange(vocab=30522) to get a 0/1 mask of shape tokens=256 x vocab. Step 2: broadcast-multiply the mask (as a column per token) with the embedding table rows (30522 x 768), zeroing all rows except the selected one per token. Step 3: sum over the vocab dimension, yielding exactly the selected rows (256 x 768). Mathematically identical to embedding; the table is a constant passed alongside the ids as input to the primitive.\", \"rel_err\": null}",
+  "proposed_by": 37
+ },
+ {
+  "chain": "[{\"op\": \"masked_row_select\", \"params\": {\"vocab\": 30522}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "import torch\n\ndef forward(module, ids):\n    table = module.table  # (30522, 768) constant\n    vocab = table.shape[0]\n    flat = ids.long().reshape(-1, 1)  # (256, 1)\n    # Step 1: mask (256 x 30522), 1 where arange(vocab) == ids[i]\n    mask = (torch.arange(vocab, device=table.device).unsqueeze(0) == flat).to(table.dtype)\n    # Step 2+3: zero all rows except the selected one per token, sum over vocab\n    return (mask.unsqueeze(2) * table.unsqueeze(0)).sum(dim=1)",
+  "id": 78,
+  "kind": "equivalent",
+  "name": "masked_row_select_embedding_256x30522_d",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the lookup with a fused masked reduction. Step 1: flatten ids to a column (256 x 1) and compare against arange(vocab=30522) to get a 0/1 mask of shape tokens=256 x vocab. Step 2: broadcast-multiply the mask (as a column per token) with the embedding table rows (30522 x 768), zeroing all rows except the selected one per token. Step 3: sum over the vocab dimension, yielding exactly the selected rows (256 x 768). Mathematically identical to embedding; the table is a constant passed alongside the ids as input to the primitive.\", \"rel_err\": 0.0}",
+  "proposed_by": 37
+ },
+ {
   "chain": "[{\"op\": \"masked_row_select\", \"params\": {\"table\": \"module.weight\"}}]",
   "check_detail": "chain: AttributeError: 'str' object has no attribute 'shape'; code: relative difference 0 (within 0.0001)",
   "check_ok": 0,
@@ -466,6 +490,30 @@
   "op": "embedding",
   "proposal": "{\"description\": \"Replace the runtime-index lookup with a dense matmul. Step 1: build a one-hot row vector of length vocab=1001 from the single token id (1 at position id, 0 elsewhere). Step 2: multiply the one-hot row by the embedding table (1001 x 1152) with a GEMM. The result row equals exactly the table row selected by the id, so this is mathematically identical to embedding for tokens=1.\", \"rel_err\": null}",
   "proposed_by": 5
+ },
+ {
+  "chain": "[{\"op\": \"one_hot_gemm\", \"params\": {\"num_classes\": 30522}}]",
+  "check_detail": "chain: RuntimeError: Index tensor must have the same number of dimensions as self tensor; code: the code failed: RuntimeError: Index tensor must have the same number of dimensions as self tensor",
+  "check_ok": 0,
+  "code": "import torch\n\ndef forward(module, ids):\n    table = module.table  # (30522, 768) constant\n    # Step 1: one-hot (256 x 30522), row i has 1 at column ids[i]\n    oh = torch.zeros(ids.shape[0], table.shape[0], dtype=table.dtype, device=table.device)\n    oh.scatter_(1, ids.long(), 1.0)\n    # Step 2: GEMM (256 x 30522) @ (30522 x 768) -> (256 x 768)\n    return oh @ table",
+  "id": 75,
+  "kind": "equivalent",
+  "name": "onehot_gemm_embedding_256x30522_c",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the runtime-index lookup with a fused one-hot GEMM. Step 1: build a one-hot matrix of shape tokens=256 x vocab=30522 from the token ids (row i has 1 at column ids[i], 0 elsewhere; ids cast to long). Step 2: GEMM the one-hot matrix (256 x 30522) by the embedding table (30522 x 768), no transposes. Each output row equals exactly the table row selected by the corresponding id, so the result (256 x 768) is mathematically identical to embedding. The table is a constant passed alongside the ids as input to the primitive.\", \"rel_err\": null}",
+  "proposed_by": 37
+ },
+ {
+  "chain": "[{\"op\": \"one_hot_gemm\", \"params\": {\"num_classes\": 30522}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "import torch\n\ndef forward(module, ids):\n    table = module.table  # (30522, 768) constant\n    flat = ids.long().reshape(-1)  # (256,)\n    # Step 1: one-hot (256 x 30522), row i has 1 at column flat[i]\n    oh = torch.zeros(flat.shape[0], table.shape[0], dtype=table.dtype, device=table.device)\n    oh.scatter_(1, flat.unsqueeze(1), 1.0)\n    # Step 2: GEMM (256 x 30522) @ (30522 x 768) -> (256 x 768)\n    return oh @ table",
+  "id": 77,
+  "kind": "equivalent",
+  "name": "onehot_gemm_embedding_256x30522_d",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the runtime-index lookup with a fused one-hot GEMM. Step 1: flatten the ids (1x256 -> 256) and build a one-hot matrix of shape tokens=256 x vocab=30522 (row i has 1 at column ids[i], 0 elsewhere; ids cast to long). Step 2: GEMM the one-hot matrix (256 x 30522) by the embedding table (30522 x 768), no transposes. Each output row equals exactly the table row selected by the corresponding id, so the result (256 x 768) is mathematically identical to embedding. The table is a constant passed alongside the ids as input to the primitive.\", \"rel_err\": 0.0}",
+  "proposed_by": 37
  },
  {
   "chain": "[{\"op\": \"one_hot\", \"params\": {\"num_classes\": 21128}}, {\"op\": \"gemm\", \"params\": {}}]",

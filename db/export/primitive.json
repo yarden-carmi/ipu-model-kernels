@@ -152,11 +152,11 @@
   "tensors": null
  },
  {
-  "doc": "Select table rows by ids via mask-compare, broadcast-multiply, and reduce over vocab: out[i] = sum_j (ids[i]==j) * table[j].",
+  "doc": "Fused masked row select: compares flattened ids against arange(vocab), masks the table rows, and sums over the vocab dimension, exactly selecting one table row per token.",
   "name": "masked_row_select",
   "origin": "agent",
-  "params": "{}",
-  "reference": "def fn(ids, table):\n    ids = ids.long().reshape(-1)\n    mask = (ids[:, None] == torch.arange(table.shape[0], device=table.device)).to(table.dtype)\n    return (mask[:, :, None] * table[None, :, :]).sum(dim=1)",
+  "params": "{\"vocab\": \"int, vocabulary size (rows of the table)\"}",
+  "reference": "def fn(ids, table, vocab):\n    flat = ids.long().reshape(-1, 1)\n    mask = (torch.arange(vocab, device=table.device).unsqueeze(0) == flat).to(table.dtype)\n    return (mask.unsqueeze(2) * table.unsqueeze(0)).sum(dim=1)",
   "tensors": null
  },
  {
@@ -168,11 +168,11 @@
   "tensors": null
  },
  {
-  "doc": "Build a one-hot matrix from ids and multiply it by the table: out = onehot(ids) @ table.",
+  "doc": "Fused one-hot construction and GEMM: builds a one-hot matrix (tokens x num_classes) from flattened integer ids and multiplies it by a constant table (num_classes x dim), exactly selecting one table row per token.",
   "name": "one_hot_gemm",
   "origin": "agent",
-  "params": "{\"num_classes\": \"vocab size\"}",
-  "reference": "def fn(ids, table, num_classes):\n    ids = ids.long().reshape(-1)\n    oh = torch.zeros(ids.shape[0], num_classes, dtype=table.dtype, device=table.device)\n    oh[torch.arange(ids.shape[0]), ids] = 1.0\n    return oh @ table",
+  "params": "{\"num_classes\": \"int, vocabulary size (columns of the table)\"}",
+  "reference": "def fn(ids, table, num_classes):\n    flat = ids.long().reshape(-1)\n    oh = torch.zeros(flat.shape[0], num_classes, dtype=table.dtype, device=table.device)\n    oh.scatter_(1, flat.unsqueeze(1), 1.0)\n    return oh @ table",
   "tensors": null
  },
  {
