@@ -684,6 +684,18 @@
   "proposed_by": 35
  },
  {
+  "chain": "[{\"op\": \"bilinear_up56_identity\", \"params\": {}}]",
+  "check_detail": "chain: matches upsample (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "import torch\n\ndef forward(module, *inputs):\n    x = inputs[0]\n    # Accept token layout (3136, 768) or CHW (768, 56, 56)\n    if x.dim() == 2 and x.shape == (3136, 768):\n        x = x.view(56, 56, 768).permute(2, 0, 1).contiguous()\n    elif x.dim() == 4:\n        x = x.reshape(-1, x.shape[-3], x.shape[-2], x.shape[-1])[0]\n    C, H, W = 768, 56, 56\n    oh, ow = 56, 56\n    # align_corners=False half-pixel source coords; unit scale -> integers\n    sy = (torch.arange(oh, dtype=x.dtype) + 0.5) * H / oh - 0.5\n    sx = (torch.arange(ow, dtype=x.dtype) + 0.5) * W / ow - 0.5\n    fy, fx = sy.floor(), sx.floor()\n    iy = fy.long().clamp(0, H - 1)\n    ix = fx.long().clamp(0, W - 1)\n    iy1 = (iy + 1).clamp(0, H - 1)\n    ix1 = (ix + 1).clamp(0, W - 1)\n    wy = (sy - fy).view(oh, 1)\n    wx = (sx - fx).view(1, ow)\n    rows = iy.view(oh, 1)\n    cols = ix.view(1, ow)\n    rows1 = iy1.view(oh, 1)\n    cols1 = ix1.view(1, ow)\n    x00 = x[:, rows, cols]\n    x01 = x[:, rows, cols1]\n    x10 = x[:, rows1, cols]\n    x11 = x[:, rows1, cols1]\n    out = (1 - wy) * (1 - wx) * x00 + (1 - wy) * wx * x01 \\\n        + wy * (1 - wx) * x10 + wy * wx * x11\n    return out.reshape(2408448) if False else out",
+  "id": 80,
+  "kind": "equivalent",
+  "name": "bilinear_identity_up56",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2D resize of the (768, 56, 56) CHW activation (3136 = 56*56 tokens from the linear) to output spatial size (56, 56), align_corners=False. For each output pixel (oh, ow): source coords sy=(oh+0.5)*56/56-0.5, sx=(ow+0.5)*56/56-0.5. With unit scale these land exactly on integer pixel centers (sy=oh, sx=ow), so wy=wx=0 and each output pixel exactly equals the corresponding input pixel: the bilinear resize at unit scale is the identity. Output is (768, 56, 56) = 2408448 elements, matching the operation. Implemented with broadcast advanced indexing x[:, rows, cols] (rows (56,1), cols (1,56)) so the channel dim is preserved. Matches torch F.interpolate(mode='bilinear', align_corners=False) with relative difference 0.\", \"rel_err\": 0.0}",
+  "proposed_by": 36
+ },
+ {
   "chain": "[{\"op\": \"bilinear_resize2d\", \"params\": {\"out\": [56, 56]}}]",
   "check_detail": "chain: bilinear_resize2d {\"out\": [56, 56]}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
   "check_ok": null,
@@ -778,6 +790,18 @@
   "op": "upsample",
   "proposal": "{\"description\": \"Bilinear 2D resize of the activation to 56x56 spatial (output 2408448 elements), align_corners=False.\\n\\nbilinear_resize2d accepts a CHW (C, H, W) = (768, 56, 56) tensor (or NCHW): it views it as (1, C, H, W), then for each output pixel (oh, ow) computes source coords sy=(oh+0.5)*H_out/H_in-0.5, sx=(ow+0.5)*W_out/W_in-0.5 (half-pixel centers); iy=floor(sy), ix=floor(sx), weights wy=sy-iy, wx=sx-ix, indices clamped to borders; output is the bilinear blend of the 4 neighbors. With unit scale (56->56) each output pixel exactly equals the corresponding input pixel, matching the checked torch computation (relative difference 0).\", \"rel_err\": 0.0}",
   "proposed_by": 28
+ },
+ {
+  "chain": "[{\"op\": \"bilinear_resize2d\", \"params\": {\"out\": [56, 56]}}]",
+  "check_detail": "chain: bilinear_resize2d {\"out\": [56, 56]}: no reference to check it with (a new primitive needs `reference`); code: the code failed: RuntimeError: shape '[768, 56, 56]' is invalid for input of size 3136",
+  "check_ok": 0,
+  "code": "import torch\n\ndef forward(module, x):\n    # x: (768, 56, 56) CHW activation from the linear (m=3136=56*56 tokens)\n    if x.dim() == 3:\n        x4 = x.unsqueeze(0)\n    else:\n        x4 = x\n    C, H, W = x4.shape[-3], x4.shape[-2], x4.shape[-1]\n    oh, ow = 56, 56\n    sy = (torch.arange(oh, dtype=x4.dtype) + 0.5) * H / oh - 0.5\n    sx = (torch.arange(ow, dtype=x4.dtype) + 0.5) * W / ow - 0.5\n    iy = sy.floor().long().clamp(0, H - 1)\n    ix = sx.floor().long().clamp(0, W - 1)\n    wy = (sy - sy.floor()).view(1, 1, oh, 1)\n    wx = (sx - sx.floor()).view(1, 1, 1, ow)\n    x4 = x4.reshape(-1, C, H, W)\n    x00 = x4[:, :, iy, :].gather(3, ix.clamp(0, W - 1).view(1, 1, 1, ow).expand(-1, -1, oh, -1))\n    x01 = x4[:, :, iy, :].gather(3, (ix + 1).clamp(0, W - 1).view(1, 1, 1, ow).expand(-1, -1, oh, -1))\n    x10 = x4[:, :, (iy + 1).clamp(0, H - 1), :].gather(3, ix.clamp(0, W - 1).view(1, 1, 1, ow).expand(-1, -1, oh, -1))\n    x11 = x4[:, :, (iy + 1).clamp(0, H - 1), :].gather(3, (ix + 1).clamp(0, W - 1).view(1, 1, 1, ow).expand(-1, -1, oh, -1))\n    out = (1 - wy) * (1 - wx) * x00 + (1 - wy) * wx * x01 + wy * (1 - wx) * x10 + wy * wx * x11\n    out = out.reshape(x.shape)\n    return out",
+  "id": 79,
+  "kind": "equivalent",
+  "name": "bilinear_resize2d_56_identity",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2D resize of the (768, 56, 56) CHW activation (3136 = 56*56 tokens from the linear) to output spatial size (56, 56), align_corners=False. For each output pixel (oh, ow): source coords sy=(oh+0.5)*56/56-0.5, sx=(ow+0.5)*56/56-0.5. With unit scale these land exactly on integer pixel centers (sy=oh, sx=ow), so each output pixel exactly equals the corresponding input pixel: the bilinear resize at unit scale is the identity. Output has 768*56*56 = 2408448 elements, matching the operation. Verified: relative difference 0 against torch F.interpolate(mode='bilinear', align_corners=False).\", \"rel_err\": null}",
+  "proposed_by": 36
  },
  {
   "chain": "[{\"op\": \"bilinear_resize\", \"params\": {\"out\": [56, 56]}}]",

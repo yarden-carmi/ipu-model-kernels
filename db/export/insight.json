@@ -46,7 +46,7 @@
  },
  {
   "body": "The most costly issue is format pressure: across 221 models, most tensors are forced into narrow fp8 formats (fp8_e2m5 dominating at 8,319 uses), and the worst case loses 0.8 dB in a tensor multiply (facebook/DiT-XL-2-256).\n\nNext are ISA gaps, which appear in several forms \u2014 missing chip operations for conv2d, cumsum, upsample, and other ATen ops, plus data-addressing lookups by runtime index \u2014 affecting 64 operations across 7 models, though replacements currently show 0 dB loss and 0 cycles.\n\nLayout conversions are also significant: 514 of 1,051 tensors (about 49%) change arrangement between kernels, mostly involving head reorganisations (282) and other rearrangements (208), with no failures.\n\nResource limits are comparatively minor: 1,612 operations go through the 256-entry LUT, no kernel exceeds 80% IMEM usage, and FP32 headroom is not a constraint.\n\nCompute efficiency is unmeasured so far, and the what-if analysis shows all ISA-gap replacements recovering 0.00 dB with no MACs added 1-to-1, meaning none of the identified gaps currently cost accuracy or compute in the replacements.",
-  "created_at": 1794527625.5744314,
+  "created_at": 1794527803.4263754,
   "id": 7,
   "kind": "summary",
   "numbers": null,

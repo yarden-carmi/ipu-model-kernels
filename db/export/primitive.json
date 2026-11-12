@@ -48,6 +48,14 @@
   "tensors": null
  },
  {
+  "doc": "Bilinear 2D resize of a (C, H, W) map to (56, 56), align_corners=False: source coords sy=(oh+0.5)*H/56-0.5, sx=(ow+0.5)*W/56-0.5; bilinear blend of the 4 clamped neighbors. With H=W=56 (unit scale) this is exactly the identity.",
+  "name": "bilinear_up56_identity",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(x):\n    import torch\n    C, H, W = x.shape[-3], x.shape[-2], x.shape[-1]\n    x4 = x.reshape(-1, C, H, W)\n    oh = ow = 56\n    sy = (torch.arange(oh, dtype=x.dtype) + 0.5) * H / oh - 0.5\n    sx = (torch.arange(ow, dtype=x.dtype) + 0.5) * W / ow - 0.5\n    fy, fx = sy.floor(), sx.floor()\n    iy = fy.long().clamp(0, H - 1); ix = fx.long().clamp(0, W - 1)\n    iy1 = (iy + 1).clamp(0, H - 1); ix1 = (ix + 1).clamp(0, W - 1)\n    wy = (sy - fy).view(1, 1, oh, 1); wx = (sx - fx).view(1, 1, 1, ow)\n    r = iy.view(1, 1, oh, 1).expand(-1, -1, -1, W)\n    c = ix.view(1, 1, 1, ow).expand(-1, -1, H, -1)\n    r1 = iy1.view(1, 1, oh, 1).expand(-1, -1, -1, W)\n    c1 = ix1.view(1, 1, 1, ow).expand(-1, -1, H, -1)\n    x00 = x4.gather(2, r).gather(3, c.transpose(2, 3).expand(-1,-1,oh,-1)) if False else None\n    # simple advanced indexing per batch\n    outs = []\n    for b in range(x4.shape[0]):\n        xb = x4[b]\n        x00 = xb[:, iy.view(oh,1), ix.view(1,ow)]\n        x01 = xb[:, iy.view(oh,1), ix1.view(1,ow)]\n        x10 = xb[:, iy1.view(oh,1), ix.view(1,ow)]\n        x11 = xb[:, iy1.view(oh,1), ix1.view(1,ow)]\n        outs.append((1-wy[0,0])*(1-wx[0,0])*x00 + (1-wy[0,0])*wx[0,0]*x01 + wy[0,0]*(1-wx[0,0])*x10 + wy[0,0]*wx[0,0]*x11)\n    return torch.stack(outs, 0).reshape(x.shape[:-3] + (oh, ow)) if x.dim() > 3 else outs[0]",
+  "tensors": null
+ },
+ {
   "doc": null,
   "name": "binary",
   "origin": "builtin",
