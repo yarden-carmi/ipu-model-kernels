@@ -1,37 +1,37 @@
 [
  {
-  "body": "No operation needs a replacement yet.",
-  "created_at": 1794489289.6802385,
+  "body": "no chip operation for upsample: 4 operations in 2 models, 0 failed; data addressing (a lookup by a runtime index): 3 operations in 1 models, 0 failed; no chip operation for this ATen op: 1 operations in 1 models, 0 failed",
+  "created_at": 1794505881.8838258,
   "id": 1,
   "kind": "isa_gaps",
-  "numbers": "{\"gaps\": {}}",
+  "numbers": "{\"gaps\": {\"data addressing (a lookup by a runtime index)\": {\"approximate\": 0, \"calls\": 42.0, \"equivalent\": 0, \"failed\": 0, \"macs\": 0.0, \"models\": 1, \"operations\": 3, \"worst_op_sqnr_db\": null}, \"no chip operation for this ATen op\": {\"approximate\": 0, \"calls\": 1.0, \"equivalent\": 0, \"failed\": 0, \"macs\": 0.0, \"models\": 1, \"operations\": 1, \"worst_op_sqnr_db\": null}, \"no chip operation for upsample\": {\"approximate\": 0, \"calls\": 4.0, \"equivalent\": 0, \"failed\": 0, \"macs\": 0.0, \"models\": 2, \"operations\": 4, \"worst_op_sqnr_db\": null}}}",
   "origin": "derive",
   "title": "ISA gaps"
  },
  {
-  "body": "No gap affects the surveyed models yet.",
-  "created_at": 1794489930.5625381,
+  "body": "with data addressing (a lookup by a runtime index): +0.00% of MACs 1-to-1; with no chip operation for this ATen op: +0.00% of MACs 1-to-1; with no chip operation for upsample: +0.00% of MACs 1-to-1",
+  "created_at": 1794505881.8843033,
   "id": 2,
   "kind": "what_if",
-  "numbers": "{\"gaps\": [], \"total_macs\": 2000831488.0}",
+  "numbers": "{\"gaps\": [{\"calls\": 42.0, \"macs\": 0.0, \"missing\": \"data addressing (a lookup by a runtime index)\", \"pct_macs\": 0.0}, {\"calls\": 1.0, \"macs\": 0.0, \"missing\": \"no chip operation for this ATen op\", \"pct_macs\": 0.0}, {\"calls\": 4.0, \"macs\": 0.0, \"missing\": \"no chip operation for upsample\", \"pct_macs\": 0.0}], \"total_macs\": 2337914176512.0}",
   "origin": "derive",
   "title": "What-if"
  },
  {
-  "body": "4 models measured; formats chosen: fp8_e2m5 240, fp8_e1m6 23, fp8_e3m4 2",
-  "created_at": 1794491990.8782876,
+  "body": "4 models measured; formats chosen: fp8_e2m5 1487, fp8_e1m6 137, fp8_e3m4 27",
+  "created_at": 1794506002.3468344,
   "id": 3,
   "kind": "format_pressure",
-  "numbers": "{\"formats_chosen\": {\"fp8_e1m6\": 23, \"fp8_e2m5\": 240, \"fp8_e3m4\": 2}, \"models\": [{\"baseline_db\": 6.957589372774957, \"best_formats_db\": 14.888678222727133, \"final_db\": 15.956412857857451, \"model\": \"mobilevit_s.cvnets_in1k\"}, {\"baseline_db\": 25.226716011255263, \"best_formats_db\": 25.226716011255263, \"final_db\": null, \"model\": \"stable-diffusion-v1-5/stable-diffusion-v1-5\"}, {\"baseline_db\": 9.103446462431856, \"best_formats_db\": 9.103446462431856, \"final_db\": null, \"model\": \"stable-diffusion-v1-5/stable-diffusion-v1-5:vae\"}, {\"baseline_db\": 29.48950199281518, \"best_formats_db\": 30.15135916008729, \"final_db\": null, \"model\": \"facebook/DiT-XL-2-256\"}], \"unsigned_share\": 0.0, \"worst_tensors\": [{\"op\": \"conv2d\", \"q_sqnr\": 14.10454438297187, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"linear\", \"q_sqnr\": 14.186170734831432, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"silu\", \"q_sqnr\": 15.502545955870122, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"linear\", \"q_sqnr\": 15.605256443580132, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"linear\", \"q_sqnr\": 15.956412857857451, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"linear\", \"q_sqnr\": 15.967209377671129, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"silu\", \"q_sqnr\": 16.154000884363274, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"layernorm\", \"q_sqnr\": 16.35512099585397, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"linear\", \"q_sqnr\": 16.466200184250035, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"linear\", \"q_sqnr\": 16.5966426451267, \"repo\": \"mobilevit_s.cvnets_in1k\"}]}",
+  "numbers": "{\"formats_chosen\": {\"fp8_e1m6\": 137, \"fp8_e2m5\": 1487, \"fp8_e3m4\": 27}, \"models\": [{\"baseline_db\": 6.957589372774957, \"best_formats_db\": 14.888678222727133, \"final_db\": 13.881800119069311, \"model\": \"mobilevit_s.cvnets_in1k\"}, {\"baseline_db\": 25.226716011255263, \"best_formats_db\": 30.18448954252348, \"final_db\": null, \"model\": \"stable-diffusion-v1-5/stable-diffusion-v1-5\"}, {\"baseline_db\": 9.103446462431856, \"best_formats_db\": 14.127724459316122, \"final_db\": null, \"model\": \"stable-diffusion-v1-5/stable-diffusion-v1-5:vae\"}, {\"baseline_db\": 29.48950199281518, \"best_formats_db\": 30.15135916008729, \"final_db\": null, \"model\": \"facebook/DiT-XL-2-256\"}], \"unsigned_share\": 0.0, \"worst_tensors\": [{\"op\": \"linear\", \"q_sqnr\": 12.193022883168076, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"silu\", \"q_sqnr\": 13.43881914688334, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"linear\", \"q_sqnr\": 13.688726742485562, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"linear\", \"q_sqnr\": 13.773789140750328, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"linear\", \"q_sqnr\": 13.881800119069311, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"conv2d\", \"q_sqnr\": 14.04761636471781, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"silu\", \"q_sqnr\": 14.050534977422444, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"conv2d\", \"q_sqnr\": 14.127724459316122, \"repo\": \"stable-diffusion-v1-5/stable-diffusion-v1-5:vae\"}, {\"op\": \"layernorm\", \"q_sqnr\": 14.155155755200369, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"linear\", \"q_sqnr\": 14.383672964483068, \"repo\": \"mobilevit_s.cvnets_in1k\"}]}",
   "origin": "derive",
   "title": "Format pressure"
  },
  {
-  "body": "69 of 69 tensors between kernels are read through a view (heads, patches, pixels); 0 links fail",
-  "created_at": 1794489930.5629053,
+  "body": "291 of 291 tensors between kernels are read through a view (heads, patches, pixels); 0 links fail",
+  "created_at": 1794501428.776217,
   "id": 4,
   "kind": "layout_conversions",
-  "numbers": "{\"failing\": 0, \"links\": 69, \"pairs\": [{\"count\": 27, \"reader\": \"attention\", \"writer\": \"linear\"}, {\"count\": 18, \"reader\": \"layernorm\", \"writer\": \"add\"}, {\"count\": 6, \"reader\": \"add\", \"writer\": \"add\"}, {\"count\": 3, \"reader\": \"layernorm\", \"writer\": \"conv2d\"}, {\"count\": 3, \"reader\": \"add\", \"writer\": \"conv2d\"}, {\"count\": 3, \"reader\": \"concat\", \"writer\": \"batchnorm\"}, {\"count\": 3, \"reader\": \"concat\", \"writer\": \"silu\"}, {\"count\": 3, \"reader\": \"conv2d\", \"writer\": \"concat\"}, {\"count\": 1, \"reader\": \"conv2d\", \"writer\": \"silu\"}, {\"count\": 1, \"reader\": \"adaptive_avgpool2d\", \"writer\": \"silu\"}], \"rearranged\": 69}",
+  "numbers": "{\"failing\": 0, \"links\": 291, \"pairs\": [{\"count\": 63, \"reader\": \"attention\", \"writer\": \"linear\"}, {\"count\": 21, \"reader\": \"layernorm\", \"writer\": \"add\"}, {\"count\": 20, \"reader\": \"add\", \"writer\": \"conv2d\"}, {\"count\": 19, \"reader\": \"layernorm\", \"writer\": \"conv2d\"}, {\"count\": 19, \"reader\": \"silu\", \"writer\": \"linear\"}, {\"count\": 18, \"reader\": \"add\", \"writer\": \"div\"}, {\"count\": 16, \"reader\": \"gelu\", \"writer\": \"linear\"}, {\"count\": 12, \"reader\": \"concat\", \"writer\": \"add\"}, {\"count\": 12, \"reader\": \"groupnorm\", \"writer\": \"concat\"}, {\"count\": 9, \"reader\": \"groupnorm\", \"writer\": \"div\"}], \"rearranged\": 291}",
   "origin": "derive",
   "title": "Layout conversions"
  },
@@ -45,11 +45,11 @@
   "title": "Compute efficiency"
  },
  {
-  "body": "64 operations go through the 256-entry LUT; 0 kernels use over 80% of the IMEM bank; kernel launches per forward: 40",
-  "created_at": 1794491990.878888,
+  "body": "422 operations go through the 256-entry LUT; 0 kernels use over 80% of the IMEM bank; kernel launches per forward: 40, 242, 34, 99",
+  "created_at": 1794505881.8877509,
   "id": 6,
   "kind": "resource_limits",
-  "numbers": "{\"groups_per_plan\": {\"2\": 40}, \"kernels_near_imem\": 0, \"launches_per_forward\": {\"2\": 40}, \"lut_operations\": 64}",
+  "numbers": "{\"groups_per_plan\": {\"2\": 40, \"3\": 21, \"5\": 34, \"7\": 99}, \"kernels_near_imem\": 0, \"launches_per_forward\": {\"2\": 40, \"3\": 242, \"5\": 34, \"7\": 99}, \"lut_operations\": 422}",
   "origin": "derive",
   "title": "Resource limits"
  }
