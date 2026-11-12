@@ -46,7 +46,7 @@
  },
  {
   "body": "The IPU architecture's costs across surveyed models, most costly first:\n\n1. **Layout conversions** are the most pervasive cost: 377 of 606 tensors (62%) change arrangement between kernels \u2014 mostly head reshapes (214) \u2014 though no link fails outright.\n2. **Format pressure** affects all 218 models, with fp8_e2m5 dominating (3043 uses), and the worst accuracy loss is a \u22120.8 dB tensor multiply in facebook/DiT-XL-2-256.\n3. **Resource limits** show 705 operations relying on the 256-entry LUT, while IMEM and FP32 headroom remain unconstrained (0 kernels over 80% IMEM, 0.0 decades least FP32 headroom).\n4. **ISA gaps** are minor: 29 operations total (28 data-addressing lookups, 1 missing chip op) in 1 model, all with 0 failed replacements and no accuracy or cycle penalty (0.00 dB, 0 cycles).\n5. **What-if analysis** confirms the ISA gaps cost nothing to fix: +0.00% MACs and 0.00 dB recovered in both cases; compute efficiency remains unmeasured (no kernel benchmarked yet).",
-  "created_at": 1794517687.3629112,
+  "created_at": 1794518090.489603,
   "id": 7,
   "kind": "summary",
   "numbers": null,
