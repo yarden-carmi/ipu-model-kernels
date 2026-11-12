@@ -6685,5 +6685,716 @@
   "parent_id": 697,
   "path": "maxpool",
   "repeat": 1
+ },
+ {
+  "capture_id": 20,
+  "class": null,
+  "first_seq": 0,
+  "id": 745,
+  "parent_id": 744,
+  "path": "(input)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 20,
+  "class": "GPTNeoXForCausalLM",
+  "first_seq": 0,
+  "id": 744,
+  "parent_id": null,
+  "path": "(top)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 20,
+  "class": "GPTNeoXModel",
+  "first_seq": 1,
+  "id": 746,
+  "parent_id": 744,
+  "path": "gpt_neox",
+  "repeat": 1
+ },
+ {
+  "capture_id": 20,
+  "class": "Embedding",
+  "first_seq": 1,
+  "id": 748,
+  "parent_id": 746,
+  "path": "gpt_neox.embed_in",
+  "repeat": 1
+ },
+ {
+  "capture_id": 20,
+  "class": "LayerNorm",
+  "first_seq": 327,
+  "id": 749,
+  "parent_id": 746,
+  "path": "gpt_neox.final_layer_norm",
+  "repeat": 1
+ },
+ {
+  "capture_id": 20,
+  "class": "ModuleList",
+  "first_seq": 15,
+  "id": 750,
+  "parent_id": 746,
+  "path": "gpt_neox.layers",
+  "repeat": 1
+ },
+ {
+  "capture_id": 20,
+  "class": "GPTNeoXLayer",
+  "first_seq": 15,
+  "id": 752,
+  "parent_id": 750,
+  "path": "gpt_neox.layers.*",
+  "repeat": 12
+ },
+ {
+  "capture_id": 20,
+  "class": "GPTNeoXAttention",
+  "first_seq": 16,
+  "id": 753,
+  "parent_id": 752,
+  "path": "gpt_neox.layers.*.attention",
+  "repeat": 12
+ },
+ {
+  "capture_id": 20,
+  "class": "Linear",
+  "first_seq": 34,
+  "id": 757,
+  "parent_id": 753,
+  "path": "gpt_neox.layers.*.attention.dense",
+  "repeat": 12
+ },
+ {
+  "capture_id": 20,
+  "class": "Linear",
+  "first_seq": 16,
+  "id": 758,
+  "parent_id": 753,
+  "path": "gpt_neox.layers.*.attention.query_key_value",
+  "repeat": 12
+ },
+ {
+  "capture_id": 20,
+  "class": "LayerNorm",
+  "first_seq": 15,
+  "id": 754,
+  "parent_id": 752,
+  "path": "gpt_neox.layers.*.input_layernorm",
+  "repeat": 12
+ },
+ {
+  "capture_id": 20,
+  "class": "GPTNeoXMLP",
+  "first_seq": 36,
+  "id": 755,
+  "parent_id": 752,
+  "path": "gpt_neox.layers.*.mlp",
+  "repeat": 12
+ },
+ {
+  "capture_id": 20,
+  "class": "GELUActivation",
+  "first_seq": 37,
+  "id": 759,
+  "parent_id": 755,
+  "path": "gpt_neox.layers.*.mlp.act",
+  "repeat": 12
+ },
+ {
+  "capture_id": 20,
+  "class": "Linear",
+  "first_seq": 38,
+  "id": 760,
+  "parent_id": 755,
+  "path": "gpt_neox.layers.*.mlp.dense_4h_to_h",
+  "repeat": 12
+ },
+ {
+  "capture_id": 20,
+  "class": "Linear",
+  "first_seq": 36,
+  "id": 761,
+  "parent_id": 755,
+  "path": "gpt_neox.layers.*.mlp.dense_h_to_4h",
+  "repeat": 12
+ },
+ {
+  "capture_id": 20,
+  "class": "LayerNorm",
+  "first_seq": 35,
+  "id": 756,
+  "parent_id": 752,
+  "path": "gpt_neox.layers.*.post_attention_layernorm",
+  "repeat": 12
+ },
+ {
+  "capture_id": 20,
+  "class": "GPTNeoXRotaryEmbedding",
+  "first_seq": 9,
+  "id": 751,
+  "parent_id": 746,
+  "path": "gpt_neox.rotary_emb",
+  "repeat": 1
+ },
+ {
+  "capture_id": 20,
+  "class": "Linear",
+  "first_seq": 328,
+  "id": 747,
+  "parent_id": 744,
+  "path": "lm_head",
+  "repeat": 1
+ },
+ {
+  "capture_id": 21,
+  "class": null,
+  "first_seq": 0,
+  "id": 763,
+  "parent_id": 762,
+  "path": "(input)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 21,
+  "class": "ResNet",
+  "first_seq": 0,
+  "id": 762,
+  "parent_id": null,
+  "path": "(top)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 21,
+  "class": "ReLU",
+  "first_seq": 3,
+  "id": 764,
+  "parent_id": 762,
+  "path": "act1",
+  "repeat": 1
+ },
+ {
+  "capture_id": 21,
+  "class": "BatchNorm2d",
+  "first_seq": 2,
+  "id": 765,
+  "parent_id": 762,
+  "path": "bn1",
+  "repeat": 1
+ },
+ {
+  "capture_id": 21,
+  "class": "Conv2d",
+  "first_seq": 1,
+  "id": 766,
+  "parent_id": 762,
+  "path": "conv1",
+  "repeat": 1
+ },
+ {
+  "capture_id": 21,
+  "class": "Linear",
+  "first_seq": 174,
+  "id": 767,
+  "parent_id": 762,
+  "path": "fc",
+  "repeat": 1
+ },
+ {
+  "capture_id": 21,
+  "class": "SelectAdaptivePool2d",
+  "first_seq": 173,
+  "id": 768,
+  "parent_id": 762,
+  "path": "global_pool",
+  "repeat": 1
+ },
+ {
+  "capture_id": 21,
+  "class": "AdaptiveAvgPool2d",
+  "first_seq": 173,
+  "id": 774,
+  "parent_id": 768,
+  "path": "global_pool.pool",
+  "repeat": 1
+ },
+ {
+  "capture_id": 21,
+  "class": "Sequential",
+  "first_seq": 5,
+  "id": 769,
+  "parent_id": 762,
+  "path": "layer1",
+  "repeat": 1
+ },
+ {
+  "capture_id": 21,
+  "class": "Bottleneck",
+  "first_seq": 5,
+  "id": 775,
+  "parent_id": 769,
+  "path": "layer1.*",
+  "repeat": 3
+ },
+ {
+  "capture_id": 21,
+  "class": "ReLU",
+  "first_seq": 7,
+  "id": 779,
+  "parent_id": 775,
+  "path": "layer1.*.act1",
+  "repeat": 3
+ },
+ {
+  "capture_id": 21,
+  "class": "ReLU",
+  "first_seq": 10,
+  "id": 780,
+  "parent_id": 775,
+  "path": "layer1.*.act2",
+  "repeat": 3
+ },
+ {
+  "capture_id": 21,
+  "class": "ReLU",
+  "first_seq": 16,
+  "id": 781,
+  "parent_id": 775,
+  "path": "layer1.*.act3",
+  "repeat": 3
+ },
+ {
+  "capture_id": 21,
+  "class": "BatchNorm2d",
+  "first_seq": 6,
+  "id": 782,
+  "parent_id": 775,
+  "path": "layer1.*.bn1",
+  "repeat": 3
+ },
+ {
+  "capture_id": 21,
+  "class": "BatchNorm2d",
+  "first_seq": 9,
+  "id": 783,
+  "parent_id": 775,
+  "path": "layer1.*.bn2",
+  "repeat": 3
+ },
+ {
+  "capture_id": 21,
+  "class": "BatchNorm2d",
+  "first_seq": 12,
+  "id": 784,
+  "parent_id": 775,
+  "path": "layer1.*.bn3",
+  "repeat": 3
+ },
+ {
+  "capture_id": 21,
+  "class": "Conv2d",
+  "first_seq": 5,
+  "id": 785,
+  "parent_id": 775,
+  "path": "layer1.*.conv1",
+  "repeat": 3
+ },
+ {
+  "capture_id": 21,
+  "class": "Conv2d",
+  "first_seq": 8,
+  "id": 786,
+  "parent_id": 775,
+  "path": "layer1.*.conv2",
+  "repeat": 3
+ },
+ {
+  "capture_id": 21,
+  "class": "Conv2d",
+  "first_seq": 11,
+  "id": 787,
+  "parent_id": 775,
+  "path": "layer1.*.conv3",
+  "repeat": 3
+ },
+ {
+  "capture_id": 21,
+  "class": "Sequential",
+  "first_seq": 13,
+  "id": 788,
+  "parent_id": 775,
+  "path": "layer1.*.downsample",
+  "repeat": 1
+ },
+ {
+  "capture_id": 21,
+  "class": "Conv2d",
+  "first_seq": 13,
+  "id": 819,
+  "parent_id": 788,
+  "path": "layer1.*.downsample.*",
+  "repeat": 2
+ },
+ {
+  "capture_id": 21,
+  "class": "Sequential",
+  "first_seq": 37,
+  "id": 770,
+  "parent_id": 762,
+  "path": "layer2",
+  "repeat": 1
+ },
+ {
+  "capture_id": 21,
+  "class": "Bottleneck",
+  "first_seq": 37,
+  "id": 776,
+  "parent_id": 770,
+  "path": "layer2.*",
+  "repeat": 4
+ },
+ {
+  "capture_id": 21,
+  "class": "ReLU",
+  "first_seq": 39,
+  "id": 789,
+  "parent_id": 776,
+  "path": "layer2.*.act1",
+  "repeat": 4
+ },
+ {
+  "capture_id": 21,
+  "class": "ReLU",
+  "first_seq": 42,
+  "id": 790,
+  "parent_id": 776,
+  "path": "layer2.*.act2",
+  "repeat": 4
+ },
+ {
+  "capture_id": 21,
+  "class": "ReLU",
+  "first_seq": 48,
+  "id": 791,
+  "parent_id": 776,
+  "path": "layer2.*.act3",
+  "repeat": 4
+ },
+ {
+  "capture_id": 21,
+  "class": "BatchNorm2d",
+  "first_seq": 38,
+  "id": 792,
+  "parent_id": 776,
+  "path": "layer2.*.bn1",
+  "repeat": 4
+ },
+ {
+  "capture_id": 21,
+  "class": "BatchNorm2d",
+  "first_seq": 41,
+  "id": 793,
+  "parent_id": 776,
+  "path": "layer2.*.bn2",
+  "repeat": 4
+ },
+ {
+  "capture_id": 21,
+  "class": "BatchNorm2d",
+  "first_seq": 44,
+  "id": 794,
+  "parent_id": 776,
+  "path": "layer2.*.bn3",
+  "repeat": 4
+ },
+ {
+  "capture_id": 21,
+  "class": "Conv2d",
+  "first_seq": 37,
+  "id": 795,
+  "parent_id": 776,
+  "path": "layer2.*.conv1",
+  "repeat": 4
+ },
+ {
+  "capture_id": 21,
+  "class": "Conv2d",
+  "first_seq": 40,
+  "id": 796,
+  "parent_id": 776,
+  "path": "layer2.*.conv2",
+  "repeat": 4
+ },
+ {
+  "capture_id": 21,
+  "class": "Conv2d",
+  "first_seq": 43,
+  "id": 797,
+  "parent_id": 776,
+  "path": "layer2.*.conv3",
+  "repeat": 4
+ },
+ {
+  "capture_id": 21,
+  "class": "Sequential",
+  "first_seq": 45,
+  "id": 798,
+  "parent_id": 776,
+  "path": "layer2.*.downsample",
+  "repeat": 1
+ },
+ {
+  "capture_id": 21,
+  "class": "Conv2d",
+  "first_seq": 45,
+  "id": 820,
+  "parent_id": 798,
+  "path": "layer2.*.downsample.*",
+  "repeat": 2
+ },
+ {
+  "capture_id": 21,
+  "class": "Sequential",
+  "first_seq": 79,
+  "id": 771,
+  "parent_id": 762,
+  "path": "layer3",
+  "repeat": 1
+ },
+ {
+  "capture_id": 21,
+  "class": "Bottleneck",
+  "first_seq": 79,
+  "id": 777,
+  "parent_id": 771,
+  "path": "layer3.*",
+  "repeat": 6
+ },
+ {
+  "capture_id": 21,
+  "class": "ReLU",
+  "first_seq": 81,
+  "id": 799,
+  "parent_id": 777,
+  "path": "layer3.*.act1",
+  "repeat": 6
+ },
+ {
+  "capture_id": 21,
+  "class": "ReLU",
+  "first_seq": 84,
+  "id": 800,
+  "parent_id": 777,
+  "path": "layer3.*.act2",
+  "repeat": 6
+ },
+ {
+  "capture_id": 21,
+  "class": "ReLU",
+  "first_seq": 90,
+  "id": 801,
+  "parent_id": 777,
+  "path": "layer3.*.act3",
+  "repeat": 6
+ },
+ {
+  "capture_id": 21,
+  "class": "BatchNorm2d",
+  "first_seq": 80,
+  "id": 802,
+  "parent_id": 777,
+  "path": "layer3.*.bn1",
+  "repeat": 6
+ },
+ {
+  "capture_id": 21,
+  "class": "BatchNorm2d",
+  "first_seq": 83,
+  "id": 803,
+  "parent_id": 777,
+  "path": "layer3.*.bn2",
+  "repeat": 6
+ },
+ {
+  "capture_id": 21,
+  "class": "BatchNorm2d",
+  "first_seq": 86,
+  "id": 804,
+  "parent_id": 777,
+  "path": "layer3.*.bn3",
+  "repeat": 6
+ },
+ {
+  "capture_id": 21,
+  "class": "Conv2d",
+  "first_seq": 79,
+  "id": 805,
+  "parent_id": 777,
+  "path": "layer3.*.conv1",
+  "repeat": 6
+ },
+ {
+  "capture_id": 21,
+  "class": "Conv2d",
+  "first_seq": 82,
+  "id": 806,
+  "parent_id": 777,
+  "path": "layer3.*.conv2",
+  "repeat": 6
+ },
+ {
+  "capture_id": 21,
+  "class": "Conv2d",
+  "first_seq": 85,
+  "id": 807,
+  "parent_id": 777,
+  "path": "layer3.*.conv3",
+  "repeat": 6
+ },
+ {
+  "capture_id": 21,
+  "class": "Sequential",
+  "first_seq": 87,
+  "id": 808,
+  "parent_id": 777,
+  "path": "layer3.*.downsample",
+  "repeat": 1
+ },
+ {
+  "capture_id": 21,
+  "class": "Conv2d",
+  "first_seq": 87,
+  "id": 821,
+  "parent_id": 808,
+  "path": "layer3.*.downsample.*",
+  "repeat": 2
+ },
+ {
+  "capture_id": 21,
+  "class": "Sequential",
+  "first_seq": 141,
+  "id": 772,
+  "parent_id": 762,
+  "path": "layer4",
+  "repeat": 1
+ },
+ {
+  "capture_id": 21,
+  "class": "Bottleneck",
+  "first_seq": 141,
+  "id": 778,
+  "parent_id": 772,
+  "path": "layer4.*",
+  "repeat": 3
+ },
+ {
+  "capture_id": 21,
+  "class": "ReLU",
+  "first_seq": 143,
+  "id": 809,
+  "parent_id": 778,
+  "path": "layer4.*.act1",
+  "repeat": 3
+ },
+ {
+  "capture_id": 21,
+  "class": "ReLU",
+  "first_seq": 146,
+  "id": 810,
+  "parent_id": 778,
+  "path": "layer4.*.act2",
+  "repeat": 3
+ },
+ {
+  "capture_id": 21,
+  "class": "ReLU",
+  "first_seq": 152,
+  "id": 811,
+  "parent_id": 778,
+  "path": "layer4.*.act3",
+  "repeat": 3
+ },
+ {
+  "capture_id": 21,
+  "class": "BatchNorm2d",
+  "first_seq": 142,
+  "id": 812,
+  "parent_id": 778,
+  "path": "layer4.*.bn1",
+  "repeat": 3
+ },
+ {
+  "capture_id": 21,
+  "class": "BatchNorm2d",
+  "first_seq": 145,
+  "id": 813,
+  "parent_id": 778,
+  "path": "layer4.*.bn2",
+  "repeat": 3
+ },
+ {
+  "capture_id": 21,
+  "class": "BatchNorm2d",
+  "first_seq": 148,
+  "id": 814,
+  "parent_id": 778,
+  "path": "layer4.*.bn3",
+  "repeat": 3
+ },
+ {
+  "capture_id": 21,
+  "class": "Conv2d",
+  "first_seq": 141,
+  "id": 815,
+  "parent_id": 778,
+  "path": "layer4.*.conv1",
+  "repeat": 3
+ },
+ {
+  "capture_id": 21,
+  "class": "Conv2d",
+  "first_seq": 144,
+  "id": 816,
+  "parent_id": 778,
+  "path": "layer4.*.conv2",
+  "repeat": 3
+ },
+ {
+  "capture_id": 21,
+  "class": "Conv2d",
+  "first_seq": 147,
+  "id": 817,
+  "parent_id": 778,
+  "path": "layer4.*.conv3",
+  "repeat": 3
+ },
+ {
+  "capture_id": 21,
+  "class": "Sequential",
+  "first_seq": 149,
+  "id": 818,
+  "parent_id": 778,
+  "path": "layer4.*.downsample",
+  "repeat": 1
+ },
+ {
+  "capture_id": 21,
+  "class": "Conv2d",
+  "first_seq": 149,
+  "id": 822,
+  "parent_id": 818,
+  "path": "layer4.*.downsample.*",
+  "repeat": 2
+ },
+ {
+  "capture_id": 21,
+  "class": "MaxPool2d",
+  "first_seq": 4,
+  "id": 773,
+  "parent_id": 762,
+  "path": "maxpool",
+  "repeat": 1
  }
 ]

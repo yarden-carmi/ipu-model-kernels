@@ -12483,5 +12483,104 @@
   "row_order": "[0, 2, 3]",
   "slot": 0,
   "src_id": 7740
+ },
+ {
+  "capture_id": 21,
+  "dst_id": 8093,
+  "lane_dim": 1,
+  "pad": 125,
+  "plan_id": 13,
+  "reason": "the reader handles dim 1 along the lanes; the writer (input) stores any; accuracy would take dim 3 (qbench: one channel's spatial plane along the lanes, here an image row (W) with H next along the rows (_spatial_activation_meta: pixels of one channel share a scale)), which costs a layout conversion; dim 1 (3) padded to 128: small planes or rows are not packed several to a row (one lane dimension cannot describe the packing)",
+  "row_order": "[0, 2, 3]",
+  "slot": 0,
+  "src_id": 8092
+ },
+ {
+  "capture_id": 21,
+  "dst_id": 8127,
+  "lane_dim": 1,
+  "pad": 0,
+  "plan_id": 13,
+  "reason": "the writer (relu) puts dim 1 along the lanes by nature; the reader reads any; accuracy would take dim 3 (qbench: one channel's spatial plane along the lanes, here an image row (W) with H next along the rows (_spatial_activation_meta: pixels of one channel share a scale)), which costs a layout conversion",
+  "row_order": "[0, 2, 3]",
+  "slot": 1,
+  "src_id": 8118
+ },
+ {
+  "capture_id": 21,
+  "dst_id": 8127,
+  "lane_dim": 1,
+  "pad": 0,
+  "plan_id": 13,
+  "reason": "the writer (batchnorm) puts dim 1 along the lanes by nature; the reader reads any; accuracy would take dim 3 (qbench: one channel's spatial plane along the lanes, here an image row (W) with H next along the rows (_spatial_activation_meta: pixels of one channel share a scale)), which costs a layout conversion",
+  "row_order": "[0, 2, 3]",
+  "slot": 0,
+  "src_id": 8126
+ },
+ {
+  "capture_id": 21,
+  "dst_id": 8169,
+  "lane_dim": 1,
+  "pad": 0,
+  "plan_id": 13,
+  "reason": "the writer (relu) puts dim 1 along the lanes by nature; the reader reads any; accuracy would take dim 3 (qbench: one channel's spatial plane along the lanes, here an image row (W) with H next along the rows (_spatial_activation_meta: pixels of one channel share a scale)), which costs a layout conversion",
+  "row_order": "[0, 2, 3]",
+  "slot": 1,
+  "src_id": 8160
+ },
+ {
+  "capture_id": 21,
+  "dst_id": 8164,
+  "lane_dim": 1,
+  "pad": 0,
+  "plan_id": 13,
+  "reason": "writer (relu) and reader both handle dim 1 along the lanes: no conversion; accuracy would take dim 3 (qbench: one channel's spatial plane along the lanes, here an image row (W) with H next along the rows (_spatial_activation_meta: pixels of one channel share a scale)), which costs a layout conversion",
+  "row_order": "[0, 2, 3]",
+  "slot": 0,
+  "src_id": 8163
+ },
+ {
+  "capture_id": 21,
+  "dst_id": 8201,
+  "lane_dim": 1,
+  "pad": 0,
+  "plan_id": 13,
+  "reason": "the writer (relu) puts dim 1 along the lanes by nature; the reader reads any; accuracy would take dim 3 (qbench: one channel's spatial plane along the lanes, here an image row (W) with H next along the rows (_spatial_activation_meta: pixels of one channel share a scale)), which costs a layout conversion",
+  "row_order": "[0, 2, 3]",
+  "slot": 1,
+  "src_id": 8192
+ },
+ {
+  "capture_id": 21,
+  "dst_id": 8196,
+  "lane_dim": 1,
+  "pad": 0,
+  "plan_id": 13,
+  "reason": "writer (relu) and reader both handle dim 1 along the lanes: no conversion; accuracy would take dim 3 (qbench: one channel's spatial plane along the lanes, here an image row (W) with H next along the rows (_spatial_activation_meta: pixels of one channel share a scale)), which costs a layout conversion",
+  "row_order": "[0, 2, 3]",
+  "slot": 0,
+  "src_id": 8195
+ },
+ {
+  "capture_id": 21,
+  "dst_id": 8233,
+  "lane_dim": 1,
+  "pad": 0,
+  "plan_id": 13,
+  "reason": "writer (relu) and 2 readers all handle dim 1 along the lanes: no conversion; accuracy would take dim 3 (qbench: one channel's spatial plane along the lanes, here an image row (W) with H next along the rows (_spatial_activation_meta: pixels of one channel share a scale)), which costs a layout conversion; one layout for the tensor's 2 reads",
+  "row_order": "[0, 2, 3]",
+  "slot": 0,
+  "src_id": 8232
+ },
+ {
+  "capture_id": 21,
+  "dst_id": 8241,
+  "lane_dim": 1,
+  "pad": 0,
+  "plan_id": 13,
+  "reason": "writer (relu) and 2 readers all handle dim 1 along the lanes: no conversion; accuracy would take dim 3 (qbench: one channel's spatial plane along the lanes, here an image row (W) with H next along the rows (_spatial_activation_meta: pixels of one channel share a scale)), which costs a layout conversion; one layout for the tensor's 2 reads",
+  "row_order": "[0, 2, 3]",
+  "slot": 0,
+  "src_id": 8232
  }
 ]
