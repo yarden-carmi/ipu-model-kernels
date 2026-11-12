@@ -600,6 +600,18 @@
   "proposed_by": 7
  },
  {
+  "chain": "[{\"op\": \"bilinear_to56\", \"params\": {\"out\": [56, 56]}}]",
+  "check_detail": "chain: matches upsample (FP32, relative 2e-07); code: relative difference 1.79e-07 (within 0.0001)",
+  "check_ok": 1,
+  "code": "import torch\n\ndef forward(module, x):\n    # x: (768, 14, 14) CHW (or (768, H, W)); bilinear upsample to (768, 56, 56), align_corners=False\n    C, H, W = x.shape\n    OH = OW = 56\n    sy = (torch.arange(OH, dtype=torch.float32) + 0.5) * H / OH - 0.5\n    sx = (torch.arange(OW, dtype=torch.float32) + 0.5) * W / OW - 0.5\n    iy = sy.floor().long(); ix = sx.floor().long()\n    wy = (sy - sy.floor()).clamp(0, 1); wx = (sx - sx.floor()).clamp(0, 1)\n    i0 = iy.clamp(0, H - 1); i1 = (iy + 1).clamp(0, H - 1)\n    j0 = ix.clamp(0, W - 1); j1 = (ix + 1).clamp(0, W - 1)\n    x = x.to(torch.float32)\n    a = x[:, i0, :][:, :, j0]; b = x[:, i0, :][:, :, j1]\n    c = x[:, i1, :][:, :, j0]; d = x[:, i1, :][:, :, j1]\n    wy = wy.view(1, OH, 1); wx = wx.view(1, 1, OW)\n    out = (1 - wy) * ((1 - wx) * a + wx * b) + wy * ((1 - wx) * c + wx * d)\n    return out",
+  "id": 72,
+  "kind": "equivalent",
+  "name": "bilinear_14to56",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear upsample of the (768, 14, 14) CHW activation to (768, 56, 56) = 2408448 elements, align_corners=False (4x upsample, matching the linear's m=196=14*14 tokens), via a self-defined bilinear_to56 primitive with an explicit reference.\\n\\nFor each output pixel (oh, ow) in 56x56: source coords sy=(oh+0.5)*14/56-0.5, sx=(ow+0.5)*14/56-0.5 (half-pixel centers, align_corners=False); iy=floor(sy), ix=floor(sx), fractional weights wy=sy-iy, wx=sx-ix (computed from the UNCLAMPED floor); indices iy, iy+1, ix, ix+1 clamped to [0,13] (border replication); output = (1-wy)(1-wx)*x[:,iy,ix] + (1-wy)wx*x[:,iy,ix+1] + wy(1-wx)*x[:,iy+1,ix] + wy*wx*x[:,iy+1,ix+1]. This is exactly torch's F.interpolate(size=(56,56), mode='bilinear', align_corners=False, antialias=False).\", \"rel_err\": 1.7890636684822084e-07}",
+  "proposed_by": 32
+ },
+ {
   "chain": "[{\"op\": \"bilinear_resize2d\", \"params\": {\"out\": [56, 56]}}]",
   "check_detail": "chain: bilinear_resize2d {\"out\": [56, 56]}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
   "check_ok": null,
@@ -658,6 +670,18 @@
   "op": "upsample",
   "proposal": "{\"description\": \"Bilinear 2x upsample of the (768, 28, 28) CHW activation to (768, 56, 56) = 2408448 elements, align_corners=False, via a bilinear_resize2d primitive with a correct reference.\\n\\nFor each output pixel (oh, ow) in 56x56: source coords sy=(oh+0.5)*28/56-0.5, sx=(ow+0.5)*28/56-0.5 (half-pixel centers); iy=floor(sy), ix=floor(sx), fractional weights wy=sy-iy, wx=sx-ix (weights computed from the UNCLAMPED floor); indices iy, iy+1, ix, ix+1 clamped to [0,27] (border replication); output = (1-wy)(1-wx)*x[:,iy,ix] + (1-wy)wx*x[:,iy,ix+1] + wy(1-wx)*x[:,iy+1,ix] + wy*wx*x[:,iy+1,ix+1]. Exactly torch bilinear upsample without antialiasing.\", \"rel_err\": 0.0}",
   "proposed_by": 30
+ },
+ {
+  "chain": "[{\"op\": \"bilinear_resize2d\", \"params\": {\"out\": [56, 56]}}]",
+  "check_detail": "chain: the path does not compute upsample as called (): largest difference 3.63 (relative 1.8) at element 2116857: 1.64032 where upsample gives -1.99; code: relative difference 1.82 (over 0.0001)",
+  "check_ok": 0,
+  "code": "import torch\n\ndef forward(module, x):\n    # x: (768, 28, 28) CHW; bilinear 2x upsample to (768, 56, 56), align_corners=False\n    C, H, W = x.shape\n    OH, OW = 56, 56\n    sy = (torch.arange(OH, dtype=x.dtype) + 0.5) * H / OH - 0.5\n    sx = (torch.arange(OW, dtype=x.dtype) + 0.5) * W / OW - 0.5\n    iy = sy.floor().long().clamp(0, H - 1)\n    ix = sx.floor().long().clamp(0, W - 1)\n    wy = (sy - sy.floor()).clamp(0, 1)\n    wx = (sx - sx.floor()).clamp(0, 1)\n    i0 = iy.clamp(0, H - 2); i1 = (iy + 1).clamp(0, H - 1)\n    j0 = ix.clamp(0, W - 2); j1 = (ix + 1).clamp(0, W - 1)\n    x = x.to(torch.float32)\n    a = x[:, i0, :][:, :, j0]\n    b = x[:, i0, :][:, :, j1]\n    c = x[:, i1, :][:, :, j0]\n    d = x[:, i1, :][:, :, j1]\n    wy = wy.view(1, OH, 1); wx = wx.view(1, 1, OW)\n    out = (1 - wy) * ((1 - wx) * a + wx * b) + wy * ((1 - wx) * c + wx * d)\n    return out",
+  "id": 70,
+  "kind": "equivalent",
+  "name": "bilinear_resize2d_28to56_ref3",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x upsample of the (768, 28, 28) CHW activation to (768, 56, 56) = 2408448 elements, align_corners=False, via the chip's bilinear_resize2d primitive with an explicit reference implementation.\\n\\nFor each output pixel (oh, ow) in 56x56: source coords sy=(oh+0.5)*28/56-0.5, sx=(ow+0.5)*28/56-0.5 (half-pixel centers); iy=floor(sy), ix=floor(sx), fractional weights wy=sy-iy, wx=sx-ix (computed from the UNCLAMPED floor); indices iy, iy+1, ix, ix+1 clamped to [0,27] (border replication); output = (1-wy)(1-wx)*x[:,iy,ix] + (1-wy)wx*x[:,iy,ix+1] + wy(1-wx)*x[:,iy+1,ix] + wy*wx*x[:,iy+1,ix+1]. This is exactly torch's F.interpolate(mode='bilinear', align_corners=False, antialias=False) upsample.\", \"rel_err\": 1.8160948699911286}",
+  "proposed_by": 32
  },
  {
   "chain": "[{\"op\": \"bilinear_resize2d\", \"params\": {\"size\": [56, 56]}}]",
@@ -730,6 +754,18 @@
   "op": "upsample",
   "proposal": "{\"description\": \"Bilinear resize of the activation to 56x56 spatial (output 2408448 elements), align_corners=False.\\n\\n1. reshape: view the incoming tensor as (1, 768, 56, 56) NCHW (no-op if already 4D).\\n2. bilinear_resize to (56, 56): for each output pixel (oh, ow), source coords sy=(oh+0.5)*56/56-0.5, sx=(ow+0.5)*56/56-0.5; with unit scale these land exactly on integer pixel centers, so each output pixel equals the corresponding input pixel (bilinear at unit scale is the identity). This matches the checked torch computation exactly (relative difference 0).\", \"rel_err\": 0.0}",
   "proposed_by": 28
+ },
+ {
+  "chain": "[{\"op\": \"bilinear_up2x\", \"params\": {}}]",
+  "check_detail": "chain: ValueError: not enough values to unpack (expected 3, got 2); code: the code gives 602112 elements, the operation 2408448",
+  "check_ok": 0,
+  "code": "import torch\n\ndef forward(module, x):\n    # x: (768, 28, 28) CHW; bilinear 2x upsample to (768, 56, 56), align_corners=False\n    C, H, W = x.shape\n    OH, OW = 2 * H, 2 * W\n    sy = (torch.arange(OH, dtype=torch.float32) + 0.5) / 2 - 0.5\n    sx = (torch.arange(OW, dtype=torch.float32) + 0.5) / 2 - 0.5\n    iy = sy.floor().long(); ix = sx.floor().long()\n    wy = (sy - sy.floor()).clamp(0, 1); wx = (sx - sx.floor()).clamp(0, 1)\n    i0 = iy.clamp(0, H - 1); i1 = (iy + 1).clamp(0, H - 1)\n    j0 = ix.clamp(0, W - 1); j1 = (ix + 1).clamp(0, W - 1)\n    x = x.to(torch.float32)\n    a = x[:, i0, :][:, :, j0]; b = x[:, i0, :][:, :, j1]\n    c = x[:, i1, :][:, :, j0]; d = x[:, i1, :][:, :, j1]\n    wy = wy.view(1, OH, 1); wx = wx.view(1, 1, OW)\n    out = (1 - wy) * ((1 - wx) * a + wx * b) + wy * ((1 - wx) * c + wx * d)\n    return out",
+  "id": 71,
+  "kind": "equivalent",
+  "name": "bilinear_up2x_28to56",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x upsample of the (768, 28, 28) CHW activation to (768, 56, 56) = 2408448 elements, align_corners=False, via a self-defined bilinear_up2x primitive with an explicit reference implementation.\\n\\nFor each output pixel (oh, ow) in 56x56: source coords sy=(oh+0.5)*28/56-0.5, sx=(ow+0.5)*28/56-0.5 (half-pixel centers); iy=floor(sy), ix=floor(sx), fractional weights wy=sy-iy, wx=sx-ix (computed from the UNCLAMPED floor); indices iy, iy+1, ix, ix+1 clamped to [0,27] (border replication); output = (1-wy)(1-wx)*x[:,iy,ix] + (1-wy)wx*x[:,iy,ix+1] + wy(1-wx)*x[:,iy+1,ix] + wy*wx*x[:,iy+1,ix+1]. This is exactly torch's F.interpolate(mode='bilinear', align_corners=False, antialias=False) 2x upsample.\", \"rel_err\": null}",
+  "proposed_by": 32
  },
  {
   "chain": "[{\"op\": \"reshape_nchw\", \"params\": {\"h\": 28, \"w\": 28}}, {\"op\": \"bilinear_resize2d\", \"params\": {\"out\": [56, 56]}}, {\"op\": \"reshape_tokens\", \"params\": {\"h\": 56, \"w\": 56}}]",
