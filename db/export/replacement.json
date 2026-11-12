@@ -538,5 +538,77 @@
   "op": "embedding",
   "proposal": "{\"description\": \"Replace the runtime-index lookup with a dense GEMM. Step 1: build a one-hot row vector of length vocab=1001 from the single token id (1 at position id, 0 elsewhere; ids cast to long). Step 2: GEMM the one-hot row (1 x 1001) by the embedding table (1001 x 1152), no transposes. The result row equals exactly the table row selected by the id, so this is mathematically identical to embedding for tokens=1. The table is a constant passed alongside the ids.\", \"rel_err\": 0.0}",
   "proposed_by": 7
+ },
+ {
+  "chain": "[{\"align_corners\": false, \"op\": \"bilinear_resize2d\", \"params\": {\"out_h\": 56, \"out_w\": 56}}]",
+  "check_detail": "chain: matches upsample (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "import torch\nimport torch.nn.functional as F\n\ndef forward(module, x):\n    squeeze = (x.dim() == 3)\n    if squeeze:\n        x = x.unsqueeze(0)\n    y = F.interpolate(x, size=(56, 56), mode='bilinear', align_corners=False)\n    if squeeze:\n        y = y.squeeze(0)\n    return y.contiguous()",
+  "id": 51,
+  "kind": "equivalent",
+  "name": "bilinear_resize2d_56",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2D resize of the activation to 56x56 spatial (output 2408448 elements), align_corners=False.\\n\\nbilinear_resize2d accepts a CHW (C, H, W) = (768, 56, 56) tensor (or NCHW): it views it as (1, C, H, W), then for each output pixel (oh, ow) computes source coords sy=(oh+0.5)*H_out/H_in-0.5, sx=(ow+0.5)*W_out/W_in-0.5 (half-pixel centers); iy=floor(sy), ix=floor(sx), weights wy=sy-iy, wx=sx-ix, indices clamped to borders; output is the bilinear blend of the 4 neighbors. With unit scale (56->56) each output pixel exactly equals the corresponding input pixel, matching the checked torch computation (relative difference 0).\", \"rel_err\": 0.0}",
+  "proposed_by": 28
+ },
+ {
+  "chain": "[{\"align_corners\": false, \"op\": \"bilinear_resize\", \"params\": {\"out_h\": 56, \"out_w\": 56}}]",
+  "check_detail": "chain: ValueError: Input and output must have the same number of spatial dimensions, but got input with spatial dimensions of [56] and output size of (56, 56). Please provide input tensor in (N, C, d1, d2, ...,dK) format and output size in (o1, o2, ...,oK) format.; code: relative difference 0 (within 0.0001)",
+  "check_ok": 0,
+  "code": "import torch\nimport torch.nn.functional as F\n\ndef forward(module, x):\n    # x: (768, 56, 56) CHW; output size is also 56x56 (2408448 elements)\n    squeeze = (x.dim() == 3)\n    if squeeze:\n        x = x.unsqueeze(0)\n    y = F.interpolate(x, size=(56, 56), mode='bilinear', align_corners=False)\n    if squeeze:\n        y = y.squeeze(0)\n    return y.contiguous()",
+  "id": 49,
+  "kind": "equivalent",
+  "name": "bilinear_resize_56_identity",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear resize of the (768, 56, 56) CHW map to 56x56 (the operation's output size, 2408448 elements), align_corners=False.\\n\\nbilinear_resize: for each output pixel (oh, ow), source coords sy=(oh+0.5)*56/56-0.5, sx=(ow+0.5)*56/56-0.5; with scale 1 this maps exactly onto integer pixel centers, so each output pixel equals the corresponding input pixel (bilinear with unit scale is the identity). Computed via the bilinear_resize primitive to stay faithful to the operation's semantics.\", \"rel_err\": 0.0}",
+  "proposed_by": 28
+ },
+ {
+  "chain": "[{\"op\": \"reshape\", \"params\": {\"shape\": [1, 768, 56, 56]}}, {\"align_corners\": false, \"op\": \"bilinear_resize\", \"params\": {\"out_h\": 56, \"out_w\": 56}}]",
+  "check_detail": "chain: reshape {\"shape\": [1, 768, 56, 56]}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
+  "check_ok": null,
+  "code": "import torch\nimport torch.nn.functional as F\n\ndef forward(module, x):\n    squeeze = (x.dim() == 3)\n    if squeeze:\n        x = x.unsqueeze(0)\n    y = F.interpolate(x, size=(56, 56), mode='bilinear', align_corners=False)\n    if squeeze:\n        y = y.squeeze(0)\n    return y.contiguous()",
+  "id": 50,
+  "kind": "equivalent",
+  "name": "bilinear_resize_56_reshape",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear resize of the activation to 56x56 spatial (output 2408448 elements), align_corners=False.\\n\\n1. reshape: view the incoming tensor as (1, 768, 56, 56) NCHW (no-op if already 4D).\\n2. bilinear_resize to (56, 56): for each output pixel (oh, ow), source coords sy=(oh+0.5)*56/56-0.5, sx=(ow+0.5)*56/56-0.5; with unit scale these land exactly on integer pixel centers, so each output pixel equals the corresponding input pixel (bilinear at unit scale is the identity). This matches the checked torch computation exactly (relative difference 0).\", \"rel_err\": 0.0}",
+  "proposed_by": 28
+ },
+ {
+  "chain": "[{\"note\": \"reinterpret incoming (B, 3136, 768) tokens as NCHW (B, 768, 56, 56); no-op if already NCHW\", \"op\": \"reshape\", \"params\": {\"shape\": \"(B, 768, 56, 56)\"}}, {\"align_corners\": false, \"op\": \"bilinear_resize\", \"params\": {\"out_h\": 112, \"out_w\": 112}}, {\"note\": \"flatten back to token layout (B, 12544, 768) = 9633792 elements for the concat\", \"op\": \"reshape\", \"params\": {\"shape\": \"(B, 12544, 768)\"}}]",
+  "check_detail": "chain: reshape {\"shape\": \"(B, 768, 56, 56)\"}: no reference to check it with (a new primitive needs `reference`); code: the code failed: RuntimeError: shape '[768, 56, 56, 56]' is invalid for input of size 2408448",
+  "check_ok": 0,
+  "code": "import torch\nimport torch.nn.functional as F\n\ndef forward(module, x):\n    if x.dim() == 3:\n        B, N, C = x.shape\n        x = x.transpose(1, 2).reshape(B, C, 56, 56)\n    else:\n        B, C = x.shape[0], x.shape[1]\n    y = F.interpolate(x, size=(112, 112), mode='bilinear', align_corners=False)\n    y = y.reshape(B, C, 112 * 112).transpose(1, 2).contiguous()\n    return y",
+  "id": 47,
+  "kind": "equivalent",
+  "name": "bilinear_upsample2x_56to112",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x2D upsample (56x56 -> 112x112, align_corners=False).\\n\\n1. Reshape incoming (B, 3136, 768) tokens (from the linear) into NCHW (B, 768, 56, 56).\\n2. bilinear_resize to 112x112: for each output pixel (oh, ow), source coords sy=(oh+0.5)/2-0.5, sx=(ow+0.5)/2-0.5; iy=floor(sy), ix=floor(sx), weights wy=sy-iy, wx=sx-ix, indices clamped to [0,55]; output = bilinear blend of the 4 neighbors. Exactly torch bilinear upsample without antialiasing.\\n3. Reshape back to (B, 12544, 768) token layout (9633792 elements) for the concat.\", \"rel_err\": null}",
+  "proposed_by": 28
+ },
+ {
+  "chain": "[{\"align_corners\": false, \"op\": \"bilinear_resize\", \"params\": {\"out_h\": 112, \"out_w\": 112}}]",
+  "check_detail": "chain: ValueError: Input and output must have the same number of spatial dimensions, but got input with spatial dimensions of [56] and output size of (112, 112). Please provide input tensor in (N, C, d1, d2, ...,dK) format and output size in (o1, o2, ...,oK) format.; code: the code gives 9633792 elements, the operation 2408448",
+  "check_ok": 0,
+  "code": "import torch\nimport torch.nn.functional as F\n\ndef forward(module, x):\n    # x: (768, 56, 56) CHW (batch of 1) or (1, 768, 56, 56)\n    squeeze = (x.dim() == 3)\n    if squeeze:\n        x = x.unsqueeze(0)\n    y = F.interpolate(x, size=(112, 112), mode='bilinear', align_corners=False)\n    if squeeze:\n        y = y.squeeze(0)\n    return y.contiguous()",
+  "id": 48,
+  "kind": "equivalent",
+  "name": "bilinear_upsample2x_chw",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x2D upsample of a (768, 56, 56) CHW map to (768, 112, 112), align_corners=False.\\n\\nbilinear_resize: for each output pixel (oh, ow) in 112x112, source coords sy=(oh+0.5)/2-0.5, sx=(ow+0.5)/2-0.5; iy=floor(sy), ix=floor(sx), weights wy=sy-iy, wx=sx-ix, indices clamped to [0,55]; output = (1-wy)(1-wx)*x[:,iy,ix] + (1-wy)wx*x[:,iy,ix+1] + wy(1-wx)*x[:,iy+1,ix] + wy*wx*x[:,iy+1,ix+1]. This is exactly torch bilinear upsample without antialiasing.\", \"rel_err\": null}",
+  "proposed_by": 28
+ },
+ {
+  "chain": "[{\"note\": \"reinterpret the incoming (B, 784, 768) activation as a spatial map; if the tensor already arrives as (B, 768, 28, 28) this is a no-op\", \"op\": \"reshape\", \"params\": {\"shape\": \"(B, 768, 28, 28)\"}}, {\"op\": \"bilinear_resize\", \"params\": {\"align_corners\": false, \"out_h\": 56, \"out_w\": 56}}, {\"note\": \"flatten back to token layout so the downstream concat sees 2408448 elements\", \"op\": \"reshape\", \"params\": {\"shape\": \"(B, 3136, 768)\"}}]",
+  "check_detail": "chain: reshape {\"shape\": \"(B, 768, 28, 28)\"}: no reference to check it with (a new primitive needs `reference`); code: the code failed: RuntimeError: shape '[768, 56, 28, 28]' is invalid for input of size 2408448",
+  "check_ok": 0,
+  "code": "import torch\nimport torch.nn.functional as F\n\ndef forward(module, x):\n    # x: (B, 784, 768) tokens from the linear, or already (B, 768, 28, 28)\n    if x.dim() == 3:\n        B, N, C = x.shape\n        x = x.transpose(1, 2).reshape(B, C, 28, 28)\n    else:\n        B, C = x.shape[0], x.shape[1]\n    y = F.interpolate(x, size=(56, 56), mode='bilinear', align_corners=False)\n    y = y.reshape(B, C, 56 * 56).transpose(1, 2).contiguous()\n    return y",
+  "id": 46,
+  "kind": "equivalent",
+  "name": "bilinear_upsample2x_reshape",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x2D upsample (56x56 output from 28x28 input, align_corners=False) built from a reshape + a bilinear-resize primitive + reshape back.\\n\\n1. Reshape the incoming activation (B, 784, 768) \\u2014 i.e. 28*28=784 tokens of 768 channels from the linear \\u2014 into NCHW (B, 768, 28, 28).\\n2. Apply the bilinear_resize primitive: for each output pixel (oh, ow) in 56x56, compute source coordinates with align_corners=False mapping sy=(oh+0.5)/2-0.5, sx=(ow+0.5)/2-0.5; take floor iy=floor(sy), ix=floor(sx), fractional weights wy=sy-iy, wx=sx-ix clamped so iy,ix in [0,27]; output = (1-wy)(1-wx)*x[iy,ix] + (1-wy)wx*x[iy,ix+1] + wy(1-wx)*x[iy+1,ix] + wy*wx*x[iy+1,ix+1], with border pixels replicated (clamp indices). This is exactly torch's bilinear antialias-free upsample.\\n3. Reshape the (B, 768, 56, 56) result back to (B, 3136, 768) token layout (2408448 elements) to feed the concat.\", \"rel_err\": null}",
+  "proposed_by": 28
  }
 ]

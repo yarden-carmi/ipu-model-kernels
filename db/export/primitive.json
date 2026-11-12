@@ -16,6 +16,22 @@
   "tensors": null
  },
  {
+  "doc": "Bilinear resize of an NCHW tensor to (out_h, out_w) with align_corners=False (half-pixel centers, no antialiasing).",
+  "name": "bilinear_resize",
+  "origin": "agent",
+  "params": "{\"align_corners\": \"bool\", \"out_h\": \"int\", \"out_w\": \"int\"}",
+  "reference": "def fn(x, out_h, out_w, align_corners=False):\n    import torch.nn.functional as F\n    return F.interpolate(x, size=(out_h, out_w), mode='bilinear', align_corners=align_corners)",
+  "tensors": null
+ },
+ {
+  "doc": "Bilinear 2D resize of a CHW or NCHW tensor to (out_h, out_w), align_corners=False, no antialiasing.",
+  "name": "bilinear_resize2d",
+  "origin": "agent",
+  "params": "{\"align_corners\": \"bool\", \"out_h\": \"int\", \"out_w\": \"int\"}",
+  "reference": "def fn(x, out_h, out_w, align_corners=False):\n    import torch\n    import torch.nn.functional as F\n    squeeze = (x.dim() == 3)\n    if squeeze:\n        x = x.unsqueeze(0)\n    y = F.interpolate(x, size=(out_h, out_w), mode='bilinear', align_corners=align_corners)\n    if squeeze:\n        y = y.squeeze(0)\n    return y.contiguous()",
+  "tensors": null
+ },
+ {
   "doc": null,
   "name": "binary",
   "origin": "builtin",
@@ -221,6 +237,14 @@
   "origin": "builtin",
   "params": null,
   "reference": null,
+  "tensors": null
+ },
+ {
+  "doc": "View the input as the given shape (same numel).",
+  "name": "view_nchw",
+  "origin": "agent",
+  "params": "{\"shape\": \"tuple of ints\"}",
+  "reference": "def fn(x, shape):\n    return x.reshape(shape)",
   "tensors": null
  }
 ]
