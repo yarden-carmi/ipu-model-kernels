@@ -45,8 +45,8 @@
   "title": "Resource limits"
  },
  {
-  "body": "Across the surveyed models, the largest measured cost is **layout conversion**: 418 of 714 inter-kernel tensor links (58%) require rearrangement, dominated by head-dimension changes (238) and other reshuffles (158), though no link fails outright. **Format pressure** is the next concern: 219 models choose non-standard formats\u2014overwhelmingly fp8_e2m5 (4281 instances)\u2014and the worst observed accuracy loss is \u22120.8 dB on tensor multiply in facebook/DiT-XL-2-256. **Resource limits** are significant in count but not saturation: 916 operations fall back to the 256-entry LUT, yet no kernel exceeds 80% IMEM bank usage and FP32 headroom never drops below 0.0 decades. **ISA gaps** affect relatively few operations (conv2d: 1 op in 1 model; data addressing: 29 ops in 2 models; missing ATen op: 2 ops in 2 models) and currently cost nothing\u2014replacements recover 0.00 dB and 0 cycles, with 0 failures. **Compute efficiency** remains unmeasured, so its cost cannot yet be ranked.",
-  "created_at": 1794520447.127418,
+  "body": "The biggest cost is format pressure: across 220 models, custom low-precision formats are chosen thousands of times (fp8_e2m5 dominates with 4,281 picks), and the worst case loses 0.8 dB of accuracy (facebook/DiT-XL-2-256). Second is layout conversions: 418 of 714 inter-kernel tensors must change arrangement, mostly due to heads (238) and other rearrangements (158), though no link fails. Third are ISA gaps: 32 operations across 5 models lack a chip operation (conv2d, runtime-index lookups, and 2 other ATen ops), but all replacements are exact (0.00 dB) and no cycle overhead is reported. Fourth, resource limits: 916 operations go through the 256-entry LUT, though no kernel exceeds 80% IMEM usage and FP32 headroom is not a constraint. Compute efficiency is unmeasured, so its cost is unknown.",
+  "created_at": 1794520463.0804503,
   "id": 7,
   "kind": "summary",
   "numbers": null,
