@@ -13660,5 +13660,608 @@
   "parent_id": 1499,
   "path": "segformer.stages.*.patch_embeddings.proj",
   "repeat": 4
+ },
+ {
+  "capture_id": 34,
+  "class": null,
+  "first_seq": 0,
+  "id": 1520,
+  "parent_id": 1519,
+  "path": "(input)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 34,
+  "class": "SegformerForSemanticSegmentation",
+  "first_seq": 0,
+  "id": 1519,
+  "parent_id": null,
+  "path": "(top)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 34,
+  "class": "SegformerDecodeHead",
+  "first_seq": 295,
+  "id": 1521,
+  "parent_id": 1519,
+  "path": "decode_head",
+  "repeat": 1
+ },
+ {
+  "capture_id": 34,
+  "class": "ReLU",
+  "first_seq": 306,
+  "id": 1523,
+  "parent_id": 1521,
+  "path": "decode_head.activation",
+  "repeat": 1
+ },
+ {
+  "capture_id": 34,
+  "class": "BatchNorm2d",
+  "first_seq": 305,
+  "id": 1524,
+  "parent_id": 1521,
+  "path": "decode_head.batch_norm",
+  "repeat": 1
+ },
+ {
+  "capture_id": 34,
+  "class": "Conv2d",
+  "first_seq": 307,
+  "id": 1525,
+  "parent_id": 1521,
+  "path": "decode_head.classifier",
+  "repeat": 1
+ },
+ {
+  "capture_id": 34,
+  "class": "Conv2d",
+  "first_seq": 304,
+  "id": 1526,
+  "parent_id": 1521,
+  "path": "decode_head.linear_fuse",
+  "repeat": 1
+ },
+ {
+  "capture_id": 34,
+  "class": "ModuleList",
+  "first_seq": 295,
+  "id": 1527,
+  "parent_id": 1521,
+  "path": "decode_head.linear_projections",
+  "repeat": 1
+ },
+ {
+  "capture_id": 34,
+  "class": "SegformerMLP",
+  "first_seq": 295,
+  "id": 1529,
+  "parent_id": 1527,
+  "path": "decode_head.linear_projections.*",
+  "repeat": 4
+ },
+ {
+  "capture_id": 34,
+  "class": "Linear",
+  "first_seq": 295,
+  "id": 1531,
+  "parent_id": 1529,
+  "path": "decode_head.linear_projections.*.proj",
+  "repeat": 4
+ },
+ {
+  "capture_id": 34,
+  "class": "SegformerModel",
+  "first_seq": 1,
+  "id": 1522,
+  "parent_id": 1519,
+  "path": "segformer",
+  "repeat": 1
+ },
+ {
+  "capture_id": 34,
+  "class": "ModuleList",
+  "first_seq": 1,
+  "id": 1528,
+  "parent_id": 1522,
+  "path": "segformer.stages",
+  "repeat": 1
+ },
+ {
+  "capture_id": 34,
+  "class": "SegformerStage",
+  "first_seq": 1,
+  "id": 1530,
+  "parent_id": 1528,
+  "path": "segformer.stages.*",
+  "repeat": 4
+ },
+ {
+  "capture_id": 34,
+  "class": "ModuleList",
+  "first_seq": 3,
+  "id": 1532,
+  "parent_id": 1530,
+  "path": "segformer.stages.*.blocks",
+  "repeat": 4
+ },
+ {
+  "capture_id": 34,
+  "class": "SegformerLayer",
+  "first_seq": 3,
+  "id": 1535,
+  "parent_id": 1532,
+  "path": "segformer.stages.*.blocks.*",
+  "repeat": 16
+ },
+ {
+  "capture_id": 34,
+  "class": "SegformerAttention",
+  "first_seq": 4,
+  "id": 1538,
+  "parent_id": 1535,
+  "path": "segformer.stages.*.blocks.*.attention",
+  "repeat": 16
+ },
+ {
+  "capture_id": 34,
+  "class": "Linear",
+  "first_seq": 7,
+  "id": 1542,
+  "parent_id": 1538,
+  "path": "segformer.stages.*.blocks.*.attention.k_proj",
+  "repeat": 16
+ },
+ {
+  "capture_id": 34,
+  "class": "Linear",
+  "first_seq": 13,
+  "id": 1543,
+  "parent_id": 1538,
+  "path": "segformer.stages.*.blocks.*.attention.o_proj",
+  "repeat": 16
+ },
+ {
+  "capture_id": 34,
+  "class": "Linear",
+  "first_seq": 4,
+  "id": 1544,
+  "parent_id": 1538,
+  "path": "segformer.stages.*.blocks.*.attention.q_proj",
+  "repeat": 16
+ },
+ {
+  "capture_id": 34,
+  "class": "SegformerSequenceReduction",
+  "first_seq": 5,
+  "id": 1545,
+  "parent_id": 1538,
+  "path": "segformer.stages.*.blocks.*.attention.sequence_reduction",
+  "repeat": 13
+ },
+ {
+  "capture_id": 34,
+  "class": "LayerNorm",
+  "first_seq": 6,
+  "id": 1551,
+  "parent_id": 1545,
+  "path": "segformer.stages.*.blocks.*.attention.sequence_reduction.layer_norm",
+  "repeat": 13
+ },
+ {
+  "capture_id": 34,
+  "class": "Conv2d",
+  "first_seq": 5,
+  "id": 1552,
+  "parent_id": 1545,
+  "path": "segformer.stages.*.blocks.*.attention.sequence_reduction.sequence_reduction",
+  "repeat": 13
+ },
+ {
+  "capture_id": 34,
+  "class": "Linear",
+  "first_seq": 8,
+  "id": 1546,
+  "parent_id": 1538,
+  "path": "segformer.stages.*.blocks.*.attention.v_proj",
+  "repeat": 16
+ },
+ {
+  "capture_id": 34,
+  "class": "LayerNorm",
+  "first_seq": 15,
+  "id": 1539,
+  "parent_id": 1535,
+  "path": "segformer.stages.*.blocks.*.layernorm_after",
+  "repeat": 16
+ },
+ {
+  "capture_id": 34,
+  "class": "LayerNorm",
+  "first_seq": 3,
+  "id": 1540,
+  "parent_id": 1535,
+  "path": "segformer.stages.*.blocks.*.layernorm_before",
+  "repeat": 16
+ },
+ {
+  "capture_id": 34,
+  "class": "SegformerMixMLP",
+  "first_seq": 16,
+  "id": 1541,
+  "parent_id": 1535,
+  "path": "segformer.stages.*.blocks.*.mlp",
+  "repeat": 16
+ },
+ {
+  "capture_id": 34,
+  "class": "GELUActivation",
+  "first_seq": 18,
+  "id": 1547,
+  "parent_id": 1541,
+  "path": "segformer.stages.*.blocks.*.mlp.activation_fn",
+  "repeat": 16
+ },
+ {
+  "capture_id": 34,
+  "class": "SegformerDepthWiseConv",
+  "first_seq": 17,
+  "id": 1548,
+  "parent_id": 1541,
+  "path": "segformer.stages.*.blocks.*.mlp.dwconv",
+  "repeat": 16
+ },
+ {
+  "capture_id": 34,
+  "class": "Conv2d",
+  "first_seq": 17,
+  "id": 1553,
+  "parent_id": 1548,
+  "path": "segformer.stages.*.blocks.*.mlp.dwconv.dwconv",
+  "repeat": 16
+ },
+ {
+  "capture_id": 34,
+  "class": "Linear",
+  "first_seq": 16,
+  "id": 1549,
+  "parent_id": 1541,
+  "path": "segformer.stages.*.blocks.*.mlp.fc1",
+  "repeat": 16
+ },
+ {
+  "capture_id": 34,
+  "class": "Linear",
+  "first_seq": 19,
+  "id": 1550,
+  "parent_id": 1541,
+  "path": "segformer.stages.*.blocks.*.mlp.fc2",
+  "repeat": 16
+ },
+ {
+  "capture_id": 34,
+  "class": "LayerNorm",
+  "first_seq": 57,
+  "id": 1533,
+  "parent_id": 1530,
+  "path": "segformer.stages.*.layer_norm",
+  "repeat": 4
+ },
+ {
+  "capture_id": 34,
+  "class": "SegformerOverlapPatchEmbeddings",
+  "first_seq": 1,
+  "id": 1534,
+  "parent_id": 1530,
+  "path": "segformer.stages.*.patch_embeddings",
+  "repeat": 4
+ },
+ {
+  "capture_id": 34,
+  "class": "LayerNorm",
+  "first_seq": 2,
+  "id": 1536,
+  "parent_id": 1534,
+  "path": "segformer.stages.*.patch_embeddings.layer_norm",
+  "repeat": 4
+ },
+ {
+  "capture_id": 34,
+  "class": "Conv2d",
+  "first_seq": 1,
+  "id": 1537,
+  "parent_id": 1534,
+  "path": "segformer.stages.*.patch_embeddings.proj",
+  "repeat": 4
+ },
+ {
+  "capture_id": 35,
+  "class": null,
+  "first_seq": 0,
+  "id": 1555,
+  "parent_id": 1554,
+  "path": "(input)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 35,
+  "class": "BertForMaskedLM",
+  "first_seq": 0,
+  "id": 1554,
+  "parent_id": null,
+  "path": "(top)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 35,
+  "class": "BertModel",
+  "first_seq": 1,
+  "id": 1556,
+  "parent_id": 1554,
+  "path": "bert",
+  "repeat": 1
+ },
+ {
+  "capture_id": 35,
+  "class": "BertEmbeddings",
+  "first_seq": 1,
+  "id": 1558,
+  "parent_id": 1556,
+  "path": "bert.embeddings",
+  "repeat": 1
+ },
+ {
+  "capture_id": 35,
+  "class": "LayerNorm",
+  "first_seq": 7,
+  "id": 1561,
+  "parent_id": 1558,
+  "path": "bert.embeddings.LayerNorm",
+  "repeat": 1
+ },
+ {
+  "capture_id": 35,
+  "class": "Embedding",
+  "first_seq": 5,
+  "id": 1562,
+  "parent_id": 1558,
+  "path": "bert.embeddings.position_embeddings",
+  "repeat": 1
+ },
+ {
+  "capture_id": 35,
+  "class": "Embedding",
+  "first_seq": 3,
+  "id": 1563,
+  "parent_id": 1558,
+  "path": "bert.embeddings.token_type_embeddings",
+  "repeat": 1
+ },
+ {
+  "capture_id": 35,
+  "class": "Embedding",
+  "first_seq": 2,
+  "id": 1564,
+  "parent_id": 1558,
+  "path": "bert.embeddings.word_embeddings",
+  "repeat": 1
+ },
+ {
+  "capture_id": 35,
+  "class": "BertEncoder",
+  "first_seq": 8,
+  "id": 1559,
+  "parent_id": 1556,
+  "path": "bert.encoder",
+  "repeat": 1
+ },
+ {
+  "capture_id": 35,
+  "class": "ModuleList",
+  "first_seq": 8,
+  "id": 1565,
+  "parent_id": 1559,
+  "path": "bert.encoder.layer",
+  "repeat": 1
+ },
+ {
+  "capture_id": 35,
+  "class": "BertLayer",
+  "first_seq": 8,
+  "id": 1568,
+  "parent_id": 1565,
+  "path": "bert.encoder.layer.*",
+  "repeat": 12
+ },
+ {
+  "capture_id": 35,
+  "class": "BertAttention",
+  "first_seq": 8,
+  "id": 1572,
+  "parent_id": 1568,
+  "path": "bert.encoder.layer.*.attention",
+  "repeat": 12
+ },
+ {
+  "capture_id": 35,
+  "class": "BertSelfOutput",
+  "first_seq": 15,
+  "id": 1575,
+  "parent_id": 1572,
+  "path": "bert.encoder.layer.*.attention.output",
+  "repeat": 12
+ },
+ {
+  "capture_id": 35,
+  "class": "LayerNorm",
+  "first_seq": 17,
+  "id": 1581,
+  "parent_id": 1575,
+  "path": "bert.encoder.layer.*.attention.output.LayerNorm",
+  "repeat": 12
+ },
+ {
+  "capture_id": 35,
+  "class": "Linear",
+  "first_seq": 15,
+  "id": 1582,
+  "parent_id": 1575,
+  "path": "bert.encoder.layer.*.attention.output.dense",
+  "repeat": 12
+ },
+ {
+  "capture_id": 35,
+  "class": "BertSelfAttention",
+  "first_seq": 8,
+  "id": 1576,
+  "parent_id": 1572,
+  "path": "bert.encoder.layer.*.attention.self",
+  "repeat": 12
+ },
+ {
+  "capture_id": 35,
+  "class": "Linear",
+  "first_seq": 9,
+  "id": 1583,
+  "parent_id": 1576,
+  "path": "bert.encoder.layer.*.attention.self.key",
+  "repeat": 12
+ },
+ {
+  "capture_id": 35,
+  "class": "Linear",
+  "first_seq": 8,
+  "id": 1584,
+  "parent_id": 1576,
+  "path": "bert.encoder.layer.*.attention.self.query",
+  "repeat": 12
+ },
+ {
+  "capture_id": 35,
+  "class": "Linear",
+  "first_seq": 10,
+  "id": 1585,
+  "parent_id": 1576,
+  "path": "bert.encoder.layer.*.attention.self.value",
+  "repeat": 12
+ },
+ {
+  "capture_id": 35,
+  "class": "BertIntermediate",
+  "first_seq": 18,
+  "id": 1573,
+  "parent_id": 1568,
+  "path": "bert.encoder.layer.*.intermediate",
+  "repeat": 12
+ },
+ {
+  "capture_id": 35,
+  "class": "Linear",
+  "first_seq": 18,
+  "id": 1577,
+  "parent_id": 1573,
+  "path": "bert.encoder.layer.*.intermediate.dense",
+  "repeat": 12
+ },
+ {
+  "capture_id": 35,
+  "class": "GELUActivation",
+  "first_seq": 19,
+  "id": 1578,
+  "parent_id": 1573,
+  "path": "bert.encoder.layer.*.intermediate.intermediate_act_fn",
+  "repeat": 12
+ },
+ {
+  "capture_id": 35,
+  "class": "BertOutput",
+  "first_seq": 20,
+  "id": 1574,
+  "parent_id": 1568,
+  "path": "bert.encoder.layer.*.output",
+  "repeat": 12
+ },
+ {
+  "capture_id": 35,
+  "class": "LayerNorm",
+  "first_seq": 22,
+  "id": 1579,
+  "parent_id": 1574,
+  "path": "bert.encoder.layer.*.output.LayerNorm",
+  "repeat": 12
+ },
+ {
+  "capture_id": 35,
+  "class": "Linear",
+  "first_seq": 20,
+  "id": 1580,
+  "parent_id": 1574,
+  "path": "bert.encoder.layer.*.output.dense",
+  "repeat": 12
+ },
+ {
+  "capture_id": 35,
+  "class": "BertOnlyMLMHead",
+  "first_seq": 188,
+  "id": 1557,
+  "parent_id": 1554,
+  "path": "cls",
+  "repeat": 1
+ },
+ {
+  "capture_id": 35,
+  "class": "BertLMPredictionHead",
+  "first_seq": 188,
+  "id": 1560,
+  "parent_id": 1557,
+  "path": "cls.predictions",
+  "repeat": 1
+ },
+ {
+  "capture_id": 35,
+  "class": "Linear",
+  "first_seq": 191,
+  "id": 1566,
+  "parent_id": 1560,
+  "path": "cls.predictions.decoder",
+  "repeat": 1
+ },
+ {
+  "capture_id": 35,
+  "class": "BertPredictionHeadTransform",
+  "first_seq": 188,
+  "id": 1567,
+  "parent_id": 1560,
+  "path": "cls.predictions.transform",
+  "repeat": 1
+ },
+ {
+  "capture_id": 35,
+  "class": "LayerNorm",
+  "first_seq": 190,
+  "id": 1569,
+  "parent_id": 1567,
+  "path": "cls.predictions.transform.LayerNorm",
+  "repeat": 1
+ },
+ {
+  "capture_id": 35,
+  "class": "Linear",
+  "first_seq": 188,
+  "id": 1570,
+  "parent_id": 1567,
+  "path": "cls.predictions.transform.dense",
+  "repeat": 1
+ },
+ {
+  "capture_id": 35,
+  "class": "GELUActivation",
+  "first_seq": 189,
+  "id": 1571,
+  "parent_id": 1567,
+  "path": "cls.predictions.transform.transform_act_fn",
+  "repeat": 1
  }
 ]
