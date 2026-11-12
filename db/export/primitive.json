@@ -1,10 +1,18 @@
 [
  {
-  "doc": "Broadcast add over rows",
+  "doc": "Elementwise add",
   "name": "add",
   "origin": "agent",
-  "params": "{\"broadcast\": \"rows\"}",
-  "reference": "def fn(x, b):\n    return x + b",
+  "params": "{}",
+  "reference": "def fn(a, b):\n    return a + b",
+  "tensors": null
+ },
+ {
+  "doc": "Add Gaussian noise scaled by a fraction of the element magnitude.",
+  "name": "add_relative_noise",
+  "origin": "agent",
+  "params": "{\"sigma\": \"float\"}",
+  "reference": "def fn(x, sigma=1e-3):\n    return x + torch.randn_like(x) * sigma * x.abs().clamp_min(1e-8)",
   "tensors": null
  },
  {
@@ -48,11 +56,19 @@
   "tensors": null
  },
  {
-  "doc": "Return a 0/1 mask of length vocab: 1 where arange(vocab) equals the scalar id.",
+  "doc": "Returns the input twice",
+  "name": "dup2",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(x):\n    return x, x",
+  "tensors": null
+ },
+ {
+  "doc": "Constant generator: 256x256 upper-triangular ones mask; consumes no activation",
   "name": "eq_range",
   "origin": "agent",
-  "params": "{\"vocab\": \"length of the range / mask\"}",
-  "reference": "def fn(ids, vocab):\n    return (torch.arange(vocab, dtype=ids.dtype) == ids.reshape(-1)[0]).to(torch.float32)",
+  "params": "{\"n\": 256}",
+  "reference": "def fn(**params):\n    idx = torch.arange(params.get('n', 256))\n    return (idx[:, None] <= idx[None, :]).float()",
   "tensors": null
  },
  {
@@ -61,6 +77,30 @@
   "origin": "builtin",
   "params": null,
   "reference": null,
+  "tensors": null
+ },
+ {
+  "doc": "Returns the input unchanged (numerically identical to a dtype cast in full precision).",
+  "name": "identity",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(x):\n    return x",
+  "tensors": null
+ },
+ {
+  "doc": "Constant 256x256 upper-triangular ones mask",
+  "name": "mask",
+  "origin": "agent",
+  "params": "{\"n\": 256}",
+  "reference": "def fn(x, n=256):\n    idx = torch.arange(n)\n    return (idx[:, None] <= idx[None, :]).float()",
+  "tensors": null
+ },
+ {
+  "doc": "Emits the constant 256x256 upper-triangular ones mask and a copy of the input",
+  "name": "mask_dup",
+  "origin": "agent",
+  "params": "{\"n\": 256}",
+  "reference": "def fn(x, n=256):\n    idx = torch.arange(n)\n    M = (idx[:, None] <= idx[None, :]).float()\n    return M, x",
   "tensors": null
  },
  {
@@ -104,11 +144,11 @@
   "tensors": null
  },
  {
-  "doc": "Per-row symmetric quantization scales s_i = max|W_i|/127.",
+  "doc": "Quantize a tensor per-tensor symmetric to a given bit width.",
   "name": "quantize_w",
   "origin": "agent",
-  "params": "{\"bits\": \"int\", \"per_row\": \"bool\"}",
-  "reference": "def fn(W, bits, per_row):\n    s = W.abs().amax(dim=1) / (2**(bits-1) - 1)\n    return s",
+  "params": "{\"bits\": \"int\", \"scheme\": \"string\"}",
+  "reference": "def fn(x, bits=8, scheme='per_tensor_symmetric'):\n    s = x.abs().max() / (2 ** (bits - 1) - 1)\n    return torch.clamp(torch.round(x / s), -(2 ** (bits - 1) - 1), 2 ** (bits - 1) - 1) * s",
   "tensors": null
  },
  {
@@ -144,11 +184,35 @@
   "tensors": null
  },
  {
-  "doc": "Precompute rank-r truncated SVD factors U_r (1024,r), S_r (r,), V_r (r,512) of the weight.",
+  "doc": "Splits input into two",
   "name": "svd_split",
   "origin": "agent",
-  "params": "{\"rank\": \"int\"}",
-  "reference": "def fn(W, rank):\n    U, S, Vh = torch.linalg.svd(W, full_matrices=False)\n    return U[:, :rank], S[:rank], Vh[:rank, :]",
+  "params": "{}",
+  "reference": "def fn(x):\n    return x, x",
+  "tensors": null
+ },
+ {
+  "doc": "Constant lower-triangular matrix of ones, 256x256",
+  "name": "tril_const",
+  "origin": "agent",
+  "params": "{\"n\": 256}",
+  "reference": "def fn(x, n=256):\n    return torch.tril(torch.ones(n, n))",
+  "tensors": null
+ },
+ {
+  "doc": "Constant lower-triangular ones mask 256x256",
+  "name": "tril_mask",
+  "origin": "agent",
+  "params": "{\"n\": 256}",
+  "reference": "def fn(x, n=256):\n    return torch.tril(torch.ones(n, n))",
+  "tensors": null
+ },
+ {
+  "doc": "Round a float tensor to bfloat16 precision (round-to-nearest-even) keeping float32 storage.",
+  "name": "trunc_bf16",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(x):\n    xi = x.float().view(torch.int32)\n    return ((xi + 0x7FFF + ((xi >> 16) & 1)) & ~0xFFFF).view(torch.float32)",
   "tensors": null
  },
  {
