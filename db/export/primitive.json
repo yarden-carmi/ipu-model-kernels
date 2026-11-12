@@ -32,11 +32,35 @@
   "tensors": null
  },
  {
+  "doc": "Elementwise equality of a scalar id against a range vector of the table's vocab size.",
+  "name": "eq_range",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(ids, table):\n    return (torch.arange(table.shape[0]) == int(ids.reshape(-1)[0])).to(table.dtype)",
+  "tensors": null
+ },
+ {
   "doc": null,
   "name": "gemm",
   "origin": "builtin",
   "params": null,
   "reference": null,
+  "tensors": null
+ },
+ {
+  "doc": "Build a one-hot row vector from a single integer index; vocab inferred from the table.",
+  "name": "one_hot",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(ids, table):\n    x = torch.zeros(1, table.shape[0], dtype=table.dtype)\n    x[0, int(ids.reshape(-1)[0])] = 1.0\n    return x",
+  "tensors": null
+ },
+ {
+  "doc": "One-hot encode the single token id and matmul with the constant embedding table; exactly selects the id's row.",
+  "name": "one_hot_gemm",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(ids, table):\n    x = torch.zeros(1, table.shape[0], dtype=table.dtype)\n    x[0, int(ids.reshape(-1)[0])] = 1.0\n    return x @ table",
   "tensors": null
  },
  {
