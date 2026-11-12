@@ -10844,5 +10844,104 @@
   "row_order": "[0]",
   "slot": 0,
   "src_id": 3507
+ },
+ {
+  "capture_id": 12,
+  "dst_id": 5385,
+  "lane_dim": 1,
+  "pad": 125,
+  "plan_id": 7,
+  "reason": "the reader handles dim 1 along the lanes; the writer (input) stores any; accuracy would take dim 3 (qbench: one channel's spatial plane along the lanes, here an image row (W) with H next along the rows (_spatial_activation_meta: pixels of one channel share a scale)), which costs a layout conversion; dim 1 (3) padded to 128: small planes or rows are not packed several to a row (one lane dimension cannot describe the packing)",
+  "row_order": "[0, 2, 3]",
+  "slot": 0,
+  "src_id": 5384
+ },
+ {
+  "capture_id": 12,
+  "dst_id": 5416,
+  "lane_dim": 1,
+  "pad": 104,
+  "plan_id": 7,
+  "reason": "writer (add) and reader both handle dim 1 along the lanes: no conversion; accuracy would take dim 3 (qbench: one channel's spatial plane along the lanes, here an image row (W) with H next along the rows (_spatial_activation_meta: pixels of one channel share a scale)), which costs a layout conversion; dim 1 (24) padded to 128: small planes or rows are not packed several to a row (one lane dimension cannot describe the packing)",
+  "row_order": "[0, 2, 3]",
+  "slot": 0,
+  "src_id": 5415
+ },
+ {
+  "capture_id": 12,
+  "dst_id": 5459,
+  "lane_dim": 1,
+  "pad": 88,
+  "plan_id": 7,
+  "reason": "the writer (add) puts dim 1 along the lanes by nature; the reader reads any; accuracy would take dim 3 (qbench: one channel's spatial plane along the lanes, here an image row (W) with H next along the rows (_spatial_activation_meta: pixels of one channel share a scale)), which costs a layout conversion; dim 1 (40) padded to 128: small planes or rows are not packed several to a row (one lane dimension cannot describe the packing)",
+  "row_order": "[0, 2, 3]",
+  "slot": 1,
+  "src_id": 5444
+ },
+ {
+  "capture_id": 12,
+  "dst_id": 5448,
+  "lane_dim": 1,
+  "pad": 16,
+  "plan_id": 7,
+  "reason": "writer (hardswish) and reader both handle dim 1 along the lanes: no conversion; accuracy would take dim 3 (qbench: one channel's spatial plane along the lanes, here an image row (W) with H next along the rows (_spatial_activation_meta: pixels of one channel share a scale)), which costs a layout conversion",
+  "row_order": "[0, 2, 3]",
+  "slot": 0,
+  "src_id": 5447
+ },
+ {
+  "capture_id": 12,
+  "dst_id": 5488,
+  "lane_dim": 1,
+  "pad": 80,
+  "plan_id": 7,
+  "reason": "the writer (batchnorm) puts dim 1 along the lanes by nature; the reader reads any; accuracy would take dim 3 (qbench: one channel's spatial plane along the lanes, here an image row (W) with H next along the rows (_spatial_activation_meta: pixels of one channel share a scale)), which costs a layout conversion; dim 1 (48) padded to 128: small planes or rows are not packed several to a row (one lane dimension cannot describe the packing)",
+  "row_order": "[0, 2, 3]",
+  "slot": 1,
+  "src_id": 5473
+ },
+ {
+  "capture_id": 12,
+  "dst_id": 5485,
+  "lane_dim": 1,
+  "pad": 112,
+  "plan_id": 7,
+  "reason": "the writer (hardswish) puts dim 1 along the lanes by nature; the reader reads any; accuracy would take dim 3 (qbench: one channel's spatial plane along the lanes, here an image row (W) with H next along the rows (_spatial_activation_meta: pixels of one channel share a scale)), which costs a layout conversion",
+  "row_order": "[0, 2, 3]",
+  "slot": 0,
+  "src_id": 5479
+ },
+ {
+  "capture_id": 12,
+  "dst_id": 5481,
+  "lane_dim": 1,
+  "pad": 112,
+  "plan_id": 7,
+  "reason": "writer (mean) and reader both handle dim 1 along the lanes: no conversion; accuracy would take dim 3 (qbench: the last dimension along the lanes (chunk_tensor_by_context)), which costs a layout conversion",
+  "row_order": "[0, 2, 3]",
+  "slot": 0,
+  "src_id": 5480
+ },
+ {
+  "capture_id": 12,
+  "dst_id": 5517,
+  "lane_dim": 1,
+  "pad": 32,
+  "plan_id": 7,
+  "reason": "the writer (batchnorm) puts dim 1 along the lanes by nature; the reader reads any; accuracy would take dim 3 (qbench: one channel's spatial plane along the lanes, here an image row (W) with H next along the rows (_spatial_activation_meta: pixels of one channel share a scale)), which costs a layout conversion; dim 1 (96) padded to 128: small planes or rows are not packed several to a row (one lane dimension cannot describe the packing)",
+  "row_order": "[0, 2, 3]",
+  "slot": 1,
+  "src_id": 5502
+ },
+ {
+  "capture_id": 12,
+  "dst_id": 5515,
+  "lane_dim": 1,
+  "pad": 64,
+  "plan_id": 7,
+  "reason": "writer (mul) and reader both handle dim 1 along the lanes: no conversion; accuracy would take dim 3 (qbench: one channel's spatial plane along the lanes, here an image row (W) with H next along the rows (_spatial_activation_meta: pixels of one channel share a scale)), which costs a layout conversion",
+  "row_order": "[0, 2, 3]",
+  "slot": 0,
+  "src_id": 5514
  }
 ]
