@@ -10943,5 +10943,71 @@
   "row_order": "[0, 2, 3]",
   "slot": 0,
   "src_id": 5514
+ },
+ {
+  "capture_id": 9,
+  "dst_id": 3930,
+  "lane_dim": 2,
+  "pad": 0,
+  "plan_id": 8,
+  "reason": "the writer (layernorm) puts dim 2 along the lanes by nature; the reader reads any; accuracy agrees (qbench: the last dimension along the lanes (chunk_tensor_by_context))",
+  "row_order": "[0, 1]",
+  "slot": 1,
+  "src_id": 3921
+ },
+ {
+  "capture_id": 9,
+  "dst_id": 3925,
+  "lane_dim": 3,
+  "pad": 64,
+  "plan_id": 8,
+  "reason": "writer (linear) and reader both handle dim 3 along the lanes: no conversion; accuracy agrees (qbench: the last dimension along the lanes (chunk_tensor_by_context)); dim 3 (64) padded to 128: small planes or rows are not packed several to a row (one lane dimension cannot describe the packing)",
+  "row_order": "[0, 1, 2]",
+  "slot": 0,
+  "src_id": 3922
+ },
+ {
+  "capture_id": 9,
+  "dst_id": 3925,
+  "lane_dim": 2,
+  "pad": 64,
+  "plan_id": 8,
+  "reason": "writer (linear) and reader both handle dim 2 along the lanes: no conversion; accuracy would take dim 3 (qbench: the last dimension along the lanes (chunk_tensor_by_context)), which costs a layout conversion; dim 2 (64) padded to 128: small planes or rows are not packed several to a row (one lane dimension cannot describe the packing)",
+  "row_order": "[0, 1, 3]",
+  "slot": 1,
+  "src_id": 3923
+ },
+ {
+  "capture_id": 9,
+  "dst_id": 3928,
+  "lane_dim": 3,
+  "pad": 64,
+  "plan_id": 8,
+  "reason": "writer (linear) and reader both handle dim 3 along the lanes: no conversion; accuracy agrees (qbench: the last dimension along the lanes (chunk_tensor_by_context)); dim 3 (64) padded to 128: small planes or rows are not packed several to a row (one lane dimension cannot describe the packing)",
+  "row_order": "[0, 1, 2]",
+  "slot": 1,
+  "src_id": 3924
+ },
+ {
+  "capture_id": 9,
+  "dst_id": 3946,
+  "lane_dim": 2,
+  "pad": 0,
+  "plan_id": 8,
+  "reason": "writer (add) and reader both handle dim 2 along the lanes: no conversion; accuracy agrees (qbench: the last dimension along the lanes (chunk_tensor_by_context))",
+  "row_order": "[0, 1]",
+  "slot": 0,
+  "src_id": 3945
+ },
+ {
+  "capture_id": 9,
+  "dst_id": 3967,
+  "lane_dim": 1,
+  "pad": 0,
+  "plan_id": 8,
+  "reason": "the reader handles dim 1 along the lanes; the writer (layernorm) stores any; accuracy agrees (qbench: the last dimension along the lanes (chunk_tensor_by_context))",
+  "row_order": "[0]",
+  "slot": 0,
+  "src_id": 3966
  }
 ]
