@@ -45,8 +45,8 @@
   "title": "Resource limits"
  },
  {
-  "body": "The IPU's most costly cost across the 220 surveyed models is format pressure, with 7,030 tensors needing non-standard 8-bit formats \u2014 mostly fp8_e2m5 (4,885) \u2014 and the worst precision loss being \u22120.8 dB on a tensor multiplication in facebook/DiT-XL-2-256. The second most costly is layout conversion: 418 of 751 tensors (56%) change arrangement between kernels, dominated by head re-layouts (238), which typically require data-movement kernels. Third is resource limits, with 1,048 operations relying on the 256-entry LUT (a potential throughput bottleneck), though IMEM and FP32 headroom are not constraints. Fourth are ISA gaps \u2014 conv2d, runtime-index addressing, and two unmatched ATen ops have no chip operation, forcing extra kernels \u2014 but their replacements cost 0 cycles and 0 dB, suggesting the fallbacks are cheap or unmeasured. Compute efficiency is the least costly (or least known) category, as no kernel has been measured yet, and the what-if analysis shows the ISA gaps recover no MACs or accuracy if fixed 1-to-1.",
-  "created_at": 1794522216.2335255,
+  "body": "The most costly issue is ISA gaps: conv2d, data addressing, and one other ATen op have no chip-level operation, forcing 32 operations across 5 models to fall back to replacements. Next, resource limits: 1048 operations go through the 256-entry LUT, though no kernel exceeds 80% IMEM usage and FP32 headroom is adequate. Format pressure is moderate: across 220 models, fp8_e2m5 dominates (5049 uses), with the worst tensor mul in facebook/DiT-XL-2-256 at -0.8 dB. Layout conversions are relatively common but cheap: 418 of 759 inter-kernel tensor links change arrangement (mostly heads), with no failures. Compute efficiency is the least costly (or least measured): no kernel has been measured yet, and all what-if replacements recover 0.00 dB with 0.00% MAC impact.",
+  "created_at": 1794522241.2754352,
   "id": 7,
   "kind": "summary",
   "numbers": null,
