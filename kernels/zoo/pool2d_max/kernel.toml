@@ -14,8 +14,8 @@ formats = ["dynamic"]
 [params]
 kind = { type = "str", choices = ["max"], default = "max" }
 channels = { type = "int", min = 1, max = 256, default = 64 }  # lanes per pixel
-h = { type = "int", min = 1, max = 128, default = 112 }        # input rows
-w = { type = "int", min = 1, max = 128, default = 112 }        # input columns
+h = { type = "int", min = 1, max = 256, default = 112 }        # input rows
+w = { type = "int", min = 1, max = 256, default = 112 }        # input columns
 k = { type = "int", min = 1, max = 3, default = 3 }            # window rows = columns
 stride = { type = "int", min = 1, max = 4, default = 2 }
 padding = { type = "int", min = 0, max = 2, default = 1 }      # at most k-1 (the guard)
@@ -196,6 +196,25 @@ h = 5
 w = 6
 k = 3
 stride = 1
+
+[cases.detr_scaled]                             # detr-resnet-50's shape, 1/4 the grid:
+kind = "max"                                    # same structure (128 x 32 out), default tier
+channels = 64
+h = 256
+w = 64
+k = 3
+stride = 2
+padding = 1
+
+[cases.detr]                                    # facebook/detr-resnet-50 maxpool, x1 per forward
+kind = "max"                                    # 128 x 128 out pixels: nightly (1.5M cycles)
+channels = 64
+h = 256
+w = 256
+k = 3
+stride = 2
+padding = 1
+tier = "nightly"
 
 [cases.wide]                                    # the grid real size, small channels
 kind = "max"

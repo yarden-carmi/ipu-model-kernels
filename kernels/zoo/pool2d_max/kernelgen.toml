@@ -10,7 +10,7 @@ unsupported = [
   "{\"kind\": \"max\", \"channels\": 64, \"h\": 112, \"w\": 112, \"k\": 4, \"stride\": 2, \"padding\": 1}: windows above 3 x 3 are out of the declared k range (1..3): the tap loop is dynamic and would take any k, but each extra ring of taps costs 8*k words per pixel and the 4x4 calls of the surveyed models do not exist, so the domain stays at the shapes the models run.",
   "{\"kind\": \"max\", \"channels\": 64, \"h\": 112, \"w\": 112, \"k\": 3, \"stride\": 2, \"padding\": 3}: padding above k-1 is refused (kernel.toml's guard folded into y's shape): a window can then cover no pixel of the image at all, R_ACC would keep the previous output's maximum, and the kernel has no -inf seed row to re-initialise from.",
   "{\"kind\": \"max\", \"channels\": 300, \"h\": 112, \"w\": 112, \"k\": 3, \"stride\": 2, \"padding\": 1}: above the declared channels maximum (256): three chunks per pixel would render and run, but no surveyed model needs them and each chunk re-walks the whole window, so the domain stays at two chunks.",
-  "{\"kind\": \"max\", \"channels\": 64, \"h\": 200, \"w\": 112, \"k\": 3, \"stride\": 2, \"padding\": 1}: above the declared h maximum (128): the program loops any size (every bound is a register), but a stride-2 call that big is 10k output pixels at ~100 words each, past the 1M-cycle launch budget, so the domain stops at the surveyed shapes.",
+  "{\"kind\": \"max\", \"channels\": 64, \"h\": 300, \"w\": 112, \"k\": 3, \"stride\": 2, \"padding\": 1}: above the declared h maximum (256): the program loops any size (every bound is a register), but the surveyed models stop at detr-resnet-50's 256 x 256, which is already 1.5M cycles per launch, so the domain stops there.",
 ]
 notes = """One parameterised program for every pool2d max call: y[oy,ox,c] =
 max over the k x k window of x, padding dropped (a tap outside the image
@@ -33,8 +33,10 @@ stream and one binary serves the whole domain; out-of-image taps fall
 straight through to the pointer walk, and a skipped window row advances the
 tap pointer by a whole spatial row, which keeps LR1 = (gy*w+gx)*chunks + c
 exact. The resnet18.a1_in1k call (64 channels, 112x112, 3x3, stride 2,
-padding 1) is 290039 cycles. Limits: kind max (avg is in `unsupported`),
-channels 1..256, h,w 1..128, k 1..3, stride 1..4, padding 0..k-1 (the guard
+padding 1) is 290039 cycles; facebook/detr-resnet-50's (64 channels, 256x256,
+same window) is about 1.5M -- nightly tier, one launch, no host tiling (the
+host tiles nothing for pool2d). Limits: kind max (avg is in `unsupported`),
+channels 1..256, h,w 1..256, k 1..3, stride 1..4, padding 0..k-1 (the guard
 is folded into y's shape: padding > k-1 leaves windows with no valid tap and
 ACC.MAX.FIRST would seed from a stale register). Accuracy: the datapath is a
 chain of exact FP32 maxima and only the store rounds, so the golden (float64,
