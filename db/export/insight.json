@@ -1,37 +1,37 @@
 [
  {
-  "body": "no chip operation for upsample: 4 operations in 2 models, 0 failed; data addressing (a lookup by a runtime index): 3 operations in 1 models, 0 failed; no chip operation for this ATen op: 1 operations in 1 models, 0 failed",
-  "created_at": 1794505881.8838258,
+  "body": "data addressing (a lookup by a runtime index): 3 operations in 1 models, 0 failed; no chip operation for upsample: 3 operations in 2 models, 1 failed; no chip operation for this ATen op: 1 operations in 1 models, 0 failed",
+  "created_at": 1794506502.2388349,
   "id": 1,
   "kind": "isa_gaps",
-  "numbers": "{\"gaps\": {\"data addressing (a lookup by a runtime index)\": {\"approximate\": 0, \"calls\": 42.0, \"equivalent\": 0, \"failed\": 0, \"macs\": 0.0, \"models\": 1, \"operations\": 3, \"worst_op_sqnr_db\": null}, \"no chip operation for this ATen op\": {\"approximate\": 0, \"calls\": 1.0, \"equivalent\": 0, \"failed\": 0, \"macs\": 0.0, \"models\": 1, \"operations\": 1, \"worst_op_sqnr_db\": null}, \"no chip operation for upsample\": {\"approximate\": 0, \"calls\": 4.0, \"equivalent\": 0, \"failed\": 0, \"macs\": 0.0, \"models\": 2, \"operations\": 4, \"worst_op_sqnr_db\": null}}}",
+  "numbers": "{\"gaps\": {\"data addressing (a lookup by a runtime index)\": {\"approximate\": 0, \"calls\": 42.0, \"equivalent\": 0, \"failed\": 0, \"macs\": 0.0, \"models\": 1, \"operations\": 3, \"worst_op_sqnr_db\": null}, \"no chip operation for this ATen op\": {\"approximate\": 0, \"calls\": 1.0, \"equivalent\": 0, \"failed\": 0, \"macs\": 0.0, \"models\": 1, \"operations\": 1, \"worst_op_sqnr_db\": null}, \"no chip operation for upsample\": {\"approximate\": 0, \"calls\": 3.0, \"equivalent\": 0, \"failed\": 1, \"macs\": 0.0, \"models\": 2, \"operations\": 3, \"worst_op_sqnr_db\": null}}}",
   "origin": "derive",
   "title": "ISA gaps"
  },
  {
   "body": "with data addressing (a lookup by a runtime index): +0.00% of MACs 1-to-1; with no chip operation for this ATen op: +0.00% of MACs 1-to-1; with no chip operation for upsample: +0.00% of MACs 1-to-1",
-  "created_at": 1794505881.8843033,
+  "created_at": 1794506502.2393138,
   "id": 2,
   "kind": "what_if",
-  "numbers": "{\"gaps\": [{\"calls\": 42.0, \"macs\": 0.0, \"missing\": \"data addressing (a lookup by a runtime index)\", \"pct_macs\": 0.0}, {\"calls\": 1.0, \"macs\": 0.0, \"missing\": \"no chip operation for this ATen op\", \"pct_macs\": 0.0}, {\"calls\": 4.0, \"macs\": 0.0, \"missing\": \"no chip operation for upsample\", \"pct_macs\": 0.0}], \"total_macs\": 2337914176512.0}",
+  "numbers": "{\"gaps\": [{\"calls\": 42.0, \"macs\": 0.0, \"missing\": \"data addressing (a lookup by a runtime index)\", \"pct_macs\": 0.0}, {\"calls\": 1.0, \"macs\": 0.0, \"missing\": \"no chip operation for this ATen op\", \"pct_macs\": 0.0}, {\"calls\": 3.0, \"macs\": 0.0, \"missing\": \"no chip operation for upsample\", \"pct_macs\": 0.0}], \"total_macs\": 2337914176512.0}",
   "origin": "derive",
   "title": "What-if"
  },
  {
-  "body": "4 models measured; formats chosen: fp8_e2m5 1487, fp8_e1m6 137, fp8_e3m4 27",
-  "created_at": 1794506002.3468344,
+  "body": "5 models measured; formats chosen: fp8_e2m5 1487, fp8_e1m6 137, fp8_e3m4 27",
+  "created_at": 1794506622.6352837,
   "id": 3,
   "kind": "format_pressure",
-  "numbers": "{\"formats_chosen\": {\"fp8_e1m6\": 137, \"fp8_e2m5\": 1487, \"fp8_e3m4\": 27}, \"models\": [{\"baseline_db\": 6.957589372774957, \"best_formats_db\": 14.888678222727133, \"final_db\": 13.881800119069311, \"model\": \"mobilevit_s.cvnets_in1k\"}, {\"baseline_db\": 25.226716011255263, \"best_formats_db\": 30.18448954252348, \"final_db\": null, \"model\": \"stable-diffusion-v1-5/stable-diffusion-v1-5\"}, {\"baseline_db\": 9.103446462431856, \"best_formats_db\": 14.127724459316122, \"final_db\": null, \"model\": \"stable-diffusion-v1-5/stable-diffusion-v1-5:vae\"}, {\"baseline_db\": 29.48950199281518, \"best_formats_db\": 30.15135916008729, \"final_db\": null, \"model\": \"facebook/DiT-XL-2-256\"}], \"unsigned_share\": 0.0, \"worst_tensors\": [{\"op\": \"linear\", \"q_sqnr\": 12.193022883168076, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"silu\", \"q_sqnr\": 13.43881914688334, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"linear\", \"q_sqnr\": 13.688726742485562, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"linear\", \"q_sqnr\": 13.773789140750328, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"linear\", \"q_sqnr\": 13.881800119069311, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"conv2d\", \"q_sqnr\": 14.04761636471781, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"silu\", \"q_sqnr\": 14.050534977422444, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"conv2d\", \"q_sqnr\": 14.127724459316122, \"repo\": \"stable-diffusion-v1-5/stable-diffusion-v1-5:vae\"}, {\"op\": \"layernorm\", \"q_sqnr\": 14.155155755200369, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"linear\", \"q_sqnr\": 14.383672964483068, \"repo\": \"mobilevit_s.cvnets_in1k\"}]}",
+  "numbers": "{\"formats_chosen\": {\"fp8_e1m6\": 137, \"fp8_e2m5\": 1487, \"fp8_e3m4\": 27}, \"models\": [{\"baseline_db\": 6.957589372774957, \"best_formats_db\": 14.888678222727133, \"final_db\": 13.881800119069311, \"model\": \"mobilevit_s.cvnets_in1k\"}, {\"baseline_db\": 25.226716011255263, \"best_formats_db\": 30.18448954252348, \"final_db\": 30.040152298197242, \"model\": \"stable-diffusion-v1-5/stable-diffusion-v1-5\"}, {\"baseline_db\": 9.103446462431856, \"best_formats_db\": 14.127724459316122, \"final_db\": null, \"model\": \"stable-diffusion-v1-5/stable-diffusion-v1-5:vae\"}, {\"baseline_db\": 29.48950199281518, \"best_formats_db\": 30.15135916008729, \"final_db\": null, \"model\": \"facebook/DiT-XL-2-256\"}, {\"baseline_db\": 21.869492971562565, \"best_formats_db\": 21.869492971562565, \"final_db\": null, \"model\": \"Qwen/Qwen3-0.6B\"}], \"unsigned_share\": 0.0, \"worst_tensors\": [{\"op\": \"linear\", \"q_sqnr\": 12.193022883168076, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"silu\", \"q_sqnr\": 13.43881914688334, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"linear\", \"q_sqnr\": 13.688726742485562, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"linear\", \"q_sqnr\": 13.773789140750328, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"linear\", \"q_sqnr\": 13.881800119069311, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"conv2d\", \"q_sqnr\": 14.04761636471781, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"silu\", \"q_sqnr\": 14.050534977422444, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"conv2d\", \"q_sqnr\": 14.127724459316122, \"repo\": \"stable-diffusion-v1-5/stable-diffusion-v1-5:vae\"}, {\"op\": \"layernorm\", \"q_sqnr\": 14.155155755200369, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"linear\", \"q_sqnr\": 14.383672964483068, \"repo\": \"mobilevit_s.cvnets_in1k\"}]}",
   "origin": "derive",
   "title": "Format pressure"
  },
  {
-  "body": "291 of 291 tensors between kernels are read through a view (heads, patches, pixels); 0 links fail",
-  "created_at": 1794501428.776217,
+  "body": "293 of 293 tensors between kernels are read through a view (heads, patches, pixels); 0 links fail",
+  "created_at": 1794506502.2439892,
   "id": 4,
   "kind": "layout_conversions",
-  "numbers": "{\"failing\": 0, \"links\": 291, \"pairs\": [{\"count\": 63, \"reader\": \"attention\", \"writer\": \"linear\"}, {\"count\": 21, \"reader\": \"layernorm\", \"writer\": \"add\"}, {\"count\": 20, \"reader\": \"add\", \"writer\": \"conv2d\"}, {\"count\": 19, \"reader\": \"layernorm\", \"writer\": \"conv2d\"}, {\"count\": 19, \"reader\": \"silu\", \"writer\": \"linear\"}, {\"count\": 18, \"reader\": \"add\", \"writer\": \"div\"}, {\"count\": 16, \"reader\": \"gelu\", \"writer\": \"linear\"}, {\"count\": 12, \"reader\": \"concat\", \"writer\": \"add\"}, {\"count\": 12, \"reader\": \"groupnorm\", \"writer\": \"concat\"}, {\"count\": 9, \"reader\": \"groupnorm\", \"writer\": \"div\"}], \"rearranged\": 291}",
+  "numbers": "{\"failing\": 0, \"links\": 293, \"pairs\": [{\"count\": 63, \"reader\": \"attention\", \"writer\": \"linear\"}, {\"count\": 21, \"reader\": \"layernorm\", \"writer\": \"add\"}, {\"count\": 20, \"reader\": \"add\", \"writer\": \"conv2d\"}, {\"count\": 19, \"reader\": \"layernorm\", \"writer\": \"conv2d\"}, {\"count\": 19, \"reader\": \"silu\", \"writer\": \"linear\"}, {\"count\": 18, \"reader\": \"add\", \"writer\": \"div\"}, {\"count\": 16, \"reader\": \"gelu\", \"writer\": \"linear\"}, {\"count\": 12, \"reader\": \"concat\", \"writer\": \"add\"}, {\"count\": 12, \"reader\": \"groupnorm\", \"writer\": \"concat\"}, {\"count\": 9, \"reader\": \"groupnorm\", \"writer\": \"div\"}], \"rearranged\": 293}",
   "origin": "derive",
   "title": "Layout conversions"
  },
@@ -45,11 +45,11 @@
   "title": "Compute efficiency"
  },
  {
-  "body": "422 operations go through the 256-entry LUT; 0 kernels use over 80% of the IMEM bank; kernel launches per forward: 40, 242, 34, 99",
-  "created_at": 1794505881.8877509,
+  "body": "422 operations go through the 256-entry LUT; 0 kernels use over 80% of the IMEM bank; kernel launches per forward: 40, 242, 99, 35",
+  "created_at": 1794506502.2444158,
   "id": 6,
   "kind": "resource_limits",
-  "numbers": "{\"groups_per_plan\": {\"2\": 40, \"3\": 21, \"5\": 34, \"7\": 99}, \"kernels_near_imem\": 0, \"launches_per_forward\": {\"2\": 40, \"3\": 242, \"5\": 34, \"7\": 99}, \"lut_operations\": 422}",
+  "numbers": "{\"groups_per_plan\": {\"2\": 40, \"3\": 21, \"7\": 99, \"8\": 35}, \"kernels_near_imem\": 0, \"launches_per_forward\": {\"2\": 40, \"3\": 242, \"7\": 99, \"8\": 35}, \"lut_operations\": 422}",
   "origin": "derive",
   "title": "Resource limits"
  }
