@@ -46,7 +46,7 @@
  },
  {
   "body": "The most costly issue is ISA gaps: conv2d, data addressing, and one other ATen op have no chip-level operation, forcing 32 operations across 5 models to fall back to replacements. Next, resource limits: 1048 operations go through the 256-entry LUT, though no kernel exceeds 80% IMEM usage and FP32 headroom is adequate. Format pressure is moderate: across 220 models, fp8_e2m5 dominates (5049 uses), with the worst tensor mul in facebook/DiT-XL-2-256 at -0.8 dB. Layout conversions are relatively common but cheap: 418 of 759 inter-kernel tensor links change arrangement (mostly heads), with no failures. Compute efficiency is the least costly (or least measured): no kernel has been measured yet, and all what-if replacements recover 0.00 dB with 0.00% MAC impact.",
-  "created_at": 1794522241.2754352,
+  "created_at": 1794522556.701713,
   "id": 7,
   "kind": "summary",
   "numbers": null,
