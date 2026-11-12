@@ -46,7 +46,7 @@
  },
  {
   "body": "The most costly IPU cost is **format pressure**: across 220 models, 6,899 tensors need non-standard formats (fp8_e2m5 dominates at 4,815), and the worst tensor-multiply accuracy loss is \u22120.8 dB (facebook/DiT-XL-2-256). Next is **layout conversions**: 418 of 747 inter-kernel tensor links change arrangement (mostly head splits, 238), though no link fails. **Resource limits** follow: 1,048 operations go through the 256-entry LUT, but no kernel exceeds 80% IMEM and FP32 headroom is not a constraint (0.0 decades). **ISA gaps** are comparatively cheap: 32 operations across 5 models lack chip operations (conv2d, data addressing, 2 misc ATen ops), all replaced at 0.00 dB loss and 0 extra cycles, with 0 failures. Compute efficiency is unmeasured, and the what-if analysis confirms removing the ISA gaps would recover 0.00 dB and add no 1-to-1 MACs.",
-  "created_at": 1794520768.3255312,
+  "created_at": 1794520884.1709244,
   "id": 7,
   "kind": "summary",
   "numbers": null,
