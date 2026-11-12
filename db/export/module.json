@@ -3580,5 +3580,248 @@
   "parent_id": 371,
   "path": "wav2vec2.feature_projection.projection",
   "repeat": 1
+ },
+ {
+  "capture_id": 9,
+  "class": null,
+  "first_seq": 0,
+  "id": 400,
+  "parent_id": 399,
+  "path": "(input)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 9,
+  "class": "BertModel",
+  "first_seq": 0,
+  "id": 399,
+  "parent_id": null,
+  "path": "(top)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 9,
+  "class": "BertEmbeddings",
+  "first_seq": 1,
+  "id": 401,
+  "parent_id": 399,
+  "path": "embeddings",
+  "repeat": 1
+ },
+ {
+  "capture_id": 9,
+  "class": "LayerNorm",
+  "first_seq": 7,
+  "id": 404,
+  "parent_id": 401,
+  "path": "embeddings.LayerNorm",
+  "repeat": 1
+ },
+ {
+  "capture_id": 9,
+  "class": "Embedding",
+  "first_seq": 5,
+  "id": 405,
+  "parent_id": 401,
+  "path": "embeddings.position_embeddings",
+  "repeat": 1
+ },
+ {
+  "capture_id": 9,
+  "class": "Embedding",
+  "first_seq": 3,
+  "id": 406,
+  "parent_id": 401,
+  "path": "embeddings.token_type_embeddings",
+  "repeat": 1
+ },
+ {
+  "capture_id": 9,
+  "class": "Embedding",
+  "first_seq": 2,
+  "id": 407,
+  "parent_id": 401,
+  "path": "embeddings.word_embeddings",
+  "repeat": 1
+ },
+ {
+  "capture_id": 9,
+  "class": "BertEncoder",
+  "first_seq": 8,
+  "id": 402,
+  "parent_id": 399,
+  "path": "encoder",
+  "repeat": 1
+ },
+ {
+  "capture_id": 9,
+  "class": "ModuleList",
+  "first_seq": 8,
+  "id": 408,
+  "parent_id": 402,
+  "path": "encoder.layer",
+  "repeat": 1
+ },
+ {
+  "capture_id": 9,
+  "class": "BertLayer",
+  "first_seq": 8,
+  "id": 411,
+  "parent_id": 408,
+  "path": "encoder.layer.*",
+  "repeat": 4
+ },
+ {
+  "capture_id": 9,
+  "class": "BertAttention",
+  "first_seq": 8,
+  "id": 412,
+  "parent_id": 411,
+  "path": "encoder.layer.*.attention",
+  "repeat": 4
+ },
+ {
+  "capture_id": 9,
+  "class": "BertSelfOutput",
+  "first_seq": 15,
+  "id": 415,
+  "parent_id": 412,
+  "path": "encoder.layer.*.attention.output",
+  "repeat": 4
+ },
+ {
+  "capture_id": 9,
+  "class": "LayerNorm",
+  "first_seq": 17,
+  "id": 421,
+  "parent_id": 415,
+  "path": "encoder.layer.*.attention.output.LayerNorm",
+  "repeat": 4
+ },
+ {
+  "capture_id": 9,
+  "class": "Linear",
+  "first_seq": 15,
+  "id": 422,
+  "parent_id": 415,
+  "path": "encoder.layer.*.attention.output.dense",
+  "repeat": 4
+ },
+ {
+  "capture_id": 9,
+  "class": "BertSelfAttention",
+  "first_seq": 8,
+  "id": 416,
+  "parent_id": 412,
+  "path": "encoder.layer.*.attention.self",
+  "repeat": 4
+ },
+ {
+  "capture_id": 9,
+  "class": "Linear",
+  "first_seq": 9,
+  "id": 423,
+  "parent_id": 416,
+  "path": "encoder.layer.*.attention.self.key",
+  "repeat": 4
+ },
+ {
+  "capture_id": 9,
+  "class": "Linear",
+  "first_seq": 8,
+  "id": 424,
+  "parent_id": 416,
+  "path": "encoder.layer.*.attention.self.query",
+  "repeat": 4
+ },
+ {
+  "capture_id": 9,
+  "class": "Linear",
+  "first_seq": 10,
+  "id": 425,
+  "parent_id": 416,
+  "path": "encoder.layer.*.attention.self.value",
+  "repeat": 4
+ },
+ {
+  "capture_id": 9,
+  "class": "BertIntermediate",
+  "first_seq": 18,
+  "id": 413,
+  "parent_id": 411,
+  "path": "encoder.layer.*.intermediate",
+  "repeat": 4
+ },
+ {
+  "capture_id": 9,
+  "class": "Linear",
+  "first_seq": 18,
+  "id": 417,
+  "parent_id": 413,
+  "path": "encoder.layer.*.intermediate.dense",
+  "repeat": 4
+ },
+ {
+  "capture_id": 9,
+  "class": "GELUActivation",
+  "first_seq": 19,
+  "id": 418,
+  "parent_id": 413,
+  "path": "encoder.layer.*.intermediate.intermediate_act_fn",
+  "repeat": 4
+ },
+ {
+  "capture_id": 9,
+  "class": "BertOutput",
+  "first_seq": 20,
+  "id": 414,
+  "parent_id": 411,
+  "path": "encoder.layer.*.output",
+  "repeat": 4
+ },
+ {
+  "capture_id": 9,
+  "class": "LayerNorm",
+  "first_seq": 22,
+  "id": 419,
+  "parent_id": 414,
+  "path": "encoder.layer.*.output.LayerNorm",
+  "repeat": 4
+ },
+ {
+  "capture_id": 9,
+  "class": "Linear",
+  "first_seq": 20,
+  "id": 420,
+  "parent_id": 414,
+  "path": "encoder.layer.*.output.dense",
+  "repeat": 4
+ },
+ {
+  "capture_id": 9,
+  "class": "BertPooler",
+  "first_seq": 68,
+  "id": 403,
+  "parent_id": 399,
+  "path": "pooler",
+  "repeat": 1
+ },
+ {
+  "capture_id": 9,
+  "class": "Tanh",
+  "first_seq": 69,
+  "id": 409,
+  "parent_id": 403,
+  "path": "pooler.activation",
+  "repeat": 1
+ },
+ {
+  "capture_id": 9,
+  "class": "Linear",
+  "first_seq": 68,
+  "id": 410,
+  "parent_id": 403,
+  "path": "pooler.dense",
+  "repeat": 1
  }
 ]
