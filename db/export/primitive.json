@@ -1,5 +1,13 @@
 [
  {
+  "doc": "Broadcast add over rows",
+  "name": "add",
+  "origin": "agent",
+  "params": "{\"broadcast\": \"rows\"}",
+  "reference": "def fn(x, b):\n    return x + b",
+  "tensors": null
+ },
+ {
   "doc": null,
   "name": "binary",
   "origin": "builtin",
@@ -24,11 +32,11 @@
   "tensors": null
  },
  {
-  "doc": "Importance-sample k input-channel indices and build rescaled weight columns.",
+  "doc": "Extract sliding-window patches into columns",
   "name": "column_sample",
   "origin": "agent",
-  "params": "{\"k\": \"int\"}",
-  "reference": "def fn(W, k):\n    c2 = W.pow(2).sum(0)\n    idx = torch.multinomial(c2 / c2.sum(), k, replacement=False)\n    Ws = W[:, idx] * (W.shape[1] / k) * (c2[idx] / c2[idx].sum())\n    return idx, Ws",
+  "params": "{\"kh\": \"kernel height\", \"kw\": \"kernel width\", \"stride\": \"stride\"}",
+  "reference": "def fn(x, kh, kw, stride):\n    N,C,H,W = x.shape\n    oh=(H-kh)//stride+1; ow=(W-kw)//stride+1\n    c = x.unfold(2,kh,stride).unfold(3,kw,stride)\n    return c.permute(0,2,3,1,4,5).reshape(N*oh*ow, C*kh*kw)",
   "tensors": null
  },
  {
@@ -77,6 +85,14 @@
   "origin": "agent",
   "params": "{\"num_classes\": \"vocab size\"}",
   "reference": "def fn(ids, table):\n    ids = ids.long().view(-1)\n    onehot = torch.zeros(ids.shape[0], table.shape[0], dtype=table.dtype, device=table.device)\n    onehot.scatter_(1, ids.view(-1, 1), 1.0)\n    return onehot @ table",
+  "tensors": null
+ },
+ {
+  "doc": "Permute tensor dimensions.",
+  "name": "permute",
+  "origin": "agent",
+  "params": "{\"dims\": \"permutation of axes\"}",
+  "reference": "def fn(x, dims): return x.permute(*dims)",
   "tensors": null
  },
  {
