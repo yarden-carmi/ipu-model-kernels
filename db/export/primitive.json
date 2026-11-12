@@ -24,6 +24,14 @@
   "tensors": null
  },
  {
+  "doc": "Importance-sample k input-channel indices and build rescaled weight columns.",
+  "name": "column_sample",
+  "origin": "agent",
+  "params": "{\"k\": \"int\"}",
+  "reference": "def fn(W, k):\n    c2 = W.pow(2).sum(0)\n    idx = torch.multinomial(c2 / c2.sum(), k, replacement=False)\n    Ws = W[:, idx] * (W.shape[1] / k) * (c2[idx] / c2[idx].sum())\n    return idx, Ws",
+  "tensors": null
+ },
+ {
   "doc": null,
   "name": "conv2d",
   "origin": "builtin",
@@ -80,11 +88,27 @@
   "tensors": null
  },
  {
+  "doc": "Per-row symmetric quantization scales s_i = max|W_i|/127.",
+  "name": "quantize_w",
+  "origin": "agent",
+  "params": "{\"bits\": \"int\", \"per_row\": \"bool\"}",
+  "reference": "def fn(W, bits, per_row):\n    s = W.abs().amax(dim=1) / (2**(bits-1) - 1)\n    return s",
+  "tensors": null
+ },
+ {
   "doc": null,
   "name": "reduce_rows",
   "origin": "builtin",
   "params": null,
   "reference": null,
+  "tensors": null
+ },
+ {
+  "doc": "Reshape tensor to a given shape.",
+  "name": "reshape",
+  "origin": "agent",
+  "params": "{\"shape\": \"tuple\"}",
+  "reference": "def fn(x, shape):\n    return x.reshape(shape)",
   "tensors": null
  },
  {
@@ -101,6 +125,14 @@
   "origin": "builtin",
   "params": null,
   "reference": null,
+  "tensors": null
+ },
+ {
+  "doc": "Precompute rank-r truncated SVD factors U_r (1024,r), S_r (r,), V_r (r,512) of the weight.",
+  "name": "svd_split",
+  "origin": "agent",
+  "params": "{\"rank\": \"int\"}",
+  "reference": "def fn(W, rank):\n    U, S, Vh = torch.linalg.svd(W, full_matrices=False)\n    return U[:, :rank], S[:rank], Vh[:rank, :]",
   "tensors": null
  },
  {

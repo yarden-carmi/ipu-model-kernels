@@ -1,5 +1,53 @@
 [
  {
+  "chain": "[{\"op\": \"reshape\", \"params\": {\"shape\": \"(-1, C_in)\"}, \"reference\": \"def fn(x, shape):\\n    return x.reshape(shape)\"}, {\"op\": \"gemm\", \"params\": {\"bias\": true, \"transb\": true}}, {\"op\": \"reshape\", \"params\": {\"shape\": \"(N, C_out, L)\"}, \"reference\": \"def fn(x, shape):\\n    return x.reshape(shape)\"}]",
+  "check_detail": "chain: aten: no torch reference of the original op here (several inputs, or unknown); code: aten: no torch reference of the original operation here",
+  "check_ok": null,
+  "code": "def forward(module, x, weight, bias):\n    # conv1d with kernel_size == 1 (weight: C_out x C_in x 1), no padding/stride effects\n    N, C_in, L = x.shape\n    C_out = weight.shape[0]\n    # reshape to rows of length C_in\n    xr = x.reshape(N * L, C_in)\n    # gemm: xr (N*L, C_in) @ weight^T (C_in, C_out) + bias\n    out = torch.addmm(bias, xr, weight.reshape(C_out, C_in).t())\n    # reshape back to (N, C_out, L)\n    return out.reshape(N, C_out, L)",
+  "id": 19,
+  "kind": "equivalent",
+  "name": "conv1d_k1_as_gemm",
+  "op": "aten",
+  "proposal": "{\"description\": \"The conv1d here has kernel size 1 (weight k=512, out n=1024, spatial m=99, bias present), so it reduces exactly to a per-timestep linear map. Steps: (1) reshape input from (N, C_in, L) to (N*L, C_in); (2) apply gemm with the weight reshaped to (C_out, C_in) and transposed, adding the bias vector; (3) reshape back to (N, C_out, L). This is mathematically identical to conv1d with kernel 1, stride 1, no padding.\", \"rel_err\": null}",
+  "proposed_by": 16
+ },
+ {
+  "chain": "[{\"op\": \"quantize_w\", \"params\": {\"bits\": 8, \"per_row\": true}}, {\"op\": \"gemm\", \"params\": {\"bias\": true}}]",
+  "check_detail": "chain: aten: no torch reference of the original op here (several inputs, or unknown); code: aten: no torch reference of the original operation here",
+  "check_ok": null,
+  "code": "def forward(module, x, weight, bias):\n    W = weight.squeeze(-1)\n    N, C, L = x.shape\n    x2 = x.permute(0, 2, 1).reshape(-1, C)\n    # step 1: per-output-row symmetric int8 quantization of the weight (precomputed scale)\n    Wq = torch.round(W / module.scale[:, None]).clamp(-127, 127)\n    y = x2 @ (Wq * module.scale[:, None]).T          # gemm with dequantized weight\n    y = y + bias\n    return y.reshape(N, L, -1).permute(0, 2, 1)",
+  "id": 21,
+  "kind": "approximate",
+  "name": "conv1d_k1_int8_quantized_gemm",
+  "op": "aten",
+  "proposal": "{\"description\": \"Approximate the k=1 conv1d by quantizing the weight to 8-bit integers (per-output-channel symmetric quantization) and running the gemm with dequantized weights. Steps: (1) squeeze weight to (1024,512); compute per-row scale s_i = max|W_i|/127; (2) Wq = round(W/s) clipped to [-127,127]; (3) reshape input to (N*99,512); (4) gemm x2 @ (Wq*s)^T; (5) add bias; (6) reshape back. Quantization error per weight is at most s/2, giving relative output error typically ~1e-3 for 8 bits.\", \"rel_err\": null}",
+  "proposed_by": 16
+ },
+ {
+  "chain": "[{\"op\": \"svd_split\", \"params\": {\"rank\": 64}}, {\"op\": \"gemm\", \"params\": {}}, {\"op\": \"gemm\", \"params\": {\"bias\": true}}]",
+  "check_detail": "chain: aten: no torch reference of the original op here (several inputs, or unknown); code: aten: no torch reference of the original operation here",
+  "check_ok": null,
+  "code": "def forward(module, x, weight, bias):\n    # x: (N, C_in=512, L=99); weight: (C_out=1024, 512, 1); bias: (1024,)\n    W = weight.squeeze(-1)  # (1024, 512)\n    U, S, Vh = module.svd(W)  # precomputed low-rank factors as attributes\n    # step 1: project input onto top-r right singular vectors\n    N, C, L = x.shape\n    x2 = x.permute(0, 2, 1).reshape(-1, C)          # (N*L, C)\n    a = x2 @ module.Vh.T                             # (N*L, r)   gemm\n    y = a @ (module.U * module.S).T                  # (N*L, C_out) gemm\n    y = y + bias\n    return y.reshape(N, L, -1).permute(0, 2, 1)",
+  "id": 20,
+  "kind": "approximate",
+  "name": "conv1d_k1_lowrank_svd",
+  "op": "aten",
+  "proposal": "{\"description\": \"Approximate the k=1 conv1d (a per-timestep linear map W: 1024x512) by a rank-r truncated SVD of W. Steps: (1) precompute W = U_r S_r V_r^T with rank r=64 via truncated SVD of the squeezed weight (1024,512); (2) reshape input (N,512,99) -> (N*99,512); (3) gemm with V_r^T to get (N*99,64); (4) gemm with (U_r*S_r) to get (N*99,1024); (5) add bias; (6) reshape back to (N,1024,99). Error is bounded by the discarded singular values; with r=64 on a smooth learned weight the relative error is typically ~1e-3.\", \"rel_err\": null}",
+  "proposed_by": 16
+ },
+ {
+  "chain": "[{\"op\": \"column_sample\", \"params\": {\"k\": 256}}, {\"op\": \"gemm\", \"params\": {}}, {\"op\": \"gemm\", \"params\": {\"bias\": true}}]",
+  "check_detail": "chain: aten: no torch reference of the original op here (several inputs, or unknown); code: aten: no torch reference of the original operation here",
+  "check_ok": null,
+  "code": "def forward(module, x, weight, bias):\n    W = weight.squeeze(-1)\n    N, C, L = x.shape\n    x2 = x.permute(0, 2, 1).reshape(-1, C)   # (N*L, 512)\n    # step 1: sample k input channels (precomputed indices + rescaled weight columns)\n    xs = x2[:, module.idx]                    # (N*L, k) masked_row_select on rows of x^T\n    y = xs @ module.Ws.T                      # gemm with rescaled sampled weight (1024, k)\n    y = y + bias\n    return y.reshape(N, L, -1).permute(0, 2, 1)",
+  "id": 22,
+  "kind": "approximate",
+  "name": "conv1d_k1_nystrom_colsample",
+  "op": "aten",
+  "proposal": "{\"description\": \"Nystr\\u00f6m-style column sampling: approximate x @ W^T by using only k=256 sampled input channels with rescaled weight columns, exploiting redundancy across the 512 channels. Steps: (1) precompute column norms c_j = ||W[:,j]||; sample k=256 channels without replacement with probability proportional to c_j^2 (precomputed index set idx); (2) rescale sampled weight columns: Ws[:,j] = W[:,idx_j] * (C/k) * (c_j^2 / sum of sampled c^2) so expectations match; (3) select the sampled channels of the reshaped input (N*99,512) -> (N*99,256); (4) gemm with Ws^T; (5) add bias; (6) reshape back. Unbiased estimator of the full gemm; error decreases as ~1/sqrt(k) and is small for correlated channel activations.\", \"rel_err\": null}",
+  "proposed_by": 16
+ },
+ {
   "chain": "[{\"op\": \"eq_range\", \"params\": {\"vocab\": 1001}}, {\"op\": \"binary\", \"params\": {\"op\": \"mul\"}}, {\"op\": \"reduce_rows\", \"params\": {}}]",
   "check_detail": "chain: binary {\"op\": \"mul\"}: no reference to check it with (a new primitive needs `reference`); code: the code failed: AttributeError: 'types.SimpleNamespace' object has no attribute 'vocab'",
   "check_ok": 0,

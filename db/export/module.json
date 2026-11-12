@@ -5668,5 +5668,410 @@
   "parent_id": 587,
   "path": "lm_head",
   "repeat": 1
+ },
+ {
+  "capture_id": 16,
+  "class": null,
+  "first_seq": 0,
+  "id": 632,
+  "parent_id": 631,
+  "path": "(input)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 16,
+  "class": "OPTForCausalLM",
+  "first_seq": 0,
+  "id": 631,
+  "parent_id": null,
+  "path": "(top)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 16,
+  "class": "Linear",
+  "first_seq": 216,
+  "id": 633,
+  "parent_id": 631,
+  "path": "lm_head",
+  "repeat": 1
+ },
+ {
+  "capture_id": 16,
+  "class": "OPTModel",
+  "first_seq": 1,
+  "id": 634,
+  "parent_id": 631,
+  "path": "model",
+  "repeat": 1
+ },
+ {
+  "capture_id": 16,
+  "class": "OPTDecoder",
+  "first_seq": 1,
+  "id": 635,
+  "parent_id": 634,
+  "path": "model.decoder",
+  "repeat": 1
+ },
+ {
+  "capture_id": 16,
+  "class": "OPTLearnedPositionalEmbedding",
+  "first_seq": 8,
+  "id": 636,
+  "parent_id": 635,
+  "path": "model.decoder.embed_positions",
+  "repeat": 1
+ },
+ {
+  "capture_id": 16,
+  "class": "Embedding",
+  "first_seq": 1,
+  "id": 637,
+  "parent_id": 635,
+  "path": "model.decoder.embed_tokens",
+  "repeat": 1
+ },
+ {
+  "capture_id": 16,
+  "class": "LayerNorm",
+  "first_seq": 215,
+  "id": 638,
+  "parent_id": 635,
+  "path": "model.decoder.final_layer_norm",
+  "repeat": 1
+ },
+ {
+  "capture_id": 16,
+  "class": "ModuleList",
+  "first_seq": 11,
+  "id": 639,
+  "parent_id": 635,
+  "path": "model.decoder.layers",
+  "repeat": 1
+ },
+ {
+  "capture_id": 16,
+  "class": "OPTDecoderLayer",
+  "first_seq": 11,
+  "id": 640,
+  "parent_id": 639,
+  "path": "model.decoder.layers.*",
+  "repeat": 12
+ },
+ {
+  "capture_id": 16,
+  "class": "ReLU",
+  "first_seq": 25,
+  "id": 641,
+  "parent_id": 640,
+  "path": "model.decoder.layers.*.activation_fn",
+  "repeat": 12
+ },
+ {
+  "capture_id": 16,
+  "class": "Linear",
+  "first_seq": 24,
+  "id": 642,
+  "parent_id": 640,
+  "path": "model.decoder.layers.*.fc1",
+  "repeat": 12
+ },
+ {
+  "capture_id": 16,
+  "class": "Linear",
+  "first_seq": 26,
+  "id": 643,
+  "parent_id": 640,
+  "path": "model.decoder.layers.*.fc2",
+  "repeat": 12
+ },
+ {
+  "capture_id": 16,
+  "class": "LayerNorm",
+  "first_seq": 23,
+  "id": 644,
+  "parent_id": 640,
+  "path": "model.decoder.layers.*.final_layer_norm",
+  "repeat": 12
+ },
+ {
+  "capture_id": 16,
+  "class": "OPTAttention",
+  "first_seq": 12,
+  "id": 645,
+  "parent_id": 640,
+  "path": "model.decoder.layers.*.self_attn",
+  "repeat": 12
+ },
+ {
+  "capture_id": 16,
+  "class": "Linear",
+  "first_seq": 14,
+  "id": 647,
+  "parent_id": 645,
+  "path": "model.decoder.layers.*.self_attn.k_proj",
+  "repeat": 12
+ },
+ {
+  "capture_id": 16,
+  "class": "Linear",
+  "first_seq": 21,
+  "id": 648,
+  "parent_id": 645,
+  "path": "model.decoder.layers.*.self_attn.out_proj",
+  "repeat": 12
+ },
+ {
+  "capture_id": 16,
+  "class": "Linear",
+  "first_seq": 12,
+  "id": 649,
+  "parent_id": 645,
+  "path": "model.decoder.layers.*.self_attn.q_proj",
+  "repeat": 12
+ },
+ {
+  "capture_id": 16,
+  "class": "Linear",
+  "first_seq": 15,
+  "id": 650,
+  "parent_id": 645,
+  "path": "model.decoder.layers.*.self_attn.v_proj",
+  "repeat": 12
+ },
+ {
+  "capture_id": 16,
+  "class": "LayerNorm",
+  "first_seq": 11,
+  "id": 646,
+  "parent_id": 640,
+  "path": "model.decoder.layers.*.self_attn_layer_norm",
+  "repeat": 12
+ },
+ {
+  "capture_id": 17,
+  "class": null,
+  "first_seq": 0,
+  "id": 652,
+  "parent_id": 651,
+  "path": "(input)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 17,
+  "class": "EfficientNet",
+  "first_seq": 0,
+  "id": 651,
+  "parent_id": null,
+  "path": "(top)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 17,
+  "class": "Sequential",
+  "first_seq": 4,
+  "id": 653,
+  "parent_id": 651,
+  "path": "blocks",
+  "repeat": 1
+ },
+ {
+  "capture_id": 17,
+  "class": "Sequential",
+  "first_seq": 4,
+  "id": 660,
+  "parent_id": 653,
+  "path": "blocks.*",
+  "repeat": 6
+ },
+ {
+  "capture_id": 17,
+  "class": "ConvBnAct",
+  "first_seq": 4,
+  "id": 662,
+  "parent_id": 660,
+  "path": "blocks.*.*",
+  "repeat": 40
+ },
+ {
+  "capture_id": 17,
+  "class": "BatchNormAct2d",
+  "first_seq": 5,
+  "id": 663,
+  "parent_id": 662,
+  "path": "blocks.*.*.bn1",
+  "repeat": 40
+ },
+ {
+  "capture_id": 17,
+  "class": "BatchNormAct2d",
+  "first_seq": 16,
+  "id": 664,
+  "parent_id": 662,
+  "path": "blocks.*.*.bn2",
+  "repeat": 38
+ },
+ {
+  "capture_id": 17,
+  "class": "BatchNormAct2d",
+  "first_seq": 71,
+  "id": 665,
+  "parent_id": 662,
+  "path": "blocks.*.*.bn3",
+  "repeat": 30
+ },
+ {
+  "capture_id": 17,
+  "class": "Conv2d",
+  "first_seq": 4,
+  "id": 666,
+  "parent_id": 662,
+  "path": "blocks.*.*.conv",
+  "repeat": 2
+ },
+ {
+  "capture_id": 17,
+  "class": "Conv2dSame",
+  "first_seq": 61,
+  "id": 667,
+  "parent_id": 662,
+  "path": "blocks.*.*.conv_dw",
+  "repeat": 30
+ },
+ {
+  "capture_id": 17,
+  "class": "Conv2dSame",
+  "first_seq": 12,
+  "id": 668,
+  "parent_id": 662,
+  "path": "blocks.*.*.conv_exp",
+  "repeat": 8
+ },
+ {
+  "capture_id": 17,
+  "class": "Conv2d",
+  "first_seq": 58,
+  "id": 669,
+  "parent_id": 662,
+  "path": "blocks.*.*.conv_pw",
+  "repeat": 30
+ },
+ {
+  "capture_id": 17,
+  "class": "Conv2d",
+  "first_seq": 15,
+  "id": 670,
+  "parent_id": 662,
+  "path": "blocks.*.*.conv_pwl",
+  "repeat": 38
+ },
+ {
+  "capture_id": 17,
+  "class": "Identity",
+  "first_seq": 64,
+  "id": 671,
+  "parent_id": 662,
+  "path": "blocks.*.*.se",
+  "repeat": 38
+ },
+ {
+  "capture_id": 17,
+  "class": "SiLU",
+  "first_seq": 66,
+  "id": 672,
+  "parent_id": 671,
+  "path": "blocks.*.*.se.act1",
+  "repeat": 30
+ },
+ {
+  "capture_id": 17,
+  "class": "Conv2d",
+  "first_seq": 67,
+  "id": 673,
+  "parent_id": 671,
+  "path": "blocks.*.*.se.conv_expand",
+  "repeat": 30
+ },
+ {
+  "capture_id": 17,
+  "class": "Conv2d",
+  "first_seq": 65,
+  "id": 674,
+  "parent_id": 671,
+  "path": "blocks.*.*.se.conv_reduce",
+  "repeat": 30
+ },
+ {
+  "capture_id": 17,
+  "class": "Sigmoid",
+  "first_seq": 68,
+  "id": 675,
+  "parent_id": 671,
+  "path": "blocks.*.*.se.gate",
+  "repeat": 30
+ },
+ {
+  "capture_id": 17,
+  "class": "BatchNormAct2d",
+  "first_seq": 2,
+  "id": 654,
+  "parent_id": 651,
+  "path": "bn1",
+  "repeat": 1
+ },
+ {
+  "capture_id": 17,
+  "class": "BatchNormAct2d",
+  "first_seq": 506,
+  "id": 655,
+  "parent_id": 651,
+  "path": "bn2",
+  "repeat": 1
+ },
+ {
+  "capture_id": 17,
+  "class": "Linear",
+  "first_seq": 509,
+  "id": 656,
+  "parent_id": 651,
+  "path": "classifier",
+  "repeat": 1
+ },
+ {
+  "capture_id": 17,
+  "class": "Conv2d",
+  "first_seq": 505,
+  "id": 657,
+  "parent_id": 651,
+  "path": "conv_head",
+  "repeat": 1
+ },
+ {
+  "capture_id": 17,
+  "class": "Conv2dSame",
+  "first_seq": 1,
+  "id": 658,
+  "parent_id": 651,
+  "path": "conv_stem",
+  "repeat": 1
+ },
+ {
+  "capture_id": 17,
+  "class": "SelectAdaptivePool2d",
+  "first_seq": 508,
+  "id": 659,
+  "parent_id": 651,
+  "path": "global_pool",
+  "repeat": 1
+ },
+ {
+  "capture_id": 17,
+  "class": "AdaptiveAvgPool2d",
+  "first_seq": 508,
+  "id": 661,
+  "parent_id": 659,
+  "path": "global_pool.pool",
+  "repeat": 1
  }
 ]
