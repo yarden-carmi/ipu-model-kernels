@@ -1,0 +1,56 @@
+[
+ {
+  "body": "No operation needs a replacement yet.",
+  "created_at": 1794489289.6802385,
+  "id": 1,
+  "kind": "isa_gaps",
+  "numbers": "{\"gaps\": {}}",
+  "origin": "derive",
+  "title": "ISA gaps"
+ },
+ {
+  "body": "No gap affects the surveyed models yet.",
+  "created_at": 1794489930.5625381,
+  "id": 2,
+  "kind": "what_if",
+  "numbers": "{\"gaps\": [], \"total_macs\": 2000831488.0}",
+  "origin": "derive",
+  "title": "What-if"
+ },
+ {
+  "body": "4 models measured; formats chosen: fp8_e2m5 240, fp8_e1m6 23, fp8_e3m4 2",
+  "created_at": 1794491990.8782876,
+  "id": 3,
+  "kind": "format_pressure",
+  "numbers": "{\"formats_chosen\": {\"fp8_e1m6\": 23, \"fp8_e2m5\": 240, \"fp8_e3m4\": 2}, \"models\": [{\"baseline_db\": 6.957589372774957, \"best_formats_db\": 14.888678222727133, \"final_db\": 15.956412857857451, \"model\": \"mobilevit_s.cvnets_in1k\"}, {\"baseline_db\": 25.226716011255263, \"best_formats_db\": 25.226716011255263, \"final_db\": null, \"model\": \"stable-diffusion-v1-5/stable-diffusion-v1-5\"}, {\"baseline_db\": 9.103446462431856, \"best_formats_db\": 9.103446462431856, \"final_db\": null, \"model\": \"stable-diffusion-v1-5/stable-diffusion-v1-5:vae\"}, {\"baseline_db\": 29.48950199281518, \"best_formats_db\": 30.15135916008729, \"final_db\": null, \"model\": \"facebook/DiT-XL-2-256\"}], \"unsigned_share\": 0.0, \"worst_tensors\": [{\"op\": \"conv2d\", \"q_sqnr\": 14.10454438297187, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"linear\", \"q_sqnr\": 14.186170734831432, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"silu\", \"q_sqnr\": 15.502545955870122, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"linear\", \"q_sqnr\": 15.605256443580132, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"linear\", \"q_sqnr\": 15.956412857857451, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"linear\", \"q_sqnr\": 15.967209377671129, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"silu\", \"q_sqnr\": 16.154000884363274, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"layernorm\", \"q_sqnr\": 16.35512099585397, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"linear\", \"q_sqnr\": 16.466200184250035, \"repo\": \"mobilevit_s.cvnets_in1k\"}, {\"op\": \"linear\", \"q_sqnr\": 16.5966426451267, \"repo\": \"mobilevit_s.cvnets_in1k\"}]}",
+  "origin": "derive",
+  "title": "Format pressure"
+ },
+ {
+  "body": "69 of 69 tensors between kernels are read through a view (heads, patches, pixels); 0 links fail",
+  "created_at": 1794489930.5629053,
+  "id": 4,
+  "kind": "layout_conversions",
+  "numbers": "{\"failing\": 0, \"links\": 69, \"pairs\": [{\"count\": 27, \"reader\": \"attention\", \"writer\": \"linear\"}, {\"count\": 18, \"reader\": \"layernorm\", \"writer\": \"add\"}, {\"count\": 6, \"reader\": \"add\", \"writer\": \"add\"}, {\"count\": 3, \"reader\": \"layernorm\", \"writer\": \"conv2d\"}, {\"count\": 3, \"reader\": \"add\", \"writer\": \"conv2d\"}, {\"count\": 3, \"reader\": \"concat\", \"writer\": \"batchnorm\"}, {\"count\": 3, \"reader\": \"concat\", \"writer\": \"silu\"}, {\"count\": 3, \"reader\": \"conv2d\", \"writer\": \"concat\"}, {\"count\": 1, \"reader\": \"conv2d\", \"writer\": \"silu\"}, {\"count\": 1, \"reader\": \"adaptive_avgpool2d\", \"writer\": \"silu\"}], \"rearranged\": 69}",
+  "origin": "derive",
+  "title": "Layout conversions"
+ },
+ {
+  "body": "No kernel measured yet.",
+  "created_at": 1794489289.6808474,
+  "id": 5,
+  "kind": "compute_efficiency",
+  "numbers": "{\"cycles_by_primitive\": {}, \"kernels\": []}",
+  "origin": "derive",
+  "title": "Compute efficiency"
+ },
+ {
+  "body": "64 operations go through the 256-entry LUT; 0 kernels use over 80% of the IMEM bank; kernel launches per forward: 40",
+  "created_at": 1794491990.878888,
+  "id": 6,
+  "kind": "resource_limits",
+  "numbers": "{\"groups_per_plan\": {\"2\": 40}, \"kernels_near_imem\": 0, \"launches_per_forward\": {\"2\": 40}, \"lut_operations\": 64}",
+  "origin": "derive",
+  "title": "Resource limits"
+ }
+]
