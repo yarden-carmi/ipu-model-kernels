@@ -8818,5 +8818,194 @@
   "parent_id": 938,
   "path": "proj_out",
   "repeat": 1
+ },
+ {
+  "capture_id": 25,
+  "class": null,
+  "first_seq": 0,
+  "id": 982,
+  "parent_id": 981,
+  "path": "(input)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 25,
+  "class": "ViTForImageClassification",
+  "first_seq": 0,
+  "id": 981,
+  "parent_id": null,
+  "path": "(top)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 25,
+  "class": "Linear",
+  "first_seq": 185,
+  "id": 983,
+  "parent_id": 981,
+  "path": "classifier",
+  "repeat": 1
+ },
+ {
+  "capture_id": 25,
+  "class": "ViTModel",
+  "first_seq": 1,
+  "id": 984,
+  "parent_id": 981,
+  "path": "vit",
+  "repeat": 1
+ },
+ {
+  "capture_id": 25,
+  "class": "ViTEmbeddings",
+  "first_seq": 1,
+  "id": 985,
+  "parent_id": 984,
+  "path": "vit.embeddings",
+  "repeat": 1
+ },
+ {
+  "capture_id": 25,
+  "class": "ViTPatchEmbeddings",
+  "first_seq": 1,
+  "id": 988,
+  "parent_id": 985,
+  "path": "vit.embeddings.patch_embeddings",
+  "repeat": 1
+ },
+ {
+  "capture_id": 25,
+  "class": "Conv2d",
+  "first_seq": 1,
+  "id": 990,
+  "parent_id": 988,
+  "path": "vit.embeddings.patch_embeddings.projection",
+  "repeat": 1
+ },
+ {
+  "capture_id": 25,
+  "class": "LayerNorm",
+  "first_seq": 184,
+  "id": 986,
+  "parent_id": 984,
+  "path": "vit.layernorm",
+  "repeat": 1
+ },
+ {
+  "capture_id": 25,
+  "class": "ModuleList",
+  "first_seq": 4,
+  "id": 987,
+  "parent_id": 984,
+  "path": "vit.layers",
+  "repeat": 1
+ },
+ {
+  "capture_id": 25,
+  "class": "ViTLayer",
+  "first_seq": 4,
+  "id": 989,
+  "parent_id": 987,
+  "path": "vit.layers.*",
+  "repeat": 12
+ },
+ {
+  "capture_id": 25,
+  "class": "ViTAttention",
+  "first_seq": 5,
+  "id": 991,
+  "parent_id": 989,
+  "path": "vit.layers.*.attention",
+  "repeat": 12
+ },
+ {
+  "capture_id": 25,
+  "class": "Linear",
+  "first_seq": 6,
+  "id": 995,
+  "parent_id": 991,
+  "path": "vit.layers.*.attention.k_proj",
+  "repeat": 12
+ },
+ {
+  "capture_id": 25,
+  "class": "Linear",
+  "first_seq": 12,
+  "id": 996,
+  "parent_id": 991,
+  "path": "vit.layers.*.attention.o_proj",
+  "repeat": 12
+ },
+ {
+  "capture_id": 25,
+  "class": "Linear",
+  "first_seq": 5,
+  "id": 997,
+  "parent_id": 991,
+  "path": "vit.layers.*.attention.q_proj",
+  "repeat": 12
+ },
+ {
+  "capture_id": 25,
+  "class": "Linear",
+  "first_seq": 7,
+  "id": 998,
+  "parent_id": 991,
+  "path": "vit.layers.*.attention.v_proj",
+  "repeat": 12
+ },
+ {
+  "capture_id": 25,
+  "class": "LayerNorm",
+  "first_seq": 14,
+  "id": 992,
+  "parent_id": 989,
+  "path": "vit.layers.*.layernorm_after",
+  "repeat": 12
+ },
+ {
+  "capture_id": 25,
+  "class": "LayerNorm",
+  "first_seq": 4,
+  "id": 993,
+  "parent_id": 989,
+  "path": "vit.layers.*.layernorm_before",
+  "repeat": 12
+ },
+ {
+  "capture_id": 25,
+  "class": "ViTMLP",
+  "first_seq": 15,
+  "id": 994,
+  "parent_id": 989,
+  "path": "vit.layers.*.mlp",
+  "repeat": 12
+ },
+ {
+  "capture_id": 25,
+  "class": "GELUActivation",
+  "first_seq": 16,
+  "id": 999,
+  "parent_id": 994,
+  "path": "vit.layers.*.mlp.activation_fn",
+  "repeat": 12
+ },
+ {
+  "capture_id": 25,
+  "class": "Linear",
+  "first_seq": 15,
+  "id": 1000,
+  "parent_id": 994,
+  "path": "vit.layers.*.mlp.fc1",
+  "repeat": 12
+ },
+ {
+  "capture_id": 25,
+  "class": "Linear",
+  "first_seq": 17,
+  "id": 1001,
+  "parent_id": 994,
+  "path": "vit.layers.*.mlp.fc2",
+  "repeat": 12
  }
 ]
