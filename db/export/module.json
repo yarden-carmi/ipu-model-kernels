@@ -1,0 +1,2486 @@
+[
+ {
+  "capture_id": 1,
+  "class": null,
+  "first_seq": 0,
+  "id": 2,
+  "parent_id": 1,
+  "path": "(input)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 1,
+  "class": "ByobNet",
+  "first_seq": 0,
+  "id": 1,
+  "parent_id": null,
+  "path": "(top)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 1,
+  "class": "ConvNormAct",
+  "first_seq": 188,
+  "id": 3,
+  "parent_id": 1,
+  "path": "final_conv",
+  "repeat": 1
+ },
+ {
+  "capture_id": 1,
+  "class": "BatchNormAct2d",
+  "first_seq": 189,
+  "id": 7,
+  "parent_id": 3,
+  "path": "final_conv.bn",
+  "repeat": 1
+ },
+ {
+  "capture_id": 1,
+  "class": "Conv2d",
+  "first_seq": 188,
+  "id": 8,
+  "parent_id": 3,
+  "path": "final_conv.conv",
+  "repeat": 1
+ },
+ {
+  "capture_id": 1,
+  "class": "ClassifierHead",
+  "first_seq": 191,
+  "id": 4,
+  "parent_id": 1,
+  "path": "head",
+  "repeat": 1
+ },
+ {
+  "capture_id": 1,
+  "class": "Linear",
+  "first_seq": 192,
+  "id": 9,
+  "parent_id": 4,
+  "path": "head.fc",
+  "repeat": 1
+ },
+ {
+  "capture_id": 1,
+  "class": "SelectAdaptivePool2d",
+  "first_seq": 191,
+  "id": 10,
+  "parent_id": 4,
+  "path": "head.global_pool",
+  "repeat": 1
+ },
+ {
+  "capture_id": 1,
+  "class": "AdaptiveAvgPool2d",
+  "first_seq": 191,
+  "id": 14,
+  "parent_id": 10,
+  "path": "head.global_pool.pool",
+  "repeat": 1
+ },
+ {
+  "capture_id": 1,
+  "class": "Sequential",
+  "first_seq": 4,
+  "id": 5,
+  "parent_id": 1,
+  "path": "stages",
+  "repeat": 1
+ },
+ {
+  "capture_id": 1,
+  "class": "Sequential",
+  "first_seq": 4,
+  "id": 11,
+  "parent_id": 5,
+  "path": "stages.*",
+  "repeat": 5
+ },
+ {
+  "capture_id": 1,
+  "class": "BottleneckBlock",
+  "first_seq": 4,
+  "id": 15,
+  "parent_id": 11,
+  "path": "stages.*.*",
+  "repeat": 10
+ },
+ {
+  "capture_id": 1,
+  "class": "ConvNormAct",
+  "first_seq": 4,
+  "id": 16,
+  "parent_id": 15,
+  "path": "stages.*.*.conv1_1x1",
+  "repeat": 7
+ },
+ {
+  "capture_id": 1,
+  "class": "BatchNormAct2d",
+  "first_seq": 5,
+  "id": 25,
+  "parent_id": 16,
+  "path": "stages.*.*.conv1_1x1.bn",
+  "repeat": 7
+ },
+ {
+  "capture_id": 1,
+  "class": "Conv2d",
+  "first_seq": 4,
+  "id": 26,
+  "parent_id": 16,
+  "path": "stages.*.*.conv1_1x1.conv",
+  "repeat": 7
+ },
+ {
+  "capture_id": 1,
+  "class": "ConvNormAct",
+  "first_seq": 7,
+  "id": 17,
+  "parent_id": 15,
+  "path": "stages.*.*.conv2_kxk",
+  "repeat": 7
+ },
+ {
+  "capture_id": 1,
+  "class": "BatchNormAct2d",
+  "first_seq": 8,
+  "id": 27,
+  "parent_id": 17,
+  "path": "stages.*.*.conv2_kxk.bn",
+  "repeat": 7
+ },
+ {
+  "capture_id": 1,
+  "class": "Conv2d",
+  "first_seq": 7,
+  "id": 28,
+  "parent_id": 17,
+  "path": "stages.*.*.conv2_kxk.conv",
+  "repeat": 7
+ },
+ {
+  "capture_id": 1,
+  "class": "ConvNormAct",
+  "first_seq": 10,
+  "id": 18,
+  "parent_id": 15,
+  "path": "stages.*.*.conv3_1x1",
+  "repeat": 7
+ },
+ {
+  "capture_id": 1,
+  "class": "BatchNormAct2d",
+  "first_seq": 11,
+  "id": 29,
+  "parent_id": 18,
+  "path": "stages.*.*.conv3_1x1.bn",
+  "repeat": 7
+ },
+ {
+  "capture_id": 1,
+  "class": "Conv2d",
+  "first_seq": 10,
+  "id": 30,
+  "parent_id": 18,
+  "path": "stages.*.*.conv3_1x1.conv",
+  "repeat": 7
+ },
+ {
+  "capture_id": 1,
+  "class": "Conv2d",
+  "first_seq": 49,
+  "id": 19,
+  "parent_id": 15,
+  "path": "stages.*.*.conv_1x1",
+  "repeat": 3
+ },
+ {
+  "capture_id": 1,
+  "class": "ConvNormAct",
+  "first_seq": 75,
+  "id": 20,
+  "parent_id": 15,
+  "path": "stages.*.*.conv_fusion",
+  "repeat": 3
+ },
+ {
+  "capture_id": 1,
+  "class": "BatchNormAct2d",
+  "first_seq": 76,
+  "id": 31,
+  "parent_id": 20,
+  "path": "stages.*.*.conv_fusion.bn",
+  "repeat": 3
+ },
+ {
+  "capture_id": 1,
+  "class": "Conv2d",
+  "first_seq": 75,
+  "id": 32,
+  "parent_id": 20,
+  "path": "stages.*.*.conv_fusion.conv",
+  "repeat": 3
+ },
+ {
+  "capture_id": 1,
+  "class": "ConvNormAct",
+  "first_seq": 46,
+  "id": 21,
+  "parent_id": 15,
+  "path": "stages.*.*.conv_kxk",
+  "repeat": 3
+ },
+ {
+  "capture_id": 1,
+  "class": "BatchNormAct2d",
+  "first_seq": 47,
+  "id": 33,
+  "parent_id": 21,
+  "path": "stages.*.*.conv_kxk.bn",
+  "repeat": 3
+ },
+ {
+  "capture_id": 1,
+  "class": "Conv2d",
+  "first_seq": 46,
+  "id": 34,
+  "parent_id": 21,
+  "path": "stages.*.*.conv_kxk.conv",
+  "repeat": 3
+ },
+ {
+  "capture_id": 1,
+  "class": "ConvNormAct",
+  "first_seq": 71,
+  "id": 22,
+  "parent_id": 15,
+  "path": "stages.*.*.conv_proj",
+  "repeat": 3
+ },
+ {
+  "capture_id": 1,
+  "class": "BatchNormAct2d",
+  "first_seq": 72,
+  "id": 35,
+  "parent_id": 22,
+  "path": "stages.*.*.conv_proj.bn",
+  "repeat": 3
+ },
+ {
+  "capture_id": 1,
+  "class": "Conv2d",
+  "first_seq": 71,
+  "id": 36,
+  "parent_id": 22,
+  "path": "stages.*.*.conv_proj.conv",
+  "repeat": 3
+ },
+ {
+  "capture_id": 1,
+  "class": "LayerNorm",
+  "first_seq": 70,
+  "id": 23,
+  "parent_id": 15,
+  "path": "stages.*.*.norm",
+  "repeat": 3
+ },
+ {
+  "capture_id": 1,
+  "class": "Sequential",
+  "first_seq": 50,
+  "id": 24,
+  "parent_id": 15,
+  "path": "stages.*.*.transformer",
+  "repeat": 3
+ },
+ {
+  "capture_id": 1,
+  "class": "Block",
+  "first_seq": 50,
+  "id": 37,
+  "parent_id": 24,
+  "path": "stages.*.*.transformer.*",
+  "repeat": 9
+ },
+ {
+  "capture_id": 1,
+  "class": "Attention",
+  "first_seq": 51,
+  "id": 38,
+  "parent_id": 37,
+  "path": "stages.*.*.transformer.*.attn",
+  "repeat": 9
+ },
+ {
+  "capture_id": 1,
+  "class": "Linear",
+  "first_seq": 53,
+  "id": 42,
+  "parent_id": 38,
+  "path": "stages.*.*.transformer.*.attn.proj",
+  "repeat": 9
+ },
+ {
+  "capture_id": 1,
+  "class": "Linear",
+  "first_seq": 51,
+  "id": 43,
+  "parent_id": 38,
+  "path": "stages.*.*.transformer.*.attn.qkv",
+  "repeat": 9
+ },
+ {
+  "capture_id": 1,
+  "class": "Mlp",
+  "first_seq": 56,
+  "id": 39,
+  "parent_id": 37,
+  "path": "stages.*.*.transformer.*.mlp",
+  "repeat": 9
+ },
+ {
+  "capture_id": 1,
+  "class": "SiLU",
+  "first_seq": 57,
+  "id": 44,
+  "parent_id": 39,
+  "path": "stages.*.*.transformer.*.mlp.act",
+  "repeat": 9
+ },
+ {
+  "capture_id": 1,
+  "class": "Linear",
+  "first_seq": 56,
+  "id": 45,
+  "parent_id": 39,
+  "path": "stages.*.*.transformer.*.mlp.fc1",
+  "repeat": 9
+ },
+ {
+  "capture_id": 1,
+  "class": "Linear",
+  "first_seq": 58,
+  "id": 46,
+  "parent_id": 39,
+  "path": "stages.*.*.transformer.*.mlp.fc2",
+  "repeat": 9
+ },
+ {
+  "capture_id": 1,
+  "class": "LayerNorm",
+  "first_seq": 50,
+  "id": 40,
+  "parent_id": 37,
+  "path": "stages.*.*.transformer.*.norm1",
+  "repeat": 9
+ },
+ {
+  "capture_id": 1,
+  "class": "LayerNorm",
+  "first_seq": 55,
+  "id": 41,
+  "parent_id": 37,
+  "path": "stages.*.*.transformer.*.norm2",
+  "repeat": 9
+ },
+ {
+  "capture_id": 1,
+  "class": "ConvNormAct",
+  "first_seq": 1,
+  "id": 6,
+  "parent_id": 1,
+  "path": "stem",
+  "repeat": 1
+ },
+ {
+  "capture_id": 1,
+  "class": "BatchNormAct2d",
+  "first_seq": 2,
+  "id": 12,
+  "parent_id": 6,
+  "path": "stem.bn",
+  "repeat": 1
+ },
+ {
+  "capture_id": 1,
+  "class": "Conv2d",
+  "first_seq": 1,
+  "id": 13,
+  "parent_id": 6,
+  "path": "stem.conv",
+  "repeat": 1
+ },
+ {
+  "capture_id": 2,
+  "class": null,
+  "first_seq": 0,
+  "id": 48,
+  "parent_id": 47,
+  "path": "(input)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 2,
+  "class": "DiTTransformer2DModel",
+  "first_seq": 0,
+  "id": 47,
+  "parent_id": null,
+  "path": "(top)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 2,
+  "class": "LayerNorm",
+  "first_seq": 1085,
+  "id": 49,
+  "parent_id": 47,
+  "path": "norm_out",
+  "repeat": 1
+ },
+ {
+  "capture_id": 2,
+  "class": "PatchEmbed",
+  "first_seq": 3,
+  "id": 50,
+  "parent_id": 47,
+  "path": "pos_embed",
+  "repeat": 1
+ },
+ {
+  "capture_id": 2,
+  "class": "Conv2d",
+  "first_seq": 3,
+  "id": 54,
+  "parent_id": 50,
+  "path": "pos_embed.proj",
+  "repeat": 1
+ },
+ {
+  "capture_id": 2,
+  "class": "Linear",
+  "first_seq": 1084,
+  "id": 51,
+  "parent_id": 47,
+  "path": "proj_out_1",
+  "repeat": 1
+ },
+ {
+  "capture_id": 2,
+  "class": "Linear",
+  "first_seq": 1089,
+  "id": 52,
+  "parent_id": 47,
+  "path": "proj_out_2",
+  "repeat": 1
+ },
+ {
+  "capture_id": 2,
+  "class": "ModuleList",
+  "first_seq": 5,
+  "id": 53,
+  "parent_id": 47,
+  "path": "transformer_blocks",
+  "repeat": 1
+ },
+ {
+  "capture_id": 2,
+  "class": "BasicTransformerBlock",
+  "first_seq": 5,
+  "id": 55,
+  "parent_id": 53,
+  "path": "transformer_blocks.*",
+  "repeat": 28
+ },
+ {
+  "capture_id": 2,
+  "class": "Attention",
+  "first_seq": 25,
+  "id": 56,
+  "parent_id": 55,
+  "path": "transformer_blocks.*.attn1",
+  "repeat": 28
+ },
+ {
+  "capture_id": 2,
+  "class": "Linear",
+  "first_seq": 26,
+  "id": 60,
+  "parent_id": 56,
+  "path": "transformer_blocks.*.attn1.to_k",
+  "repeat": 28
+ },
+ {
+  "capture_id": 2,
+  "class": "ModuleList",
+  "first_seq": 29,
+  "id": 61,
+  "parent_id": 56,
+  "path": "transformer_blocks.*.attn1.to_out",
+  "repeat": 28
+ },
+ {
+  "capture_id": 2,
+  "class": "Linear",
+  "first_seq": 29,
+  "id": 69,
+  "parent_id": 61,
+  "path": "transformer_blocks.*.attn1.to_out.*",
+  "repeat": 56
+ },
+ {
+  "capture_id": 2,
+  "class": "Linear",
+  "first_seq": 25,
+  "id": 62,
+  "parent_id": 56,
+  "path": "transformer_blocks.*.attn1.to_q",
+  "repeat": 28
+ },
+ {
+  "capture_id": 2,
+  "class": "Linear",
+  "first_seq": 27,
+  "id": 63,
+  "parent_id": 56,
+  "path": "transformer_blocks.*.attn1.to_v",
+  "repeat": 28
+ },
+ {
+  "capture_id": 2,
+  "class": "FeedForward",
+  "first_seq": 37,
+  "id": 57,
+  "parent_id": 55,
+  "path": "transformer_blocks.*.ff",
+  "repeat": 28
+ },
+ {
+  "capture_id": 2,
+  "class": "ModuleList",
+  "first_seq": 37,
+  "id": 64,
+  "parent_id": 57,
+  "path": "transformer_blocks.*.ff.net",
+  "repeat": 28
+ },
+ {
+  "capture_id": 2,
+  "class": "GELU",
+  "first_seq": 37,
+  "id": 70,
+  "parent_id": 64,
+  "path": "transformer_blocks.*.ff.net.*",
+  "repeat": 84
+ },
+ {
+  "capture_id": 2,
+  "class": "Linear",
+  "first_seq": 37,
+  "id": 74,
+  "parent_id": 70,
+  "path": "transformer_blocks.*.ff.net.*.proj",
+  "repeat": 28
+ },
+ {
+  "capture_id": 2,
+  "class": "AdaLayerNormZero",
+  "first_seq": 5,
+  "id": 58,
+  "parent_id": 55,
+  "path": "transformer_blocks.*.norm1",
+  "repeat": 28
+ },
+ {
+  "capture_id": 2,
+  "class": "CombinedTimestepLabelEmbeddings",
+  "first_seq": 5,
+  "id": 65,
+  "parent_id": 58,
+  "path": "transformer_blocks.*.norm1.emb",
+  "repeat": 28
+ },
+ {
+  "capture_id": 2,
+  "class": "LabelEmbedding",
+  "first_seq": 17,
+  "id": 71,
+  "parent_id": 65,
+  "path": "transformer_blocks.*.norm1.emb.class_embedder",
+  "repeat": 28
+ },
+ {
+  "capture_id": 2,
+  "class": "Embedding",
+  "first_seq": 17,
+  "id": 75,
+  "parent_id": 71,
+  "path": "transformer_blocks.*.norm1.emb.class_embedder.embedding_table",
+  "repeat": 28
+ },
+ {
+  "capture_id": 2,
+  "class": "Timesteps",
+  "first_seq": 5,
+  "id": 72,
+  "parent_id": 65,
+  "path": "transformer_blocks.*.norm1.emb.time_proj",
+  "repeat": 28
+ },
+ {
+  "capture_id": 2,
+  "class": "TimestepEmbedding",
+  "first_seq": 14,
+  "id": 73,
+  "parent_id": 65,
+  "path": "transformer_blocks.*.norm1.emb.timestep_embedder",
+  "repeat": 28
+ },
+ {
+  "capture_id": 2,
+  "class": "SiLU",
+  "first_seq": 15,
+  "id": 76,
+  "parent_id": 73,
+  "path": "transformer_blocks.*.norm1.emb.timestep_embedder.act",
+  "repeat": 28
+ },
+ {
+  "capture_id": 2,
+  "class": "Linear",
+  "first_seq": 14,
+  "id": 77,
+  "parent_id": 73,
+  "path": "transformer_blocks.*.norm1.emb.timestep_embedder.linear_1",
+  "repeat": 28
+ },
+ {
+  "capture_id": 2,
+  "class": "Linear",
+  "first_seq": 16,
+  "id": 78,
+  "parent_id": 73,
+  "path": "transformer_blocks.*.norm1.emb.timestep_embedder.linear_2",
+  "repeat": 28
+ },
+ {
+  "capture_id": 2,
+  "class": "Linear",
+  "first_seq": 20,
+  "id": 66,
+  "parent_id": 58,
+  "path": "transformer_blocks.*.norm1.linear",
+  "repeat": 28
+ },
+ {
+  "capture_id": 2,
+  "class": "LayerNorm",
+  "first_seq": 21,
+  "id": 67,
+  "parent_id": 58,
+  "path": "transformer_blocks.*.norm1.norm",
+  "repeat": 28
+ },
+ {
+  "capture_id": 2,
+  "class": "SiLU",
+  "first_seq": 19,
+  "id": 68,
+  "parent_id": 58,
+  "path": "transformer_blocks.*.norm1.silu",
+  "repeat": 28
+ },
+ {
+  "capture_id": 2,
+  "class": "LayerNorm",
+  "first_seq": 33,
+  "id": 59,
+  "parent_id": 55,
+  "path": "transformer_blocks.*.norm3",
+  "repeat": 28
+ },
+ {
+  "capture_id": 3,
+  "class": null,
+  "first_seq": 0,
+  "id": 80,
+  "parent_id": 79,
+  "path": "(input)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 3,
+  "class": "AutoencoderKL",
+  "first_seq": 0,
+  "id": 79,
+  "parent_id": null,
+  "path": "(top)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 3,
+  "class": "Decoder",
+  "first_seq": 107,
+  "id": 81,
+  "parent_id": 79,
+  "path": "decoder",
+  "repeat": 1
+ },
+ {
+  "capture_id": 3,
+  "class": "SiLU",
+  "first_seq": 237,
+  "id": 85,
+  "parent_id": 81,
+  "path": "decoder.conv_act",
+  "repeat": 1
+ },
+ {
+  "capture_id": 3,
+  "class": "Conv2d",
+  "first_seq": 107,
+  "id": 86,
+  "parent_id": 81,
+  "path": "decoder.conv_in",
+  "repeat": 1
+ },
+ {
+  "capture_id": 3,
+  "class": "GroupNorm",
+  "first_seq": 236,
+  "id": 87,
+  "parent_id": 81,
+  "path": "decoder.conv_norm_out",
+  "repeat": 1
+ },
+ {
+  "capture_id": 3,
+  "class": "Conv2d",
+  "first_seq": 238,
+  "id": 88,
+  "parent_id": 81,
+  "path": "decoder.conv_out",
+  "repeat": 1
+ },
+ {
+  "capture_id": 3,
+  "class": "UNetMidBlock2D",
+  "first_seq": 108,
+  "id": 89,
+  "parent_id": 81,
+  "path": "decoder.mid_block",
+  "repeat": 1
+ },
+ {
+  "capture_id": 3,
+  "class": "ModuleList",
+  "first_seq": 116,
+  "id": 97,
+  "parent_id": 89,
+  "path": "decoder.mid_block.attentions",
+  "repeat": 1
+ },
+ {
+  "capture_id": 3,
+  "class": "Attention",
+  "first_seq": 116,
+  "id": 103,
+  "parent_id": 97,
+  "path": "decoder.mid_block.attentions.*",
+  "repeat": 1
+ },
+ {
+  "capture_id": 3,
+  "class": "GroupNorm",
+  "first_seq": 116,
+  "id": 111,
+  "parent_id": 103,
+  "path": "decoder.mid_block.attentions.*.group_norm",
+  "repeat": 1
+ },
+ {
+  "capture_id": 3,
+  "class": "Linear",
+  "first_seq": 118,
+  "id": 112,
+  "parent_id": 103,
+  "path": "decoder.mid_block.attentions.*.to_k",
+  "repeat": 1
+ },
+ {
+  "capture_id": 3,
+  "class": "ModuleList",
+  "first_seq": 121,
+  "id": 113,
+  "parent_id": 103,
+  "path": "decoder.mid_block.attentions.*.to_out",
+  "repeat": 1
+ },
+ {
+  "capture_id": 3,
+  "class": "Linear",
+  "first_seq": 121,
+  "id": 135,
+  "parent_id": 113,
+  "path": "decoder.mid_block.attentions.*.to_out.*",
+  "repeat": 2
+ },
+ {
+  "capture_id": 3,
+  "class": "Linear",
+  "first_seq": 117,
+  "id": 114,
+  "parent_id": 103,
+  "path": "decoder.mid_block.attentions.*.to_q",
+  "repeat": 1
+ },
+ {
+  "capture_id": 3,
+  "class": "Linear",
+  "first_seq": 119,
+  "id": 115,
+  "parent_id": 103,
+  "path": "decoder.mid_block.attentions.*.to_v",
+  "repeat": 1
+ },
+ {
+  "capture_id": 3,
+  "class": "ModuleList",
+  "first_seq": 108,
+  "id": 98,
+  "parent_id": 89,
+  "path": "decoder.mid_block.resnets",
+  "repeat": 1
+ },
+ {
+  "capture_id": 3,
+  "class": "ResnetBlock2D",
+  "first_seq": 108,
+  "id": 104,
+  "parent_id": 98,
+  "path": "decoder.mid_block.resnets.*",
+  "repeat": 2
+ },
+ {
+  "capture_id": 3,
+  "class": "Conv2d",
+  "first_seq": 110,
+  "id": 116,
+  "parent_id": 104,
+  "path": "decoder.mid_block.resnets.*.conv1",
+  "repeat": 2
+ },
+ {
+  "capture_id": 3,
+  "class": "Conv2d",
+  "first_seq": 113,
+  "id": 117,
+  "parent_id": 104,
+  "path": "decoder.mid_block.resnets.*.conv2",
+  "repeat": 2
+ },
+ {
+  "capture_id": 3,
+  "class": "SiLU",
+  "first_seq": 109,
+  "id": 118,
+  "parent_id": 104,
+  "path": "decoder.mid_block.resnets.*.nonlinearity",
+  "repeat": 2
+ },
+ {
+  "capture_id": 3,
+  "class": "GroupNorm",
+  "first_seq": 108,
+  "id": 119,
+  "parent_id": 104,
+  "path": "decoder.mid_block.resnets.*.norm1",
+  "repeat": 2
+ },
+ {
+  "capture_id": 3,
+  "class": "GroupNorm",
+  "first_seq": 111,
+  "id": 120,
+  "parent_id": 104,
+  "path": "decoder.mid_block.resnets.*.norm2",
+  "repeat": 2
+ },
+ {
+  "capture_id": 3,
+  "class": "ModuleList",
+  "first_seq": 132,
+  "id": 90,
+  "parent_id": 81,
+  "path": "decoder.up_blocks",
+  "repeat": 1
+ },
+ {
+  "capture_id": 3,
+  "class": "UpDecoderBlock2D",
+  "first_seq": 132,
+  "id": 99,
+  "parent_id": 90,
+  "path": "decoder.up_blocks.*",
+  "repeat": 4
+ },
+ {
+  "capture_id": 3,
+  "class": "ModuleList",
+  "first_seq": 132,
+  "id": 105,
+  "parent_id": 99,
+  "path": "decoder.up_blocks.*.resnets",
+  "repeat": 4
+ },
+ {
+  "capture_id": 3,
+  "class": "ResnetBlock2D",
+  "first_seq": 132,
+  "id": 121,
+  "parent_id": 105,
+  "path": "decoder.up_blocks.*.resnets.*",
+  "repeat": 12
+ },
+ {
+  "capture_id": 3,
+  "class": "Conv2d",
+  "first_seq": 134,
+  "id": 136,
+  "parent_id": 121,
+  "path": "decoder.up_blocks.*.resnets.*.conv1",
+  "repeat": 12
+ },
+ {
+  "capture_id": 3,
+  "class": "Conv2d",
+  "first_seq": 137,
+  "id": 137,
+  "parent_id": 121,
+  "path": "decoder.up_blocks.*.resnets.*.conv2",
+  "repeat": 12
+ },
+ {
+  "capture_id": 3,
+  "class": "Conv2d",
+  "first_seq": 190,
+  "id": 138,
+  "parent_id": 121,
+  "path": "decoder.up_blocks.*.resnets.*.conv_shortcut",
+  "repeat": 2
+ },
+ {
+  "capture_id": 3,
+  "class": "SiLU",
+  "first_seq": 133,
+  "id": 139,
+  "parent_id": 121,
+  "path": "decoder.up_blocks.*.resnets.*.nonlinearity",
+  "repeat": 12
+ },
+ {
+  "capture_id": 3,
+  "class": "GroupNorm",
+  "first_seq": 132,
+  "id": 140,
+  "parent_id": 121,
+  "path": "decoder.up_blocks.*.resnets.*.norm1",
+  "repeat": 12
+ },
+ {
+  "capture_id": 3,
+  "class": "GroupNorm",
+  "first_seq": 135,
+  "id": 141,
+  "parent_id": 121,
+  "path": "decoder.up_blocks.*.resnets.*.norm2",
+  "repeat": 12
+ },
+ {
+  "capture_id": 3,
+  "class": "ModuleList",
+  "first_seq": 156,
+  "id": 106,
+  "parent_id": 99,
+  "path": "decoder.up_blocks.*.upsamplers",
+  "repeat": 3
+ },
+ {
+  "capture_id": 3,
+  "class": "Upsample2D",
+  "first_seq": 156,
+  "id": 122,
+  "parent_id": 106,
+  "path": "decoder.up_blocks.*.upsamplers.*",
+  "repeat": 3
+ },
+ {
+  "capture_id": 3,
+  "class": "Conv2d",
+  "first_seq": 157,
+  "id": 142,
+  "parent_id": 122,
+  "path": "decoder.up_blocks.*.upsamplers.*.conv",
+  "repeat": 3
+ },
+ {
+  "capture_id": 3,
+  "class": "Encoder",
+  "first_seq": 1,
+  "id": 82,
+  "parent_id": 79,
+  "path": "encoder",
+  "repeat": 1
+ },
+ {
+  "capture_id": 3,
+  "class": "SiLU",
+  "first_seq": 99,
+  "id": 91,
+  "parent_id": 82,
+  "path": "encoder.conv_act",
+  "repeat": 1
+ },
+ {
+  "capture_id": 3,
+  "class": "Conv2d",
+  "first_seq": 1,
+  "id": 92,
+  "parent_id": 82,
+  "path": "encoder.conv_in",
+  "repeat": 1
+ },
+ {
+  "capture_id": 3,
+  "class": "GroupNorm",
+  "first_seq": 98,
+  "id": 93,
+  "parent_id": 82,
+  "path": "encoder.conv_norm_out",
+  "repeat": 1
+ },
+ {
+  "capture_id": 3,
+  "class": "Conv2d",
+  "first_seq": 100,
+  "id": 94,
+  "parent_id": 82,
+  "path": "encoder.conv_out",
+  "repeat": 1
+ },
+ {
+  "capture_id": 3,
+  "class": "ModuleList",
+  "first_seq": 2,
+  "id": 95,
+  "parent_id": 82,
+  "path": "encoder.down_blocks",
+  "repeat": 1
+ },
+ {
+  "capture_id": 3,
+  "class": "DownEncoderBlock2D",
+  "first_seq": 2,
+  "id": 100,
+  "parent_id": 95,
+  "path": "encoder.down_blocks.*",
+  "repeat": 4
+ },
+ {
+  "capture_id": 3,
+  "class": "ModuleList",
+  "first_seq": 18,
+  "id": 107,
+  "parent_id": 100,
+  "path": "encoder.down_blocks.*.downsamplers",
+  "repeat": 3
+ },
+ {
+  "capture_id": 3,
+  "class": "Downsample2D",
+  "first_seq": 18,
+  "id": 123,
+  "parent_id": 107,
+  "path": "encoder.down_blocks.*.downsamplers.*",
+  "repeat": 3
+ },
+ {
+  "capture_id": 3,
+  "class": "Conv2d",
+  "first_seq": 19,
+  "id": 143,
+  "parent_id": 123,
+  "path": "encoder.down_blocks.*.downsamplers.*.conv",
+  "repeat": 3
+ },
+ {
+  "capture_id": 3,
+  "class": "ModuleList",
+  "first_seq": 2,
+  "id": 108,
+  "parent_id": 100,
+  "path": "encoder.down_blocks.*.resnets",
+  "repeat": 4
+ },
+ {
+  "capture_id": 3,
+  "class": "ResnetBlock2D",
+  "first_seq": 2,
+  "id": 124,
+  "parent_id": 108,
+  "path": "encoder.down_blocks.*.resnets.*",
+  "repeat": 8
+ },
+ {
+  "capture_id": 3,
+  "class": "Conv2d",
+  "first_seq": 4,
+  "id": 144,
+  "parent_id": 124,
+  "path": "encoder.down_blocks.*.resnets.*.conv1",
+  "repeat": 8
+ },
+ {
+  "capture_id": 3,
+  "class": "Conv2d",
+  "first_seq": 7,
+  "id": 145,
+  "parent_id": 124,
+  "path": "encoder.down_blocks.*.resnets.*.conv2",
+  "repeat": 8
+ },
+ {
+  "capture_id": 3,
+  "class": "Conv2d",
+  "first_seq": 26,
+  "id": 146,
+  "parent_id": 124,
+  "path": "encoder.down_blocks.*.resnets.*.conv_shortcut",
+  "repeat": 2
+ },
+ {
+  "capture_id": 3,
+  "class": "SiLU",
+  "first_seq": 3,
+  "id": 147,
+  "parent_id": 124,
+  "path": "encoder.down_blocks.*.resnets.*.nonlinearity",
+  "repeat": 8
+ },
+ {
+  "capture_id": 3,
+  "class": "GroupNorm",
+  "first_seq": 2,
+  "id": 148,
+  "parent_id": 124,
+  "path": "encoder.down_blocks.*.resnets.*.norm1",
+  "repeat": 8
+ },
+ {
+  "capture_id": 3,
+  "class": "GroupNorm",
+  "first_seq": 5,
+  "id": 149,
+  "parent_id": 124,
+  "path": "encoder.down_blocks.*.resnets.*.norm2",
+  "repeat": 8
+ },
+ {
+  "capture_id": 3,
+  "class": "UNetMidBlock2D",
+  "first_seq": 74,
+  "id": 96,
+  "parent_id": 82,
+  "path": "encoder.mid_block",
+  "repeat": 1
+ },
+ {
+  "capture_id": 3,
+  "class": "ModuleList",
+  "first_seq": 82,
+  "id": 101,
+  "parent_id": 96,
+  "path": "encoder.mid_block.attentions",
+  "repeat": 1
+ },
+ {
+  "capture_id": 3,
+  "class": "Attention",
+  "first_seq": 82,
+  "id": 109,
+  "parent_id": 101,
+  "path": "encoder.mid_block.attentions.*",
+  "repeat": 1
+ },
+ {
+  "capture_id": 3,
+  "class": "GroupNorm",
+  "first_seq": 82,
+  "id": 125,
+  "parent_id": 109,
+  "path": "encoder.mid_block.attentions.*.group_norm",
+  "repeat": 1
+ },
+ {
+  "capture_id": 3,
+  "class": "Linear",
+  "first_seq": 84,
+  "id": 126,
+  "parent_id": 109,
+  "path": "encoder.mid_block.attentions.*.to_k",
+  "repeat": 1
+ },
+ {
+  "capture_id": 3,
+  "class": "ModuleList",
+  "first_seq": 87,
+  "id": 127,
+  "parent_id": 109,
+  "path": "encoder.mid_block.attentions.*.to_out",
+  "repeat": 1
+ },
+ {
+  "capture_id": 3,
+  "class": "Linear",
+  "first_seq": 87,
+  "id": 150,
+  "parent_id": 127,
+  "path": "encoder.mid_block.attentions.*.to_out.*",
+  "repeat": 2
+ },
+ {
+  "capture_id": 3,
+  "class": "Linear",
+  "first_seq": 83,
+  "id": 128,
+  "parent_id": 109,
+  "path": "encoder.mid_block.attentions.*.to_q",
+  "repeat": 1
+ },
+ {
+  "capture_id": 3,
+  "class": "Linear",
+  "first_seq": 85,
+  "id": 129,
+  "parent_id": 109,
+  "path": "encoder.mid_block.attentions.*.to_v",
+  "repeat": 1
+ },
+ {
+  "capture_id": 3,
+  "class": "ModuleList",
+  "first_seq": 74,
+  "id": 102,
+  "parent_id": 96,
+  "path": "encoder.mid_block.resnets",
+  "repeat": 1
+ },
+ {
+  "capture_id": 3,
+  "class": "ResnetBlock2D",
+  "first_seq": 74,
+  "id": 110,
+  "parent_id": 102,
+  "path": "encoder.mid_block.resnets.*",
+  "repeat": 2
+ },
+ {
+  "capture_id": 3,
+  "class": "Conv2d",
+  "first_seq": 76,
+  "id": 130,
+  "parent_id": 110,
+  "path": "encoder.mid_block.resnets.*.conv1",
+  "repeat": 2
+ },
+ {
+  "capture_id": 3,
+  "class": "Conv2d",
+  "first_seq": 79,
+  "id": 131,
+  "parent_id": 110,
+  "path": "encoder.mid_block.resnets.*.conv2",
+  "repeat": 2
+ },
+ {
+  "capture_id": 3,
+  "class": "SiLU",
+  "first_seq": 75,
+  "id": 132,
+  "parent_id": 110,
+  "path": "encoder.mid_block.resnets.*.nonlinearity",
+  "repeat": 2
+ },
+ {
+  "capture_id": 3,
+  "class": "GroupNorm",
+  "first_seq": 74,
+  "id": 133,
+  "parent_id": 110,
+  "path": "encoder.mid_block.resnets.*.norm1",
+  "repeat": 2
+ },
+ {
+  "capture_id": 3,
+  "class": "GroupNorm",
+  "first_seq": 77,
+  "id": 134,
+  "parent_id": 110,
+  "path": "encoder.mid_block.resnets.*.norm2",
+  "repeat": 2
+ },
+ {
+  "capture_id": 3,
+  "class": "Conv2d",
+  "first_seq": 106,
+  "id": 83,
+  "parent_id": 79,
+  "path": "post_quant_conv",
+  "repeat": 1
+ },
+ {
+  "capture_id": 3,
+  "class": "Conv2d",
+  "first_seq": 101,
+  "id": 84,
+  "parent_id": 79,
+  "path": "quant_conv",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": null,
+  "first_seq": 0,
+  "id": 152,
+  "parent_id": 151,
+  "path": "(input)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "UNet2DConditionModel",
+  "first_seq": 0,
+  "id": 151,
+  "parent_id": null,
+  "path": "(top)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "SiLU",
+  "first_seq": 710,
+  "id": 153,
+  "parent_id": 151,
+  "path": "conv_act",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "Conv2d",
+  "first_seq": 15,
+  "id": 154,
+  "parent_id": 151,
+  "path": "conv_in",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "GroupNorm",
+  "first_seq": 709,
+  "id": 155,
+  "parent_id": 151,
+  "path": "conv_norm_out",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "Conv2d",
+  "first_seq": 711,
+  "id": 156,
+  "parent_id": 151,
+  "path": "conv_out",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "ModuleList",
+  "first_seq": 16,
+  "id": 157,
+  "parent_id": 151,
+  "path": "down_blocks",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "CrossAttnDownBlock2D",
+  "first_seq": 16,
+  "id": 162,
+  "parent_id": 157,
+  "path": "down_blocks.*",
+  "repeat": 4
+ },
+ {
+  "capture_id": 4,
+  "class": "ModuleList",
+  "first_seq": 27,
+  "id": 169,
+  "parent_id": 162,
+  "path": "down_blocks.*.attentions",
+  "repeat": 3
+ },
+ {
+  "capture_id": 4,
+  "class": "Transformer2DModel",
+  "first_seq": 27,
+  "id": 177,
+  "parent_id": 169,
+  "path": "down_blocks.*.attentions.*",
+  "repeat": 6
+ },
+ {
+  "capture_id": 4,
+  "class": "GroupNorm",
+  "first_seq": 27,
+  "id": 193,
+  "parent_id": 177,
+  "path": "down_blocks.*.attentions.*.norm",
+  "repeat": 6
+ },
+ {
+  "capture_id": 4,
+  "class": "Conv2d",
+  "first_seq": 28,
+  "id": 194,
+  "parent_id": 177,
+  "path": "down_blocks.*.attentions.*.proj_in",
+  "repeat": 6
+ },
+ {
+  "capture_id": 4,
+  "class": "Conv2d",
+  "first_seq": 51,
+  "id": 195,
+  "parent_id": 177,
+  "path": "down_blocks.*.attentions.*.proj_out",
+  "repeat": 6
+ },
+ {
+  "capture_id": 4,
+  "class": "ModuleList",
+  "first_seq": 29,
+  "id": 196,
+  "parent_id": 177,
+  "path": "down_blocks.*.attentions.*.transformer_blocks",
+  "repeat": 6
+ },
+ {
+  "capture_id": 4,
+  "class": "BasicTransformerBlock",
+  "first_seq": 29,
+  "id": 218,
+  "parent_id": 196,
+  "path": "down_blocks.*.attentions.*.transformer_blocks.*",
+  "repeat": 6
+ },
+ {
+  "capture_id": 4,
+  "class": "Attention",
+  "first_seq": 30,
+  "id": 226,
+  "parent_id": 218,
+  "path": "down_blocks.*.attentions.*.transformer_blocks.*.attn1",
+  "repeat": 6
+ },
+ {
+  "capture_id": 4,
+  "class": "Linear",
+  "first_seq": 31,
+  "id": 247,
+  "parent_id": 226,
+  "path": "down_blocks.*.attentions.*.transformer_blocks.*.attn1.to_k",
+  "repeat": 6
+ },
+ {
+  "capture_id": 4,
+  "class": "ModuleList",
+  "first_seq": 34,
+  "id": 248,
+  "parent_id": 226,
+  "path": "down_blocks.*.attentions.*.transformer_blocks.*.attn1.to_out",
+  "repeat": 6
+ },
+ {
+  "capture_id": 4,
+  "class": "Linear",
+  "first_seq": 34,
+  "id": 268,
+  "parent_id": 248,
+  "path": "down_blocks.*.attentions.*.transformer_blocks.*.attn1.to_out.*",
+  "repeat": 12
+ },
+ {
+  "capture_id": 4,
+  "class": "Linear",
+  "first_seq": 30,
+  "id": 249,
+  "parent_id": 226,
+  "path": "down_blocks.*.attentions.*.transformer_blocks.*.attn1.to_q",
+  "repeat": 6
+ },
+ {
+  "capture_id": 4,
+  "class": "Linear",
+  "first_seq": 32,
+  "id": 250,
+  "parent_id": 226,
+  "path": "down_blocks.*.attentions.*.transformer_blocks.*.attn1.to_v",
+  "repeat": 6
+ },
+ {
+  "capture_id": 4,
+  "class": "Attention",
+  "first_seq": 38,
+  "id": 227,
+  "parent_id": 218,
+  "path": "down_blocks.*.attentions.*.transformer_blocks.*.attn2",
+  "repeat": 6
+ },
+ {
+  "capture_id": 4,
+  "class": "Linear",
+  "first_seq": 39,
+  "id": 251,
+  "parent_id": 227,
+  "path": "down_blocks.*.attentions.*.transformer_blocks.*.attn2.to_k",
+  "repeat": 6
+ },
+ {
+  "capture_id": 4,
+  "class": "ModuleList",
+  "first_seq": 42,
+  "id": 252,
+  "parent_id": 227,
+  "path": "down_blocks.*.attentions.*.transformer_blocks.*.attn2.to_out",
+  "repeat": 6
+ },
+ {
+  "capture_id": 4,
+  "class": "Linear",
+  "first_seq": 42,
+  "id": 269,
+  "parent_id": 252,
+  "path": "down_blocks.*.attentions.*.transformer_blocks.*.attn2.to_out.*",
+  "repeat": 12
+ },
+ {
+  "capture_id": 4,
+  "class": "Linear",
+  "first_seq": 38,
+  "id": 253,
+  "parent_id": 227,
+  "path": "down_blocks.*.attentions.*.transformer_blocks.*.attn2.to_q",
+  "repeat": 6
+ },
+ {
+  "capture_id": 4,
+  "class": "Linear",
+  "first_seq": 40,
+  "id": 254,
+  "parent_id": 227,
+  "path": "down_blocks.*.attentions.*.transformer_blocks.*.attn2.to_v",
+  "repeat": 6
+ },
+ {
+  "capture_id": 4,
+  "class": "FeedForward",
+  "first_seq": 46,
+  "id": 228,
+  "parent_id": 218,
+  "path": "down_blocks.*.attentions.*.transformer_blocks.*.ff",
+  "repeat": 6
+ },
+ {
+  "capture_id": 4,
+  "class": "ModuleList",
+  "first_seq": 46,
+  "id": 255,
+  "parent_id": 228,
+  "path": "down_blocks.*.attentions.*.transformer_blocks.*.ff.net",
+  "repeat": 6
+ },
+ {
+  "capture_id": 4,
+  "class": "GEGLU",
+  "first_seq": 46,
+  "id": 270,
+  "parent_id": 255,
+  "path": "down_blocks.*.attentions.*.transformer_blocks.*.ff.net.*",
+  "repeat": 18
+ },
+ {
+  "capture_id": 4,
+  "class": "Linear",
+  "first_seq": 46,
+  "id": 275,
+  "parent_id": 270,
+  "path": "down_blocks.*.attentions.*.transformer_blocks.*.ff.net.*.proj",
+  "repeat": 6
+ },
+ {
+  "capture_id": 4,
+  "class": "LayerNorm",
+  "first_seq": 29,
+  "id": 229,
+  "parent_id": 218,
+  "path": "down_blocks.*.attentions.*.transformer_blocks.*.norm1",
+  "repeat": 6
+ },
+ {
+  "capture_id": 4,
+  "class": "LayerNorm",
+  "first_seq": 37,
+  "id": 230,
+  "parent_id": 218,
+  "path": "down_blocks.*.attentions.*.transformer_blocks.*.norm2",
+  "repeat": 6
+ },
+ {
+  "capture_id": 4,
+  "class": "LayerNorm",
+  "first_seq": 45,
+  "id": 231,
+  "parent_id": 218,
+  "path": "down_blocks.*.attentions.*.transformer_blocks.*.norm3",
+  "repeat": 6
+ },
+ {
+  "capture_id": 4,
+  "class": "ModuleList",
+  "first_seq": 90,
+  "id": 170,
+  "parent_id": 162,
+  "path": "down_blocks.*.downsamplers",
+  "repeat": 3
+ },
+ {
+  "capture_id": 4,
+  "class": "Downsample2D",
+  "first_seq": 90,
+  "id": 178,
+  "parent_id": 170,
+  "path": "down_blocks.*.downsamplers.*",
+  "repeat": 3
+ },
+ {
+  "capture_id": 4,
+  "class": "Conv2d",
+  "first_seq": 90,
+  "id": 197,
+  "parent_id": 178,
+  "path": "down_blocks.*.downsamplers.*.conv",
+  "repeat": 3
+ },
+ {
+  "capture_id": 4,
+  "class": "ModuleList",
+  "first_seq": 16,
+  "id": 171,
+  "parent_id": 162,
+  "path": "down_blocks.*.resnets",
+  "repeat": 4
+ },
+ {
+  "capture_id": 4,
+  "class": "ResnetBlock2D",
+  "first_seq": 16,
+  "id": 179,
+  "parent_id": 171,
+  "path": "down_blocks.*.resnets.*",
+  "repeat": 8
+ },
+ {
+  "capture_id": 4,
+  "class": "Conv2d",
+  "first_seq": 18,
+  "id": 198,
+  "parent_id": 179,
+  "path": "down_blocks.*.resnets.*.conv1",
+  "repeat": 8
+ },
+ {
+  "capture_id": 4,
+  "class": "Conv2d",
+  "first_seq": 24,
+  "id": 199,
+  "parent_id": 179,
+  "path": "down_blocks.*.resnets.*.conv2",
+  "repeat": 8
+ },
+ {
+  "capture_id": 4,
+  "class": "Conv2d",
+  "first_seq": 100,
+  "id": 200,
+  "parent_id": 179,
+  "path": "down_blocks.*.resnets.*.conv_shortcut",
+  "repeat": 2
+ },
+ {
+  "capture_id": 4,
+  "class": "SiLU",
+  "first_seq": 17,
+  "id": 201,
+  "parent_id": 179,
+  "path": "down_blocks.*.resnets.*.nonlinearity",
+  "repeat": 8
+ },
+ {
+  "capture_id": 4,
+  "class": "GroupNorm",
+  "first_seq": 16,
+  "id": 202,
+  "parent_id": 179,
+  "path": "down_blocks.*.resnets.*.norm1",
+  "repeat": 8
+ },
+ {
+  "capture_id": 4,
+  "class": "GroupNorm",
+  "first_seq": 22,
+  "id": 203,
+  "parent_id": 179,
+  "path": "down_blocks.*.resnets.*.norm2",
+  "repeat": 8
+ },
+ {
+  "capture_id": 4,
+  "class": "Linear",
+  "first_seq": 20,
+  "id": 204,
+  "parent_id": 179,
+  "path": "down_blocks.*.resnets.*.time_emb_proj",
+  "repeat": 8
+ },
+ {
+  "capture_id": 4,
+  "class": "UNetMidBlock2DCrossAttn",
+  "first_seq": 265,
+  "id": 158,
+  "parent_id": 151,
+  "path": "mid_block",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "ModuleList",
+  "first_seq": 276,
+  "id": 163,
+  "parent_id": 158,
+  "path": "mid_block.attentions",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "Transformer2DModel",
+  "first_seq": 276,
+  "id": 172,
+  "parent_id": 163,
+  "path": "mid_block.attentions.*",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "GroupNorm",
+  "first_seq": 276,
+  "id": 180,
+  "parent_id": 172,
+  "path": "mid_block.attentions.*.norm",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "Conv2d",
+  "first_seq": 277,
+  "id": 181,
+  "parent_id": 172,
+  "path": "mid_block.attentions.*.proj_in",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "Conv2d",
+  "first_seq": 300,
+  "id": 182,
+  "parent_id": 172,
+  "path": "mid_block.attentions.*.proj_out",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "ModuleList",
+  "first_seq": 278,
+  "id": 183,
+  "parent_id": 172,
+  "path": "mid_block.attentions.*.transformer_blocks",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "BasicTransformerBlock",
+  "first_seq": 278,
+  "id": 205,
+  "parent_id": 183,
+  "path": "mid_block.attentions.*.transformer_blocks.*",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "Attention",
+  "first_seq": 279,
+  "id": 219,
+  "parent_id": 205,
+  "path": "mid_block.attentions.*.transformer_blocks.*.attn1",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "Linear",
+  "first_seq": 280,
+  "id": 232,
+  "parent_id": 219,
+  "path": "mid_block.attentions.*.transformer_blocks.*.attn1.to_k",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "ModuleList",
+  "first_seq": 283,
+  "id": 233,
+  "parent_id": 219,
+  "path": "mid_block.attentions.*.transformer_blocks.*.attn1.to_out",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "Linear",
+  "first_seq": 283,
+  "id": 256,
+  "parent_id": 233,
+  "path": "mid_block.attentions.*.transformer_blocks.*.attn1.to_out.*",
+  "repeat": 2
+ },
+ {
+  "capture_id": 4,
+  "class": "Linear",
+  "first_seq": 279,
+  "id": 234,
+  "parent_id": 219,
+  "path": "mid_block.attentions.*.transformer_blocks.*.attn1.to_q",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "Linear",
+  "first_seq": 281,
+  "id": 235,
+  "parent_id": 219,
+  "path": "mid_block.attentions.*.transformer_blocks.*.attn1.to_v",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "Attention",
+  "first_seq": 287,
+  "id": 220,
+  "parent_id": 205,
+  "path": "mid_block.attentions.*.transformer_blocks.*.attn2",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "Linear",
+  "first_seq": 288,
+  "id": 236,
+  "parent_id": 220,
+  "path": "mid_block.attentions.*.transformer_blocks.*.attn2.to_k",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "ModuleList",
+  "first_seq": 291,
+  "id": 237,
+  "parent_id": 220,
+  "path": "mid_block.attentions.*.transformer_blocks.*.attn2.to_out",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "Linear",
+  "first_seq": 291,
+  "id": 257,
+  "parent_id": 237,
+  "path": "mid_block.attentions.*.transformer_blocks.*.attn2.to_out.*",
+  "repeat": 2
+ },
+ {
+  "capture_id": 4,
+  "class": "Linear",
+  "first_seq": 287,
+  "id": 238,
+  "parent_id": 220,
+  "path": "mid_block.attentions.*.transformer_blocks.*.attn2.to_q",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "Linear",
+  "first_seq": 289,
+  "id": 239,
+  "parent_id": 220,
+  "path": "mid_block.attentions.*.transformer_blocks.*.attn2.to_v",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "FeedForward",
+  "first_seq": 295,
+  "id": 221,
+  "parent_id": 205,
+  "path": "mid_block.attentions.*.transformer_blocks.*.ff",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "ModuleList",
+  "first_seq": 295,
+  "id": 240,
+  "parent_id": 221,
+  "path": "mid_block.attentions.*.transformer_blocks.*.ff.net",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "GEGLU",
+  "first_seq": 295,
+  "id": 258,
+  "parent_id": 240,
+  "path": "mid_block.attentions.*.transformer_blocks.*.ff.net.*",
+  "repeat": 3
+ },
+ {
+  "capture_id": 4,
+  "class": "Linear",
+  "first_seq": 295,
+  "id": 271,
+  "parent_id": 258,
+  "path": "mid_block.attentions.*.transformer_blocks.*.ff.net.*.proj",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "LayerNorm",
+  "first_seq": 278,
+  "id": 222,
+  "parent_id": 205,
+  "path": "mid_block.attentions.*.transformer_blocks.*.norm1",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "LayerNorm",
+  "first_seq": 286,
+  "id": 223,
+  "parent_id": 205,
+  "path": "mid_block.attentions.*.transformer_blocks.*.norm2",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "LayerNorm",
+  "first_seq": 294,
+  "id": 224,
+  "parent_id": 205,
+  "path": "mid_block.attentions.*.transformer_blocks.*.norm3",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "ModuleList",
+  "first_seq": 265,
+  "id": 164,
+  "parent_id": 158,
+  "path": "mid_block.resnets",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "ResnetBlock2D",
+  "first_seq": 265,
+  "id": 173,
+  "parent_id": 164,
+  "path": "mid_block.resnets.*",
+  "repeat": 2
+ },
+ {
+  "capture_id": 4,
+  "class": "Conv2d",
+  "first_seq": 267,
+  "id": 184,
+  "parent_id": 173,
+  "path": "mid_block.resnets.*.conv1",
+  "repeat": 2
+ },
+ {
+  "capture_id": 4,
+  "class": "Conv2d",
+  "first_seq": 273,
+  "id": 185,
+  "parent_id": 173,
+  "path": "mid_block.resnets.*.conv2",
+  "repeat": 2
+ },
+ {
+  "capture_id": 4,
+  "class": "SiLU",
+  "first_seq": 266,
+  "id": 186,
+  "parent_id": 173,
+  "path": "mid_block.resnets.*.nonlinearity",
+  "repeat": 2
+ },
+ {
+  "capture_id": 4,
+  "class": "GroupNorm",
+  "first_seq": 265,
+  "id": 187,
+  "parent_id": 173,
+  "path": "mid_block.resnets.*.norm1",
+  "repeat": 2
+ },
+ {
+  "capture_id": 4,
+  "class": "GroupNorm",
+  "first_seq": 271,
+  "id": 188,
+  "parent_id": 173,
+  "path": "mid_block.resnets.*.norm2",
+  "repeat": 2
+ },
+ {
+  "capture_id": 4,
+  "class": "Linear",
+  "first_seq": 269,
+  "id": 189,
+  "parent_id": 173,
+  "path": "mid_block.resnets.*.time_emb_proj",
+  "repeat": 2
+ },
+ {
+  "capture_id": 4,
+  "class": "TimestepEmbedding",
+  "first_seq": 12,
+  "id": 159,
+  "parent_id": 151,
+  "path": "time_embedding",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "SiLU",
+  "first_seq": 13,
+  "id": 165,
+  "parent_id": 159,
+  "path": "time_embedding.act",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "Linear",
+  "first_seq": 12,
+  "id": 166,
+  "parent_id": 159,
+  "path": "time_embedding.linear_1",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "Linear",
+  "first_seq": 14,
+  "id": 167,
+  "parent_id": 159,
+  "path": "time_embedding.linear_2",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "Timesteps",
+  "first_seq": 3,
+  "id": 160,
+  "parent_id": 151,
+  "path": "time_proj",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "ModuleList",
+  "first_seq": 313,
+  "id": 161,
+  "parent_id": 151,
+  "path": "up_blocks",
+  "repeat": 1
+ },
+ {
+  "capture_id": 4,
+  "class": "UpBlock2D",
+  "first_seq": 313,
+  "id": 168,
+  "parent_id": 161,
+  "path": "up_blocks.*",
+  "repeat": 4
+ },
+ {
+  "capture_id": 4,
+  "class": "ModuleList",
+  "first_seq": 367,
+  "id": 174,
+  "parent_id": 168,
+  "path": "up_blocks.*.attentions",
+  "repeat": 3
+ },
+ {
+  "capture_id": 4,
+  "class": "Transformer2DModel",
+  "first_seq": 367,
+  "id": 190,
+  "parent_id": 174,
+  "path": "up_blocks.*.attentions.*",
+  "repeat": 9
+ },
+ {
+  "capture_id": 4,
+  "class": "GroupNorm",
+  "first_seq": 367,
+  "id": 206,
+  "parent_id": 190,
+  "path": "up_blocks.*.attentions.*.norm",
+  "repeat": 9
+ },
+ {
+  "capture_id": 4,
+  "class": "Conv2d",
+  "first_seq": 368,
+  "id": 207,
+  "parent_id": 190,
+  "path": "up_blocks.*.attentions.*.proj_in",
+  "repeat": 9
+ },
+ {
+  "capture_id": 4,
+  "class": "Conv2d",
+  "first_seq": 391,
+  "id": 208,
+  "parent_id": 190,
+  "path": "up_blocks.*.attentions.*.proj_out",
+  "repeat": 9
+ },
+ {
+  "capture_id": 4,
+  "class": "ModuleList",
+  "first_seq": 369,
+  "id": 209,
+  "parent_id": 190,
+  "path": "up_blocks.*.attentions.*.transformer_blocks",
+  "repeat": 9
+ },
+ {
+  "capture_id": 4,
+  "class": "BasicTransformerBlock",
+  "first_seq": 369,
+  "id": 225,
+  "parent_id": 209,
+  "path": "up_blocks.*.attentions.*.transformer_blocks.*",
+  "repeat": 9
+ },
+ {
+  "capture_id": 4,
+  "class": "Attention",
+  "first_seq": 370,
+  "id": 241,
+  "parent_id": 225,
+  "path": "up_blocks.*.attentions.*.transformer_blocks.*.attn1",
+  "repeat": 9
+ },
+ {
+  "capture_id": 4,
+  "class": "Linear",
+  "first_seq": 371,
+  "id": 259,
+  "parent_id": 241,
+  "path": "up_blocks.*.attentions.*.transformer_blocks.*.attn1.to_k",
+  "repeat": 9
+ },
+ {
+  "capture_id": 4,
+  "class": "ModuleList",
+  "first_seq": 374,
+  "id": 260,
+  "parent_id": 241,
+  "path": "up_blocks.*.attentions.*.transformer_blocks.*.attn1.to_out",
+  "repeat": 9
+ },
+ {
+  "capture_id": 4,
+  "class": "Linear",
+  "first_seq": 374,
+  "id": 272,
+  "parent_id": 260,
+  "path": "up_blocks.*.attentions.*.transformer_blocks.*.attn1.to_out.*",
+  "repeat": 18
+ },
+ {
+  "capture_id": 4,
+  "class": "Linear",
+  "first_seq": 370,
+  "id": 261,
+  "parent_id": 241,
+  "path": "up_blocks.*.attentions.*.transformer_blocks.*.attn1.to_q",
+  "repeat": 9
+ },
+ {
+  "capture_id": 4,
+  "class": "Linear",
+  "first_seq": 372,
+  "id": 262,
+  "parent_id": 241,
+  "path": "up_blocks.*.attentions.*.transformer_blocks.*.attn1.to_v",
+  "repeat": 9
+ },
+ {
+  "capture_id": 4,
+  "class": "Attention",
+  "first_seq": 378,
+  "id": 242,
+  "parent_id": 225,
+  "path": "up_blocks.*.attentions.*.transformer_blocks.*.attn2",
+  "repeat": 9
+ },
+ {
+  "capture_id": 4,
+  "class": "Linear",
+  "first_seq": 379,
+  "id": 263,
+  "parent_id": 242,
+  "path": "up_blocks.*.attentions.*.transformer_blocks.*.attn2.to_k",
+  "repeat": 9
+ },
+ {
+  "capture_id": 4,
+  "class": "ModuleList",
+  "first_seq": 382,
+  "id": 264,
+  "parent_id": 242,
+  "path": "up_blocks.*.attentions.*.transformer_blocks.*.attn2.to_out",
+  "repeat": 9
+ },
+ {
+  "capture_id": 4,
+  "class": "Linear",
+  "first_seq": 382,
+  "id": 273,
+  "parent_id": 264,
+  "path": "up_blocks.*.attentions.*.transformer_blocks.*.attn2.to_out.*",
+  "repeat": 18
+ },
+ {
+  "capture_id": 4,
+  "class": "Linear",
+  "first_seq": 378,
+  "id": 265,
+  "parent_id": 242,
+  "path": "up_blocks.*.attentions.*.transformer_blocks.*.attn2.to_q",
+  "repeat": 9
+ },
+ {
+  "capture_id": 4,
+  "class": "Linear",
+  "first_seq": 380,
+  "id": 266,
+  "parent_id": 242,
+  "path": "up_blocks.*.attentions.*.transformer_blocks.*.attn2.to_v",
+  "repeat": 9
+ },
+ {
+  "capture_id": 4,
+  "class": "FeedForward",
+  "first_seq": 386,
+  "id": 243,
+  "parent_id": 225,
+  "path": "up_blocks.*.attentions.*.transformer_blocks.*.ff",
+  "repeat": 9
+ },
+ {
+  "capture_id": 4,
+  "class": "ModuleList",
+  "first_seq": 386,
+  "id": 267,
+  "parent_id": 243,
+  "path": "up_blocks.*.attentions.*.transformer_blocks.*.ff.net",
+  "repeat": 9
+ },
+ {
+  "capture_id": 4,
+  "class": "GEGLU",
+  "first_seq": 386,
+  "id": 274,
+  "parent_id": 267,
+  "path": "up_blocks.*.attentions.*.transformer_blocks.*.ff.net.*",
+  "repeat": 27
+ },
+ {
+  "capture_id": 4,
+  "class": "Linear",
+  "first_seq": 386,
+  "id": 276,
+  "parent_id": 274,
+  "path": "up_blocks.*.attentions.*.transformer_blocks.*.ff.net.*.proj",
+  "repeat": 9
+ },
+ {
+  "capture_id": 4,
+  "class": "LayerNorm",
+  "first_seq": 369,
+  "id": 244,
+  "parent_id": 225,
+  "path": "up_blocks.*.attentions.*.transformer_blocks.*.norm1",
+  "repeat": 9
+ },
+ {
+  "capture_id": 4,
+  "class": "LayerNorm",
+  "first_seq": 377,
+  "id": 245,
+  "parent_id": 225,
+  "path": "up_blocks.*.attentions.*.transformer_blocks.*.norm2",
+  "repeat": 9
+ },
+ {
+  "capture_id": 4,
+  "class": "LayerNorm",
+  "first_seq": 385,
+  "id": 246,
+  "parent_id": 225,
+  "path": "up_blocks.*.attentions.*.transformer_blocks.*.norm3",
+  "repeat": 9
+ },
+ {
+  "capture_id": 4,
+  "class": "ModuleList",
+  "first_seq": 314,
+  "id": 175,
+  "parent_id": 168,
+  "path": "up_blocks.*.resnets",
+  "repeat": 4
+ },
+ {
+  "capture_id": 4,
+  "class": "ResnetBlock2D",
+  "first_seq": 314,
+  "id": 191,
+  "parent_id": 175,
+  "path": "up_blocks.*.resnets.*",
+  "repeat": 12
+ },
+ {
+  "capture_id": 4,
+  "class": "Conv2d",
+  "first_seq": 316,
+  "id": 210,
+  "parent_id": 191,
+  "path": "up_blocks.*.resnets.*.conv1",
+  "repeat": 12
+ },
+ {
+  "capture_id": 4,
+  "class": "Conv2d",
+  "first_seq": 322,
+  "id": 211,
+  "parent_id": 191,
+  "path": "up_blocks.*.resnets.*.conv2",
+  "repeat": 12
+ },
+ {
+  "capture_id": 4,
+  "class": "Conv2d",
+  "first_seq": 323,
+  "id": 212,
+  "parent_id": 191,
+  "path": "up_blocks.*.resnets.*.conv_shortcut",
+  "repeat": 12
+ },
+ {
+  "capture_id": 4,
+  "class": "SiLU",
+  "first_seq": 315,
+  "id": 213,
+  "parent_id": 191,
+  "path": "up_blocks.*.resnets.*.nonlinearity",
+  "repeat": 12
+ },
+ {
+  "capture_id": 4,
+  "class": "GroupNorm",
+  "first_seq": 314,
+  "id": 214,
+  "parent_id": 191,
+  "path": "up_blocks.*.resnets.*.norm1",
+  "repeat": 12
+ },
+ {
+  "capture_id": 4,
+  "class": "GroupNorm",
+  "first_seq": 320,
+  "id": 215,
+  "parent_id": 191,
+  "path": "up_blocks.*.resnets.*.norm2",
+  "repeat": 12
+ },
+ {
+  "capture_id": 4,
+  "class": "Linear",
+  "first_seq": 318,
+  "id": 216,
+  "parent_id": 191,
+  "path": "up_blocks.*.resnets.*.time_emb_proj",
+  "repeat": 12
+ },
+ {
+  "capture_id": 4,
+  "class": "ModuleList",
+  "first_seq": 352,
+  "id": 176,
+  "parent_id": 168,
+  "path": "up_blocks.*.upsamplers",
+  "repeat": 3
+ },
+ {
+  "capture_id": 4,
+  "class": "Upsample2D",
+  "first_seq": 352,
+  "id": 192,
+  "parent_id": 176,
+  "path": "up_blocks.*.upsamplers.*",
+  "repeat": 3
+ },
+ {
+  "capture_id": 4,
+  "class": "Conv2d",
+  "first_seq": 353,
+  "id": 217,
+  "parent_id": 192,
+  "path": "up_blocks.*.upsamplers.*.conv",
+  "repeat": 3
+ }
+]
