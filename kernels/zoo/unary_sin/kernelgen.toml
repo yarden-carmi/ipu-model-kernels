@@ -1,0 +1,35 @@
+kind = "variation"
+method = "host_table"
+task = "unary_sin"
+hw_clean = true                       # every store is an ACTIVATE.QUANTIZE, no emulator-only instruction
+host_steps = []                       # the host only launches; the whole call is one launch
+chain_in = "x"                        # the activation input the previous kernel's output feeds
+chain_out = "y"                       # the activation output the next kernel reads
+unsupported = []                      # the declared domain is everything the program runs
+notes = """One parameterised program for every numel: y = sin(x) elementwise, one 128-lane row
+per iteration of a dynamic loop whose bound is a CR, so a whole call is one launch and the host
+tiles nothing but numel (16384 elements is 128 rows, 2312 cycles; 524288 is 4096 rows, 73856
+cycles; a call takes 3*rows + 2 of the 16384 addressable NX8 rows, so the declared numel maximum
+is 698880). x and y are the plain activation layout, so the kernel reads the rows the previous
+kernel wrote and leaves the rows the next one reads. The AaQ activates into memory only, so every
+multiplicand is an NX8 row: sin is odd, so the program factorises x out -- s = x*x is one
+MULT.RC.VS of the cyclic window (slot 0, held all row for the final product) and one identity
+store -- then the degree-4 polynomial p(s) runs as Horner with dyadic coefficients c4..c1 (c0 =
+CR1), each step p = p*s + ck a MULT.RC.VV (s in cyclic slot 1, p in R1) plus one more MULT_RES
+(MULT.EE off the ones row the prologue stores itself with exp2(0), so the host prepares no
+constant) and an identity store -- one NX8 round trip per degree, the intermediate p rows living
+in y's region -- and one final MULT.RC.VV of the resident x row by p read back gives
+y = x * p(s). 18 words per row. The last row of a call is short and is emitted straight-line with
+its own DS half (as is the row before it), so every store's scale comes from the live lanes and
+lanes past numel are written 0; the golden (reference.py) runs the same polynomial with the same
+constants and models the kernel's every FP32 product/accumulate and NX8 round trip -- the
+kernel's residual against it is one store's rounding, held at 2 steps. Every LR the program
+reads is set by it, R_MASK is loaded from its own all-ones row and every accumulation is seeded
+with a .FIRST form, so it runs after another kernel as well as from reset. Limits: numel
+1..698880, input range [-pi/2, pi/2] (the widest the degree-9 polynomial covers; wider needs a
+range reduction the datapath cannot build -- no floor, no compare, no data-driven addressing --
+so the domain is declared, not silently narrower); there is no FP32 variant -- FP32 addresses
+4096 rows only and dynamic is the chip's NX8 type. Accuracy against true sin: the Taylor
+remainder is at most (pi/2)^11/11! = 3.3e-6 and the coefficients' dyadic rounding contributes
+at most ~1.3e-3 at the range ends (dominated by c1's -171/2^10 against -1/6), well under the
+output row's NX8 grid step -- a variation to measure in qbench against the model."""
