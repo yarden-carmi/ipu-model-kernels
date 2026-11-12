@@ -32,11 +32,11 @@
   "tensors": null
  },
  {
-  "doc": "Elementwise equality of a scalar id against a range vector of the table's vocab size.",
+  "doc": "Return a 0/1 mask of length vocab: 1 where arange(vocab) equals the scalar id.",
   "name": "eq_range",
   "origin": "agent",
-  "params": "{}",
-  "reference": "def fn(ids, table):\n    return (torch.arange(table.shape[0]) == int(ids.reshape(-1)[0])).to(table.dtype)",
+  "params": "{\"vocab\": \"length of the range / mask\"}",
+  "reference": "def fn(ids, vocab):\n    return (torch.arange(vocab, dtype=ids.dtype) == ids.reshape(-1)[0]).to(torch.float32)",
   "tensors": null
  },
  {
@@ -48,19 +48,27 @@
   "tensors": null
  },
  {
-  "doc": "Build a one-hot row vector from a single integer index; vocab inferred from the table.",
-  "name": "one_hot",
+  "doc": "Select one row of a constant table without indexing: mask = (arange(vocab) == id); return (mask[:, None] * table).sum(0).",
+  "name": "masked_row_select",
   "origin": "agent",
-  "params": "{}",
-  "reference": "def fn(ids, table):\n    x = torch.zeros(1, table.shape[0], dtype=table.dtype)\n    x[0, int(ids.reshape(-1)[0])] = 1.0\n    return x",
+  "params": "{\"vocab\": \"vocabulary size (number of table rows)\"}",
+  "reference": "def fn(ids, vocab, table):\n    mask = (torch.arange(vocab, dtype=ids.dtype) == ids.reshape(-1)[0]).to(table.dtype)\n    return (mask.reshape(vocab, 1) * table).sum(dim=0)",
   "tensors": null
  },
  {
-  "doc": "One-hot encode the single token id and matmul with the constant embedding table; exactly selects the id's row.",
-  "name": "one_hot_gemm",
+  "doc": "Build a one-hot row vector of length vocab from a single token id.",
+  "name": "one_hot",
   "origin": "agent",
   "params": "{}",
-  "reference": "def fn(ids, table):\n    x = torch.zeros(1, table.shape[0], dtype=table.dtype)\n    x[0, int(ids.reshape(-1)[0])] = 1.0\n    return x @ table",
+  "reference": "def fn(ids):\n    vocab = 1001\n    idx = int(ids.reshape(-1)[0].item())\n    oh = torch.zeros(1, vocab, dtype=torch.float32)\n    oh[0, idx] = 1.0\n    return oh",
+  "tensors": null
+ },
+ {
+  "doc": "Build a one-hot row from a scalar id and multiply it by a weight matrix: equivalent to selecting one row.",
+  "name": "one_hot_gemm",
+  "origin": "agent",
+  "params": "{\"num_classes\": \"vocabulary size (one-hot length)\"}",
+  "reference": "def fn(ids, num_classes, weight):\n    onehot = torch.zeros(1, num_classes, dtype=weight.dtype)\n    onehot[0, int(ids.reshape(-1)[0])] = 1.0\n    return onehot @ weight",
   "tensors": null
  },
  {
