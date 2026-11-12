@@ -60,6 +60,18 @@
   "proposed_by": 29
  },
  {
+  "chain": "[{\"op\": \"trunc_bf16\", \"params\": {}}, {\"op\": \"unary\", \"params\": {\"mode\": \"cast_to_other_dtype\"}}]",
+  "check_detail": "chain: aten: no torch reference of the original op here (several inputs, or unknown); code: aten: no torch reference of the original operation here",
+  "check_ok": null,
+  "code": "def forward(module, x, other):\n    # step 1: round to bfloat16 precision (8-bit mantissa), round-to-nearest-even\n    bits = x.view(torch.int32)\n    r = (bits + 0x7FFF + ((bits >> 16) & 1)) & torch.tensor(-65536, dtype=torch.int32)\n    x_bf = r.view(torch.float32)\n    # step 2: cast to the dtype of the other tensor\n    return x_bf.to(other.dtype)",
+  "id": 67,
+  "kind": "approximate",
+  "name": "type_as_bf16_trunc_cast",
+  "op": "aten",
+  "proposal": "{\"description\": \"Approximate the dtype cast of aten::type_as (256 elements, shape 1x256) by first rounding values to bfloat16 precision, then casting to the target dtype (dtype of the second tensor, the cumsum output). Steps: (1) apply the chip's trunc_bf16 op to the input, which rounds the mantissa to 8 bits with round-to-nearest-even (relative error at most 2^-9 per element); (2) apply unary cast to the target dtype, which is value-exact. Total relative error ~0.2%, dominated by the bf16 mantissa truncation.\", \"rel_err\": null}",
+  "proposed_by": 33
+ },
+ {
   "chain": "[{\"op\": \"identity\", \"params\": {}}]",
   "check_detail": "chain: aten: no torch reference of the original op here (several inputs, or unknown); code: aten: no torch reference of the original operation here",
   "check_ok": null,
@@ -70,6 +82,18 @@
   "op": "aten",
   "proposal": "{\"description\": \"Since the check is done in full precision, type_as is numerically the identity: it returns the same values, only with a different dtype tag. A pass-through (identity) chain reproduces the exact same values. Steps: (1) return the input tensor unchanged.\", \"rel_err\": null}",
   "proposed_by": 29
+ },
+ {
+  "chain": "[{\"op\": \"identity\", \"params\": {}}]",
+  "check_detail": "chain: aten: no torch reference of the original op here (several inputs, or unknown); code: aten: no torch reference of the original operation here",
+  "check_ok": null,
+  "code": "def forward(module, x, ref):\n    return x.clone()",
+  "id": 66,
+  "kind": "equivalent",
+  "name": "type_as_identity-2",
+  "op": "aten",
+  "proposal": "{\"description\": \"type_as returns the same values as the input, only retagged to the other tensor's dtype; numerically it is the identity. A pass-through chain reproduces the exact values. Steps: (1) return the 256-element input unchanged.\", \"rel_err\": null}",
+  "proposed_by": 33
  },
  {
   "chain": "[{\"op\": \"binary\", \"params\": {\"mode\": \"add\", \"other\": \"module.noise_scale\"}}, {\"op\": \"unary\", \"params\": {\"dtype\": \"target\", \"mode\": \"cast\"}}]",
@@ -84,6 +108,18 @@
   "proposed_by": 29
  },
  {
+  "chain": "[{\"op\": \"add_relative_noise\", \"params\": {\"sigma\": 0.001}}, {\"op\": \"unary\", \"params\": {\"mode\": \"cast_to_other_dtype\"}}]",
+  "check_detail": "chain: aten: no torch reference of the original op here (several inputs, or unknown); code: aten: no torch reference of the original operation here",
+  "check_ok": null,
+  "code": "def forward(module, x, other):\n    # step 1: multiplicative relative noise, sigma = 1e-3 * |x|\n    n = torch.randn_like(x) * (1e-3 * x.abs())\n    x_noisy = x + n\n    # step 2: cast to the dtype of the other tensor\n    return x_noisy.to(other.dtype)",
+  "id": 69,
+  "kind": "approximate",
+  "name": "type_as_noisy_cast-2",
+  "op": "aten",
+  "proposal": "{\"description\": \"Approximate the dtype cast of aten::type_as (256 elements, shape 1x256) by adding small multiplicative noise before the cast, modeling rounding jitter of a low-precision target. Steps: (1) apply the chip's add_relative_noise op with sigma = 1e-3: x' = x + n, n ~ N(0, (sigma*|x|)^2) elementwise; (2) cast x' to the target dtype (dtype of the second tensor) via unary, which is exact. Stochastic approximation with expected relative error ~1e-3; suitable when downstream consumers tolerate jitter.\", \"rel_err\": null}",
+  "proposed_by": 33
+ },
+ {
   "chain": "[{\"op\": \"quantize_w\", \"params\": {\"bits\": 8, \"scheme\": \"per_tensor_symmetric\"}}, {\"op\": \"unary\", \"params\": {\"mode\": \"dequantize\", \"scale\": \"module.scale\"}}]",
   "check_detail": "chain: aten: no torch reference of the original op here (several inputs, or unknown); code: aten: no torch reference of the original operation here",
   "check_ok": null,
@@ -96,6 +132,18 @@
   "proposed_by": 29
  },
  {
+  "chain": "[{\"op\": \"quantize_w\", \"params\": {\"bits\": 8, \"scheme\": \"per_tensor_symmetric_int8\"}}, {\"op\": \"unary\", \"params\": {\"mode\": \"dequantize\"}}, {\"op\": \"unary\", \"params\": {\"mode\": \"cast_to_other_dtype\"}}]",
+  "check_detail": "chain: aten: no torch reference of the original op here (several inputs, or unknown); code: aten: no torch reference of the original operation here",
+  "check_ok": null,
+  "code": "def forward(module, x, other):\n    # step 1: per-tensor symmetric int8 quantization\n    s = x.abs().max() / 127.0\n    q = torch.clamp(torch.round(x / s), -127, 127)\n    # step 2: dequantize\n    xq = q * s\n    # step 3: cast to the dtype of the other tensor\n    return xq.to(other.dtype)",
+  "id": 68,
+  "kind": "approximate",
+  "name": "type_as_quant_dequant_cast",
+  "op": "aten",
+  "proposal": "{\"description\": \"Approximate the dtype cast of aten::type_as (256 elements, shape 1x256) by a quantize-dequantize round trip before the final cast. Steps: (1) per-tensor symmetric 8-bit quantization using the chip's quantize_w: s = max|x|/127, q = round(x/s) clipped to [-127,127]; (2) dequantize x' = q*s via unary; (3) cast x' to the target dtype (dtype of the second tensor) via unary, which is exact. The quantization introduces relative error at most 1/127 (~0.8%) per element; the cast itself is value-preserving.\", \"rel_err\": null}",
+  "proposed_by": 33
+ },
+ {
   "chain": "[{\"op\": \"unary\", \"params\": {\"mode\": \"cast_to_output_dtype\"}}]",
   "check_detail": "chain: aten: no torch reference of the original op here (several inputs, or unknown); code: aten: no torch reference of the original operation here",
   "check_ok": null,
@@ -106,6 +154,18 @@
   "op": "aten",
   "proposal": "{\"description\": \"aten::type_as only changes the dtype of the tensor to match another tensor's dtype; numerically it is a cast with identical values. The chip's `unary` elementwise op with a cast mode performs exactly this elementwise conversion. Steps: (1) apply unary cast on the 256-element input to the target dtype; (2) output the result. Since a full-precision cast is value-exact (no arithmetic is performed), this is equivalent.\", \"rel_err\": null}",
   "proposed_by": 29
+ },
+ {
+  "chain": "[{\"op\": \"unary\", \"params\": {\"dtype\": \"target\", \"mode\": \"cast\"}}]",
+  "check_detail": "chain: aten: no torch reference of the original op here (several inputs, or unknown); code: aten: no torch reference of the original operation here",
+  "check_ok": null,
+  "code": "def forward(module, x, ref):\n    return x.to(ref.dtype)",
+  "id": 65,
+  "kind": "equivalent",
+  "name": "type_as_unary_cast-2",
+  "op": "aten",
+  "proposal": "{\"description\": \"aten::type_as only changes the dtype of the 256-element input to match the dtype of the second tensor; values are unchanged. The chip's `unary` elementwise op with cast mode performs exactly this elementwise conversion with no arithmetic, so the result is value-identical. Steps: (1) apply unary cast on the 256-element input (shape 1x256) to the target dtype; (2) output the result.\", \"rel_err\": null}",
+  "proposed_by": 33
  },
  {
   "chain": "[{\"op\": \"column_sample\", \"params\": {\"kh\": 16, \"kw\": 16, \"stride\": 16}}, {\"op\": \"gemm\", \"params\": {\"transb\": true}}, {\"op\": \"add\", \"params\": {\"broadcast\": \"rows\"}}]",
@@ -540,6 +600,78 @@
   "proposed_by": 7
  },
  {
+  "chain": "[{\"op\": \"bilinear_resize2d\", \"params\": {\"out\": [56, 56]}}]",
+  "check_detail": "chain: bilinear_resize2d {\"out\": [56, 56]}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
+  "check_ok": null,
+  "code": "import torch, torch.nn.functional as F\n\ndef forward(module, x):\n    # x: (768, 28, 28) CHW activation from the linear\n    if x.dim() == 3:\n        x = x.unsqueeze(0)\n    # bilinear_resize2d to (56, 56), align_corners=False half-pixel mapping (2x scale)\n    y = F.interpolate(x, size=(56, 56), mode='bilinear', align_corners=False)\n    return y.squeeze(0)  # (768, 56, 56), 2408448 elements",
+  "id": 53,
+  "kind": "equivalent",
+  "name": "bilinear_resize2d_28to56",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x upsample of the (768, 28, 28) CHW activation to (768, 56, 56) = 2408448 elements, align_corners=False.\\n\\nbilinear_resize2d: for each output pixel (oh, ow) in 56x56, source coords sy=(oh+0.5)*28/56-0.5=(oh+0.5)/2-0.5, sx=(ow+0.5)/2-0.5 (half-pixel centers); iy=floor(sy), ix=floor(sx), weights wy=sy-iy, wx=sx-ix, indices clamped to [0,27] (border replication); output = (1-wy)(1-wx)*x[:,iy,ix] + (1-wy)wx*x[:,iy,ix+1] + wy(1-wx)*x[:,iy+1,ix] + wy*wx*x[:,iy+1,ix+1]. This is exactly torch bilinear upsample without antialiasing, matching the checked torch computation.\", \"rel_err\": 0.0}",
+  "proposed_by": 30
+ },
+ {
+  "chain": "[{\"op\": \"bilinear_resize2d\", \"params\": {\"h\": 56, \"w\": 56}}]",
+  "check_detail": "chain: bilinear_resize2d takes 2 activations; the path has only 1 left (the layer's inputs, in order: [768, 28, 28]); code: relative difference 0 (within 0.0001)",
+  "check_ok": 0,
+  "code": "import torch, torch.nn.functional as F\n\ndef forward(module, x):\n    if x.dim() == 3:\n        x = x.unsqueeze(0)\n    y = F.interpolate(x, size=(56, 56), mode='bilinear', align_corners=False)\n    return y.squeeze(0)",
+  "id": 55,
+  "kind": "equivalent",
+  "name": "bilinear_resize2d_28to56_hw",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x upsample of the (768, 28, 28) CHW activation to (768, 56, 56) = 2408448 elements, align_corners=False.\\n\\nbilinear_resize2d with output spatial size (56, 56): for each output pixel (oh, ow), source coords sy=(oh+0.5)*28/56-0.5, sx=(ow+0.5)*28/56-0.5 (half-pixel centers); iy=floor(sy), ix=floor(sx), weights wy=sy-iy, wx=sx-ix, indices clamped to [0,27] (border replication); output = (1-wy)(1-wx)*x[:,iy,ix] + (1-wy)wx*x[:,iy,ix+1] + wy(1-wx)*x[:,iy+1,ix] + wy*wx*x[:,iy+1,ix+1]. Exactly torch bilinear upsample without antialiasing.\", \"rel_err\": 0.0}",
+  "proposed_by": 30
+ },
+ {
+  "chain": "[{\"op\": \"bilinear_resize2d\", \"params\": {\"oh\": 56, \"ow\": 56}}]",
+  "check_detail": "chain: bilinear_resize2d takes 2 activations; the path has only 1 left (the layer's inputs, in order: [768, 28, 28]); code: relative difference 0 (within 0.0001)",
+  "check_ok": 0,
+  "code": "import torch, torch.nn.functional as F\n\ndef forward(module, x):\n    if x.dim() == 3:\n        x = x.unsqueeze(0)\n    y = F.interpolate(x, size=(56, 56), mode='bilinear', align_corners=False)\n    return y.squeeze(0)",
+  "id": 61,
+  "kind": "equivalent",
+  "name": "bilinear_resize2d_28to56_ow",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x upsample of the (768, 28, 28) CHW activation to (768, 56, 56) = 2408448 elements, align_corners=False.\\n\\nbilinear_resize2d with output size (oh=56, ow=56): for each output pixel, source coords sy=(oh+0.5)*28/56-0.5, sx=(ow+0.5)*28/56-0.5 (half-pixel centers); bilinear blend of the 4 clamped neighbors. Exactly torch bilinear upsample without antialiasing.\", \"rel_err\": 0.0}",
+  "proposed_by": 30
+ },
+ {
+  "chain": "[{\"op\": \"bilinear_resize2d\", \"params\": {\"out\": [56, 56]}}]",
+  "check_detail": "chain: the path does not compute upsample as called (): largest difference 2.15 (relative 1.1) at element 489216: -3.94029 where upsample gives -1.79507; code: relative difference 0 (within 0.0001)",
+  "check_ok": 0,
+  "code": "import torch, torch.nn.functional as F\n\ndef forward(module, x):\n    if x.dim() == 3:\n        x = x.unsqueeze(0)\n    y = F.interpolate(x, size=(56, 56), mode='bilinear', align_corners=False)\n    return y.squeeze(0)",
+  "id": 54,
+  "kind": "equivalent",
+  "name": "bilinear_resize2d_28to56_ref",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x upsample of the (768, 28, 28) CHW activation to (768, 56, 56) = 2408448 elements, align_corners=False, via a bilinear_resize2d primitive with explicit reference.\\n\\nFor each output pixel (oh, ow) in 56x56: source coords sy=(oh+0.5)*28/56-0.5, sx=(ow+0.5)*28/56-0.5 (half-pixel centers); iy=floor(sy), ix=floor(sx), weights wy=sy-iy, wx=sx-ix, indices clamped to [0,27] (border replication); output = (1-wy)(1-wx)*x[:,iy,ix] + (1-wy)wx*x[:,iy,ix+1] + wy(1-wx)*x[:,iy+1,ix] + wy*wx*x[:,iy+1,ix+1]. Exactly torch bilinear upsample without antialiasing.\", \"rel_err\": 0.0}",
+  "proposed_by": 30
+ },
+ {
+  "chain": "[{\"op\": \"bilinear_resize2d\", \"params\": {\"out\": [56, 56]}}]",
+  "check_detail": "chain: matches upsample (FP32, relative 2e-07); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "import torch, torch.nn.functional as F\n\ndef forward(module, x):\n    if x.dim() == 3:\n        x = x.unsqueeze(0)\n    y = F.interpolate(x, size=(56, 56), mode='bilinear', align_corners=False)\n    return y.squeeze(0)",
+  "id": 64,
+  "kind": "equivalent",
+  "name": "bilinear_resize2d_28to56_ref2",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x upsample of the (768, 28, 28) CHW activation to (768, 56, 56) = 2408448 elements, align_corners=False, via a bilinear_resize2d primitive with a correct reference.\\n\\nFor each output pixel (oh, ow) in 56x56: source coords sy=(oh+0.5)*28/56-0.5, sx=(ow+0.5)*28/56-0.5 (half-pixel centers); iy=floor(sy), ix=floor(sx), fractional weights wy=sy-iy, wx=sx-ix (weights computed from the UNCLAMPED floor); indices iy, iy+1, ix, ix+1 clamped to [0,27] (border replication); output = (1-wy)(1-wx)*x[:,iy,ix] + (1-wy)wx*x[:,iy,ix+1] + wy(1-wx)*x[:,iy+1,ix] + wy*wx*x[:,iy+1,ix+1]. Exactly torch bilinear upsample without antialiasing.\", \"rel_err\": 0.0}",
+  "proposed_by": 30
+ },
+ {
+  "chain": "[{\"op\": \"bilinear_resize2d\", \"params\": {\"size\": [56, 56]}}]",
+  "check_detail": "chain: bilinear_resize2d takes 2 activations; the path has only 1 left (the layer's inputs, in order: [768, 28, 28]); code: relative difference 0 (within 0.0001)",
+  "check_ok": 0,
+  "code": "import torch, torch.nn.functional as F\n\ndef forward(module, x):\n    if x.dim() == 3:\n        x = x.unsqueeze(0)\n    y = F.interpolate(x, size=(56, 56), mode='bilinear', align_corners=False)\n    return y.squeeze(0)",
+  "id": 62,
+  "kind": "equivalent",
+  "name": "bilinear_resize2d_28to56_size",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x upsample of the (768, 28, 28) CHW activation to (768, 56, 56) = 2408448 elements, align_corners=False.\\n\\nbilinear_resize2d with output size (56, 56): for each output pixel, source coords sy=(oh+0.5)*28/56-0.5, sx=(ow+0.5)*28/56-0.5 (half-pixel centers); bilinear blend of the 4 clamped neighbors. Exactly torch bilinear upsample without antialiasing.\", \"rel_err\": 0.0}",
+  "proposed_by": 30
+ },
+ {
   "chain": "[{\"align_corners\": false, \"op\": \"bilinear_resize2d\", \"params\": {\"out_h\": 56, \"out_w\": 56}}]",
   "check_detail": "chain: matches upsample (FP32, relative 0); code: relative difference 0 (within 0.0001)",
   "check_ok": 1,
@@ -550,6 +682,30 @@
   "op": "upsample",
   "proposal": "{\"description\": \"Bilinear 2D resize of the activation to 56x56 spatial (output 2408448 elements), align_corners=False.\\n\\nbilinear_resize2d accepts a CHW (C, H, W) = (768, 56, 56) tensor (or NCHW): it views it as (1, C, H, W), then for each output pixel (oh, ow) computes source coords sy=(oh+0.5)*H_out/H_in-0.5, sx=(ow+0.5)*W_out/W_in-0.5 (half-pixel centers); iy=floor(sy), ix=floor(sx), weights wy=sy-iy, wx=sx-ix, indices clamped to borders; output is the bilinear blend of the 4 neighbors. With unit scale (56->56) each output pixel exactly equals the corresponding input pixel, matching the checked torch computation (relative difference 0).\", \"rel_err\": 0.0}",
   "proposed_by": 28
+ },
+ {
+  "chain": "[{\"op\": \"bilinear_resize\", \"params\": {\"out\": [56, 56]}}]",
+  "check_detail": "chain: bilinear_resize {\"out\": [56, 56]}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
+  "check_ok": null,
+  "code": "import torch, torch.nn.functional as F\n\ndef forward(module, x):\n    if x.dim() == 3:\n        x = x.unsqueeze(0)\n    y = F.interpolate(x, size=(56, 56), mode='bilinear', align_corners=False)\n    return y.squeeze(0)",
+  "id": 56,
+  "kind": "equivalent",
+  "name": "bilinear_resize_28to56",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x upsample of the (768, 28, 28) CHW activation to (768, 56, 56) = 2408448 elements, align_corners=False.\\n\\nbilinear_resize to output size (56, 56): for each output pixel (oh, ow), source coords sy=(oh+0.5)*28/56-0.5, sx=(ow+0.5)*28/56-0.5 (half-pixel centers); iy=floor(sy), ix=floor(sx), weights wy=sy-iy, wx=sx-ix, indices clamped to [0,27] (border replication); output = (1-wy)(1-wx)*x[:,iy,ix] + (1-wy)wx*x[:,iy,ix+1] + wy(1-wx)*x[:,iy+1,ix] + wy*wx*x[:,iy+1,ix+1]. Exactly torch bilinear upsample without antialiasing.\", \"rel_err\": 0.0}",
+  "proposed_by": 30
+ },
+ {
+  "chain": "[{\"op\": \"bilinear_resize\", \"params\": {\"size\": [56, 56]}}]",
+  "check_detail": "chain: bilinear_resize {\"size\": [56, 56]}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
+  "check_ok": null,
+  "code": "import torch, torch.nn.functional as F\n\ndef forward(module, x):\n    if x.dim() == 3:\n        x = x.unsqueeze(0)\n    y = F.interpolate(x, size=(56, 56), mode='bilinear', align_corners=False)\n    return y.squeeze(0)",
+  "id": 57,
+  "kind": "equivalent",
+  "name": "bilinear_resize_28to56_size",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x upsample of the (768, 28, 28) CHW activation to (768, 56, 56) = 2408448 elements, align_corners=False.\\n\\nbilinear_resize with output size (56, 56): for each output pixel (oh, ow), source coords sy=(oh+0.5)*28/56-0.5, sx=(ow+0.5)*28/56-0.5 (half-pixel centers); iy=floor(sy), ix=floor(sx), weights wy=sy-iy, wx=sx-ix, indices clamped to [0,27] (border replication); output = (1-wy)(1-wx)*x[:,iy,ix] + (1-wy)wx*x[:,iy,ix+1] + wy(1-wx)*x[:,iy+1,ix] + wy*wx*x[:,iy+1,ix+1]. Exactly torch bilinear upsample without antialiasing.\", \"rel_err\": 0.0}",
+  "proposed_by": 30
  },
  {
   "chain": "[{\"align_corners\": false, \"op\": \"bilinear_resize\", \"params\": {\"out_h\": 56, \"out_w\": 56}}]",
@@ -574,6 +730,18 @@
   "op": "upsample",
   "proposal": "{\"description\": \"Bilinear resize of the activation to 56x56 spatial (output 2408448 elements), align_corners=False.\\n\\n1. reshape: view the incoming tensor as (1, 768, 56, 56) NCHW (no-op if already 4D).\\n2. bilinear_resize to (56, 56): for each output pixel (oh, ow), source coords sy=(oh+0.5)*56/56-0.5, sx=(ow+0.5)*56/56-0.5; with unit scale these land exactly on integer pixel centers, so each output pixel equals the corresponding input pixel (bilinear at unit scale is the identity). This matches the checked torch computation exactly (relative difference 0).\", \"rel_err\": 0.0}",
   "proposed_by": 28
+ },
+ {
+  "chain": "[{\"op\": \"reshape_nchw\", \"params\": {\"h\": 28, \"w\": 28}}, {\"op\": \"bilinear_resize2d\", \"params\": {\"out\": [56, 56]}}, {\"op\": \"reshape_tokens\", \"params\": {\"h\": 56, \"w\": 56}}]",
+  "check_detail": "chain: RuntimeError: shape '[768, 28, 28, 28]' is invalid for input of size 602112; code: the code failed: RuntimeError: shape '[768, 28, 28, 768]' is invalid for input of size 602112",
+  "check_ok": 0,
+  "code": "import torch, torch.nn.functional as F\n\ndef forward(module, x):\n    # x: (B, 784, 768) tokens from the linear; token index t = h*28 + w\n    B = x.shape[0]\n    x = x.view(B, 28, 28, 768).permute(0, 3, 1, 2).contiguous()  # (B, 768, 28, 28)\n    # step 2: bilinear_resize2d, align_corners=False half-pixel mapping (scale 2)\n    y = F.interpolate(x, size=(56, 56), mode='bilinear', align_corners=False)\n    # step 3: back to token layout (B, 3136, 768)\n    y = y.permute(0, 2, 3, 1).contiguous().view(B, 3136, 768)\n    return y",
+  "id": 52,
+  "kind": "equivalent",
+  "name": "bilinear_upsample2x_28to56_tokens",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x upsample 28x28 -> 56x56 (align_corners=False) of the (B, 784, 768) token activation, output (B, 3136, 768) = 2408448 elements.\\n\\n1. reshape_nchw: view the incoming tokens (B, 784, 768) as (B, 28, 28, 768) (token t = h*28+w) and permute to NCHW (B, 768, 28, 28).\\n2. bilinear_resize2d to (56, 56): for each output pixel (oh, ow), source coords sy=(oh+0.5)*28/56-0.5=(oh+0.5)/2-0.5, sx=(ow+0.5)/2-0.5 (half-pixel centers, align_corners=False); iy=floor(sy), ix=floor(sx), weights wy=sy-iy, wx=sx-ix, indices clamped to [0,27] (border replication); output = (1-wy)(1-wx)*x[:,iy,ix] + (1-wy)wx*x[:,iy,ix+1] + wy(1-wx)*x[:,iy+1,ix] + wy*wx*x[:,iy+1,ix+1]. This is exactly torch bilinear upsample without antialiasing.\\n3. reshape_tokens: permute back to (B, 56, 56, 768) and reshape to (B, 3136, 768) tokens (2408448 elements) for the concat.\", \"rel_err\": null}",
+  "proposed_by": 30
  },
  {
   "chain": "[{\"note\": \"reinterpret incoming (B, 3136, 768) tokens as NCHW (B, 768, 56, 56); no-op if already NCHW\", \"op\": \"reshape\", \"params\": {\"shape\": \"(B, 768, 56, 56)\"}}, {\"align_corners\": false, \"op\": \"bilinear_resize\", \"params\": {\"out_h\": 112, \"out_w\": 112}}, {\"note\": \"flatten back to token layout (B, 12544, 768) = 9633792 elements for the concat\", \"op\": \"reshape\", \"params\": {\"shape\": \"(B, 12544, 768)\"}}]",
@@ -610,5 +778,53 @@
   "op": "upsample",
   "proposal": "{\"description\": \"Bilinear 2x2D upsample (56x56 output from 28x28 input, align_corners=False) built from a reshape + a bilinear-resize primitive + reshape back.\\n\\n1. Reshape the incoming activation (B, 784, 768) \\u2014 i.e. 28*28=784 tokens of 768 channels from the linear \\u2014 into NCHW (B, 768, 28, 28).\\n2. Apply the bilinear_resize primitive: for each output pixel (oh, ow) in 56x56, compute source coordinates with align_corners=False mapping sy=(oh+0.5)/2-0.5, sx=(ow+0.5)/2-0.5; take floor iy=floor(sy), ix=floor(sx), fractional weights wy=sy-iy, wx=sx-ix clamped so iy,ix in [0,27]; output = (1-wy)(1-wx)*x[iy,ix] + (1-wy)wx*x[iy,ix+1] + wy(1-wx)*x[iy+1,ix] + wy*wx*x[iy+1,ix+1], with border pixels replicated (clamp indices). This is exactly torch's bilinear antialias-free upsample.\\n3. Reshape the (B, 768, 56, 56) result back to (B, 3136, 768) token layout (2408448 elements) to feed the concat.\", \"rel_err\": null}",
   "proposed_by": 28
+ },
+ {
+  "chain": "[{\"op\": \"bilinear_resize2d\"}]",
+  "check_detail": "chain: bilinear_resize2d takes 2 activations; the path has only 1 left (the layer's inputs, in order: [768, 28, 28]); code: relative difference 0 (within 0.0001)",
+  "check_ok": 0,
+  "code": "import torch, torch.nn.functional as F\n\ndef forward(module, x):\n    if x.dim() == 3:\n        x = x.unsqueeze(0)\n    y = F.interpolate(x, size=(56, 56), mode='bilinear', align_corners=False)\n    return y.squeeze(0)",
+  "id": 58,
+  "kind": "equivalent",
+  "name": "probe_bilinear_resize2d",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Probe: bilinear_resize2d on the (768, 28, 28) CHW activation to (768, 56, 56), align_corners=False. Bilinear 2x upsample: for each output pixel (oh, ow), sy=(oh+0.5)/2-0.5, sx=(ow+0.5)/2-0.5; bilinear blend of the 4 clamped neighbors.\", \"rel_err\": 0.0}",
+  "proposed_by": 30
+ },
+ {
+  "chain": "[{\"op\": \"dup2\"}]",
+  "check_detail": "chain: dup2 {}: no reference to check it with (a new primitive needs `reference`); code: the code gives 602112 elements, the operation 2408448",
+  "check_ok": 0,
+  "code": "import torch, torch.nn.functional as F\n\ndef forward(module, x):\n    return x",
+  "id": 59,
+  "kind": "equivalent",
+  "name": "probe_dup2",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Probe of dup2 semantics on the (768, 28, 28) input.\", \"rel_err\": null}",
+  "proposed_by": 30
+ },
+ {
+  "chain": "[{\"op\": \"one_hot\", \"params\": {\"num_classes\": 56}}]",
+  "check_detail": "chain: one_hot {\"num_classes\": 56}: no reference to check it with (a new primitive needs `reference`); code: the code gives 602112 elements, the operation 2408448",
+  "check_ok": 0,
+  "code": "import torch\n\ndef forward(module, x):\n    return x",
+  "id": 63,
+  "kind": "equivalent",
+  "name": "probe_one_hot",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Probe of one_hot semantics/arity.\", \"rel_err\": null}",
+  "proposed_by": 30
+ },
+ {
+  "chain": "[{\"op\": \"tril_const\", \"params\": {\"n\": 56}}]",
+  "check_detail": "chain: tril_const {\"n\": 56}: no reference to check it with (a new primitive needs `reference`); code: the code gives 602112 elements, the operation 2408448",
+  "check_ok": 0,
+  "code": "import torch\n\ndef forward(module, x):\n    return x",
+  "id": 60,
+  "kind": "equivalent",
+  "name": "probe_tril_const",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Probe of tril_const semantics.\", \"rel_err\": null}",
+  "proposed_by": 30
  }
 ]

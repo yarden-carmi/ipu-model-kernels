@@ -24,11 +24,11 @@
   "tensors": null
  },
  {
-  "doc": "Bilinear 2D resize of a CHW or NCHW tensor to (out_h, out_w), align_corners=False, no antialiasing.",
+  "doc": "Bilinear 2D resize of a CHW (or NCHW) tensor to out=(OH, OW), align_corners=False.",
   "name": "bilinear_resize2d",
   "origin": "agent",
-  "params": "{\"align_corners\": \"bool\", \"out_h\": \"int\", \"out_w\": \"int\"}",
-  "reference": "def fn(x, out_h, out_w, align_corners=False):\n    import torch\n    import torch.nn.functional as F\n    squeeze = (x.dim() == 3)\n    if squeeze:\n        x = x.unsqueeze(0)\n    y = F.interpolate(x, size=(out_h, out_w), mode='bilinear', align_corners=align_corners)\n    if squeeze:\n        y = y.squeeze(0)\n    return y.contiguous()",
+  "params": "{\"out\": \"[OH, OW]\"}",
+  "reference": "def fn(x, out):\n    if x.dim() == 3:\n        x = x.unsqueeze(0)\n    OH, OW = out\n    N, C, H, W = x.shape\n    sy = (torch.arange(OH, dtype=x.dtype) + 0.5) * H / OH - 0.5\n    sx = (torch.arange(OW, dtype=x.dtype) + 0.5) * W / OW - 0.5\n    fy = sy.floor(); fx = sx.floor()\n    wy = sy - fy; wx = sx - fx\n    iy = fy.long().clamp(0, H - 1); ix = fx.long().clamp(0, W - 1)\n    iy1 = (fy.long() + 1).clamp(0, H - 1); ix1 = (fx.long() + 1).clamp(0, W - 1)\n    a = x[:, :, iy][:, :, :, ix]\n    b = x[:, :, iy][:, :, :, ix1]\n    c = x[:, :, iy1][:, :, :, ix]\n    d = x[:, :, iy1][:, :, :, ix1]\n    wy = wy.view(1, 1, OH, 1); wx = wx.view(1, 1, 1, OW)\n    return (1 - wy) * (1 - wx) * a + (1 - wy) * wx * b + wy * (1 - wx) * c + wy * wx * d",
   "tensors": null
  },
  {
@@ -56,6 +56,14 @@
   "tensors": null
  },
  {
+  "doc": "cast tensor to the dtype of another tensor",
+  "name": "cast_to_other_dtype",
+  "origin": "agent",
+  "params": "{\"other\": \"tensor whose dtype is the target\"}",
+  "reference": "def fn(x, other):\n    return x.to(other.dtype)",
+  "tensors": null
+ },
+ {
   "doc": "Extract sliding-window patches into columns",
   "name": "column_sample",
   "origin": "agent",
@@ -69,6 +77,14 @@
   "origin": "builtin",
   "params": null,
   "reference": null,
+  "tensors": null
+ },
+ {
+  "doc": "dequantize int8 values with stored scale",
+  "name": "dequantize",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(q):\n    return q * q.scale",
   "tensors": null
  },
  {
@@ -184,6 +200,22 @@
   "tensors": null
  },
  {
+  "doc": "View (B, H*W, C) tokens as NCHW (B, C, H, W); token index t = h*W + w.",
+  "name": "reshape_nchw",
+  "origin": "agent",
+  "params": "{\"h\": \"input height\", \"w\": \"input width\"}",
+  "reference": "def fn(x, h, w):\n    B, HW, C = x.shape\n    return x.view(B, h, w, C).permute(0, 3, 1, 2).contiguous()",
+  "tensors": null
+ },
+ {
+  "doc": "View (B, C, H, W) NCHW as (B, H*W, C) tokens; token index t = h*W + w.",
+  "name": "reshape_tokens",
+  "origin": "agent",
+  "params": "{\"h\": \"input height\", \"w\": \"input width\"}",
+  "reference": "def fn(x, h, w):\n    B, C, H, W = x.shape\n    return x.permute(0, 2, 3, 1).contiguous().view(B, h * w, C)",
+  "tensors": null
+ },
+ {
   "doc": null,
   "name": "row_norm",
   "origin": "builtin",
@@ -237,6 +269,14 @@
   "origin": "builtin",
   "params": null,
   "reference": null,
+  "tensors": null
+ },
+ {
+  "doc": "Elementwise cast of the input to a target dtype; value-preserving.",
+  "name": "unary_cast",
+  "origin": "agent",
+  "params": "{\"dtype\": \"target dtype\"}",
+  "reference": "def fn(x, dtype):\n    return x.to(dtype)",
   "tensors": null
  },
  {

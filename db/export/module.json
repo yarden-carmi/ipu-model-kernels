@@ -13345,5 +13345,320 @@
   "parent_id": 1461,
   "path": "pooler.dense",
   "repeat": 1
+ },
+ {
+  "capture_id": 33,
+  "class": null,
+  "first_seq": 0,
+  "id": 1485,
+  "parent_id": 1484,
+  "path": "(input)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 33,
+  "class": "SegformerForSemanticSegmentation",
+  "first_seq": 0,
+  "id": 1484,
+  "parent_id": null,
+  "path": "(top)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 33,
+  "class": "SegformerDecodeHead",
+  "first_seq": 153,
+  "id": 1486,
+  "parent_id": 1484,
+  "path": "decode_head",
+  "repeat": 1
+ },
+ {
+  "capture_id": 33,
+  "class": "ReLU",
+  "first_seq": 164,
+  "id": 1488,
+  "parent_id": 1486,
+  "path": "decode_head.activation",
+  "repeat": 1
+ },
+ {
+  "capture_id": 33,
+  "class": "BatchNorm2d",
+  "first_seq": 163,
+  "id": 1489,
+  "parent_id": 1486,
+  "path": "decode_head.batch_norm",
+  "repeat": 1
+ },
+ {
+  "capture_id": 33,
+  "class": "Conv2d",
+  "first_seq": 165,
+  "id": 1490,
+  "parent_id": 1486,
+  "path": "decode_head.classifier",
+  "repeat": 1
+ },
+ {
+  "capture_id": 33,
+  "class": "Conv2d",
+  "first_seq": 162,
+  "id": 1491,
+  "parent_id": 1486,
+  "path": "decode_head.linear_fuse",
+  "repeat": 1
+ },
+ {
+  "capture_id": 33,
+  "class": "ModuleList",
+  "first_seq": 153,
+  "id": 1492,
+  "parent_id": 1486,
+  "path": "decode_head.linear_projections",
+  "repeat": 1
+ },
+ {
+  "capture_id": 33,
+  "class": "SegformerMLP",
+  "first_seq": 153,
+  "id": 1494,
+  "parent_id": 1492,
+  "path": "decode_head.linear_projections.*",
+  "repeat": 4
+ },
+ {
+  "capture_id": 33,
+  "class": "Linear",
+  "first_seq": 153,
+  "id": 1496,
+  "parent_id": 1494,
+  "path": "decode_head.linear_projections.*.proj",
+  "repeat": 4
+ },
+ {
+  "capture_id": 33,
+  "class": "SegformerModel",
+  "first_seq": 1,
+  "id": 1487,
+  "parent_id": 1484,
+  "path": "segformer",
+  "repeat": 1
+ },
+ {
+  "capture_id": 33,
+  "class": "ModuleList",
+  "first_seq": 1,
+  "id": 1493,
+  "parent_id": 1487,
+  "path": "segformer.stages",
+  "repeat": 1
+ },
+ {
+  "capture_id": 33,
+  "class": "SegformerStage",
+  "first_seq": 1,
+  "id": 1495,
+  "parent_id": 1493,
+  "path": "segformer.stages.*",
+  "repeat": 4
+ },
+ {
+  "capture_id": 33,
+  "class": "ModuleList",
+  "first_seq": 3,
+  "id": 1497,
+  "parent_id": 1495,
+  "path": "segformer.stages.*.blocks",
+  "repeat": 4
+ },
+ {
+  "capture_id": 33,
+  "class": "SegformerLayer",
+  "first_seq": 3,
+  "id": 1500,
+  "parent_id": 1497,
+  "path": "segformer.stages.*.blocks.*",
+  "repeat": 8
+ },
+ {
+  "capture_id": 33,
+  "class": "SegformerAttention",
+  "first_seq": 4,
+  "id": 1503,
+  "parent_id": 1500,
+  "path": "segformer.stages.*.blocks.*.attention",
+  "repeat": 8
+ },
+ {
+  "capture_id": 33,
+  "class": "Linear",
+  "first_seq": 7,
+  "id": 1507,
+  "parent_id": 1503,
+  "path": "segformer.stages.*.blocks.*.attention.k_proj",
+  "repeat": 8
+ },
+ {
+  "capture_id": 33,
+  "class": "Linear",
+  "first_seq": 13,
+  "id": 1508,
+  "parent_id": 1503,
+  "path": "segformer.stages.*.blocks.*.attention.o_proj",
+  "repeat": 8
+ },
+ {
+  "capture_id": 33,
+  "class": "Linear",
+  "first_seq": 4,
+  "id": 1509,
+  "parent_id": 1503,
+  "path": "segformer.stages.*.blocks.*.attention.q_proj",
+  "repeat": 8
+ },
+ {
+  "capture_id": 33,
+  "class": "SegformerSequenceReduction",
+  "first_seq": 5,
+  "id": 1510,
+  "parent_id": 1503,
+  "path": "segformer.stages.*.blocks.*.attention.sequence_reduction",
+  "repeat": 6
+ },
+ {
+  "capture_id": 33,
+  "class": "LayerNorm",
+  "first_seq": 6,
+  "id": 1516,
+  "parent_id": 1510,
+  "path": "segformer.stages.*.blocks.*.attention.sequence_reduction.layer_norm",
+  "repeat": 6
+ },
+ {
+  "capture_id": 33,
+  "class": "Conv2d",
+  "first_seq": 5,
+  "id": 1517,
+  "parent_id": 1510,
+  "path": "segformer.stages.*.blocks.*.attention.sequence_reduction.sequence_reduction",
+  "repeat": 6
+ },
+ {
+  "capture_id": 33,
+  "class": "Linear",
+  "first_seq": 8,
+  "id": 1511,
+  "parent_id": 1503,
+  "path": "segformer.stages.*.blocks.*.attention.v_proj",
+  "repeat": 8
+ },
+ {
+  "capture_id": 33,
+  "class": "LayerNorm",
+  "first_seq": 15,
+  "id": 1504,
+  "parent_id": 1500,
+  "path": "segformer.stages.*.blocks.*.layernorm_after",
+  "repeat": 8
+ },
+ {
+  "capture_id": 33,
+  "class": "LayerNorm",
+  "first_seq": 3,
+  "id": 1505,
+  "parent_id": 1500,
+  "path": "segformer.stages.*.blocks.*.layernorm_before",
+  "repeat": 8
+ },
+ {
+  "capture_id": 33,
+  "class": "SegformerMixMLP",
+  "first_seq": 16,
+  "id": 1506,
+  "parent_id": 1500,
+  "path": "segformer.stages.*.blocks.*.mlp",
+  "repeat": 8
+ },
+ {
+  "capture_id": 33,
+  "class": "GELUActivation",
+  "first_seq": 18,
+  "id": 1512,
+  "parent_id": 1506,
+  "path": "segformer.stages.*.blocks.*.mlp.activation_fn",
+  "repeat": 8
+ },
+ {
+  "capture_id": 33,
+  "class": "SegformerDepthWiseConv",
+  "first_seq": 17,
+  "id": 1513,
+  "parent_id": 1506,
+  "path": "segformer.stages.*.blocks.*.mlp.dwconv",
+  "repeat": 8
+ },
+ {
+  "capture_id": 33,
+  "class": "Conv2d",
+  "first_seq": 17,
+  "id": 1518,
+  "parent_id": 1513,
+  "path": "segformer.stages.*.blocks.*.mlp.dwconv.dwconv",
+  "repeat": 8
+ },
+ {
+  "capture_id": 33,
+  "class": "Linear",
+  "first_seq": 16,
+  "id": 1514,
+  "parent_id": 1506,
+  "path": "segformer.stages.*.blocks.*.mlp.fc1",
+  "repeat": 8
+ },
+ {
+  "capture_id": 33,
+  "class": "Linear",
+  "first_seq": 19,
+  "id": 1515,
+  "parent_id": 1506,
+  "path": "segformer.stages.*.blocks.*.mlp.fc2",
+  "repeat": 8
+ },
+ {
+  "capture_id": 33,
+  "class": "LayerNorm",
+  "first_seq": 39,
+  "id": 1498,
+  "parent_id": 1495,
+  "path": "segformer.stages.*.layer_norm",
+  "repeat": 4
+ },
+ {
+  "capture_id": 33,
+  "class": "SegformerOverlapPatchEmbeddings",
+  "first_seq": 1,
+  "id": 1499,
+  "parent_id": 1495,
+  "path": "segformer.stages.*.patch_embeddings",
+  "repeat": 4
+ },
+ {
+  "capture_id": 33,
+  "class": "LayerNorm",
+  "first_seq": 2,
+  "id": 1501,
+  "parent_id": 1499,
+  "path": "segformer.stages.*.patch_embeddings.layer_norm",
+  "repeat": 4
+ },
+ {
+  "capture_id": 33,
+  "class": "Conv2d",
+  "first_seq": 1,
+  "id": 1502,
+  "parent_id": 1499,
+  "path": "segformer.stages.*.patch_embeddings.proj",
+  "repeat": 4
  }
 ]
