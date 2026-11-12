@@ -35,10 +35,21 @@ CALLS = (
 #: The largest call the kernel takes in one launch, per dimension, and the
 #: narrowest reduction it serves (see kernel.toml's header: below ~32 lanes a
 #: group can hold a nearly-constant row, whose A drags the block row's scale).
+#: `channels` has no upper bound the program cares about -- its chunk loop is
+#: dynamic (CR13) -- but a launch is one XMEM, so the host tiles `rows` down
+#: to what 16384 NX8 rows hold at the call's chunk count.
 MAX_ROWS = 1500
-TILE_ROWS = 512  # the host's tile at wide channels (544 is the exact bound)
-MAX_CHANNELS = 1280
+MAX_CHANNELS = 122880
 MIN_CHANNELS = 32
+
+
+def tile_rows(channels: int) -> int:
+    """The rows a launch holds at this chunk count: 3 matrices + constants."""
+    chunks = -(-channels // 128)
+    return max(1, (16384 - 2 * chunks - 7) // (3 * chunks))
+
+
+TILE_ROWS = 512  # the host's tile at 1280 channels (544 is the exact bound)
 
 #: The XMEM rows an NX8 call can address.
 XMEM_ROWS = 16384
@@ -53,10 +64,11 @@ def _rows(call: dict) -> int:
     """The XMEM rows a call packs into: x, gamma, beta, y, p and the constants.
 
     The host tiles `rows` -- per-row normalisation makes the tiles independent
-    -- so what must fit one launch is a tile, not the whole call.
+    -- so what must fit one launch is a tile, not the whole call, and the tile
+    shrinks with the chunk count (x, y and p are rows * chunks rows each).
     """
     chunks = -(-call["channels"] // 128)
-    return 3 * min(call["rows"], TILE_ROWS) * chunks + 2 * chunks + 7
+    return 3 * min(call["rows"], tile_rows(call["channels"])) * chunks + 2 * chunks + 7
 
 
 def test_every_call_routes_to_the_kernel():
@@ -77,11 +89,14 @@ def test_every_call_fits_in_xmem():
 
 def test_the_whole_domain_fits_in_xmem():
     """Every corner of the declared rectangle, not only the surveyed calls."""
-    for rows in (1, 127, 128, 129, TILE_ROWS):
+    for rows in (1, 127, 128, 129):
         for channels in (MIN_CHANNELS, 128, 129, MAX_CHANNELS):
             for kind in ("layernorm", "rmsnorm"):
                 call = {"kind": kind, "rows": rows, "channels": channels}
                 assert _rows(call) <= XMEM_ROWS, call
+    for channels in (MIN_CHANNELS, 1280, MAX_CHANNELS):
+        call = {"kind": "layernorm", "rows": tile_rows(channels), "channels": channels}
+        assert _rows(call) <= XMEM_ROWS, call
 
 
 def test_a_call_beyond_the_domain_is_refused():
@@ -113,10 +128,14 @@ def test_the_domain_holds_the_largest_call():
     registry = _registry()
     for call in (
         {"kind": "layernorm", "rows": MAX_ROWS, "channels": 128},
-        {"kind": "rmsnorm", "rows": TILE_ROWS, "channels": MAX_CHANNELS},
-        {"kind": "layernorm", "rows": TILE_ROWS, "channels": MAX_CHANNELS},
+        {"kind": "rmsnorm", "rows": tile_rows(MAX_CHANNELS), "channels": MAX_CHANNELS},
+        {"kind": "layernorm", "rows": tile_rows(MAX_CHANNELS), "channels": MAX_CHANNELS},
         {"kind": "layernorm", "rows": 1, "channels": MIN_CHANNELS},
         {"kind": "rmsnorm", "rows": 1, "channels": MIN_CHANNELS},
+        {"kind": "layernorm", "rows": 32, "channels": 2560},
+        {"kind": "layernorm", "rows": 32, "channels": 40960},
+        {"kind": "layernorm", "rows": 32, "channels": 122880},
+        {"kind": "rmsnorm", "rows": 32, "channels": 122880},
     ):
         verdict = registry.resolve("row_norm", **call)
         assert verdict, f"{call}: {verdict.reason}"

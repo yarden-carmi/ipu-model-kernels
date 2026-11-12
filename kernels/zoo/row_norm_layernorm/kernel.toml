@@ -10,11 +10,11 @@
 # which is both what the harness packs and reads and the layout every activation
 # on the chip uses: the kernel is chainable, its y is the next kernel's x.
 #
-# The shape reaches the program only through CRs and the row loop is dynamic, so
-# a whole layer -- 1024 rows x 144 channels, or a 512-row tile of whisper's
-# 1280-channel norm -- is one launch. `rows` is the only dimension the host
-# tiles; `channels` up to 1280 is the kernel's own chunk loop (rendered per
-# call, since a call's `channels` is known when it is assembled).
+# The shape reaches the program only through CRs and both loops are dynamic, so
+# a whole layer -- 1024 rows x 144 channels, or a 32-row tile of a 122880-channel
+# norm (960 chunks) -- is one launch. `rows` is the only dimension the host
+# tiles; `channels` up to 122880 is the kernel's own chunk loop (LR14 holds the
+# chunk count, built from CR13 at run time; LR15 walks the chunks).
 #
 # The program runs per group of up to 128 rows -- the R_ACC lanes are the
 # bookkeeping, one lane per row of the group, which is what bounds a group at
@@ -54,12 +54,12 @@
 # past the tolerance below it. Real normalisation widths (144 .. 1024 here) sit
 # far inside the floor.
 #
-# The domain is a rectangle the XMEM budget really holds: three matrices of
-# rows * chunks rows (x, p, y) plus gamma, beta and the constants, inside the
-# 16384 addressable NX8 rows. At the 1280-channel corner that is a 544-row tile
-# (3 * 544 * 10 + 20 + 7 = 16347), so the host tiles whisper's 1500 rows into
-# 512-row launches -- per-row normalisation makes the tiles independent. There
-# is no FP32 variant for that reason: FP32 addresses only 4096 rows.
+# The domain is bounded by the host's launch: three matrices of tile_rows *
+# chunks rows (x, p, y) plus gamma, beta and the constants, inside the 16384
+# addressable NX8 rows. The tile shrinks with the chunk count -- at 122880
+# channels (960 chunks) a 5-row tile fits -- and the host picks it; per-row
+# normalisation makes the tiles independent. There is no FP32 variant for that
+# reason: FP32 addresses only 4096 rows.
 
 [kernel]
 op = "row_norm"
@@ -68,7 +68,7 @@ formats = ["dynamic"]
 [params]
 kind     = { type = "str", choices = ["layernorm", "rmsnorm"], default = "layernorm" }
 rows     = { type = "int", min = 1, max = 1500 }              # entities, 128 per group; the host tiles rows (a 1280-channel launch holds 544)
-channels = { type = "int", min = 32, max = 1280 }             # the reduction axis, 128 per chunk
+channels = { type = "int", min = 32, max = 122880 }           # the reduction axis, 128 per chunk (a dynamic chunk loop, CR13)
 x_from   = { type = "str", choices = ["direct"], default = "direct" }
 y_to     = { type = "str", choices = ["direct"], default = "direct" }
 eps      = { type = "float", default = 0.00001, min = 0.00000001 }  # the rsqrt's floor
@@ -84,6 +84,10 @@ ds = "halves(ds(128), ds(channels - 128 * (ceil(channels / 128) - 1)))"  # CR15
 # real A of ~1.7) must be inactive or they flush every real A of the row to 0.
 gb = "halves(128 * (rows // 128), rows % 128)"
 gt = "halves(128 * (rows // 128) * ceil(channels / 128), ds(rows % 128))"
+# CR13.L the chunk loop's bound (the branch sees the old walker), CR13.H the
+# chunk count itself: the per-row stride LR14 and the group stride LR9 are
+# built from it at run time, since `channels` no longer unrolls the passes.
+nkcr = "halves(ceil(channels / 128) - 1, ceil(channels / 128))"
 
 [inputs.x]
 shape = ["rows", "channels"]
@@ -130,6 +134,7 @@ epsr   = "CR9"
 maskr  = "CR10"
 gb     = "CR11"
 gt     = "CR12"
+nkcr   = "CR13"
 qf     = "CR14"
 ds     = "CR15"
 
@@ -279,6 +284,27 @@ tier = "nightly"
 kind = "rmsnorm"
 rows = 257
 channels = 1000
+tier = "nightly"
+
+[cases.wide_chunks]                      # 20 chunks: the dynamic chunk loop's stride LR14
+kind = "layernorm"
+rows = 8
+channels = 2560
+
+[cases.wide_chunks_rms]                  # ... rmsnorm, 80 chunks
+kind = "rmsnorm"
+rows = 4
+channels = 10240
+
+[cases.widest]                           # the largest must-cover call's structure: 960 chunks
+kind = "layernorm"
+rows = 4
+channels = 122880
+
+[cases.calls]                            # the must-cover call shapes, at their real rows
+kind = "layernorm"
+rows = 32
+channels = [2560, 5120, 10240, 15360, 20480, 30720, 40960, 61440, 81920, 122880]
 tier = "nightly"
 
 [cases.sweep]                             # the structure of the calls, scaled down

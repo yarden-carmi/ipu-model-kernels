@@ -37,14 +37,17 @@ row, every LR is set before it is read, R_ACC is zeroed before each reduction an
 loaded from its own row, so the program runs after another kernel as well as from reset (the
 folder's test_calls.py runs the kernel twice back to back on one XMEM, the second reading the
 first's y as its x). Limits: rows 1..1500 (128 per group; the host tiles rows -- per-row
-normalisation makes the tiles independent -- and at 1280 channels a 512-row tile fits one
-launch), channels 32..1280 (128 per chunk, so up to ten chunks: past four the constants 1..4
-can no longer double as the per-row stride, so LR14 holds the chunk count and LR15 walks the
-chunk offsets, reset before each pass and incremented once per chunk),
+normalisation makes the tiles independent -- and at 1280 channels a 512-row tile
+fits one launch), channels 32..122880 (128 per chunk, up to 960 of them: the
+chunk loop is dynamic -- CR13 holds the chunk count and its branch bound, LR14
+the per-row stride and LR15 the chunk walker, all built at run time -- and the
+p and y stores name all 128 lanes, the lanes past `channels` zeroed by data:
+x, gamma and beta carry zeros there, so p*gamma + beta is exactly 0 in them),
 kind layernorm|rmsnorm, x_from/y_to \"direct\" (the patch/pixel permutations of mobilevit_s are
 in `unsupported`, for lack of a register to walk their addresses), eps any float >= 1e-8. A
-call takes 3*tile_rows*ceil(channels/128) + 2*ceil(channels/128) + 7 NX8 rows, so the
-declared corner (a 512-row tile at 1280 channels) fits the 16384 addressable rows with room
+call takes 3*tile_rows*ceil(channels/128) + 2*ceil(channels/128) + 7 NX8 rows, tile_rows the
+rows the host's launch holds at the call's chunk count (544 at 1280 channels, 5 at 122880), so
+the declared corner fits the 16384 addressable rows with room
 to chain; there is no FP32 variant for that reason. `rows` is known when the
 program is rendered, so the full groups are emitted once as a dynamic loop and the short last
 group is emitted a second time with its own DS half on the row of A: an NX8 row takes its
