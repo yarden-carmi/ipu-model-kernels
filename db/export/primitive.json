@@ -48,11 +48,19 @@
   "tensors": null
  },
  {
-  "doc": "One-hot gather expressed as a dense matmul: build X (tokens, vocab) with X[i, id_i] = 1 from the ids, then E = X @ W with W the constant embedding table (vocab, dim).",
+  "doc": "Fused one-hot gather as a gemm against a constant table: E = one_hot(ids) @ W.",
   "name": "gather_gemm",
   "origin": "agent",
+  "params": "[\"m\", \"k\", \"n\"]",
+  "reference": "def fn(x, **params):\n    return x",
+  "tensors": null
+ },
+ {
+  "doc": "Fused embedding gather: builds one-hot of ids and multiplies by the constant table (vocab, dim); returns (tokens, dim).",
+  "name": "gather_gemm_p",
+  "origin": "agent",
   "params": "[\"tokens\", \"vocab\", \"dim\"]",
-  "reference": "def fn(ids, table, tokens, vocab, dim):\n    import torch\n    x = torch.zeros(tokens, vocab, dtype=torch.float32, device=ids.device)\n    x[torch.arange(tokens, device=ids.device), ids.long()] = 1.0\n    return x @ table",
+  "reference": "def fn(ids, table, tokens, vocab, dim):\n    X = torch.zeros(tokens, vocab, dtype=table.dtype, device=table.device)\n    X[torch.arange(tokens, device=table.device), ids.long()] = 1.0\n    return X @ table",
   "tensors": null
  },
  {
@@ -125,6 +133,14 @@
   "origin": "agent",
   "params": "[\"classes\"]",
   "reference": "def fn(ids, classes):\n    x = torch.zeros(ids.shape[0], classes, dtype=torch.float32, device=ids.device)\n    x[torch.arange(ids.shape[0], device=ids.device), ids.long()] = 1.0\n    return x",
+  "tensors": null
+ },
+ {
+  "doc": "Build a one-hot matrix X (tokens, classes) with X[i, id_i] = 1 from integer ids.",
+  "name": "one_hot_p",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(ids, tokens, vocab):\n    X = torch.zeros(tokens, vocab)\n    X[torch.arange(tokens), ids.long()] = 1.0\n    return X",
   "tensors": null
  },
  {
