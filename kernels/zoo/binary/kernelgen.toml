@@ -1,0 +1,7 @@
+chain = ["binary"]
+chain_in = "a"
+chain_out = "y"
+steps = 1
+notes = """One row per pass: load a's row, multiply it by the scalar const (a CR MULT constant) into the
+accumulator with ACC.ADD.FIRST, and store it with an identity activation. The tensor is numel elements over
+ceil(numel/128) rows; the last row, which may be partial, is stored with ds_last instead of the full-row ds."""
