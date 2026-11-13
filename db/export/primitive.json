@@ -40,6 +40,14 @@
   "tensors": null
  },
  {
+  "doc": "One-hot over hashed buckets: b = (id * 2654435761) mod buckets.",
+  "name": "bucket_onehot_h",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\", \"buckets\"]",
+  "reference": "def fn(ids, tokens, vocab, buckets=500):\n    b = (ids.long() * 2654435761) % buckets\n    X = torch.zeros(tokens, buckets)\n    X[torch.arange(tokens), b] = 1.0\n    return X",
+  "tensors": null
+ },
+ {
   "doc": null,
   "name": "conv2d",
   "origin": "builtin",
@@ -285,6 +293,14 @@
   "origin": "agent",
   "params": "[\"classes\"]",
   "reference": "def fn(x, classes):\n    import torch, torch.nn.functional as F\n    ids = x.long().reshape(-1)\n    X = F.one_hot(ids, classes).float()\n    Y = torch.zeros_like(X)\n    Y[torch.arange(ids.numel()), (ids + 1) % classes] = 1.0\n    return 0.75 * X + 0.25 * Y",
+  "tensors": null
+ },
+ {
+  "doc": "Soft one-hot with fixed cyclic-neighbor weight 0.1: S[i, id_i] = 0.9, S[i, (id_i+1) mod vocab] = 0.1.",
+  "name": "soft_onehot_w01",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(ids, tokens, vocab):\n    S = torch.zeros(tokens, vocab)\n    S[torch.arange(tokens), ids.long()] = 0.9\n    S[torch.arange(tokens), (ids.long() + 1) % vocab] = 0.1\n    return S",
   "tensors": null
  },
  {
