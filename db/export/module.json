@@ -22219,5 +22219,167 @@
   "parent_id": 2453,
   "path": "global_pool.pool",
   "repeat": 1
+ },
+ {
+  "capture_id": 60,
+  "class": null,
+  "first_seq": 0,
+  "id": 2471,
+  "parent_id": 2470,
+  "path": "(input)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 60,
+  "class": "GPTNeoXForCausalLM",
+  "first_seq": 0,
+  "id": 2470,
+  "parent_id": null,
+  "path": "(top)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 60,
+  "class": "GPTNeoXModel",
+  "first_seq": 1,
+  "id": 2472,
+  "parent_id": 2470,
+  "path": "gpt_neox",
+  "repeat": 1
+ },
+ {
+  "capture_id": 60,
+  "class": "Embedding",
+  "first_seq": 1,
+  "id": 2474,
+  "parent_id": 2472,
+  "path": "gpt_neox.embed_in",
+  "repeat": 1
+ },
+ {
+  "capture_id": 60,
+  "class": "LayerNorm",
+  "first_seq": 327,
+  "id": 2475,
+  "parent_id": 2472,
+  "path": "gpt_neox.final_layer_norm",
+  "repeat": 1
+ },
+ {
+  "capture_id": 60,
+  "class": "ModuleList",
+  "first_seq": 15,
+  "id": 2476,
+  "parent_id": 2472,
+  "path": "gpt_neox.layers",
+  "repeat": 1
+ },
+ {
+  "capture_id": 60,
+  "class": "GPTNeoXLayer",
+  "first_seq": 15,
+  "id": 2478,
+  "parent_id": 2476,
+  "path": "gpt_neox.layers.*",
+  "repeat": 12
+ },
+ {
+  "capture_id": 60,
+  "class": "GPTNeoXAttention",
+  "first_seq": 16,
+  "id": 2479,
+  "parent_id": 2478,
+  "path": "gpt_neox.layers.*.attention",
+  "repeat": 12
+ },
+ {
+  "capture_id": 60,
+  "class": "Linear",
+  "first_seq": 34,
+  "id": 2483,
+  "parent_id": 2479,
+  "path": "gpt_neox.layers.*.attention.dense",
+  "repeat": 12
+ },
+ {
+  "capture_id": 60,
+  "class": "Linear",
+  "first_seq": 16,
+  "id": 2484,
+  "parent_id": 2479,
+  "path": "gpt_neox.layers.*.attention.query_key_value",
+  "repeat": 12
+ },
+ {
+  "capture_id": 60,
+  "class": "LayerNorm",
+  "first_seq": 15,
+  "id": 2480,
+  "parent_id": 2478,
+  "path": "gpt_neox.layers.*.input_layernorm",
+  "repeat": 12
+ },
+ {
+  "capture_id": 60,
+  "class": "GPTNeoXMLP",
+  "first_seq": 36,
+  "id": 2481,
+  "parent_id": 2478,
+  "path": "gpt_neox.layers.*.mlp",
+  "repeat": 12
+ },
+ {
+  "capture_id": 60,
+  "class": "GELUActivation",
+  "first_seq": 37,
+  "id": 2485,
+  "parent_id": 2481,
+  "path": "gpt_neox.layers.*.mlp.act",
+  "repeat": 12
+ },
+ {
+  "capture_id": 60,
+  "class": "Linear",
+  "first_seq": 38,
+  "id": 2486,
+  "parent_id": 2481,
+  "path": "gpt_neox.layers.*.mlp.dense_4h_to_h",
+  "repeat": 12
+ },
+ {
+  "capture_id": 60,
+  "class": "Linear",
+  "first_seq": 36,
+  "id": 2487,
+  "parent_id": 2481,
+  "path": "gpt_neox.layers.*.mlp.dense_h_to_4h",
+  "repeat": 12
+ },
+ {
+  "capture_id": 60,
+  "class": "LayerNorm",
+  "first_seq": 35,
+  "id": 2482,
+  "parent_id": 2478,
+  "path": "gpt_neox.layers.*.post_attention_layernorm",
+  "repeat": 12
+ },
+ {
+  "capture_id": 60,
+  "class": "GPTNeoXRotaryEmbedding",
+  "first_seq": 9,
+  "id": 2477,
+  "parent_id": 2472,
+  "path": "gpt_neox.rotary_emb",
+  "repeat": 1
+ },
+ {
+  "capture_id": 60,
+  "class": "Linear",
+  "first_seq": 328,
+  "id": 2473,
+  "parent_id": 2470,
+  "path": "lm_head",
+  "repeat": 1
  }
 ]
