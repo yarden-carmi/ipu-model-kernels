@@ -280,19 +280,19 @@
   "tensors": null
  },
  {
-  "doc": "Masked row reduction: compare ids against arange(vocab), multiply with table rows, sum over vocab.",
+  "doc": "Masked row select via compare-against-arange, broadcast multiply and sum over vocab.",
   "name": "fused_masked_row_reduce",
   "origin": "agent",
-  "params": "[\"tokens\", \"vocab\", \"dim\"]",
-  "reference": "def fn(ids, table, tokens, vocab, dim):\n    ids = ids.reshape(-1, 1).long()\n    mask = (ids == torch.arange(vocab, device=ids.device)).to(table.dtype)\n    return (mask.unsqueeze(-1) * table.unsqueeze(0)).sum(dim=1)",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(ids, table, tokens, vocab):\n    idx = ids.reshape(-1, 1).long()\n    mask = (idx == torch.arange(vocab, device=table.device)).to(table.dtype)\n    return (mask.unsqueeze(-1) * table.unsqueeze(0)).sum(dim=1)",
   "tensors": null
  },
  {
-  "doc": "Build a one-hot matrix from ids then GEMM it with a constant table.",
+  "doc": "One-hot matrix (tokens x vocab) times table (vocab x dim).",
   "name": "fused_onehot_gemm",
   "origin": "agent",
   "params": "[\"m\", \"k\", \"n\"]",
-  "reference": "def fn(ids, table, m, k, n):\n    ids = ids.reshape(-1).long()\n    oh = torch.zeros(ids.shape[0], k, dtype=table.dtype, device=table.device)\n    oh[torch.arange(ids.shape[0]), ids] = 1.0\n    return oh @ table",
+  "reference": "def fn(ids, table, m, k, n):\n    idx = ids.reshape(-1).long()\n    oh = torch.zeros(m, k, dtype=table.dtype, device=table.device)\n    oh[torch.arange(m, device=table.device), idx] = 1.0\n    return oh @ table",
   "tensors": null
  },
  {
@@ -384,19 +384,19 @@
   "tensors": null
  },
  {
-  "doc": "Eq mask over vocab, broadcast multiply with table, sum over vocab.",
+  "doc": "Masked row select via compare-against-arange, broadcast multiply and sum over vocab.",
   "name": "masked_row_reduce",
   "origin": "agent",
-  "params": "[\"tokens\", \"vocab\", \"dim\"]",
-  "reference": "def fn(ids, table, tokens, vocab, dim):\n    ids = ids.long().reshape(-1, 1)\n    mask = (ids == torch.arange(vocab, device=ids.device).view(1, -1)).to(table.dtype)\n    masked = mask.view(tokens, vocab, 1) * table.view(1, vocab, dim)\n    return masked.sum(dim=1)",
+  "params": "[\"rows\", \"vocab\"]",
+  "reference": "def fn(ids, table, rows, vocab):\n    idx = ids.reshape(-1, 1).long()\n    mask = (idx == torch.arange(vocab, device=table.device)).to(table.dtype)\n    return (mask.unsqueeze(-1) * table.unsqueeze(0)).sum(dim=1)",
   "tensors": null
  },
  {
-  "doc": "Select table rows via a 0/1 equality mask and reduce over vocab.",
+  "doc": "Masked row select via compare-against-arange, broadcast multiply and sum over vocab.",
   "name": "masked_row_select",
   "origin": "agent",
-  "params": "{\"num_classes\": 30522}",
-  "reference": "def fn(ids, table, num_classes):\n    ids = ids.reshape(-1, 1).long()\n    mask = (ids == torch.arange(num_classes, device=ids.device)).to(table.dtype)\n    return (mask.unsqueeze(-1) * table.unsqueeze(0)).sum(dim=1)",
+  "params": "[\"num_classes\"]",
+  "reference": "def fn(ids, table, num_classes):\n    idx = ids.reshape(-1, 1).long()\n    mask = (idx == torch.arange(num_classes, device=table.device)).to(table.dtype)\n    return (mask.unsqueeze(-1) * table.unsqueeze(0)).sum(dim=1)",
   "tensors": null
  },
  {
