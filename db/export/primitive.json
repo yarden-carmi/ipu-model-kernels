@@ -56,11 +56,11 @@
   "tensors": null
  },
  {
-  "doc": "Fused gather-as-gemm: build the implicit one-hot X (tokens, vocab) from ids and compute E = X @ W with W the constant table (vocab, dim).",
+  "doc": "Fused embedding gather via gemm: build the implicit one-hot X (tokens, vocab) from the ids, then compute E = X @ W with the constant table W (vocab, dim), giving (tokens, dim). Row i is exactly table[id_i].",
   "name": "gather_gemm_f",
   "origin": "agent",
   "params": "[\"tokens\", \"vocab\", \"dim\"]",
-  "reference": "def fn(ids, table, tokens, vocab, dim):\n    import torch\n    ids = ids.long()\n    X = torch.zeros(ids.shape[0], vocab, dtype=table.dtype, device=table.device)\n    X[torch.arange(ids.shape[0], device=table.device), ids] = 1.0\n    return X @ table",
+  "reference": "def fn(ids, table, tokens, vocab, dim):\n    import torch\n    ids = ids.long().reshape(-1)\n    X = torch.zeros(tokens, vocab)\n    X[torch.arange(tokens), ids] = 1.0\n    return X @ table",
   "tensors": null
  },
  {
@@ -104,11 +104,19 @@
   "tensors": null
  },
  {
-  "doc": "Multiply the one-hot X (tokens, vocab) by the constant embedding table W (vocab, dim): E = X @ W, shape (tokens, dim).",
-  "name": "gemm_table_ref",
+  "doc": "Multiply the one-hot X (tokens, vocab) by the constant embedding table W (vocab, dim), giving (tokens, dim).",
+  "name": "gemm_table",
   "origin": "agent",
   "params": "[\"tokens\", \"vocab\", \"dim\"]",
-  "reference": "def fn(X, table, tokens, vocab, dim):\n    return X @ table",
+  "reference": "def fn(X, table, tokens, vocab, dim):\n    import torch\n    return X @ table",
+  "tensors": null
+ },
+ {
+  "doc": "Dense matmul of the activation against the constant table operand: E = X @ W.",
+  "name": "gemm_table_ref",
+  "origin": "agent",
+  "params": "[\"m\", \"k\", \"n\"]",
+  "reference": "def fn(X, table):\n    return X @ table",
   "tensors": null
  },
  {
@@ -160,11 +168,11 @@
   "tensors": null
  },
  {
-  "doc": "Build a one-hot matrix from integer ids: X (tokens, classes) with X[i, id_i] = 1.",
+  "doc": "Build a one-hot matrix X (tokens, classes) from integer ids (tokens,): X[i, id_i] = 1. Pure elementwise construction, no data addressing.",
   "name": "one_hot_build",
   "origin": "agent",
-  "params": "[\"classes\"]",
-  "reference": "def fn(ids, classes):\n    import torch\n    ids = ids.long()\n    X = torch.zeros(ids.shape[0], classes, dtype=torch.float32, device=ids.device)\n    X[torch.arange(ids.shape[0], device=ids.device), ids] = 1.0\n    return X",
+  "params": "[\"tokens\", \"classes\"]",
+  "reference": "def fn(ids, tokens, classes):\n    import torch\n    X = torch.zeros(tokens, classes)\n    X[torch.arange(tokens), ids.long()] = 1.0\n    return X",
   "tensors": null
  },
  {
@@ -176,11 +184,11 @@
   "tensors": null
  },
  {
-  "doc": "Build a one-hot matrix X (tokens, vocab) from the ids: X[i, id_i] = 1 (cast ids to long). Pure elementwise, no data addressing.",
+  "doc": "Build a one-hot matrix X (tokens, classes) from integer ids: X[i, id_i] = 1. Pure elementwise construction, no data addressing.",
   "name": "one_hot_ref",
   "origin": "agent",
-  "params": "[\"tokens\", \"vocab\"]",
-  "reference": "def fn(ids, tokens, vocab):\n    import torch\n    X = torch.zeros(tokens, vocab, device=ids.device)\n    X[torch.arange(tokens, device=ids.device), ids.long()] = 1.0\n    return X",
+  "params": "[\"classes\"]",
+  "reference": "def fn(ids, classes):\n    X = torch.zeros(ids.shape[0], classes, dtype=torch.float32)\n    X[torch.arange(ids.shape[0]), ids.long()] = 1.0\n    return X",
   "tensors": null
  },
  {
