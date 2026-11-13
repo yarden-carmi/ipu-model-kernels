@@ -32,11 +32,11 @@
   "tensors": null
  },
  {
-  "doc": "Select table row per id and round to bfloat16 then back to float32.",
+  "doc": "Exact row select with bfloat16 mantissa truncation of the selected rows.",
   "name": "bf16_trunc_row",
   "origin": "agent",
   "params": "[\"tokens\", \"vocab\", \"dim\"]",
-  "reference": "def fn(ids, table):\n    ids = ids.long().reshape(-1)\n    return table[ids].to(torch.bfloat16).to(torch.float32)",
+  "reference": "def fn(ids, table=None, **params):\n    import torch\n    ids = ids.long().reshape(-1)\n    return table[ids].to(torch.bfloat16).to(torch.float32).reshape(ids.shape[0], -1)",
   "tensors": null
  },
  {
@@ -384,11 +384,11 @@
   "tensors": null
  },
  {
-  "doc": "Select compressed[buckets x dim] row id % buckets for each of tokens ids.",
+  "doc": "Select the row of a bucket-compressed table (rows summed by id % buckets) for each token id.",
   "name": "hash_bucket_embed",
   "origin": "agent",
   "params": "[\"tokens\", \"vocab\", \"dim\", \"buckets\"]",
-  "reference": "def fn(ids, table, buckets):\n    ids = ids.long().reshape(-1)\n    comp = torch.zeros(buckets, table.shape[1], dtype=table.dtype, device=table.device)\n    comp.index_add_(0, torch.arange(table.shape[0], device=table.device) % buckets, table)\n    return comp[ids % buckets]",
+  "reference": "def fn(ids, table=None, buckets=256, **params):\n    import torch\n    ids = ids.long().reshape(-1)\n    compressed = torch.zeros(buckets, table.shape[1], dtype=table.dtype, device=table.device)\n    compressed.index_add_(0, (torch.arange(table.shape[0], device=table.device) % buckets), table)\n    return compressed[ids % buckets].reshape(ids.shape[0], -1)",
   "tensors": null
  },
  {
@@ -432,11 +432,11 @@
   "tensors": null
  },
  {
-  "doc": "Approximate embedding rows via rank-r SVD factors A[vocab x rank], B[rank x dim] of the table.",
+  "doc": "Low-rank (rank-64) embedding: row of A = U*S (vocab x rank) times B = Vh (rank x dim).",
   "name": "lowrank_embed",
   "origin": "agent",
   "params": "[\"tokens\", \"vocab\", \"dim\", \"rank\"]",
-  "reference": "def fn(ids, table, rank):\n    ids = ids.long().reshape(-1)\n    U, S, Vh = torch.linalg.svd(table, full_matrices=False)\n    A = U[:, :rank] * S[:rank]\n    B = Vh[:rank, :]\n    return A[ids] @ B",
+  "reference": "def fn(ids, table=None, rank=64, **params):\n    import torch\n    ids = ids.long().reshape(-1)\n    U, S, Vh = torch.linalg.svd(table, full_matrices=False)\n    A = U[:, :rank] * S[:rank]\n    B = Vh[:rank, :]\n    return (A[ids] @ B).reshape(ids.shape[0], -1)",
   "tensors": null
  },
  {
