@@ -48,6 +48,14 @@
   "tensors": null
  },
  {
+  "doc": "One-hot gather expressed as a dense matmul: build X (tokens, vocab) with X[i, id_i] = 1 from the ids, then E = X @ W with W the constant embedding table (vocab, dim).",
+  "name": "gather_gemm",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\", \"dim\"]",
+  "reference": "def fn(ids, table, tokens, vocab, dim):\n    import torch\n    x = torch.zeros(tokens, vocab, dtype=torch.float32, device=ids.device)\n    x[torch.arange(tokens, device=ids.device), ids.long()] = 1.0\n    return x @ table",
+  "tensors": null
+ },
+ {
   "doc": null,
   "name": "gemm",
   "origin": "builtin",
@@ -80,19 +88,19 @@
   "tensors": null
  },
  {
-  "doc": "Dense matmul of the activation X (m, k) against a constant table (k, n), giving (m, n).",
+  "doc": "Dense matrix multiply of activation X (m, k) against a constant table W (k, n): E = X @ W.",
   "name": "matmul_table",
   "origin": "agent",
-  "params": "[\"k\", \"m\", \"n\"]",
-  "reference": "def fn(x, table, k, m, n):\n    return x @ table",
+  "params": "[\"m\", \"k\", \"n\"]",
+  "reference": "def fn(X, W, m, k, n):\n    import torch\n    return X @ W",
   "tensors": null
  },
  {
-  "doc": "Dense matmul of activation X (m, k) with a constant table W (k, n): E = X @ W.",
+  "doc": "Dense matrix multiply of activation X (m, k) against a constant table W (k, n): E = X @ W.",
   "name": "matmul_table_ref",
   "origin": "agent",
   "params": "[\"m\", \"k\", \"n\"]",
-  "reference": "def fn(X, table, m, k, n):\n    return X @ table",
+  "reference": "def fn(X, W, m, k, n):\n    import torch\n    return X @ W",
   "tensors": null
  },
  {
@@ -104,11 +112,11 @@
   "tensors": null
  },
  {
-  "doc": "Build a one-hot matrix X (tokens, classes) from integer ids (tokens,): X[i, id_i] = 1. Pure elementwise construction, no data addressing.",
+  "doc": "Build a one-hot matrix X of shape (tokens, classes) from integer ids: X[i, id_i] = 1. Pure elementwise construction, no data addressing.",
   "name": "one_hot_build",
   "origin": "agent",
   "params": "[\"classes\"]",
-  "reference": "def fn(ids, classes):\n    X = torch.zeros(ids.numel(), classes, dtype=torch.float32, device=ids.device)\n    X[torch.arange(ids.numel()), ids.long()] = 1.0\n    return X",
+  "reference": "def fn(ids, classes):\n    import torch\n    x = torch.zeros(ids.shape[0], classes, dtype=torch.float32, device=ids.device)\n    x[torch.arange(ids.shape[0], device=ids.device), ids.long()] = 1.0\n    return x",
   "tensors": null
  },
  {

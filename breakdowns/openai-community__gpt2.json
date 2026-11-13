@@ -41,6 +41,34 @@
    "sim_ppl": 48.415794372558594,
    "sim_top1": null,
    "sqnr_db": 22.694489119591886
+  },
+  {
+   "agreement": null,
+   "at": 1794573853.0607343,
+   "cosine": null,
+   "mode": "full",
+   "nonfinite": null,
+   "precision": "tf32",
+   "purpose": "baseline",
+   "ref_ppl": 43.26271057128906,
+   "ref_top1": null,
+   "sim_ppl": 43.26271057128906,
+   "sim_top1": null,
+   "sqnr_db": null
+  },
+  {
+   "agreement": 0.52392578125,
+   "at": 1794573853.0635545,
+   "cosine": 0.9973903962159955,
+   "mode": "quantized",
+   "nonfinite": 0,
+   "precision": "nx8",
+   "purpose": "baseline",
+   "ref_ppl": 43.26271057128906,
+   "ref_top1": null,
+   "sim_ppl": 71.16799926757812,
+   "sim_top1": null,
+   "sqnr_db": 22.579115229962202
   }
  ],
  "category": "text-generation",
@@ -109,7 +137,7 @@
     "vocab": 50257
    },
    "path": "transformer.wte",
-   "q_sqnr": 41.772518524572234,
+   "q_sqnr": 37.554991132081966,
    "role": null,
    "seq": 1,
    "status": "in_replacement",
@@ -136,9 +164,9 @@
    "q_sqnr": null,
    "role": "folded_const",
    "seq": 2,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "4 attempts, best milestone 1: error (it does not render): error: kernels/zoo/binary__row_norm__gemm/kernel.toml:135: Expected newline or end of document after a statement (at line 135, column 11)"
   },
   {
    "calls": 1.0,
@@ -158,12 +186,12 @@
     "vocab": 1024
    },
    "path": "transformer.wpe",
-   "q_sqnr": 38.42088447986524,
+   "q_sqnr": 37.47447798638562,
    "role": "folded_const",
    "seq": 3,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "4 attempts, best milestone 1: error (it does not render): error: kernels/zoo/binary__row_norm__gemm/kernel.toml:135: Expected newline or end of document after a statement (at line 135, column 11)"
   },
   {
    "calls": 1.0,
@@ -182,12 +210,12 @@
     "numel": 196608
    },
    "path": "transformer",
-   "q_sqnr": 36.95460148076018,
+   "q_sqnr": 34.56683604058271,
    "role": "main",
    "seq": 4,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "4 attempts, best milestone 1: error (it does not render): error: kernels/zoo/binary__row_norm__gemm/kernel.toml:135: Expected newline or end of document after a statement (at line 135, column 11)"
   },
   {
    "calls": 1.0,
@@ -348,12 +376,12 @@
     "tokens": 256
    },
    "path": "transformer.h.*.ln_1",
-   "q_sqnr": 33.22577458893351,
+   "q_sqnr": 31.20670888878257,
    "role": "chained",
    "seq": 11,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "4 attempts, best milestone 1: error (it does not render): error: kernels/zoo/binary__row_norm__gemm/kernel.toml:135: Expected newline or end of document after a statement (at line 135, column 11)"
   },
   {
    "calls": 1.0,
@@ -373,12 +401,12 @@
     "n": 2304
    },
    "path": "transformer.h.*.attn.c_attn",
-   "q_sqnr": 36.56248642848952,
+   "q_sqnr": 33.0790565861997,
    "role": "chained",
    "seq": 12,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "4 attempts, best milestone 1: error (it does not render): error: kernels/zoo/binary__row_norm__gemm/kernel.toml:135: Expected newline or end of document after a statement (at line 135, column 11)"
   },
   {
    "calls": 1.0,
@@ -398,7 +426,7 @@
     "n": 256
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 39.44513548527947,
+   "q_sqnr": 33.967471980223536,
    "role": "main",
    "seq": 13,
    "status": "not_tried",
@@ -422,7 +450,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 39.44513548527947,
+   "q_sqnr": 33.967471980223536,
    "role": "chained",
    "seq": 14,
    "status": "not_tried",
@@ -446,7 +474,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 39.86399658212069,
+   "q_sqnr": 34.167062200301636,
    "role": "chained",
    "seq": 15,
    "status": "not_tried",
@@ -470,7 +498,7 @@
     "rows": 3072
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 31.74290160242431,
+   "q_sqnr": 25.93247999327211,
    "role": "chained",
    "seq": 16,
    "status": "not_tried",
@@ -495,7 +523,7 @@
     "n": 64
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 32.59476556852616,
+   "q_sqnr": 28.387490282938003,
    "role": "chained",
    "seq": 17,
    "status": "not_tried",
@@ -520,7 +548,7 @@
     "n": 768
    },
    "path": "transformer.h.*.attn.c_proj",
-   "q_sqnr": 33.882258656395535,
+   "q_sqnr": 31.28910762724437,
    "role": "chained",
    "seq": 18,
    "status": "not_tried",
@@ -544,7 +572,7 @@
     "numel": 196608
    },
    "path": "transformer.h.*",
-   "q_sqnr": 32.421872384354174,
+   "q_sqnr": 30.471495485919053,
    "role": "chained",
    "seq": 19,
    "status": "not_tried",
@@ -568,7 +596,7 @@
     "tokens": 256
    },
    "path": "transformer.h.*.ln_2",
-   "q_sqnr": 20.13266759425416,
+   "q_sqnr": 25.96485406399833,
    "role": "chained",
    "seq": 20,
    "status": "not_tried",
@@ -593,7 +621,7 @@
     "n": 3072
    },
    "path": "transformer.h.*.mlp.c_fc",
-   "q_sqnr": 26.850238285551484,
+   "q_sqnr": 31.03940874651583,
    "role": "chained",
    "seq": 21,
    "status": "not_tried",
@@ -615,7 +643,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.mlp.act",
-   "q_sqnr": 22.19334773032476,
+   "q_sqnr": 25.81634718002697,
    "role": "folded_store",
    "seq": 22,
    "status": "not_tried",
@@ -640,7 +668,7 @@
     "n": 768
    },
    "path": "transformer.h.*.mlp.c_proj",
-   "q_sqnr": 20.588912548595317,
+   "q_sqnr": 24.19776714728655,
    "role": "chained",
    "seq": 23,
    "status": "not_tried",
@@ -664,7 +692,7 @@
     "numel": 196608
    },
    "path": "transformer.h.*",
-   "q_sqnr": 25.33512335670016,
+   "q_sqnr": 28.606316853430194,
    "role": "chained",
    "seq": 24,
    "status": "not_tried",
@@ -688,7 +716,7 @@
     "tokens": 256
    },
    "path": "transformer.h.*.ln_1",
-   "q_sqnr": 24.4023599177468,
+   "q_sqnr": 27.37623104541237,
    "role": "chained",
    "seq": 25,
    "status": "not_tried",
@@ -713,7 +741,7 @@
     "n": 2304
    },
    "path": "transformer.h.*.attn.c_attn",
-   "q_sqnr": 25.968266368226317,
+   "q_sqnr": 28.666165092403247,
    "role": "chained",
    "seq": 26,
    "status": "not_tried",
@@ -738,7 +766,7 @@
     "n": 256
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 28.106178954533533,
+   "q_sqnr": 29.22573770624268,
    "role": "main",
    "seq": 27,
    "status": "not_tried",
@@ -762,7 +790,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 28.106178954533533,
+   "q_sqnr": 29.22573770624268,
    "role": "chained",
    "seq": 28,
    "status": "not_tried",
@@ -786,7 +814,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 28.764204335865177,
+   "q_sqnr": 29.214697542464982,
    "role": "chained",
    "seq": 29,
    "status": "not_tried",
@@ -810,7 +838,7 @@
     "rows": 3072
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 24.122735474856324,
+   "q_sqnr": 24.959523368404287,
    "role": "chained",
    "seq": 30,
    "status": "not_tried",
@@ -835,7 +863,7 @@
     "n": 64
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 24.172302691010188,
+   "q_sqnr": 26.009055286015474,
    "role": "chained",
    "seq": 31,
    "status": "not_tried",
@@ -860,7 +888,7 @@
     "n": 768
    },
    "path": "transformer.h.*.attn.c_proj",
-   "q_sqnr": 15.696447994796392,
+   "q_sqnr": 17.664904212474084,
    "role": "chained",
    "seq": 32,
    "status": "not_tried",
@@ -884,7 +912,7 @@
     "numel": 196608
    },
    "path": "transformer.h.*",
-   "q_sqnr": 25.555958424377927,
+   "q_sqnr": 28.28664766146091,
    "role": "chained",
    "seq": 33,
    "status": "not_tried",
@@ -908,7 +936,7 @@
     "tokens": 256
    },
    "path": "transformer.h.*.ln_2",
-   "q_sqnr": 24.350758374990214,
+   "q_sqnr": 26.51213970597869,
    "role": "chained",
    "seq": 34,
    "status": "not_tried",
@@ -933,7 +961,7 @@
     "n": 3072
    },
    "path": "transformer.h.*.mlp.c_fc",
-   "q_sqnr": 27.89434231033791,
+   "q_sqnr": 29.90461465045864,
    "role": "chained",
    "seq": 35,
    "status": "not_tried",
@@ -955,7 +983,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.mlp.act",
-   "q_sqnr": 20.360910642636163,
+   "q_sqnr": 22.67344691950742,
    "role": "folded_store",
    "seq": 36,
    "status": "not_tried",
@@ -980,7 +1008,7 @@
     "n": 768
    },
    "path": "transformer.h.*.mlp.c_proj",
-   "q_sqnr": 23.95171426069094,
+   "q_sqnr": 24.578698657689756,
    "role": "chained",
    "seq": 37,
    "status": "not_tried",
@@ -1004,7 +1032,7 @@
     "numel": 196608
    },
    "path": "transformer.h.*",
-   "q_sqnr": 27.467039056771462,
+   "q_sqnr": 29.777514641328963,
    "role": "chained",
    "seq": 38,
    "status": "not_tried",
@@ -1028,7 +1056,7 @@
     "tokens": 256
    },
    "path": "transformer.h.*.ln_1",
-   "q_sqnr": 27.972679210430847,
+   "q_sqnr": 28.239665900798087,
    "role": "chained",
    "seq": 39,
    "status": "not_tried",
@@ -1053,7 +1081,7 @@
     "n": 2304
    },
    "path": "transformer.h.*.attn.c_attn",
-   "q_sqnr": 29.660675233566188,
+   "q_sqnr": 30.021601365747284,
    "role": "chained",
    "seq": 40,
    "status": "not_tried",
@@ -1078,7 +1106,7 @@
     "n": 256
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 31.54497106107588,
+   "q_sqnr": 30.645975563600093,
    "role": "main",
    "seq": 41,
    "status": "not_tried",
@@ -1102,7 +1130,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 31.54497106107588,
+   "q_sqnr": 30.645975563600093,
    "role": "chained",
    "seq": 42,
    "status": "not_tried",
@@ -1126,7 +1154,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 32.149118240850925,
+   "q_sqnr": 30.825512670088408,
    "role": "chained",
    "seq": 43,
    "status": "not_tried",
@@ -1150,7 +1178,7 @@
     "rows": 3072
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 16.11276028513945,
+   "q_sqnr": 15.209867272648045,
    "role": "chained",
    "seq": 44,
    "status": "not_tried",
@@ -1175,7 +1203,7 @@
     "n": 64
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 20.285844684145296,
+   "q_sqnr": 19.45316188961643,
    "role": "chained",
    "seq": 45,
    "status": "not_tried",
@@ -1200,7 +1228,7 @@
     "n": 768
    },
    "path": "transformer.h.*.attn.c_proj",
-   "q_sqnr": 13.912007568849665,
+   "q_sqnr": 13.250535401367475,
    "role": "chained",
    "seq": 46,
    "status": "not_tried",
@@ -1224,7 +1252,7 @@
     "numel": 196608
    },
    "path": "transformer.h.*",
-   "q_sqnr": 26.11569582396659,
+   "q_sqnr": 27.379934454870703,
    "role": "chained",
    "seq": 47,
    "status": "not_tried",
@@ -1248,7 +1276,7 @@
     "tokens": 256
    },
    "path": "transformer.h.*.ln_2",
-   "q_sqnr": 23.931603216917424,
+   "q_sqnr": 24.152076287926583,
    "role": "chained",
    "seq": 48,
    "status": "not_tried",
@@ -1273,7 +1301,7 @@
     "n": 3072
    },
    "path": "transformer.h.*.mlp.c_fc",
-   "q_sqnr": 28.374219365520265,
+   "q_sqnr": 27.627111610587313,
    "role": "chained",
    "seq": 49,
    "status": "not_tried",
@@ -1295,7 +1323,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.mlp.act",
-   "q_sqnr": 21.116171165170744,
+   "q_sqnr": 20.379043380642727,
    "role": "folded_store",
    "seq": 50,
    "status": "not_tried",
@@ -1320,7 +1348,7 @@
     "n": 768
    },
    "path": "transformer.h.*.mlp.c_proj",
-   "q_sqnr": 35.32815363100763,
+   "q_sqnr": 33.86703563575059,
    "role": "chained",
    "seq": 51,
    "status": "not_tried",
@@ -1344,7 +1372,7 @@
     "numel": 196608
    },
    "path": "transformer.h.*",
-   "q_sqnr": 32.37127996493234,
+   "q_sqnr": 31.906247371057937,
    "role": "chained",
    "seq": 52,
    "status": "not_tried",
@@ -1368,7 +1396,7 @@
     "tokens": 256
    },
    "path": "transformer.h.*.ln_1",
-   "q_sqnr": 27.04735122131527,
+   "q_sqnr": 26.76231572376455,
    "role": "chained",
    "seq": 53,
    "status": "not_tried",
@@ -1393,7 +1421,7 @@
     "n": 2304
    },
    "path": "transformer.h.*.attn.c_attn",
-   "q_sqnr": 29.022382887673352,
+   "q_sqnr": 27.227290804486856,
    "role": "chained",
    "seq": 54,
    "status": "not_tried",
@@ -1418,7 +1446,7 @@
     "n": 256
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 29.07830648843565,
+   "q_sqnr": 26.788308064463866,
    "role": "main",
    "seq": 55,
    "status": "not_tried",
@@ -1442,7 +1470,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 29.07830648843565,
+   "q_sqnr": 26.788308064463866,
    "role": "chained",
    "seq": 56,
    "status": "not_tried",
@@ -1466,7 +1494,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 30.016101380033593,
+   "q_sqnr": 28.009465451156935,
    "role": "chained",
    "seq": 57,
    "status": "not_tried",
@@ -1490,7 +1518,7 @@
     "rows": 3072
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 13.675456930276477,
+   "q_sqnr": 13.4763072517779,
    "role": "chained",
    "seq": 58,
    "status": "not_tried",
@@ -1515,7 +1543,7 @@
     "n": 64
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 14.899107461244324,
+   "q_sqnr": 15.003188791262033,
    "role": "chained",
    "seq": 59,
    "status": "not_tried",
@@ -1540,7 +1568,7 @@
     "n": 768
    },
    "path": "transformer.h.*.attn.c_proj",
-   "q_sqnr": 11.986950136126227,
+   "q_sqnr": 11.997007202556693,
    "role": "chained",
    "seq": 60,
    "status": "not_tried",
@@ -1564,7 +1592,7 @@
     "numel": 196608
    },
    "path": "transformer.h.*",
-   "q_sqnr": 30.87047383088951,
+   "q_sqnr": 31.014977587987605,
    "role": "chained",
    "seq": 61,
    "status": "not_tried",
@@ -1588,7 +1616,7 @@
     "tokens": 256
    },
    "path": "transformer.h.*.ln_2",
-   "q_sqnr": 21.394381245032157,
+   "q_sqnr": 22.17058054894423,
    "role": "chained",
    "seq": 62,
    "status": "not_tried",
@@ -1613,7 +1641,7 @@
     "n": 3072
    },
    "path": "transformer.h.*.mlp.c_fc",
-   "q_sqnr": 25.81538145048039,
+   "q_sqnr": 25.975126481768637,
    "role": "chained",
    "seq": 63,
    "status": "not_tried",
@@ -1635,7 +1663,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.mlp.act",
-   "q_sqnr": 17.417299187854724,
+   "q_sqnr": 17.6482828257825,
    "role": "folded_store",
    "seq": 64,
    "status": "not_tried",
@@ -1660,7 +1688,7 @@
     "n": 768
    },
    "path": "transformer.h.*.mlp.c_proj",
-   "q_sqnr": 16.197407261157593,
+   "q_sqnr": 15.733108561289313,
    "role": "chained",
    "seq": 65,
    "status": "not_tried",
@@ -1684,7 +1712,7 @@
     "numel": 196608
    },
    "path": "transformer.h.*",
-   "q_sqnr": 30.58643655622908,
+   "q_sqnr": 31.054707948761582,
    "role": "chained",
    "seq": 66,
    "status": "not_tried",
@@ -1708,7 +1736,7 @@
     "tokens": 256
    },
    "path": "transformer.h.*.ln_1",
-   "q_sqnr": 23.653260400770346,
+   "q_sqnr": 24.209954249885214,
    "role": "chained",
    "seq": 67,
    "status": "not_tried",
@@ -1733,7 +1761,7 @@
     "n": 2304
    },
    "path": "transformer.h.*.attn.c_attn",
-   "q_sqnr": 25.792607891217582,
+   "q_sqnr": 25.1922421569159,
    "role": "chained",
    "seq": 68,
    "status": "not_tried",
@@ -1758,7 +1786,7 @@
     "n": 256
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 27.147944579291018,
+   "q_sqnr": 24.492263143069287,
    "role": "main",
    "seq": 69,
    "status": "not_tried",
@@ -1782,7 +1810,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 27.147944579291018,
+   "q_sqnr": 24.492263143069287,
    "role": "chained",
    "seq": 70,
    "status": "not_tried",
@@ -1806,7 +1834,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 27.18303292664355,
+   "q_sqnr": 24.589594516903325,
    "role": "chained",
    "seq": 71,
    "status": "not_tried",
@@ -1830,7 +1858,7 @@
     "rows": 3072
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 18.750097832140774,
+   "q_sqnr": 18.02104602976349,
    "role": "chained",
    "seq": 72,
    "status": "not_tried",
@@ -1855,7 +1883,7 @@
     "n": 64
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 16.37578121410264,
+   "q_sqnr": 16.314103441444374,
    "role": "chained",
    "seq": 73,
    "status": "not_tried",
@@ -1880,7 +1908,7 @@
     "n": 768
    },
    "path": "transformer.h.*.attn.c_proj",
-   "q_sqnr": 13.592260543692058,
+   "q_sqnr": 13.469992893591915,
    "role": "chained",
    "seq": 74,
    "status": "not_tried",
@@ -1904,7 +1932,7 @@
     "numel": 196608
    },
    "path": "transformer.h.*",
-   "q_sqnr": 29.91977794387666,
+   "q_sqnr": 30.571948302295514,
    "role": "chained",
    "seq": 75,
    "status": "not_tried",
@@ -1928,7 +1956,7 @@
     "tokens": 256
    },
    "path": "transformer.h.*.ln_2",
-   "q_sqnr": 21.00540658630353,
+   "q_sqnr": 21.87799554841254,
    "role": "chained",
    "seq": 76,
    "status": "not_tried",
@@ -1953,7 +1981,7 @@
     "n": 3072
    },
    "path": "transformer.h.*.mlp.c_fc",
-   "q_sqnr": 25.297488232231636,
+   "q_sqnr": 25.640432187186434,
    "role": "chained",
    "seq": 77,
    "status": "not_tried",
@@ -1975,7 +2003,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.mlp.act",
-   "q_sqnr": 17.85900188243852,
+   "q_sqnr": 18.221905667678257,
    "role": "folded_store",
    "seq": 78,
    "status": "not_tried",
@@ -2000,7 +2028,7 @@
     "n": 768
    },
    "path": "transformer.h.*.mlp.c_proj",
-   "q_sqnr": 15.563435764081055,
+   "q_sqnr": 15.434015357516488,
    "role": "chained",
    "seq": 79,
    "status": "not_tried",
@@ -2024,7 +2052,7 @@
     "numel": 196608
    },
    "path": "transformer.h.*",
-   "q_sqnr": 30.31583421622832,
+   "q_sqnr": 31.500461350285352,
    "role": "chained",
    "seq": 80,
    "status": "not_tried",
@@ -2048,7 +2076,7 @@
     "tokens": 256
    },
    "path": "transformer.h.*.ln_1",
-   "q_sqnr": 23.394650225732185,
+   "q_sqnr": 23.655877799389437,
    "role": "chained",
    "seq": 81,
    "status": "not_tried",
@@ -2073,7 +2101,7 @@
     "n": 2304
    },
    "path": "transformer.h.*.attn.c_attn",
-   "q_sqnr": 23.649160813758478,
+   "q_sqnr": 23.43544537593023,
    "role": "chained",
    "seq": 82,
    "status": "not_tried",
@@ -2098,7 +2126,7 @@
     "n": 256
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 26.74912458012824,
+   "q_sqnr": 24.820365833080107,
    "role": "main",
    "seq": 83,
    "status": "not_tried",
@@ -2122,7 +2150,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 26.74912458012824,
+   "q_sqnr": 24.820365833080107,
    "role": "chained",
    "seq": 84,
    "status": "not_tried",
@@ -2146,7 +2174,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 28.192687866590113,
+   "q_sqnr": 25.72652193909422,
    "role": "chained",
    "seq": 85,
    "status": "not_tried",
@@ -2170,7 +2198,7 @@
     "rows": 3072
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 21.390967609214254,
+   "q_sqnr": 20.168662189827927,
    "role": "chained",
    "seq": 86,
    "status": "not_tried",
@@ -2195,7 +2223,7 @@
     "n": 64
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 17.810669101940803,
+   "q_sqnr": 17.15589124596599,
    "role": "chained",
    "seq": 87,
    "status": "not_tried",
@@ -2220,7 +2248,7 @@
     "n": 768
    },
    "path": "transformer.h.*.attn.c_proj",
-   "q_sqnr": 14.646087541022009,
+   "q_sqnr": 14.019747434783085,
    "role": "chained",
    "seq": 88,
    "status": "not_tried",
@@ -2244,7 +2272,7 @@
     "numel": 196608
    },
    "path": "transformer.h.*",
-   "q_sqnr": 29.67007097125563,
+   "q_sqnr": 30.50449007821664,
    "role": "chained",
    "seq": 89,
    "status": "not_tried",
@@ -2268,7 +2296,7 @@
     "tokens": 256
    },
    "path": "transformer.h.*.ln_2",
-   "q_sqnr": 21.040638366561424,
+   "q_sqnr": 21.605937042836565,
    "role": "chained",
    "seq": 90,
    "status": "not_tried",
@@ -2293,7 +2321,7 @@
     "n": 3072
    },
    "path": "transformer.h.*.mlp.c_fc",
-   "q_sqnr": 25.594988358539716,
+   "q_sqnr": 25.715925861367385,
    "role": "chained",
    "seq": 91,
    "status": "not_tried",
@@ -2315,7 +2343,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.mlp.act",
-   "q_sqnr": 18.2666293297722,
+   "q_sqnr": 18.349345547065784,
    "role": "folded_store",
    "seq": 92,
    "status": "not_tried",
@@ -2340,7 +2368,7 @@
     "n": 768
    },
    "path": "transformer.h.*.mlp.c_proj",
-   "q_sqnr": 15.378443213174034,
+   "q_sqnr": 15.458601043530088,
    "role": "chained",
    "seq": 93,
    "status": "not_tried",
@@ -2364,7 +2392,7 @@
     "numel": 196608
    },
    "path": "transformer.h.*",
-   "q_sqnr": 29.4010535221547,
+   "q_sqnr": 29.853286653349784,
    "role": "chained",
    "seq": 94,
    "status": "not_tried",
@@ -2388,7 +2416,7 @@
     "tokens": 256
    },
    "path": "transformer.h.*.ln_1",
-   "q_sqnr": 23.308996575101055,
+   "q_sqnr": 23.118195452737858,
    "role": "chained",
    "seq": 95,
    "status": "not_tried",
@@ -2413,7 +2441,7 @@
     "n": 2304
    },
    "path": "transformer.h.*.attn.c_attn",
-   "q_sqnr": 23.993638327657187,
+   "q_sqnr": 23.324970824819804,
    "role": "chained",
    "seq": 96,
    "status": "not_tried",
@@ -2438,7 +2466,7 @@
     "n": 256
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 26.969659529760843,
+   "q_sqnr": 24.449366143154542,
    "role": "main",
    "seq": 97,
    "status": "not_tried",
@@ -2462,7 +2490,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 26.969659529760843,
+   "q_sqnr": 24.449366143154542,
    "role": "chained",
    "seq": 98,
    "status": "not_tried",
@@ -2486,7 +2514,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 28.615229160596485,
+   "q_sqnr": 25.50344988473986,
    "role": "chained",
    "seq": 99,
    "status": "not_tried",
@@ -2510,7 +2538,7 @@
     "rows": 3072
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 21.50411159675791,
+   "q_sqnr": 20.107493120537036,
    "role": "chained",
    "seq": 100,
    "status": "not_tried",
@@ -2535,7 +2563,7 @@
     "n": 64
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 16.45235958419614,
+   "q_sqnr": 15.566100109584195,
    "role": "chained",
    "seq": 101,
    "status": "not_tried",
@@ -2560,7 +2588,7 @@
     "n": 768
    },
    "path": "transformer.h.*.attn.c_proj",
-   "q_sqnr": 15.156390593728876,
+   "q_sqnr": 14.240339947989618,
    "role": "chained",
    "seq": 102,
    "status": "not_tried",
@@ -2584,7 +2612,7 @@
     "numel": 196608
    },
    "path": "transformer.h.*",
-   "q_sqnr": 28.88724336383615,
+   "q_sqnr": 29.121591539694933,
    "role": "chained",
    "seq": 103,
    "status": "not_tried",
@@ -2608,7 +2636,7 @@
     "tokens": 256
    },
    "path": "transformer.h.*.ln_2",
-   "q_sqnr": 21.17190961599477,
+   "q_sqnr": 21.129231844210615,
    "role": "chained",
    "seq": 104,
    "status": "not_tried",
@@ -2633,7 +2661,7 @@
     "n": 3072
    },
    "path": "transformer.h.*.mlp.c_fc",
-   "q_sqnr": 25.67991679475667,
+   "q_sqnr": 25.397514508046655,
    "role": "chained",
    "seq": 105,
    "status": "not_tried",
@@ -2655,7 +2683,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.mlp.act",
-   "q_sqnr": 18.93763724627349,
+   "q_sqnr": 18.541805754988363,
    "role": "folded_store",
    "seq": 106,
    "status": "not_tried",
@@ -2680,7 +2708,7 @@
     "n": 768
    },
    "path": "transformer.h.*.mlp.c_proj",
-   "q_sqnr": 16.059170239953172,
+   "q_sqnr": 15.556056398827753,
    "role": "chained",
    "seq": 107,
    "status": "not_tried",
@@ -2704,7 +2732,7 @@
     "numel": 196608
    },
    "path": "transformer.h.*",
-   "q_sqnr": 29.338479198225475,
+   "q_sqnr": 29.65759174596063,
    "role": "chained",
    "seq": 108,
    "status": "not_tried",
@@ -2728,7 +2756,7 @@
     "tokens": 256
    },
    "path": "transformer.h.*.ln_1",
-   "q_sqnr": 23.194166708370545,
+   "q_sqnr": 22.769465216261615,
    "role": "chained",
    "seq": 109,
    "status": "not_tried",
@@ -2753,7 +2781,7 @@
     "n": 2304
    },
    "path": "transformer.h.*.attn.c_attn",
-   "q_sqnr": 23.70401768348307,
+   "q_sqnr": 22.928651594423265,
    "role": "chained",
    "seq": 110,
    "status": "not_tried",
@@ -2778,7 +2806,7 @@
     "n": 256
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 26.31981824163403,
+   "q_sqnr": 23.214381547182327,
    "role": "main",
    "seq": 111,
    "status": "not_tried",
@@ -2802,7 +2830,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 26.31981824163403,
+   "q_sqnr": 23.214381547182327,
    "role": "chained",
    "seq": 112,
    "status": "not_tried",
@@ -2826,7 +2854,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 27.870362772999385,
+   "q_sqnr": 24.282855091994904,
    "role": "chained",
    "seq": 113,
    "status": "not_tried",
@@ -2850,7 +2878,7 @@
     "rows": 3072
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 23.327506313805642,
+   "q_sqnr": 22.145496247296297,
    "role": "chained",
    "seq": 114,
    "status": "not_tried",
@@ -2875,7 +2903,7 @@
     "n": 64
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 16.870920325022702,
+   "q_sqnr": 16.33017770676273,
    "role": "chained",
    "seq": 115,
    "status": "not_tried",
@@ -2900,7 +2928,7 @@
     "n": 768
    },
    "path": "transformer.h.*.attn.c_proj",
-   "q_sqnr": 16.85028147900407,
+   "q_sqnr": 16.13891187570731,
    "role": "chained",
    "seq": 116,
    "status": "not_tried",
@@ -2924,7 +2952,7 @@
     "numel": 196608
    },
    "path": "transformer.h.*",
-   "q_sqnr": 28.633170491484996,
+   "q_sqnr": 28.667102017491757,
    "role": "chained",
    "seq": 117,
    "status": "not_tried",
@@ -2948,7 +2976,7 @@
     "tokens": 256
    },
    "path": "transformer.h.*.ln_2",
-   "q_sqnr": 21.10402146013513,
+   "q_sqnr": 20.98675799772389,
    "role": "chained",
    "seq": 118,
    "status": "not_tried",
@@ -2973,7 +3001,7 @@
     "n": 3072
    },
    "path": "transformer.h.*.mlp.c_fc",
-   "q_sqnr": 25.863809809422882,
+   "q_sqnr": 25.49775923499086,
    "role": "chained",
    "seq": 119,
    "status": "not_tried",
@@ -2995,7 +3023,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.mlp.act",
-   "q_sqnr": 19.492748696608516,
+   "q_sqnr": 19.01455597969106,
    "role": "folded_store",
    "seq": 120,
    "status": "not_tried",
@@ -3020,7 +3048,7 @@
     "n": 768
    },
    "path": "transformer.h.*.mlp.c_proj",
-   "q_sqnr": 16.828256165289197,
+   "q_sqnr": 16.24184421893173,
    "role": "chained",
    "seq": 121,
    "status": "not_tried",
@@ -3044,7 +3072,7 @@
     "numel": 196608
    },
    "path": "transformer.h.*",
-   "q_sqnr": 28.529476378162386,
+   "q_sqnr": 27.947704294688833,
    "role": "chained",
    "seq": 122,
    "status": "not_tried",
@@ -3068,7 +3096,7 @@
     "tokens": 256
    },
    "path": "transformer.h.*.ln_1",
-   "q_sqnr": 23.03532255612638,
+   "q_sqnr": 21.623538281704498,
    "role": "chained",
    "seq": 123,
    "status": "not_tried",
@@ -3093,7 +3121,7 @@
     "n": 2304
    },
    "path": "transformer.h.*.attn.c_attn",
-   "q_sqnr": 23.70535191963199,
+   "q_sqnr": 21.989867934428364,
    "role": "chained",
    "seq": 124,
    "status": "not_tried",
@@ -3118,7 +3146,7 @@
     "n": 256
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 26.07767325894606,
+   "q_sqnr": 23.000029210956683,
    "role": "main",
    "seq": 125,
    "status": "not_tried",
@@ -3142,7 +3170,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 26.07767325894606,
+   "q_sqnr": 23.000029210956683,
    "role": "chained",
    "seq": 126,
    "status": "not_tried",
@@ -3166,7 +3194,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 27.785756661056475,
+   "q_sqnr": 24.429453875864372,
    "role": "chained",
    "seq": 127,
    "status": "not_tried",
@@ -3190,7 +3218,7 @@
     "rows": 3072
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 21.715401889193,
+   "q_sqnr": 22.199491544664617,
    "role": "chained",
    "seq": 128,
    "status": "not_tried",
@@ -3215,7 +3243,7 @@
     "n": 64
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 17.339210558202012,
+   "q_sqnr": 17.435147922057247,
    "role": "chained",
    "seq": 129,
    "status": "not_tried",
@@ -3240,7 +3268,7 @@
     "n": 768
    },
    "path": "transformer.h.*.attn.c_proj",
-   "q_sqnr": 16.44988000285935,
+   "q_sqnr": 16.227994143706937,
    "role": "chained",
    "seq": 130,
    "status": "not_tried",
@@ -3264,7 +3292,7 @@
     "numel": 196608
    },
    "path": "transformer.h.*",
-   "q_sqnr": 27.826313399227804,
+   "q_sqnr": 27.355320046489258,
    "role": "chained",
    "seq": 131,
    "status": "not_tried",
@@ -3288,7 +3316,7 @@
     "tokens": 256
    },
    "path": "transformer.h.*.ln_2",
-   "q_sqnr": 21.15852585215101,
+   "q_sqnr": 20.879214855822866,
    "role": "chained",
    "seq": 132,
    "status": "not_tried",
@@ -3313,7 +3341,7 @@
     "n": 3072
    },
    "path": "transformer.h.*.mlp.c_fc",
-   "q_sqnr": 26.04290185048248,
+   "q_sqnr": 25.54229665325724,
    "role": "chained",
    "seq": 133,
    "status": "not_tried",
@@ -3335,7 +3363,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.mlp.act",
-   "q_sqnr": 19.71383768211252,
+   "q_sqnr": 19.275662030509153,
    "role": "folded_store",
    "seq": 134,
    "status": "not_tried",
@@ -3360,7 +3388,7 @@
     "n": 768
    },
    "path": "transformer.h.*.mlp.c_proj",
-   "q_sqnr": 17.32553257311099,
+   "q_sqnr": 16.655351285370852,
    "role": "chained",
    "seq": 135,
    "status": "not_tried",
@@ -3384,7 +3412,7 @@
     "numel": 196608
    },
    "path": "transformer.h.*",
-   "q_sqnr": 27.461616060017334,
+   "q_sqnr": 26.592257466606487,
    "role": "chained",
    "seq": 136,
    "status": "not_tried",
@@ -3408,7 +3436,7 @@
     "tokens": 256
    },
    "path": "transformer.h.*.ln_1",
-   "q_sqnr": 22.322235875566978,
+   "q_sqnr": 21.533908755227724,
    "role": "chained",
    "seq": 137,
    "status": "not_tried",
@@ -3433,7 +3461,7 @@
     "n": 2304
    },
    "path": "transformer.h.*.attn.c_attn",
-   "q_sqnr": 23.130021384267607,
+   "q_sqnr": 22.24204812199477,
    "role": "chained",
    "seq": 138,
    "status": "not_tried",
@@ -3458,7 +3486,7 @@
     "n": 256
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 25.476648245276536,
+   "q_sqnr": 23.43923975536535,
    "role": "main",
    "seq": 139,
    "status": "not_tried",
@@ -3482,7 +3510,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 25.476648245276536,
+   "q_sqnr": 23.43923975536535,
    "role": "chained",
    "seq": 140,
    "status": "not_tried",
@@ -3506,7 +3534,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 26.70388965635173,
+   "q_sqnr": 24.936563981023685,
    "role": "chained",
    "seq": 141,
    "status": "not_tried",
@@ -3530,7 +3558,7 @@
     "rows": 3072
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 24.813544977500378,
+   "q_sqnr": 23.488740874626135,
    "role": "chained",
    "seq": 142,
    "status": "not_tried",
@@ -3555,7 +3583,7 @@
     "n": 64
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 18.239962790498627,
+   "q_sqnr": 17.48086643090642,
    "role": "chained",
    "seq": 143,
    "status": "not_tried",
@@ -3580,7 +3608,7 @@
     "n": 768
    },
    "path": "transformer.h.*.attn.c_proj",
-   "q_sqnr": 18.69772737113595,
+   "q_sqnr": 17.926507144714414,
    "role": "chained",
    "seq": 144,
    "status": "not_tried",
@@ -3604,7 +3632,7 @@
     "numel": 196608
    },
    "path": "transformer.h.*",
-   "q_sqnr": 26.846132079203365,
+   "q_sqnr": 26.039868282707204,
    "role": "chained",
    "seq": 145,
    "status": "not_tried",
@@ -3628,7 +3656,7 @@
     "tokens": 256
    },
    "path": "transformer.h.*.ln_2",
-   "q_sqnr": 21.1976666241457,
+   "q_sqnr": 20.627431964073594,
    "role": "chained",
    "seq": 146,
    "status": "not_tried",
@@ -3653,7 +3681,7 @@
     "n": 3072
    },
    "path": "transformer.h.*.mlp.c_fc",
-   "q_sqnr": 26.10304589106407,
+   "q_sqnr": 25.43462504617128,
    "role": "chained",
    "seq": 147,
    "status": "not_tried",
@@ -3675,7 +3703,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.mlp.act",
-   "q_sqnr": 20.13055804359889,
+   "q_sqnr": 19.299504100281485,
    "role": "folded_store",
    "seq": 148,
    "status": "not_tried",
@@ -3700,7 +3728,7 @@
     "n": 768
    },
    "path": "transformer.h.*.mlp.c_proj",
-   "q_sqnr": 18.315764583679076,
+   "q_sqnr": 17.494604925017047,
    "role": "chained",
    "seq": 149,
    "status": "not_tried",
@@ -3724,7 +3752,7 @@
     "numel": 196608
    },
    "path": "transformer.h.*",
-   "q_sqnr": 26.41058608059693,
+   "q_sqnr": 25.494847986530864,
    "role": "chained",
    "seq": 150,
    "status": "not_tried",
@@ -3748,7 +3776,7 @@
     "tokens": 256
    },
    "path": "transformer.h.*.ln_1",
-   "q_sqnr": 21.830042077988185,
+   "q_sqnr": 20.799892058103723,
    "role": "chained",
    "seq": 151,
    "status": "not_tried",
@@ -3773,7 +3801,7 @@
     "n": 2304
    },
    "path": "transformer.h.*.attn.c_attn",
-   "q_sqnr": 22.853522205686648,
+   "q_sqnr": 21.668170192593855,
    "role": "chained",
    "seq": 152,
    "status": "not_tried",
@@ -3798,7 +3826,7 @@
     "n": 256
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 25.06118007171363,
+   "q_sqnr": 22.75853713269939,
    "role": "main",
    "seq": 153,
    "status": "not_tried",
@@ -3822,7 +3850,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 25.06118007171363,
+   "q_sqnr": 22.75853713269939,
    "role": "chained",
    "seq": 154,
    "status": "not_tried",
@@ -3846,7 +3874,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 26.485933702355652,
+   "q_sqnr": 23.76165459575944,
    "role": "chained",
    "seq": 155,
    "status": "not_tried",
@@ -3870,7 +3898,7 @@
     "rows": 3072
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 24.4933458899787,
+   "q_sqnr": 23.132651616286676,
    "role": "chained",
    "seq": 156,
    "status": "not_tried",
@@ -3895,7 +3923,7 @@
     "n": 64
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 18.420895017779113,
+   "q_sqnr": 18.054834692547097,
    "role": "chained",
    "seq": 157,
    "status": "not_tried",
@@ -3920,7 +3948,7 @@
     "n": 768
    },
    "path": "transformer.h.*.attn.c_proj",
-   "q_sqnr": 19.559902787110104,
+   "q_sqnr": 19.422141115356435,
    "role": "chained",
    "seq": 158,
    "status": "not_tried",
@@ -3944,7 +3972,7 @@
     "numel": 196608
    },
    "path": "transformer.h.*",
-   "q_sqnr": 25.780380732229773,
+   "q_sqnr": 25.143871964072403,
    "role": "chained",
    "seq": 159,
    "status": "not_tried",
@@ -3968,7 +3996,7 @@
     "tokens": 256
    },
    "path": "transformer.h.*.ln_2",
-   "q_sqnr": 21.047100249658314,
+   "q_sqnr": 20.4927731992189,
    "role": "chained",
    "seq": 160,
    "status": "not_tried",
@@ -3993,7 +4021,7 @@
     "n": 3072
    },
    "path": "transformer.h.*.mlp.c_fc",
-   "q_sqnr": 25.758753915201282,
+   "q_sqnr": 25.08235631627391,
    "role": "chained",
    "seq": 161,
    "status": "not_tried",
@@ -4015,7 +4043,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.mlp.act",
-   "q_sqnr": 20.437405916706176,
+   "q_sqnr": 19.707043930569228,
    "role": "folded_store",
    "seq": 162,
    "status": "not_tried",
@@ -4040,7 +4068,7 @@
     "n": 768
    },
    "path": "transformer.h.*.mlp.c_proj",
-   "q_sqnr": 21.306058650867854,
+   "q_sqnr": 20.83923607029895,
    "role": "chained",
    "seq": 163,
    "status": "not_tried",
@@ -4064,7 +4092,7 @@
     "numel": 196608
    },
    "path": "transformer.h.*",
-   "q_sqnr": 25.442058551266896,
+   "q_sqnr": 25.098921693610148,
    "role": "chained",
    "seq": 164,
    "status": "not_tried",
@@ -4088,7 +4116,7 @@
     "tokens": 256
    },
    "path": "transformer.h.*.ln_1",
-   "q_sqnr": 21.05669594415403,
+   "q_sqnr": 20.475239957755427,
    "role": "chained",
    "seq": 165,
    "status": "not_tried",
@@ -4113,7 +4141,7 @@
     "n": 2304
    },
    "path": "transformer.h.*.attn.c_attn",
-   "q_sqnr": 21.857977567712922,
+   "q_sqnr": 21.215015153746613,
    "role": "chained",
    "seq": 166,
    "status": "not_tried",
@@ -4138,7 +4166,7 @@
     "n": 256
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 22.588557888226,
+   "q_sqnr": 21.10003153585391,
    "role": "main",
    "seq": 167,
    "status": "not_tried",
@@ -4162,7 +4190,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 22.588557888226,
+   "q_sqnr": 21.10003153585391,
    "role": "chained",
    "seq": 168,
    "status": "not_tried",
@@ -4186,7 +4214,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 23.1642776939616,
+   "q_sqnr": 21.724805881258334,
    "role": "chained",
    "seq": 169,
    "status": "not_tried",
@@ -4210,7 +4238,7 @@
     "rows": 3072
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 24.286003575217915,
+   "q_sqnr": 23.607289316641587,
    "role": "chained",
    "seq": 170,
    "status": "not_tried",
@@ -4235,7 +4263,7 @@
     "n": 64
    },
    "path": "transformer.h.*.attn",
-   "q_sqnr": 19.905737436673526,
+   "q_sqnr": 19.954232934559208,
    "role": "chained",
    "seq": 171,
    "status": "not_tried",
@@ -4260,7 +4288,7 @@
     "n": 768
    },
    "path": "transformer.h.*.attn.c_proj",
-   "q_sqnr": 25.834530893486335,
+   "q_sqnr": 26.260786537614674,
    "role": "chained",
    "seq": 172,
    "status": "not_tried",
@@ -4284,7 +4312,7 @@
     "numel": 196608
    },
    "path": "transformer.h.*",
-   "q_sqnr": 24.373499194836704,
+   "q_sqnr": 24.048394025070685,
    "role": "chained",
    "seq": 173,
    "status": "not_tried",
@@ -4308,7 +4336,7 @@
     "tokens": 256
    },
    "path": "transformer.h.*.ln_2",
-   "q_sqnr": 19.603657965599,
+   "q_sqnr": 20.062736588774914,
    "role": "chained",
    "seq": 174,
    "status": "not_tried",
@@ -4333,7 +4361,7 @@
     "n": 3072
    },
    "path": "transformer.h.*.mlp.c_fc",
-   "q_sqnr": 24.201595252332304,
+   "q_sqnr": 24.459210938711745,
    "role": "chained",
    "seq": 175,
    "status": "not_tried",
@@ -4355,7 +4383,7 @@
     "numel": 786432
    },
    "path": "transformer.h.*.mlp.act",
-   "q_sqnr": 19.43698215819668,
+   "q_sqnr": 19.479687260254423,
    "role": "folded_store",
    "seq": 176,
    "status": "not_tried",
@@ -4380,7 +4408,7 @@
     "n": 768
    },
    "path": "transformer.h.*.mlp.c_proj",
-   "q_sqnr": 16.630479168633443,
+   "q_sqnr": 15.496523488758012,
    "role": "chained",
    "seq": 177,
    "status": "not_tried",
@@ -4404,7 +4432,7 @@
     "numel": 196608
    },
    "path": "transformer.h.*",
-   "q_sqnr": 23.116196365398167,
+   "q_sqnr": 22.74344798842715,
    "role": "chained",
    "seq": 178,
    "status": "not_tried",
@@ -4428,7 +4456,7 @@
     "tokens": 256
    },
    "path": "transformer.ln_f",
-   "q_sqnr": 23.876326921716778,
+   "q_sqnr": 23.151970580527482,
    "role": "chained",
    "seq": 179,
    "status": "not_tried",
@@ -4453,7 +4481,7 @@
     "n": 50257
    },
    "path": "lm_head",
-   "q_sqnr": 22.694489119591886,
+   "q_sqnr": 22.579115229962202,
    "role": "chained",
    "seq": 180,
    "status": "not_tried",
@@ -4486,6 +4514,6 @@
   "pct_calls": 0.0,
   "pct_macs": 0.0,
   "plan_id": 6,
-  "status": "active"
+  "status": "partial"
  }
 }
