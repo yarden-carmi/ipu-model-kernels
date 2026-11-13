@@ -16,11 +16,11 @@
   "tensors": null
  },
  {
-  "doc": "Select table rows for ids and truncate the mantissa to bfloat16.",
+  "doc": "Exact row select with bfloat16 mantissa truncation.",
   "name": "bf16_row_select",
   "origin": "agent",
   "params": "[\"tokens\", \"vocab\", \"dim\"]",
-  "reference": "def fn(ids, table=None, tokens=256, vocab=151936, dim=1024):\n    import torch\n    ids = ids.reshape(-1).long()\n    return table[ids].to(torch.bfloat16).float()",
+  "reference": "def fn(ids, table, tokens, vocab, dim):\n    return table[ids.reshape(-1).long()].to(torch.bfloat16).to(torch.float32)\n",
   "tensors": null
  },
  {
@@ -280,19 +280,19 @@
   "tensors": null
  },
  {
-  "doc": "Masked row select via compare-against-arange, broadcast multiply and sum over vocab.",
+  "doc": "Masked row select of the table constant via comparison against arange(vocab), then reduce over vocab.",
   "name": "fused_masked_row_reduce",
   "origin": "agent",
-  "params": "[\"tokens\", \"vocab\"]",
-  "reference": "def fn(ids, table, tokens, vocab):\n    idx = ids.reshape(-1, 1).long()\n    mask = (idx == torch.arange(vocab, device=table.device)).to(table.dtype)\n    return (mask.unsqueeze(-1) * table.unsqueeze(0)).sum(dim=1)",
+  "params": "[\"tokens\", \"vocab\", \"dim\"]",
+  "reference": "def fn(ids, table, tokens, vocab, dim):\n    ids = ids.reshape(-1).long()\n    mask = (ids.unsqueeze(1) == torch.arange(vocab, device=ids.device).unsqueeze(0)).to(table.dtype)\n    return (mask.unsqueeze(2) * table.unsqueeze(0)).sum(dim=1)",
   "tensors": null
  },
  {
-  "doc": "One-hot matrix (tokens x vocab) times table (vocab x dim).",
+  "doc": "Build a one-hot matrix from ids and GEMM it with the table constant.",
   "name": "fused_onehot_gemm",
   "origin": "agent",
   "params": "[\"m\", \"k\", \"n\"]",
-  "reference": "def fn(ids, table, m, k, n):\n    idx = ids.reshape(-1).long()\n    oh = torch.zeros(m, k, dtype=table.dtype, device=table.device)\n    oh[torch.arange(m, device=table.device), idx] = 1.0\n    return oh @ table",
+  "reference": "def fn(ids, table, m, k, n):\n    ids = ids.reshape(-1).long()\n    onehot = torch.zeros(m, k, dtype=table.dtype, device=table.device)\n    onehot[torch.arange(m), ids] = 1.0\n    return onehot @ table",
   "tensors": null
  },
  {
@@ -312,11 +312,11 @@
   "tensors": null
  },
  {
-  "doc": "Select compressed hash-bucket rows for token ids; compressed[b] = sum of table rows with row_index % buckets == b.",
+  "doc": "Select compressed hash-bucket rows for token ids.",
   "name": "hash_bucket_embed",
   "origin": "agent",
   "params": "[\"tokens\", \"vocab\", \"dim\", \"buckets\"]",
-  "reference": "def fn(ids, table=None, tokens=256, vocab=151936, dim=1024, buckets=32768):\n    import torch\n    ids = ids.reshape(-1).long()\n    idx = ids % buckets\n    comp = torch.zeros(buckets, dim, dtype=table.dtype, device=table.device)\n    comp.index_add_(0, torch.arange(vocab, device=table.device) % buckets, table)\n    return comp[idx]",
+  "reference": "def fn(ids, table, tokens, vocab, dim, buckets):\n    idx = torch.arange(vocab) % buckets\n    compressed = torch.zeros(buckets, dim, dtype=table.dtype)\n    compressed.index_add_(0, idx, table)\n    return compressed[ids.reshape(-1).long() % buckets]\n",
   "tensors": null
  },
  {
@@ -344,11 +344,11 @@
   "tensors": null
  },
  {
-  "doc": "Low-rank (truncated SVD, rank r) embedding lookup: one-hot(ids) @ A @ B.",
+  "doc": "Low-rank (SVD rank-r) embedding lookup: row of A times B.",
   "name": "lowrank_embed",
   "origin": "agent",
   "params": "[\"tokens\", \"vocab\", \"dim\", \"rank\"]",
-  "reference": "def fn(ids, table=None, tokens=256, vocab=151936, dim=1024, rank=768):\n    import torch\n    ids = ids.reshape(-1).long()\n    U, S, Vh = torch.linalg.svd(table.float(), full_matrices=False)\n    A = U[:, :rank] * S[:rank]\n    B = Vh[:rank, :]\n    oh = torch.zeros(ids.numel(), vocab, device=table.device)\n    oh.scatter_(1, ids.unsqueeze(1), 1.0)\n    return (oh @ A @ B).to(table.dtype)",
+  "reference": "def fn(ids, table, tokens, vocab, dim, rank):\n    U, S, Vh = torch.linalg.svd(table, full_matrices=False)\n    A = U[:, :rank] * S[:rank]\n    B = Vh[:rank, :]\n    return A[ids.reshape(-1).long()] @ B\n",
   "tensors": null
  },
  {
@@ -416,11 +416,11 @@
   "tensors": null
  },
  {
-  "doc": "Select table rows for ids and add relative Gaussian noise (std = 0.01 * mean|row|).",
+  "doc": "Row select plus Gaussian noise of 1% of the mean absolute row value.",
   "name": "noisy_row_embed",
   "origin": "agent",
   "params": "[\"tokens\", \"vocab\", \"dim\"]",
-  "reference": "def fn(ids, table=None, tokens=256, vocab=151936, dim=1024):\n    import torch\n    ids = ids.reshape(-1).long()\n    rows = table[ids].float()\n    return (rows + torch.randn_like(rows) * rows.abs().mean() * 0.01).to(table.dtype)",
+  "reference": "def fn(ids, table, tokens, vocab, dim):\n    rows = table[ids.reshape(-1).long()]\n    return rows + 0.01 * rows.abs().mean() * torch.randn_like(rows)\n",
   "tensors": null
  },
  {
