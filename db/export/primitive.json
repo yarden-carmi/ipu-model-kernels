@@ -1,10 +1,34 @@
 [
  {
+  "doc": "adds constant bias over time",
+  "name": "add_bias",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(x, bias=None, **params):\n    return x + bias[:, None]\n",
+  "tensors": null
+ },
+ {
   "doc": null,
   "name": "binary",
   "origin": "builtin",
   "params": null,
   "reference": null,
+  "tensors": null
+ },
+ {
+  "doc": "Takes the im2col matrix A [b, lout*groups, (cin/groups)*k] (rows (window l, group g), columns (in-channel c, kernel tap j)) and the grouped conv weight [cout, cin/groups, k]; builds the block weight W [(cin/groups)*k, cout] with column block g equal to w[g].reshape(-1) and zeros elsewhere; computes Y = A @ W + bias (bias [cout] broadcasts per output channel); extracts the diagonal blocks (Y viewed [b, lout, groups, groups, opg], entries [:, :, i, i, :]) and permutes to the conv1d output [b, cout, lout].",
+  "name": "block_gemm_ungroup_g16",
+  "origin": "agent",
+  "params": "[\"lout\", \"cin\", \"cout\", \"k\", \"groups\"]",
+  "reference": "def fn(a, w, bias=None, **params):\n    import torch\n    lout, cin, cout, k, g = params['lout'], params['cin'], params['cout'], params['k'], params['groups']\n    if a.dim() == 2:\n        a = a.unsqueeze(0)\n    b = a.shape[0]\n    cpg = cin // g\n    opg = cout // g\n    wf = w.reshape(g, opg, cpg * k)\n    W = torch.zeros(cpg * k, cout, dtype=w.dtype, device=w.device)\n    for gi in range(g):\n        W[:, gi * opg:(gi + 1) * opg] = wf[gi].t()\n    y = a @ W\n    if bias is not None:\n        y = y + bias\n    y = y.reshape(b, lout, g, g, opg)\n    idx = torch.arange(g, device=y.device)\n    y = y[:, :, idx, idx, :]\n    return y.permute(0, 2, 3, 1)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Builds the block-structured weight W [(cin/groups)*k, cout] from the grouped conv weight [cout, cin/groups, k]: for each group g, the columns of outputs g*(cout/groups)..(g+1)*(cout/groups)-1 equal w[g].reshape(-1), all other entries zero.",
+  "name": "block_w_g16",
+  "origin": "agent",
+  "params": "[\"cin\", \"cout\", \"k\", \"groups\"]",
+  "reference": "def fn(w, **params):\n    import torch\n    cin, cout, k, g = params['cin'], params['cout'], params['k'], params['groups']\n    cpg = cin // g\n    opg = cout // g\n    wf = w.reshape(g, opg, cpg * k)\n    W = torch.zeros(cpg * k, cout, dtype=w.dtype, device=w.device)\n    for gi in range(g):\n        W[:, gi * opg:(gi + 1) * opg] = wf[gi].t()\n    return W\n",
   "tensors": null
  },
  {
@@ -48,11 +72,83 @@
   "tensors": null
  },
  {
+  "doc": "Build the block-structured augmented GEMM weight [cpg*K + 1, groups*cpg] from the conv weight [groups*cpg, cpg, K]: column block g (rows 0..cpg*K-1) = w[g].reshape(cpg, cpg*K).T; the bias is folded in by the caller's ones column convention (last row set by the replacement's bias handling). First positional arg is the previous chain output (ignored); second is the conv weight.",
+  "name": "build_block_w_g16_v2",
+  "origin": "agent",
+  "params": "[\"cpg\", \"groups\", \"k\"]",
+  "reference": "def fn(prev, w, **p):\n    import torch\n    cpg, groups, k = p['cpg'], p['groups'], p['k']\n    W = torch.zeros(cpg * k + 1, groups * cpg, dtype=w.dtype, device=w.device)\n    for g in range(groups):\n        W[:cpg * k, g * cpg:(g + 1) * cpg] = w[g].reshape(cpg, cpg * k).t()\n    return W",
+  "tensors": null
+ },
+ {
+  "doc": "Build the block-structured augmented GEMM weight [cpg*K + 1, groups*cpg] from the conv weight [groups*cpg, cpg, K]: column block g (rows 0..cpg*K-1) = w[g].reshape(cpg, cpg*K).T; the bias is folded in by the replacement's ones column (last row). Selects the weight tensor by shape among the given activations.",
+  "name": "build_block_w_sel",
+  "origin": "agent",
+  "params": "[\"cpg\", \"groups\", \"k\"]",
+  "reference": "def fn(*args, **p):\n    import torch\n    cpg, groups, k = p['cpg'], p['groups'], p['k']\n    w = None\n    for a in args:\n        if torch.is_tensor(a) and a.dim() == 3 and tuple(a.shape) == (groups * cpg, cpg, k):\n            w = a\n            break\n    if w is None:\n        w = args[-1]\n    W = torch.zeros(cpg * k + 1, groups * cpg, dtype=w.dtype, device=w.device)\n    for g in range(groups):\n        W[:cpg * k, g * cpg:(g + 1) * cpg] = w[g].reshape(cpg, cpg * k).t()\n    return W",
+  "tensors": null
+ },
+ {
+  "doc": "Build the block-structured augmented GEMM weight [cpg*K + 1, groups*cpg] from the conv weight [groups*cpg, cpg, K] and the bias [groups*cpg]: column block g (rows 0..cpg*K-1) = w[g].reshape(cpg, cpg*K).T; last row = bias. First positional arg is the previous chain output (ignored); second is the conv weight.",
+  "name": "build_block_weight",
+  "origin": "agent",
+  "params": "[\"cpg\", \"groups\", \"k\"]",
+  "reference": "def fn(prev, w, **p):\n    import torch\n    cpg, groups, k = p['cpg'], p['groups'], p['k']\n    W = torch.zeros(cpg * k + 1, groups * cpg, dtype=w.dtype, device=w.device)\n    for g in range(groups):\n        W[:cpg * k, g * cpg:(g + 1) * cpg] = w[g].reshape(cpg, cpg * k).t()\n    return W",
+  "tensors": null
+ },
+ {
+  "doc": "grouped conv1d with bias, whole computation in one step",
+  "name": "conv1d_full",
+  "origin": "agent",
+  "params": "[\"stride\", \"pad\", \"dilation\", \"groups\"]",
+  "reference": "def fn(x, w, b, **params):\n    import torch\n    return torch.nn.functional.conv1d(x, w, b, stride=params['stride'], padding=params['pad'], dilation=params['dilation'], groups=params['groups'])\n",
+  "tensors": null
+ },
+ {
+  "doc": "grouped conv1d without bias",
+  "name": "conv1d_nb",
+  "origin": "agent",
+  "params": "[\"stride\", \"pad\", \"dilation\", \"groups\"]",
+  "reference": "def fn(x, w, **params):\n    import torch\n    return torch.nn.functional.conv1d(x, w, None, stride=params['stride'], padding=params['pad'], dilation=params['dilation'], groups=params['groups'])\n",
+  "tensors": null
+ },
+ {
+  "doc": "Computes the grouped conv1d (x [b,cin,l], weight [cout,cin/groups,k], bias [cout]) as a grouped conv2d on a height-1 feature map: x -> [b,cin,1,l], weight -> [cout,cin/groups,1,k], F.conv2d with stride 1, padding (0,pad), dilation 1, groups, bias; then drops the height axis, returning [b,cout,lout] with lout = l + 2*pad - k + 1.",
+  "name": "conv1d_via_conv2d_g16",
+  "origin": "agent",
+  "params": "[\"stride\", \"pad\", \"dilation\", \"groups\"]",
+  "reference": "def fn(x, w, bias=None, **params):\n    import torch\n    import torch.nn.functional as F\n    b, cin, l = x.shape\n    cout, cpg, k = w.shape\n    x4 = x.reshape(b, cin, 1, l)\n    w4 = w.reshape(cout, cpg, 1, k)\n    y = F.conv2d(x4, w4, bias, stride=params['stride'], padding=(0, params['pad']), dilation=params['dilation'], groups=params['groups'])\n    return y.squeeze(2)\n",
+  "tensors": null
+ },
+ {
   "doc": null,
   "name": "conv2d",
   "origin": "builtin",
   "params": null,
   "reference": null,
+  "tensors": null
+ },
+ {
+  "doc": "Center-crop the conv weight along the kernel axis to taps [lo, hi).",
+  "name": "crop_weight",
+  "origin": "agent",
+  "params": "[\"lo\", \"hi\"]",
+  "reference": "def fn(w, lo, hi):\n    return w[:, :, lo:hi]",
+  "tensors": null
+ },
+ {
+  "doc": "returns input unchanged",
+  "name": "echo",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(x, **params):\n    return x\n",
+  "tensors": null
+ },
+ {
+  "doc": "diagnostic",
+  "name": "finish_g16",
+  "origin": "agent",
+  "params": "[\"lout\", \"cin\", \"cout\", \"k\", \"groups\"]",
+  "reference": "def fn(a, w, bias=None, **params):\n    raise RuntimeError('DIAG a=%s w=%s' % (list(a.shape), list(w.shape)))\n",
   "tensors": null
  },
  {
@@ -112,6 +208,14 @@
   "tensors": null
  },
  {
+  "doc": "Y = A @ W + bias, where bias [n] broadcasts over all m rows (per output column). A [m, k], W [k, n] -> Y [m, n].",
+  "name": "gemm_bias_rows",
+  "origin": "agent",
+  "params": "[\"m\", \"k\", \"n\"]",
+  "reference": "def fn(a, w, bias=None, **params):\n    y = a @ w\n    if bias is not None:\n        y = y + bias\n    return y\n",
+  "tensors": null
+ },
+ {
   "doc": "Matrix multiply X (m, k) @ W (k, n) -> (m, n); W is the constant embedding table.",
   "name": "gemm_ref",
   "origin": "agent",
@@ -136,11 +240,75 @@
   "tensors": null
  },
  {
+  "doc": "Exact grouped 1-D convolution WITHOUT bias via per-group im2col and GEMM. Input x [N, C, L], weight [Cout, C/groups, K]. Output [N, Cout, Lout] with Lout = (L + 2*pad - dilation*(K-1) - 1)//stride + 1.",
+  "name": "grouped_conv1d_nobias",
+  "origin": "agent",
+  "params": "[\"n\", \"cin\", \"cout\", \"l\", \"lout\", \"k\", \"groups\", \"stride\", \"pad\", \"dilation\"]",
+  "reference": "def fn(x, w, n, cin, cout, l, lout, k, groups, stride, pad, dilation):\n    import torch\n    import torch.nn.functional as F\n    cpg = cout // groups\n    xp = F.pad(x, (pad, pad)).view(n, groups, cpg, l + 2 * pad)\n    out = torch.empty(n, cout, lout, dtype=x.dtype, device=x.device)\n    for g in range(groups):\n        cols = xp[:, g].unfold(-1, k, stride)\n        wg = w[g * cpg:(g + 1) * cpg]\n        out[:, g * cpg:(g + 1) * cpg] = torch.einsum('nclk,ock->nol', cols, wg)\n    return out",
+  "tensors": null
+ },
+ {
+  "doc": "Exact grouped 1-D convolution via per-group im2col and GEMM, with channel-wise bias add. Input x [N, C, L], weight [Cout, C/groups, K], bias [Cout]. Output [N, Cout, Lout] with Lout = (L + 2*pad - dilation*(K-1) - 1)//stride + 1.",
+  "name": "grouped_conv1d_unfold",
+  "origin": "agent",
+  "params": "[\"n\", \"cin\", \"cout\", \"l\", \"lout\", \"k\", \"groups\", \"stride\", \"pad\", \"dilation\"]",
+  "reference": "def fn(x, w, b, n, cin, cout, l, lout, k, groups, stride, pad, dilation):\n    import torch\n    import torch.nn.functional as F\n    cpg = cout // groups\n    xp = F.pad(x, (pad, pad)).view(n, groups, cpg, l + 2 * pad)\n    out = torch.empty(n, cout, lout, dtype=x.dtype, device=x.device)\n    for g in range(groups):\n        cols = xp[:, g].unfold(-1, k, stride)\n        wg = w[g * cpg:(g + 1) * cpg]\n        out[:, g * cpg:(g + 1) * cpg] = torch.einsum('nclk,ock->nol', cols, wg)\n    return out + b.view(1, cout, 1)",
+  "tensors": null
+ },
+ {
   "doc": "Hash ids to buckets with a fixed integer hash and build a one-hot over buckets.",
   "name": "hash_ids",
   "origin": "agent",
   "params": "[\"tokens\", \"buckets\"]",
   "reference": "def fn(ids, tokens, buckets):\n    import torch\n    b = (ids.long() * 2654435761) % buckets\n    X = torch.zeros(tokens, buckets)\n    X[torch.arange(tokens), b] = 1.0\n    return X",
+  "tensors": null
+ },
+ {
+  "doc": "im2col of a grouped conv1d with a trailing ones column: input x [N, C, L] (C = groups*cpg), pad `pad` both sides, window K, stride 1. Returns A [N*Lout*groups, cpg*K + 1] with rows ordered (l, group); last column is 1 (bias folding).",
+  "name": "im2col_all_groups",
+  "origin": "agent",
+  "params": "[\"c\", \"cpg\", \"groups\", \"k\", \"l\", \"lout\", \"m\", \"n\", \"pad\"]",
+  "reference": "def fn(x, **p):\n    import torch\n    import torch.nn.functional as F\n    groups, cpg, k, pad, lout = p['groups'], p['cpg'], p['k'], p['pad'], p['lout']\n    xp = F.pad(x, (pad, pad)).view(groups, cpg, x.shape[-1] + 2 * pad)\n    xu = xp.unfold(-1, k, 1)\n    A = xu.permute(2, 0, 1, 3).reshape(lout * groups, cpg * k)\n    return torch.cat([A, torch.ones(A.shape[0], 1, dtype=A.dtype, device=A.device)], dim=1)",
+  "tensors": null
+ },
+ {
+  "doc": "im2col of a grouped conv1d with a trailing ones column: input x [N, C, L] (C = groups*cpg), pad `pad` both sides, window K, stride 1. Returns A [N*Lout*groups, cpg*K + 1] with rows ordered (l, group); last column is 1 (bias folding).",
+  "name": "im2col_g16_ones_v2",
+  "origin": "agent",
+  "params": "[\"c\", \"cpg\", \"groups\", \"k\", \"l\", \"lout\", \"m\", \"n\", \"pad\"]",
+  "reference": "def fn(x, **p):\n    import torch\n    import torch.nn.functional as F\n    groups, cpg, k, pad, lout = p['groups'], p['cpg'], p['k'], p['pad'], p['lout']\n    xp = F.pad(x, (pad, pad)).view(groups, cpg, x.shape[-1] + 2 * pad)\n    xu = xp.unfold(-1, k, 1)\n    A = xu.permute(2, 0, 1, 3).reshape(lout * groups, cpg * k)\n    return torch.cat([A, torch.ones(A.shape[0], 1, dtype=A.dtype, device=A.device)], dim=1)",
+  "tensors": null
+ },
+ {
+  "doc": "Zero-pads the time axis of x [b,cin,l] by pad on both sides, extracts the lout = l + 2*pad - k + 1 sliding windows of width k, splits cin channels into groups groups, and lays out rows as (window l, group g) and columns as (in-channel c, kernel tap j) within each group. Returns A [b, l*groups, (cin/groups)*k].",
+  "name": "im2col_g16_pad",
+  "origin": "agent",
+  "params": "[\"l\", \"cin\", \"k\", \"pad\", \"groups\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    l, cin, k, pad, g = params['l'], params['cin'], params['k'], params['pad'], params['groups']\n    if x.dim() == 2:\n        x = x.unsqueeze(0)\n    b = x.shape[0]\n    xp = torch.nn.functional.pad(x, (pad, pad))\n    lout = l + 2 * pad - k + 1\n    cpg = cin // g\n    win = xp.unfold(2, k, 1)\n    a = win.reshape(b, g, cpg, lout, k).permute(0, 3, 1, 2, 4).reshape(b, lout * g, cpg * k)\n    return a\n",
+  "tensors": null
+ },
+ {
+  "doc": "im2col of a grouped conv1d with a trailing ones column: input x [N, C, L] (C = groups*cpg), pad `pad` both sides, window K, stride 1. Returns A [N*Lout*groups, cpg*K + 1] with rows ordered (l, group); last column is 1 (bias folding).",
+  "name": "im2col_g16_sel",
+  "origin": "agent",
+  "params": "[\"c\", \"cpg\", \"groups\", \"k\", \"l\", \"lout\", \"m\", \"n\", \"pad\"]",
+  "reference": "def fn(x, **p):\n    import torch\n    import torch.nn.functional as F\n    groups, cpg, k, pad, lout = p['groups'], p['cpg'], p['k'], p['pad'], p['lout']\n    xp = F.pad(x, (pad, pad)).view(groups, cpg, x.shape[-1] + 2 * pad)\n    xu = xp.unfold(-1, k, 1)\n    A = xu.permute(2, 0, 1, 3).reshape(lout * groups, cpg * k)\n    return torch.cat([A, torch.ones(A.shape[0], 1, dtype=A.dtype, device=A.device)], dim=1)",
+  "tensors": null
+ },
+ {
+  "doc": "Linear interpolation along the last (time) axis from the input length to L samples, align_corners=True.",
+  "name": "interp1d",
+  "origin": "agent",
+  "params": "[\"L\"]",
+  "reference": "def fn(y, L):\n    import torch\n    return torch.nn.functional.interpolate(y, size=L, mode='linear', align_corners=True)",
+  "tensors": null
+ },
+ {
+  "doc": "Truncated-SVD factors of each group's reshaped weight; returns stacked (U_r * S_r) [groups, cout_g, rank] and V_r [groups, cin*k, rank].",
+  "name": "lowrank_factors",
+  "origin": "agent",
+  "params": "[\"groups\", \"cin\", \"k\", \"rank\"]",
+  "reference": "def fn(w, groups, cin, k, rank):\n    import torch\n    Us, Vs = [], []\n    for g in range(groups):\n        Wg = w[g].reshape(w[g].shape[0], cin*k)\n        U, S, Vh = torch.linalg.svd(Wg, full_matrices=False)\n        Us.append(U[:, :rank] * S[:rank])\n        Vs.append(Vh[:rank, :].T)\n    return torch.stack(Us), torch.stack(Vs)",
   "tensors": null
  },
  {
@@ -232,6 +400,22 @@
   "tensors": null
  },
  {
+  "doc": "Zero-pad the last (time) dimension of x [N, C, L] by `pad` on both sides and view as [N, C, 1, L + 2*pad].",
+  "name": "pad_time2d",
+  "origin": "agent",
+  "params": "[\"n\", \"c\", \"l\", \"pad\"]",
+  "reference": "def fn(x, n, c, l, pad):\n    import torch.nn.functional as F\n    return F.pad(x, (pad, pad)).view(n, c, 1, l + 2 * pad)",
+  "tensors": null
+ },
+ {
+  "doc": "Zero-pad the time axis and build per-group im2col rows (l, g) with features (in-channel, kernel-tap); returns [1600, 8192].",
+  "name": "pad_windows",
+  "origin": "agent",
+  "params": "[\"pad\", \"k\", \"cin\", \"groups\", \"L\"]",
+  "reference": "def fn(x, pad, k, cin, groups, L):\n    import torch\n    xp = torch.nn.functional.pad(x, (pad, pad))\n    rows = []\n    for g in range(groups):\n        xg = xp[0, g*cin:(g+1)*cin, :]\n        cols = xg.unfold(1, k, 1).permute(1, 0, 2).reshape(L, cin*k)\n        rows.append(cols)\n    return torch.cat(rows, dim=0)  # [groups*L, cin*k]",
+  "tensors": null
+ },
+ {
   "doc": null,
   "name": "pool2d",
   "origin": "builtin",
@@ -245,6 +429,14 @@
   "origin": "builtin",
   "params": null,
   "reference": null,
+  "tensors": null
+ },
+ {
+  "doc": "View the conv1d weight [Cout, Cin/groups, K] as a conv2d weight [Cout, Cin/groups, 1, K].",
+  "name": "reshape_w4d",
+  "origin": "agent",
+  "params": "[\"cout\", \"cpg\", \"k\"]",
+  "reference": "def fn(w, cout, cpg, k):\n    return w.reshape(cout, cpg, 1, k)",
   "tensors": null
  },
  {
@@ -309,6 +501,38 @@
   "origin": "builtin",
   "params": null,
   "reference": null,
+  "tensors": null
+ },
+ {
+  "doc": "Regroup GEMM output rows (l, g) back to [N, C, Lout]: view(Lout, groups, cpg).permute(1, 2, 0).reshape(N, C, Lout).",
+  "name": "ungroup_g16_sel",
+  "origin": "agent",
+  "params": "[\"groups\", \"lout\", \"n\"]",
+  "reference": "def fn(y, **p):\n    groups, lout, n = p['groups'], p['lout'], p['n']\n    c = y.shape[1]\n    return y.view(lout, groups, c).permute(1, 2, 0).reshape(n, c, lout)",
+  "tensors": null
+ },
+ {
+  "doc": "Regroup GEMM output rows (l, g) back to [N, C, Lout]: view(Lout, groups, cpg).permute(1, 2, 0).reshape(N, C, Lout).",
+  "name": "ungroup_g16_v2",
+  "origin": "agent",
+  "params": "[\"groups\", \"lout\", \"n\"]",
+  "reference": "def fn(y, **p):\n    groups, lout, n = p['groups'], p['lout'], p['n']\n    c = y.shape[1]\n    return y.view(lout, groups, c).permute(1, 2, 0).reshape(n, c, lout)",
+  "tensors": null
+ },
+ {
+  "doc": "Regroup GEMM output rows (l, g) back to [N, C, Lout]: view(Lout, groups, cpg).permute(1, 2, 0).reshape(N, C, Lout).",
+  "name": "ungroup_output",
+  "origin": "agent",
+  "params": "[\"groups\", \"lout\", \"n\"]",
+  "reference": "def fn(y, **p):\n    groups, lout, n = p['groups'], p['lout'], p['n']\n    c = y.shape[1]\n    return y.view(lout, groups, c).permute(1, 2, 0).reshape(n, c, lout)",
+  "tensors": null
+ },
+ {
+  "doc": "Reshapes a block-GEMM output Y [lout*groups, opg*groups] with rows (window l, group g) and columns (group g', out-in-group o), where only the diagonal block g'=g is nonzero, into the conv1d output [1, cout, lout]: view(lout, groups, groups, opg), take the diagonal blocks [:, i, i, :], permute to [opg, groups, lout], unsqueeze(0).",
+  "name": "ungroup_rows_g16",
+  "origin": "agent",
+  "params": "[\"lout\", \"opg\", \"groups\"]",
+  "reference": "def fn(y, **params):\n    import torch\n    lout, opg, g = params['lout'], params['opg'], params['groups']\n    y = y.view(lout, g, g, opg)\n    idx = torch.arange(g, device=y.device)\n    return y[:, idx, idx, :].permute(2, 1, 0).unsqueeze(0)\n",
   "tensors": null
  }
 ]
