@@ -192,6 +192,30 @@
   "proposed_by": 216
  },
  {
+  "chain": "[{\"op\": \"gemm\", \"params\": {\"bias\": true, \"k\": 1152, \"m\": 256, \"n\": 32}}]",
+  "check_detail": "chain: aten: no torch reference of the original op here (several inputs, or unknown); code: aten: no torch reference of the original operation here",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    # inputs: (x, weight) with bias as module attribute; einsum is a single\n    # contraction: out = x @ weight^T + bias\n    x, weight = inputs[0], inputs[1]\n    bias = getattr(module, 'bias', None)\n    return torch.nn.functional.linear(x, weight, bias)",
+  "id": 494,
+  "kind": "equivalent",
+  "name": "einsum_as_gemm_exact",
+  "op": "aten",
+  "proposal": "{\"description\": \"This einsum (numel=8192) is a single contraction equivalent to a linear map: output = input (m=256, k=1152) times weight^T (1152, 32), plus bias. The chip's gemm computes exactly this. Steps: (1) apply gemm with m=256, k=1152, n=32, bias=true, using the einsum's weight operand transposed; (2) return the result. This is mathematically identical to the einsum contraction.\", \"rel_err\": null}",
+  "proposed_by": 217
+ },
+ {
+  "chain": "[{\"op\": \"trunc_bf16\", \"params\": {}}, {\"op\": \"gemm\", \"params\": {\"bias\": true, \"k\": 1152, \"m\": 256, \"n\": 32}}]",
+  "check_detail": "chain: aten: no torch reference of the original op here (several inputs, or unknown); code: aten: no torch reference of the original operation here",
+  "check_ok": null,
+  "code": "def forward(module, x, w, b):\n    # step 1: round weight to bfloat16 precision (RNE)\n    wf = w.reshape(-1)\n    bits = wf.view(torch.int32)\n    rounded = (bits + 0x7FFF + ((bits >> 16) & 1)) & torch.tensor(0xFFFF0000, dtype=torch.int32)\n    wb = rounded.view(torch.float32).reshape(w.shape)\n    # step 2: gemm x @ W^T + bias\n    return torch.nn.functional.linear(x, wb, b)",
+  "id": 495,
+  "kind": "approximate",
+  "name": "einsum_bf16_trunc_weight_gemm",
+  "op": "aten",
+  "proposal": "{\"description\": \"Approximate the einsum (linear map x @ W^T + b, x: 256x1152, W: 1152x32) by rounding the weight to bfloat16 precision (8-bit mantissa, round-to-nearest-even) before the gemm. Steps: (1) apply trunc_bf16 to the weight (1152x32) to round the mantissa to 8 bits; (2) gemm x @ Wb^T with m=256, k=1152, n=32, adding the bias. Weight rounding gives relative error at most 2^-9 per weight (~0.2%), typically much smaller at the output.\", \"rel_err\": null}",
+  "proposed_by": 217
+ },
+ {
   "chain": "[{\"op\": \"trunc_bf16\", \"params\": {}}, {\"op\": \"gemm\", \"params\": {\"bias\": true, \"k\": 1152, \"m\": 256, \"n\": 32}}]",
   "check_detail": "chain: aten: no torch reference of the original op here (several inputs, or unknown); code: aten: no torch reference of the original operation here",
   "check_ok": null,
@@ -216,6 +240,18 @@
   "proposed_by": 216
  },
  {
+  "chain": "[{\"op\": \"column_sample\", \"params\": {\"kh\": 1, \"kw\": 576, \"stride\": 1}}, {\"op\": \"gemm\", \"params\": {\"bias\": true, \"k\": 576, \"m\": 256, \"n\": 32}}]",
+  "check_detail": "chain: aten: no torch reference of the original op here (several inputs, or unknown); code: aten: no torch reference of the original operation here",
+  "check_ok": null,
+  "code": "def forward(module, x, w, b):\n    # step 1: select the precomputed sampled input channels (idx arrives as attribute)\n    idx = module.idx  # (576,), sampled proportional to row norms of W\n    xs = x[:, idx]\n    # step 2: rescaled sampled weight rows\n    ws = module.ws  # (576, 32), rows W[idx,:] * (1152/576)\n    # step 3: gemm xs @ ws^T + bias\n    return torch.nn.functional.linear(xs, ws, b)",
+  "id": 497,
+  "kind": "approximate",
+  "name": "einsum_colsample576_v2",
+  "op": "aten",
+  "proposal": "{\"description\": \"Approximate the einsum (linear map x @ W^T + b, x: 256x1152, W: 1152x32) by using only k=576 sampled input channels with rescaled weight rows, exploiting redundancy across the 1152 channels. Steps: (1) column_sample: precompute row norms c_i = ||W[i,:]||; sample 576 channels without replacement with probability proportional to c_i^2 (index set idx stored as a constant, kw=576 sampled channels); (2) rescale sampled weight rows Ws[i,:] = W[idx_i,:] * (1152/576) so expectations match; (3) select the sampled channels of the input (256,1152) -> (256,576); (4) gemm x_s @ Ws^T with m=256, k=576, n=32, adding the bias. Unbiased estimator of the full gemm; error decreases as ~1/sqrt(k).\", \"rel_err\": null}",
+  "proposed_by": 217
+ },
+ {
   "chain": "[{\"op\": \"quantize_w\", \"params\": {\"bits\": 8, \"scheme\": 1}}, {\"op\": \"dequantize\", \"params\": {}}, {\"op\": \"gemm\", \"params\": {\"bias\": true, \"k\": 1152, \"m\": 256, \"n\": 32}}]",
   "check_detail": "chain: aten: no torch reference of the original op here (several inputs, or unknown); code: aten: no torch reference of the original operation here",
   "check_ok": null,
@@ -228,6 +264,18 @@
   "proposed_by": 216
  },
  {
+  "chain": "[{\"op\": \"quantize_w\", \"params\": {\"bits\": 8, \"scheme\": 0}}, {\"op\": \"dequantize\", \"params\": {}}, {\"op\": \"gemm\", \"params\": {\"bias\": true, \"k\": 1152, \"m\": 256, \"n\": 32}}]",
+  "check_detail": "chain: aten: no torch reference of the original op here (several inputs, or unknown); code: aten: no torch reference of the original operation here",
+  "check_ok": null,
+  "code": "def forward(module, x, w, b):\n    # step 1: per-output-channel symmetric 8-bit quantization of the weight\n    s = w.abs().amax(dim=1, keepdim=True) / 127.0\n    wq = torch.clamp(torch.round(w / s), -127, 127)\n    # step 2: dequantize\n    wd = wq * s\n    # step 3: gemm x @ Wd^T + bias\n    return torch.nn.functional.linear(x, wd, b)",
+  "id": 498,
+  "kind": "approximate",
+  "name": "einsum_int8_weight_gemm_v2",
+  "op": "aten",
+  "proposal": "{\"description\": \"Approximate the einsum (linear map x @ W^T + b, x: 256x1152, W: 1152x32) by quantizing the weight to 8-bit integers with per-output-channel symmetric quantization, then running the gemm with dequantized weights. Steps: (1) quantize_w on the weight with bits=8, scheme=0 (per-row symmetric): per-row scale s_i = max|W_i|/127; Wq = round(W/s) clipped to [-127,127]; (2) dequantize Wd = Wq*s; (3) gemm x @ Wd^T with m=256, k=1152, n=32, adding the bias. Quantization error per weight is at most s_i/2, giving relative output error typically ~1e-3.\", \"rel_err\": null}",
+  "proposed_by": 217
+ },
+ {
   "chain": "[{\"op\": \"svd_split\", \"params\": {\"k\": 1152, \"m\": 256, \"n\": 32, \"rank\": 32}}, {\"op\": \"gemm\", \"params\": {\"bias\": true, \"k\": 1152, \"m\": 256, \"n\": 32}}]",
   "check_detail": "chain: aten: no torch reference of the original op here (several inputs, or unknown); code: aten: no torch reference of the original operation here",
   "check_ok": null,
@@ -238,6 +286,18 @@
   "op": "aten",
   "proposal": "{\"description\": \"Approximate the einsum (a linear map: input m=256, k=1152; weight 1152x32, bias) by a rank-r truncated SVD of the weight. Steps: (1) precompute W = U_r S_r V_r^T with rank r=32 via truncated SVD of the squeezed weight (1152,32); (2) gemm x @ (U_r S_r V_r^T)^T with m=256, k=1152, n=32, adding the bias. Since n=32 the rank cannot exceed 32; with r=32 this is exact, with r<32 the error is bounded by the discarded singular values \\u2014 use r=16 for a typical relative error ~1e-3 on a smooth learned weight.\", \"rel_err\": null}",
   "proposed_by": 216
+ },
+ {
+  "chain": "[{\"op\": \"svd_split\", \"params\": {\"k\": 1152, \"m\": 1152, \"n\": 32, \"rank\": 16}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": 1152, \"m\": 256, \"n\": 16}}, {\"op\": \"gemm\", \"params\": {\"bias\": true, \"k\": 16, \"m\": 256, \"n\": 32}}]",
+  "check_detail": "chain: aten: no torch reference of the original op here (several inputs, or unknown); code: aten: no torch reference of the original operation here",
+  "check_ok": null,
+  "code": "def forward(module, x, w, b):\n    # step 1: rank-16 truncated SVD of the weight (precomputed factors arrive as attributes)\n    U, S, V = module.u, module.s, module.v  # U: (1152,16), S: (16,), V: (16,32)\n    # step 2: x @ V^T -> (256,16)\n    h = x @ V.t()\n    # step 3: h @ (U*S)^T + bias -> (256,32)\n    return h @ (U * S).t() + b",
+  "id": 496,
+  "kind": "approximate",
+  "name": "einsum_lowrank_svd16",
+  "op": "aten",
+  "proposal": "{\"description\": \"Approximate the einsum (linear map x @ W^T + b, x: 256x1152, W: 1152x32) by a rank-r truncated SVD of the weight. Steps: (1) svd_split: precompute W = U_r S_r V_r^T with rank r=16 via truncated SVD of the weight (1152,32); (2) gemm x @ V_r^T with m=256, k=1152, n=16; (3) gemm (x V_r^T) @ (U_r S_r)^T with m=256, k=16, n=32, adding the bias. Error is bounded by the discarded singular values; with r=16 on a smooth learned weight the relative error is typically ~1e-3.\", \"rel_err\": null}",
+  "proposed_by": 217
  },
  {
   "chain": "[{\"op\": \"unary\", \"params\": {\"mode\": \"trunc_bf16\"}}, {\"op\": \"unary\", \"params\": {\"dtype\": \"target\", \"mode\": \"cast\"}}]",
