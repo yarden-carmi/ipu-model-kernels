@@ -1,1 +1,50 @@
-[]
+[
+ {
+  "chain": "[{\"op\": \"one_hot\", \"params\": {\"classes\": \"vocab\"}}, {\"op\": \"bmm\", \"params\": {\"b\": 1, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "chain: bmm {\"b\": 1, \"k\": 50257, \"m\": 256, \"n\": 768}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
+  "check_ok": null,
+  "code": "def forward(module, ids):\n    ids = ids.long()\n    onehot = torch.zeros(ids.numel(), module.table.shape[0], device=ids.device, dtype=module.table.dtype)\n    onehot.scatter_(1, ids.unsqueeze(1), 1.0)\n    return torch.bmm(onehot.unsqueeze(0), module.table.unsqueeze(0)).squeeze(0)",
+  "id": 2,
+  "kind": "equivalent",
+  "name": "one_hot_bmm",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the embedding lookup with a batched matmul: 1) build a one-hot matrix X of shape (tokens, vocab) where X[i, id_i] = 1 (cast ids to long for indexing); 2) reshape X to (1, tokens, vocab) and the table W (vocab, dim) to (1, vocab, dim); 3) compute E = bmm(X, W), giving (1, tokens, dim), squeeze the batch dim. Row i of the result is exactly table[id_i], identical to the lookup. The chip lacks data addressing, but the one-hot construction is a pure elementwise computation and the gather is expressed as a bmm.\", \"rel_err\": 0.0}",
+  "proposed_by": 4
+ },
+ {
+  "chain": "[{\"op\": \"one_hot\", \"params\": {\"classes\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "chain: gemm {\"bias\": false, \"k\": 50257, \"m\": 256, \"n\": 768}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
+  "check_ok": null,
+  "code": "def forward(module, ids):\n    ids = ids.long()\n    onehot = torch.zeros(ids.numel(), module.table.shape[0], device=ids.device, dtype=module.table.dtype)\n    onehot.scatter_(1, ids.unsqueeze(1), 1.0)\n    return onehot @ module.table",
+  "id": 1,
+  "kind": "equivalent",
+  "name": "one_hot_gemm",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the embedding lookup with a dense matmul: 1) build a one-hot matrix X of shape (tokens, vocab) where X[i, id_i] = 1 (cast ids to long for indexing); 2) compute E = X @ W with W the embedding table of shape (vocab, dim), giving output of shape (tokens, dim). Row i of the result is exactly table[id_i], identical to the lookup. The chip lacks data addressing, but the one-hot construction is a pure elementwise computation and the gather is expressed as a gemm.\", \"rel_err\": 0.0}",
+  "proposed_by": 4
+ },
+ {
+  "chain": "[{\"op\": \"one_hot\", \"params\": {\"classes\": \"vocab\"}}, {\"op\": \"matmul\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "chain: matmul takes 2 activations; the path has only 1 left (the layer's inputs, in order: [256]); code: relative difference 0 (within 0.0001)",
+  "check_ok": 0,
+  "code": "def forward(module, ids):\n    ids = ids.long()\n    onehot = torch.zeros(ids.numel(), module.table.shape[0], device=ids.device, dtype=module.table.dtype)\n    onehot.scatter_(1, ids.unsqueeze(1), 1.0)\n    return onehot @ module.table",
+  "id": 3,
+  "kind": "equivalent",
+  "name": "one_hot_matmul",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the embedding lookup with a dense matmul: 1) build a one-hot matrix X of shape (tokens, vocab) where X[i, id_i] = 1 (cast ids to long for indexing); 2) compute E = X @ W with W the embedding table of shape (vocab, dim), giving output of shape (tokens, dim). Row i of the result is exactly table[id_i], identical to the lookup. The chip lacks data addressing, but the one-hot construction is a pure elementwise computation and the gather is expressed as a matmul.\", \"rel_err\": 0.0}",
+  "proposed_by": 4
+ },
+ {
+  "chain": "[{\"op\": \"one_hot\", \"params\": {\"classes\": \"vocab\"}}, {\"op\": \"matmul_table\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    ids = ids.long()\n    onehot = torch.zeros(ids.numel(), module.table.shape[0], device=ids.device, dtype=module.table.dtype)\n    onehot.scatter_(1, ids.unsqueeze(1), 1.0)\n    return onehot @ module.table",
+  "id": 4,
+  "kind": "equivalent",
+  "name": "one_hot_matmul_table",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the embedding lookup with a dense matmul against the constant table: 1) build a one-hot matrix X of shape (tokens, vocab) where X[i, id_i] = 1 (cast ids to long for indexing); 2) compute E = X @ W with W the embedding table (vocab, dim), a constant of the operation, giving output of shape (tokens, dim). Row i of the result is exactly table[id_i], identical to the lookup. The chip lacks data addressing, but the one-hot construction is a pure elementwise computation and the gather is expressed as a matmul with a constant operand.\", \"rel_err\": 0.0}",
+  "proposed_by": 4
+ }
+]

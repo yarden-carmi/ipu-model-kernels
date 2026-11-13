@@ -40,6 +40,30 @@
   "tensors": null
  },
  {
+  "doc": "Matrix multiply A (m, k) @ B (k, n) -> (m, n).",
+  "name": "matmul",
+  "origin": "agent",
+  "params": "{\"k\": \"inner dimension\", \"m\": \"rows of A\", \"n\": \"cols of B\"}",
+  "reference": "def fn(a, b, m, k, n):\n    return a @ b",
+  "tensors": null
+ },
+ {
+  "doc": "Matrix multiply X (m, k) @ W (k, n) -> (m, n), where W is the operation's constant table (vocab, dim).",
+  "name": "matmul_table",
+  "origin": "agent",
+  "params": "{\"k\": \"inner dimension (vocab)\", \"m\": \"rows of X (tokens)\", \"n\": \"cols of W (dim)\"}",
+  "reference": "def fn(x, table, m, k, n):\n    return x @ table",
+  "tensors": null
+ },
+ {
+  "doc": "Given integer ids of shape (tokens,), produce a one-hot matrix of shape (tokens, classes) with X[i, id_i] = 1.",
+  "name": "one_hot",
+  "origin": "agent",
+  "params": "{\"classes\": \"number of classes (vocab size)\"}",
+  "reference": "def fn(ids, classes):\n    ids = ids.long()\n    x = torch.zeros(ids.numel(), classes, device=ids.device)\n    x.scatter_(1, ids.unsqueeze(1), 1.0)\n    return x",
+  "tensors": null
+ },
+ {
   "doc": null,
   "name": "pool2d",
   "origin": "builtin",
