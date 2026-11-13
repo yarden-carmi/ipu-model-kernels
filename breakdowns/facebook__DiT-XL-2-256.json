@@ -391,6 +391,34 @@
    "sim_ppl": null,
    "sim_top1": null,
    "sqnr_db": 29.63325366462761
+  },
+  {
+   "agreement": 1.0,
+   "at": 1794574366.838626,
+   "cosine": 0.9999999999999993,
+   "mode": "full",
+   "nonfinite": 0,
+   "precision": "tf32",
+   "purpose": "candidate",
+   "ref_ppl": null,
+   "ref_top1": null,
+   "sim_ppl": null,
+   "sim_top1": null,
+   "sqnr_db": Infinity
+  },
+  {
+   "agreement": 0.72265625,
+   "at": 1794574366.847458,
+   "cosine": 0.9995211405697307,
+   "mode": "quantized",
+   "nonfinite": 0,
+   "precision": "nx8",
+   "purpose": "candidate",
+   "ref_ppl": null,
+   "ref_top1": null,
+   "sim_ppl": null,
+   "sim_top1": null,
+   "sqnr_db": 29.63325366462761
   }
  ],
  "category": "text-to-image",
@@ -2671,7 +2699,7 @@
   },
   {
    "calls": 1.0,
-   "class": null,
+   "class": "equivalent",
    "cycles": null,
    "fp_sqnr": Infinity,
    "group_seq": null,
@@ -2837,10 +2865,19 @@
      "check_ok": 1,
      "kind": "equivalent",
      "loss_db": null,
-     "mode": null,
-     "model_sqnr_db": null,
+     "mode": "full",
+     "model_sqnr_db": Infinity,
      "name": "emb_gather_gemm_prim",
-     "op_sqnr_db": null
+     "op_sqnr_db": Infinity
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": 0.0,
+     "mode": "quantized",
+     "model_sqnr_db": 29.63325366462761,
+     "name": "emb_gather_gemm_prim",
+     "op_sqnr_db": Infinity
     },
     {
      "check_ok": null,
@@ -2880,9 +2917,9 @@
    "q_sqnr": 43.08854991125556,
    "role": null,
    "seq": 93,
-   "status": "in_replacement",
+   "status": "not_tried",
    "version": null,
-   "why": "data addressing (a lookup or a choice by a runtime value)"
+   "why": "not in the plan yet"
   },
   {
    "calls": 1.0,
@@ -26368,9 +26405,9 @@
  "summary": {
   "base_fp_q_delta": -0.4296875,
   "blockers_failed": 0,
-  "blockers_kernel": 1032,
+  "blockers_kernel": 1033,
   "blockers_layout": 0,
-  "blockers_replacement": 27,
+  "blockers_replacement": 26,
   "cycles": null,
   "cycles_measured_share": null,
   "final_fp_q_delta": null,
@@ -26382,7 +26419,7 @@
   "model_id": 4,
   "n_1to1": 972,
   "n_approximate": 2,
-  "n_equivalent": 58,
+  "n_equivalent": 59,
   "n_failed": 0,
   "nodes": 1059,
   "nodes_on_chip": 0,
