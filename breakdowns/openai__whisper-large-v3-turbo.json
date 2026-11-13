@@ -83,6 +83,34 @@
    "sim_ppl": null,
    "sim_top1": null,
    "sqnr_db": -0.6948441624092171
+  },
+  {
+   "agreement": null,
+   "at": 1794554008.9155092,
+   "cosine": null,
+   "mode": "full",
+   "nonfinite": null,
+   "precision": "tf32",
+   "purpose": "baseline",
+   "ref_ppl": null,
+   "ref_top1": null,
+   "sim_ppl": null,
+   "sim_top1": null,
+   "sqnr_db": null
+  },
+  {
+   "agreement": 0.8758169934640523,
+   "at": 1794554008.9209502,
+   "cosine": 0.9522936875860758,
+   "mode": "quantized",
+   "nonfinite": 0,
+   "precision": "nx8",
+   "purpose": "baseline",
+   "ref_ppl": null,
+   "ref_top1": null,
+   "sim_ppl": null,
+   "sim_top1": null,
+   "sqnr_db": 9.536457945081994
   }
  ],
  "category": "automatic-speech-recognition",
@@ -121,12 +149,12 @@
     "stride": 1
    },
    "path": "model.encoder.conv1",
-   "q_sqnr": 38.13497430143179,
+   "q_sqnr": 32.846696142594915,
    "role": "main",
    "seq": 2,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: conv2d_gelu__conv2d_gelu.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -143,12 +171,12 @@
     "numel": 3840000
    },
    "path": "model.encoder",
-   "q_sqnr": 37.5495397947773,
+   "q_sqnr": 31.53450490163468,
    "role": "folded_store",
    "seq": 3,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: conv2d_gelu__conv2d_gelu.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -174,12 +202,12 @@
     "stride": 2
    },
    "path": "model.encoder.conv2",
-   "q_sqnr": 47.053858251246005,
+   "q_sqnr": 37.05230145632237,
    "role": "chained",
    "seq": 4,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: conv2d_gelu__conv2d_gelu.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -196,12 +224,12 @@
     "numel": 1920000
    },
    "path": "model.encoder",
-   "q_sqnr": 40.354746681851395,
+   "q_sqnr": 31.58873773142579,
    "role": "folded_store",
    "seq": 5,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: conv2d_gelu__conv2d_gelu.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -221,7 +249,7 @@
     "vocab": 1500
    },
    "path": "model.encoder.embed_positions",
-   "q_sqnr": 45.28412641803555,
+   "q_sqnr": 37.87466858766242,
    "role": "folded_const",
    "seq": 6,
    "status": "not_tried",
@@ -245,7 +273,7 @@
     "numel": 1920000
    },
    "path": "model.encoder",
-   "q_sqnr": 41.04858236342978,
+   "q_sqnr": 34.186463050219565,
    "role": "main",
    "seq": 7,
    "status": "not_tried",
@@ -269,7 +297,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 36.54849064442384,
+   "q_sqnr": 31.1484891380891,
    "role": "chained",
    "seq": 8,
    "status": "not_tried",
@@ -294,7 +322,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 41.391994485354815,
+   "q_sqnr": 35.54464975893324,
    "role": "chained",
    "seq": 9,
    "status": "not_tried",
@@ -318,7 +346,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 41.391994485354815,
+   "q_sqnr": 35.54464975893324,
    "role": "folded_const",
    "seq": 10,
    "status": "not_tried",
@@ -343,7 +371,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 39.699889780626386,
+   "q_sqnr": 34.579321378742456,
    "role": "chained",
    "seq": 11,
    "status": "not_tried",
@@ -368,7 +396,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 39.3655817088784,
+   "q_sqnr": 35.03751947783586,
    "role": "chained",
    "seq": 12,
    "status": "not_tried",
@@ -393,7 +421,7 @@
     "n": 1500
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 40.01121080582588,
+   "q_sqnr": 33.03087593776462,
    "role": "chained",
    "seq": 13,
    "status": "not_tried",
@@ -417,7 +445,7 @@
     "numel": 45000000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 40.01121080582588,
+   "q_sqnr": 33.03087593776462,
    "role": "chained",
    "seq": 14,
    "status": "not_tried",
@@ -441,7 +469,7 @@
     "rows": 30000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 29.00557247197763,
+   "q_sqnr": 18.793805083784324,
    "role": "chained",
    "seq": 15,
    "status": "not_tried",
@@ -466,7 +494,7 @@
     "n": 64
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 39.76144600072597,
+   "q_sqnr": 34.36678984910861,
    "role": "chained",
    "seq": 16,
    "status": "not_tried",
@@ -491,7 +519,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 41.70350297025622,
+   "q_sqnr": 35.535638861643875,
    "role": "chained",
    "seq": 17,
    "status": "not_tried",
@@ -515,7 +543,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 36.34470001835133,
+   "q_sqnr": 29.770940755766215,
    "role": "chained",
    "seq": 18,
    "status": "not_tried",
@@ -539,7 +567,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.final_layer_norm",
-   "q_sqnr": 33.31708877173987,
+   "q_sqnr": 26.564002236615536,
    "role": "chained",
    "seq": 19,
    "status": "not_tried",
@@ -564,7 +592,7 @@
     "n": 5120
    },
    "path": "model.encoder.layers.*.fc1",
-   "q_sqnr": 46.20192247059693,
+   "q_sqnr": 37.707362032187966,
    "role": "chained",
    "seq": 20,
    "status": "not_tried",
@@ -586,7 +614,7 @@
     "numel": 7680000
    },
    "path": "model.encoder.layers.*.activation_fn",
-   "q_sqnr": 33.91001105225979,
+   "q_sqnr": 31.634641158051153,
    "role": "folded_store",
    "seq": 21,
    "status": "not_tried",
@@ -611,7 +639,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.fc2",
-   "q_sqnr": 30.225487041351297,
+   "q_sqnr": 28.689023729116133,
    "role": "chained",
    "seq": 22,
    "status": "not_tried",
@@ -635,7 +663,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 31.134550975809084,
+   "q_sqnr": 26.935919911513423,
    "role": "chained",
    "seq": 23,
    "status": "not_tried",
@@ -659,7 +687,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 24.83404937974218,
+   "q_sqnr": 20.696755607753495,
    "role": "chained",
    "seq": 24,
    "status": "not_tried",
@@ -684,7 +712,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 32.04607500791312,
+   "q_sqnr": 29.90684115324494,
    "role": "chained",
    "seq": 25,
    "status": "not_tried",
@@ -708,7 +736,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 32.04607500791312,
+   "q_sqnr": 29.90684115324494,
    "role": "folded_const",
    "seq": 26,
    "status": "not_tried",
@@ -733,7 +761,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 30.78699547514296,
+   "q_sqnr": 27.845934942744258,
    "role": "chained",
    "seq": 27,
    "status": "not_tried",
@@ -758,7 +786,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 24.758155189064574,
+   "q_sqnr": 23.267365708901885,
    "role": "chained",
    "seq": 28,
    "status": "not_tried",
@@ -783,7 +811,7 @@
     "n": 1500
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 29.499988189017827,
+   "q_sqnr": 26.25139761209781,
    "role": "main",
    "seq": 29,
    "status": "not_tried",
@@ -807,7 +835,7 @@
     "numel": 45000000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 29.499988189017827,
+   "q_sqnr": 26.25139761209781,
    "role": "chained",
    "seq": 30,
    "status": "not_tried",
@@ -831,7 +859,7 @@
     "rows": 30000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 27.88028933152356,
+   "q_sqnr": 20.186083423505302,
    "role": "chained",
    "seq": 31,
    "status": "not_tried",
@@ -856,7 +884,7 @@
     "n": 64
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 19.576038517672018,
+   "q_sqnr": 22.549616794502867,
    "role": "chained",
    "seq": 32,
    "status": "not_tried",
@@ -881,7 +909,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 20.873467498870145,
+   "q_sqnr": 24.06022982488753,
    "role": "chained",
    "seq": 33,
    "status": "not_tried",
@@ -905,7 +933,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 30.8414292738992,
+   "q_sqnr": 26.52195634052605,
    "role": "chained",
    "seq": 34,
    "status": "not_tried",
@@ -929,7 +957,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.final_layer_norm",
-   "q_sqnr": 23.640692330684896,
+   "q_sqnr": 19.51765518311289,
    "role": "chained",
    "seq": 35,
    "status": "not_tried",
@@ -954,7 +982,7 @@
     "n": 5120
    },
    "path": "model.encoder.layers.*.fc1",
-   "q_sqnr": 42.036904802262114,
+   "q_sqnr": 38.425004762593744,
    "role": "chained",
    "seq": 36,
    "status": "not_tried",
@@ -976,7 +1004,7 @@
     "numel": 7680000
    },
    "path": "model.encoder.layers.*.activation_fn",
-   "q_sqnr": 31.014027801084566,
+   "q_sqnr": 29.12758291726735,
    "role": "folded_store",
    "seq": 37,
    "status": "not_tried",
@@ -1001,7 +1029,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.fc2",
-   "q_sqnr": 18.275857172688305,
+   "q_sqnr": 23.43758399051773,
    "role": "chained",
    "seq": 38,
    "status": "not_tried",
@@ -1025,7 +1053,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 27.237201374733147,
+   "q_sqnr": 26.034778030083096,
    "role": "chained",
    "seq": 39,
    "status": "not_tried",
@@ -1049,7 +1077,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 21.78568764890507,
+   "q_sqnr": 20.46681223029198,
    "role": "chained",
    "seq": 40,
    "status": "not_tried",
@@ -1074,7 +1102,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 27.124228509010877,
+   "q_sqnr": 29.310490689377705,
    "role": "chained",
    "seq": 41,
    "status": "not_tried",
@@ -1098,7 +1126,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 27.124228509010877,
+   "q_sqnr": 29.310490689377705,
    "role": "folded_const",
    "seq": 42,
    "status": "not_tried",
@@ -1123,7 +1151,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 22.205527435114032,
+   "q_sqnr": 26.384886297023993,
    "role": "chained",
    "seq": 43,
    "status": "not_tried",
@@ -1148,7 +1176,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 18.942123689138928,
+   "q_sqnr": 21.61468676175869,
    "role": "chained",
    "seq": 44,
    "status": "not_tried",
@@ -1173,7 +1201,7 @@
     "n": 1500
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 20.918531596999003,
+   "q_sqnr": 24.718772992156623,
    "role": "chained",
    "seq": 45,
    "status": "not_tried",
@@ -1197,7 +1225,7 @@
     "numel": 45000000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 20.918531596999003,
+   "q_sqnr": 24.718772992156623,
    "role": "chained",
    "seq": 46,
    "status": "not_tried",
@@ -1221,7 +1249,7 @@
     "rows": 30000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 23.903343129260115,
+   "q_sqnr": 17.691917639994458,
    "role": "chained",
    "seq": 47,
    "status": "not_tried",
@@ -1246,7 +1274,7 @@
     "n": 64
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 13.017844461931716,
+   "q_sqnr": 20.251300346406893,
    "role": "chained",
    "seq": 48,
    "status": "not_tried",
@@ -1271,7 +1299,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 15.598444516939747,
+   "q_sqnr": 22.06443499827731,
    "role": "chained",
    "seq": 49,
    "status": "not_tried",
@@ -1295,7 +1323,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 26.70886385045851,
+   "q_sqnr": 25.637772804686854,
    "role": "chained",
    "seq": 50,
    "status": "not_tried",
@@ -1319,7 +1347,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.final_layer_norm",
-   "q_sqnr": 19.38517517800975,
+   "q_sqnr": 19.06598861134116,
    "role": "main",
    "seq": 51,
    "status": "not_tried",
@@ -1344,7 +1372,7 @@
     "n": 5120
    },
    "path": "model.encoder.layers.*.fc1",
-   "q_sqnr": 32.49123022191654,
+   "q_sqnr": 38.779644269384754,
    "role": "chained",
    "seq": 52,
    "status": "not_tried",
@@ -1366,7 +1394,7 @@
     "numel": 7680000
    },
    "path": "model.encoder.layers.*.activation_fn",
-   "q_sqnr": 24.83775988753525,
+   "q_sqnr": 29.65180712892412,
    "role": "folded_store",
    "seq": 53,
    "status": "not_tried",
@@ -1391,7 +1419,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.fc2",
-   "q_sqnr": 21.014298236946125,
+   "q_sqnr": 23.94059495256571,
    "role": "chained",
    "seq": 54,
    "status": "not_tried",
@@ -1415,7 +1443,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 26.090937298313946,
+   "q_sqnr": 25.20743238802897,
    "role": "chained",
    "seq": 55,
    "status": "not_tried",
@@ -1439,7 +1467,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 18.90570005173615,
+   "q_sqnr": 17.77620093594369,
    "role": "chained",
    "seq": 56,
    "status": "not_tried",
@@ -1464,7 +1492,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 23.056752422985504,
+   "q_sqnr": 28.704421059522453,
    "role": "chained",
    "seq": 57,
    "status": "not_tried",
@@ -1488,7 +1516,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 23.056752422985504,
+   "q_sqnr": 28.704421059522453,
    "role": "folded_const",
    "seq": 58,
    "status": "not_tried",
@@ -1513,7 +1541,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 21.372910513650503,
+   "q_sqnr": 24.74218783152464,
    "role": "chained",
    "seq": 59,
    "status": "not_tried",
@@ -1538,7 +1566,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 18.364296651596657,
+   "q_sqnr": 18.437752300515097,
    "role": "chained",
    "seq": 60,
    "status": "not_tried",
@@ -1563,7 +1591,7 @@
     "n": 1500
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 23.34792252547635,
+   "q_sqnr": 24.72947975843836,
    "role": "chained",
    "seq": 61,
    "status": "not_tried",
@@ -1587,7 +1615,7 @@
     "numel": 45000000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 23.34792252547635,
+   "q_sqnr": 24.72947975843836,
    "role": "chained",
    "seq": 62,
    "status": "not_tried",
@@ -1611,7 +1639,7 @@
     "rows": 30000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 21.173681389293655,
+   "q_sqnr": 20.15429890874678,
    "role": "chained",
    "seq": 63,
    "status": "not_tried",
@@ -1636,7 +1664,7 @@
     "n": 64
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 10.379194557296021,
+   "q_sqnr": 18.01693046312128,
    "role": "chained",
    "seq": 64,
    "status": "not_tried",
@@ -1661,7 +1689,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 13.061410555692483,
+   "q_sqnr": 19.93688215987374,
    "role": "chained",
    "seq": 65,
    "status": "not_tried",
@@ -1685,7 +1713,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 26.5365878243378,
+   "q_sqnr": 24.949045207193418,
    "role": "chained",
    "seq": 66,
    "status": "not_tried",
@@ -1709,7 +1737,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.final_layer_norm",
-   "q_sqnr": 20.559016888652344,
+   "q_sqnr": 19.168342308472518,
    "role": "chained",
    "seq": 67,
    "status": "not_tried",
@@ -1734,7 +1762,7 @@
     "n": 5120
    },
    "path": "model.encoder.layers.*.fc1",
-   "q_sqnr": 32.54119454617361,
+   "q_sqnr": 38.12657098282675,
    "role": "chained",
    "seq": 68,
    "status": "not_tried",
@@ -1756,7 +1784,7 @@
     "numel": 7680000
    },
    "path": "model.encoder.layers.*.activation_fn",
-   "q_sqnr": 26.91860292844629,
+   "q_sqnr": 29.23846533203447,
    "role": "folded_store",
    "seq": 69,
    "status": "not_tried",
@@ -1781,7 +1809,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.fc2",
-   "q_sqnr": 22.62905045750985,
+   "q_sqnr": 22.599740230557053,
    "role": "chained",
    "seq": 70,
    "status": "not_tried",
@@ -1805,7 +1833,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 26.015545817959307,
+   "q_sqnr": 24.58109990834012,
    "role": "chained",
    "seq": 71,
    "status": "not_tried",
@@ -1829,7 +1857,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 19.51120563806033,
+   "q_sqnr": 17.369997924574207,
    "role": "chained",
    "seq": 72,
    "status": "not_tried",
@@ -1854,7 +1882,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 26.19415878992577,
+   "q_sqnr": 27.10081942718826,
    "role": "main",
    "seq": 73,
    "status": "not_tried",
@@ -1878,7 +1906,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 26.19415878992577,
+   "q_sqnr": 27.10081942718826,
    "role": "folded_const",
    "seq": 74,
    "status": "not_tried",
@@ -1903,7 +1931,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 25.095263923507424,
+   "q_sqnr": 24.852858535988503,
    "role": "chained",
    "seq": 75,
    "status": "not_tried",
@@ -1928,7 +1956,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 18.93388617828275,
+   "q_sqnr": 17.88272118933361,
    "role": "chained",
    "seq": 76,
    "status": "not_tried",
@@ -1953,7 +1981,7 @@
     "n": 1500
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 25.902953809034695,
+   "q_sqnr": 24.568106488215236,
    "role": "chained",
    "seq": 77,
    "status": "not_tried",
@@ -1977,7 +2005,7 @@
     "numel": 45000000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 25.902953809034695,
+   "q_sqnr": 24.568106488215236,
    "role": "chained",
    "seq": 78,
    "status": "not_tried",
@@ -2001,7 +2029,7 @@
     "rows": 30000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 21.28223687870988,
+   "q_sqnr": 19.794587755590896,
    "role": "chained",
    "seq": 79,
    "status": "not_tried",
@@ -2026,7 +2054,7 @@
     "n": 64
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 12.393145685187854,
+   "q_sqnr": 18.208754042255833,
    "role": "chained",
    "seq": 80,
    "status": "not_tried",
@@ -2051,7 +2079,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 14.718399657552808,
+   "q_sqnr": 20.49109189037127,
    "role": "chained",
    "seq": 81,
    "status": "not_tried",
@@ -2075,7 +2103,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 26.190204922000877,
+   "q_sqnr": 24.337353584906772,
    "role": "chained",
    "seq": 82,
    "status": "not_tried",
@@ -2099,7 +2127,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.final_layer_norm",
-   "q_sqnr": 18.114233629116306,
+   "q_sqnr": 16.049276807641444,
    "role": "chained",
    "seq": 83,
    "status": "not_tried",
@@ -2124,7 +2152,7 @@
     "n": 5120
    },
    "path": "model.encoder.layers.*.fc1",
-   "q_sqnr": 36.910184214552174,
+   "q_sqnr": 35.637192480646064,
    "role": "chained",
    "seq": 84,
    "status": "not_tried",
@@ -2146,7 +2174,7 @@
     "numel": 7680000
    },
    "path": "model.encoder.layers.*.activation_fn",
-   "q_sqnr": 27.905002639030656,
+   "q_sqnr": 28.41095838152635,
    "role": "folded_store",
    "seq": 85,
    "status": "not_tried",
@@ -2171,7 +2199,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.fc2",
-   "q_sqnr": 22.963950227353862,
+   "q_sqnr": 22.235475666026975,
    "role": "chained",
    "seq": 86,
    "status": "not_tried",
@@ -2195,7 +2223,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 26.03650885329362,
+   "q_sqnr": 24.094603879807867,
    "role": "chained",
    "seq": 87,
    "status": "not_tried",
@@ -2219,7 +2247,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 18.62063627171451,
+   "q_sqnr": 15.781547650294671,
    "role": "chained",
    "seq": 88,
    "status": "not_tried",
@@ -2244,7 +2272,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 25.496114559246603,
+   "q_sqnr": 27.32962985208003,
    "role": "chained",
    "seq": 89,
    "status": "not_tried",
@@ -2268,7 +2296,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 25.496114559246603,
+   "q_sqnr": 27.32962985208003,
    "role": "folded_const",
    "seq": 90,
    "status": "not_tried",
@@ -2293,7 +2321,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 26.15836354271481,
+   "q_sqnr": 24.54013111879653,
    "role": "chained",
    "seq": 91,
    "status": "not_tried",
@@ -2318,7 +2346,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 19.63896094069526,
+   "q_sqnr": 17.724122300641767,
    "role": "chained",
    "seq": 92,
    "status": "not_tried",
@@ -2343,7 +2371,7 @@
     "n": 1500
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 24.21482123391592,
+   "q_sqnr": 24.026799522671208,
    "role": "chained",
    "seq": 93,
    "status": "not_tried",
@@ -2367,7 +2395,7 @@
     "numel": 45000000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 24.21482123391592,
+   "q_sqnr": 24.026799522671208,
    "role": "chained",
    "seq": 94,
    "status": "not_tried",
@@ -2391,7 +2419,7 @@
     "rows": 30000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 21.432155563223656,
+   "q_sqnr": 18.886607677027506,
    "role": "main",
    "seq": 95,
    "status": "not_tried",
@@ -2416,7 +2444,7 @@
     "n": 64
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 13.496525090299375,
+   "q_sqnr": 17.574107864203647,
    "role": "chained",
    "seq": 96,
    "status": "not_tried",
@@ -2441,7 +2469,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 15.986837891258393,
+   "q_sqnr": 19.683160422807376,
    "role": "chained",
    "seq": 97,
    "status": "not_tried",
@@ -2465,7 +2493,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 26.15440617139074,
+   "q_sqnr": 23.85618750657603,
    "role": "chained",
    "seq": 98,
    "status": "not_tried",
@@ -2489,7 +2517,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.final_layer_norm",
-   "q_sqnr": 17.491334261509262,
+   "q_sqnr": 14.877586837543257,
    "role": "chained",
    "seq": 99,
    "status": "not_tried",
@@ -2514,7 +2542,7 @@
     "n": 5120
    },
    "path": "model.encoder.layers.*.fc1",
-   "q_sqnr": 34.29429629649974,
+   "q_sqnr": 33.32792034805776,
    "role": "chained",
    "seq": 100,
    "status": "not_tried",
@@ -2536,7 +2564,7 @@
     "numel": 7680000
    },
    "path": "model.encoder.layers.*.activation_fn",
-   "q_sqnr": 26.11146559033575,
+   "q_sqnr": 25.65498905086295,
    "role": "folded_store",
    "seq": 101,
    "status": "not_tried",
@@ -2561,7 +2589,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.fc2",
-   "q_sqnr": 21.358030058089106,
+   "q_sqnr": 20.072823079197995,
    "role": "chained",
    "seq": 102,
    "status": "not_tried",
@@ -2585,7 +2613,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 26.134218190237775,
+   "q_sqnr": 23.759844969045112,
    "role": "chained",
    "seq": 103,
    "status": "not_tried",
@@ -2609,7 +2637,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 17.412926781889997,
+   "q_sqnr": 14.064074153082542,
    "role": "chained",
    "seq": 104,
    "status": "not_tried",
@@ -2634,7 +2662,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 24.062324781044442,
+   "q_sqnr": 23.529235211866855,
    "role": "chained",
    "seq": 105,
    "status": "not_tried",
@@ -2658,7 +2686,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 24.062324781044442,
+   "q_sqnr": 23.529235211866855,
    "role": "folded_const",
    "seq": 106,
    "status": "not_tried",
@@ -2683,7 +2711,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 25.836939083698084,
+   "q_sqnr": 23.213318096599238,
    "role": "chained",
    "seq": 107,
    "status": "not_tried",
@@ -2708,7 +2736,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 17.273217540564826,
+   "q_sqnr": 14.566475047970393,
    "role": "chained",
    "seq": 108,
    "status": "not_tried",
@@ -2733,7 +2761,7 @@
     "n": 1500
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 23.64561608412547,
+   "q_sqnr": 23.30129865000728,
    "role": "chained",
    "seq": 109,
    "status": "not_tried",
@@ -2757,7 +2785,7 @@
     "numel": 45000000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 23.64561608412547,
+   "q_sqnr": 23.30129865000728,
    "role": "chained",
    "seq": 110,
    "status": "not_tried",
@@ -2781,7 +2809,7 @@
     "rows": 30000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 21.94955709376152,
+   "q_sqnr": 16.836702415935484,
    "role": "chained",
    "seq": 111,
    "status": "not_tried",
@@ -2806,7 +2834,7 @@
     "n": 64
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 13.82767326054124,
+   "q_sqnr": 14.782550835115899,
    "role": "chained",
    "seq": 112,
    "status": "not_tried",
@@ -2831,7 +2859,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 16.80501581248707,
+   "q_sqnr": 18.213803867232468,
    "role": "chained",
    "seq": 113,
    "status": "not_tried",
@@ -2855,7 +2883,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 26.38476018969235,
+   "q_sqnr": 23.53909990216281,
    "role": "chained",
    "seq": 114,
    "status": "not_tried",
@@ -2879,7 +2907,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.final_layer_norm",
-   "q_sqnr": 16.92163568398209,
+   "q_sqnr": 13.743744305300273,
    "role": "chained",
    "seq": 115,
    "status": "not_tried",
@@ -2904,7 +2932,7 @@
     "n": 5120
    },
    "path": "model.encoder.layers.*.fc1",
-   "q_sqnr": 33.32705392510674,
+   "q_sqnr": 33.63477358574398,
    "role": "main",
    "seq": 116,
    "status": "not_tried",
@@ -2926,7 +2954,7 @@
     "numel": 7680000
    },
    "path": "model.encoder.layers.*.activation_fn",
-   "q_sqnr": 25.173302789077503,
+   "q_sqnr": 23.98993118072688,
    "role": "folded_store",
    "seq": 117,
    "status": "not_tried",
@@ -2951,7 +2979,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.fc2",
-   "q_sqnr": 19.24761263445297,
+   "q_sqnr": 17.666937335732754,
    "role": "chained",
    "seq": 118,
    "status": "not_tried",
@@ -2975,7 +3003,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 26.424412144196204,
+   "q_sqnr": 23.49660432014872,
    "role": "chained",
    "seq": 119,
    "status": "not_tried",
@@ -2999,7 +3027,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 16.725468383655475,
+   "q_sqnr": 12.807375910730695,
    "role": "chained",
    "seq": 120,
    "status": "not_tried",
@@ -3024,7 +3052,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 24.57084473674605,
+   "q_sqnr": 22.467937291345734,
    "role": "chained",
    "seq": 121,
    "status": "not_tried",
@@ -3048,7 +3076,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 24.57084473674605,
+   "q_sqnr": 22.467937291345734,
    "role": "folded_const",
    "seq": 122,
    "status": "not_tried",
@@ -3073,7 +3101,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 24.511022882679384,
+   "q_sqnr": 22.043056144102366,
    "role": "chained",
    "seq": 123,
    "status": "not_tried",
@@ -3098,7 +3126,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 17.125993114335586,
+   "q_sqnr": 13.470013892113634,
    "role": "chained",
    "seq": 124,
    "status": "not_tried",
@@ -3123,7 +3151,7 @@
     "n": 1500
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 22.59752126410993,
+   "q_sqnr": 21.14651835886871,
    "role": "chained",
    "seq": 125,
    "status": "not_tried",
@@ -3147,7 +3175,7 @@
     "numel": 45000000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 22.59752126410993,
+   "q_sqnr": 21.14651835886871,
    "role": "chained",
    "seq": 126,
    "status": "not_tried",
@@ -3171,7 +3199,7 @@
     "rows": 30000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 21.1196447414449,
+   "q_sqnr": 16.539739146922777,
    "role": "chained",
    "seq": 127,
    "status": "not_tried",
@@ -3196,7 +3224,7 @@
     "n": 64
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 12.725993143519947,
+   "q_sqnr": 13.911910391285243,
    "role": "chained",
    "seq": 128,
    "status": "not_tried",
@@ -3221,7 +3249,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 16.110849785759253,
+   "q_sqnr": 17.02898636766581,
    "role": "chained",
    "seq": 129,
    "status": "not_tried",
@@ -3245,7 +3273,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 26.51376582476225,
+   "q_sqnr": 23.3026764813296,
    "role": "chained",
    "seq": 130,
    "status": "not_tried",
@@ -3269,7 +3297,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.final_layer_norm",
-   "q_sqnr": 16.351605710659282,
+   "q_sqnr": 12.558689359362107,
    "role": "chained",
    "seq": 131,
    "status": "not_tried",
@@ -3294,7 +3322,7 @@
     "n": 5120
    },
    "path": "model.encoder.layers.*.fc1",
-   "q_sqnr": 39.36491086340196,
+   "q_sqnr": 31.525671559901607,
    "role": "chained",
    "seq": 132,
    "status": "not_tried",
@@ -3316,7 +3344,7 @@
     "numel": 7680000
    },
    "path": "model.encoder.layers.*.activation_fn",
-   "q_sqnr": 26.206182556340323,
+   "q_sqnr": 23.836928931334374,
    "role": "folded_store",
    "seq": 133,
    "status": "not_tried",
@@ -3341,7 +3369,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.fc2",
-   "q_sqnr": 18.50698275016719,
+   "q_sqnr": 16.127084156625024,
    "role": "chained",
    "seq": 134,
    "status": "not_tried",
@@ -3365,7 +3393,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 26.549882113204504,
+   "q_sqnr": 23.30207709514496,
    "role": "chained",
    "seq": 135,
    "status": "not_tried",
@@ -3389,7 +3417,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 17.169293114056057,
+   "q_sqnr": 12.953852155387713,
    "role": "chained",
    "seq": 136,
    "status": "not_tried",
@@ -3414,7 +3442,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 24.0751093474646,
+   "q_sqnr": 21.23725238377192,
    "role": "chained",
    "seq": 137,
    "status": "not_tried",
@@ -3438,7 +3466,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 24.0751093474646,
+   "q_sqnr": 21.23725238377192,
    "role": "folded_const",
    "seq": 138,
    "status": "not_tried",
@@ -3463,7 +3491,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 23.31931171448726,
+   "q_sqnr": 21.017460760615112,
    "role": "main",
    "seq": 139,
    "status": "not_tried",
@@ -3488,7 +3516,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 17.416900926382343,
+   "q_sqnr": 13.332881008851237,
    "role": "chained",
    "seq": 140,
    "status": "not_tried",
@@ -3513,7 +3541,7 @@
     "n": 1500
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 20.9899425136131,
+   "q_sqnr": 21.62972992406525,
    "role": "chained",
    "seq": 141,
    "status": "not_tried",
@@ -3537,7 +3565,7 @@
     "numel": 45000000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 20.9899425136131,
+   "q_sqnr": 21.62972992406525,
    "role": "chained",
    "seq": 142,
    "status": "not_tried",
@@ -3561,7 +3589,7 @@
     "rows": 30000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 19.291151555051847,
+   "q_sqnr": 14.735765660142938,
    "role": "chained",
    "seq": 143,
    "status": "not_tried",
@@ -3586,7 +3614,7 @@
     "n": 64
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 14.03640977564315,
+   "q_sqnr": 12.884149955425052,
    "role": "chained",
    "seq": 144,
    "status": "not_tried",
@@ -3611,7 +3639,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 17.368528405991807,
+   "q_sqnr": 16.32597325014195,
    "role": "chained",
    "seq": 145,
    "status": "not_tried",
@@ -3635,7 +3663,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 26.608332478559007,
+   "q_sqnr": 23.104554120415628,
    "role": "chained",
    "seq": 146,
    "status": "not_tried",
@@ -3659,7 +3687,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.final_layer_norm",
-   "q_sqnr": 16.015029513200783,
+   "q_sqnr": 11.84533596179013,
    "role": "chained",
    "seq": 147,
    "status": "not_tried",
@@ -3684,7 +3712,7 @@
     "n": 5120
    },
    "path": "model.encoder.layers.*.fc1",
-   "q_sqnr": 36.021835079952325,
+   "q_sqnr": 30.32044972803996,
    "role": "chained",
    "seq": 148,
    "status": "not_tried",
@@ -3706,7 +3734,7 @@
     "numel": 7680000
    },
    "path": "model.encoder.layers.*.activation_fn",
-   "q_sqnr": 25.964374180195854,
+   "q_sqnr": 22.97435288387501,
    "role": "folded_store",
    "seq": 149,
    "status": "not_tried",
@@ -3731,7 +3759,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.fc2",
-   "q_sqnr": 17.99329199097987,
+   "q_sqnr": 15.126420478721947,
    "role": "chained",
    "seq": 150,
    "status": "not_tried",
@@ -3755,7 +3783,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 26.620688643808087,
+   "q_sqnr": 23.129093709235,
    "role": "chained",
    "seq": 151,
    "status": "not_tried",
@@ -3779,7 +3807,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 15.538944229925477,
+   "q_sqnr": 10.940986820706724,
    "role": "chained",
    "seq": 152,
    "status": "not_tried",
@@ -3804,7 +3832,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 24.30670110722374,
+   "q_sqnr": 19.958054502757026,
    "role": "chained",
    "seq": 153,
    "status": "not_tried",
@@ -3828,7 +3856,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 24.30670110722374,
+   "q_sqnr": 19.958054502757026,
    "role": "folded_const",
    "seq": 154,
    "status": "not_tried",
@@ -3853,7 +3881,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 22.284993551726462,
+   "q_sqnr": 20.137168456041113,
    "role": "chained",
    "seq": 155,
    "status": "not_tried",
@@ -3878,7 +3906,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 17.26595146365469,
+   "q_sqnr": 12.883349207535895,
    "role": "chained",
    "seq": 156,
    "status": "not_tried",
@@ -3903,7 +3931,7 @@
     "n": 1500
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 22.571601691500693,
+   "q_sqnr": 20.500241713347506,
    "role": "chained",
    "seq": 157,
    "status": "not_tried",
@@ -3927,7 +3955,7 @@
     "numel": 45000000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 22.571601691500693,
+   "q_sqnr": 20.500241713347506,
    "role": "chained",
    "seq": 158,
    "status": "not_tried",
@@ -3951,7 +3979,7 @@
     "rows": 30000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 19.89789457198627,
+   "q_sqnr": 13.98846769521496,
    "role": "chained",
    "seq": 159,
    "status": "not_tried",
@@ -3976,7 +4004,7 @@
     "n": 64
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 13.751821535629944,
+   "q_sqnr": 12.096652596020242,
    "role": "main",
    "seq": 160,
    "status": "not_tried",
@@ -4001,7 +4029,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 18.83569671835791,
+   "q_sqnr": 17.547935939610845,
    "role": "chained",
    "seq": 161,
    "status": "not_tried",
@@ -4025,7 +4053,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 26.6449420267708,
+   "q_sqnr": 22.971433206973728,
    "role": "chained",
    "seq": 162,
    "status": "not_tried",
@@ -4049,7 +4077,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.final_layer_norm",
-   "q_sqnr": 15.928720422579762,
+   "q_sqnr": 11.375321193423893,
    "role": "chained",
    "seq": 163,
    "status": "not_tried",
@@ -4074,7 +4102,7 @@
     "n": 5120
    },
    "path": "model.encoder.layers.*.fc1",
-   "q_sqnr": 36.1340107436009,
+   "q_sqnr": 30.460156118761176,
    "role": "chained",
    "seq": 164,
    "status": "not_tried",
@@ -4096,7 +4124,7 @@
     "numel": 7680000
    },
    "path": "model.encoder.layers.*.activation_fn",
-   "q_sqnr": 25.969405628390568,
+   "q_sqnr": 22.597248336139547,
    "role": "folded_store",
    "seq": 165,
    "status": "not_tried",
@@ -4121,7 +4149,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.fc2",
-   "q_sqnr": 18.679416757257457,
+   "q_sqnr": 16.15821149995325,
    "role": "chained",
    "seq": 166,
    "status": "not_tried",
@@ -4145,7 +4173,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 26.635585123437732,
+   "q_sqnr": 22.98674683354786,
    "role": "chained",
    "seq": 167,
    "status": "not_tried",
@@ -4169,7 +4197,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 18.848752669496342,
+   "q_sqnr": 14.00839343769376,
    "role": "chained",
    "seq": 168,
    "status": "not_tried",
@@ -4194,7 +4222,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 26.256491046692613,
+   "q_sqnr": 21.62360616890926,
    "role": "chained",
    "seq": 169,
    "status": "not_tried",
@@ -4218,7 +4246,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 26.256491046692613,
+   "q_sqnr": 21.62360616890926,
    "role": "folded_const",
    "seq": 170,
    "status": "not_tried",
@@ -4243,7 +4271,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 23.38810674477735,
+   "q_sqnr": 20.954679924108106,
    "role": "chained",
    "seq": 171,
    "status": "not_tried",
@@ -4268,7 +4296,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 17.0804508462309,
+   "q_sqnr": 12.777539117173403,
    "role": "chained",
    "seq": 172,
    "status": "not_tried",
@@ -4293,7 +4321,7 @@
     "n": 1500
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 22.75763333283801,
+   "q_sqnr": 19.779879602278985,
    "role": "chained",
    "seq": 173,
    "status": "not_tried",
@@ -4317,7 +4345,7 @@
     "numel": 45000000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 22.75763333283801,
+   "q_sqnr": 19.779879602278985,
    "role": "chained",
    "seq": 174,
    "status": "not_tried",
@@ -4341,7 +4369,7 @@
     "rows": 30000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 19.157701685377916,
+   "q_sqnr": 14.144839873292653,
    "role": "chained",
    "seq": 175,
    "status": "not_tried",
@@ -4366,7 +4394,7 @@
     "n": 64
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 14.656171913855456,
+   "q_sqnr": 12.762800930603762,
    "role": "chained",
    "seq": 176,
    "status": "not_tried",
@@ -4391,7 +4419,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 18.507922737682623,
+   "q_sqnr": 15.826332146534806,
    "role": "chained",
    "seq": 177,
    "status": "not_tried",
@@ -4415,7 +4443,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 26.5840779259902,
+   "q_sqnr": 22.76299154504119,
    "role": "chained",
    "seq": 178,
    "status": "not_tried",
@@ -4439,7 +4467,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.final_layer_norm",
-   "q_sqnr": 15.567485164282214,
+   "q_sqnr": 10.9381359459489,
    "role": "chained",
    "seq": 179,
    "status": "not_tried",
@@ -4464,7 +4492,7 @@
     "n": 5120
    },
    "path": "model.encoder.layers.*.fc1",
-   "q_sqnr": 36.80089284623666,
+   "q_sqnr": 29.69733454104196,
    "role": "chained",
    "seq": 180,
    "status": "not_tried",
@@ -4486,7 +4514,7 @@
     "numel": 7680000
    },
    "path": "model.encoder.layers.*.activation_fn",
-   "q_sqnr": 25.211271290815674,
+   "q_sqnr": 21.801775370710985,
    "role": "folded_store",
    "seq": 181,
    "status": "not_tried",
@@ -4511,7 +4539,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.fc2",
-   "q_sqnr": 17.572745377823598,
+   "q_sqnr": 14.452248095267565,
    "role": "main",
    "seq": 182,
    "status": "not_tried",
@@ -4535,7 +4563,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 26.64311490500385,
+   "q_sqnr": 22.80273182997689,
    "role": "chained",
    "seq": 183,
    "status": "not_tried",
@@ -4559,7 +4587,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 16.6575181827998,
+   "q_sqnr": 11.645638605915767,
    "role": "chained",
    "seq": 184,
    "status": "not_tried",
@@ -4584,7 +4612,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 25.516164436906372,
+   "q_sqnr": 20.748275514661664,
    "role": "chained",
    "seq": 185,
    "status": "not_tried",
@@ -4608,7 +4636,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 25.516164436906372,
+   "q_sqnr": 20.748275514661664,
    "role": "folded_const",
    "seq": 186,
    "status": "not_tried",
@@ -4633,7 +4661,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 23.541314715920375,
+   "q_sqnr": 19.783395640707766,
    "role": "chained",
    "seq": 187,
    "status": "not_tried",
@@ -4658,7 +4686,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 15.906428795832584,
+   "q_sqnr": 10.936160639657809,
    "role": "chained",
    "seq": 188,
    "status": "not_tried",
@@ -4683,7 +4711,7 @@
     "n": 1500
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 23.910714491176574,
+   "q_sqnr": 19.758916875483344,
    "role": "chained",
    "seq": 189,
    "status": "not_tried",
@@ -4707,7 +4735,7 @@
     "numel": 45000000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 23.910714491176574,
+   "q_sqnr": 19.758916875483344,
    "role": "chained",
    "seq": 190,
    "status": "not_tried",
@@ -4731,7 +4759,7 @@
     "rows": 30000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 24.654841454152475,
+   "q_sqnr": 20.686579482626787,
    "role": "chained",
    "seq": 191,
    "status": "not_tried",
@@ -4756,7 +4784,7 @@
     "n": 64
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 16.04553073834978,
+   "q_sqnr": 11.208830834838459,
    "role": "chained",
    "seq": 192,
    "status": "not_tried",
@@ -4781,7 +4809,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 18.757506578776667,
+   "q_sqnr": 13.414540106747971,
    "role": "chained",
    "seq": 193,
    "status": "not_tried",
@@ -4805,7 +4833,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 26.558698413111912,
+   "q_sqnr": 22.53556738188162,
    "role": "chained",
    "seq": 194,
    "status": "not_tried",
@@ -4829,7 +4857,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.final_layer_norm",
-   "q_sqnr": 15.653680210724218,
+   "q_sqnr": 10.68243783822,
    "role": "chained",
    "seq": 195,
    "status": "not_tried",
@@ -4854,7 +4882,7 @@
     "n": 5120
    },
    "path": "model.encoder.layers.*.fc1",
-   "q_sqnr": 38.093404485538244,
+   "q_sqnr": 31.098101625478005,
    "role": "chained",
    "seq": 196,
    "status": "not_tried",
@@ -4876,7 +4904,7 @@
     "numel": 7680000
    },
    "path": "model.encoder.layers.*.activation_fn",
-   "q_sqnr": 25.48864949421409,
+   "q_sqnr": 21.596714737472446,
    "role": "folded_store",
    "seq": 197,
    "status": "not_tried",
@@ -4901,7 +4929,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.fc2",
-   "q_sqnr": 17.74842219291177,
+   "q_sqnr": 14.078650829512124,
    "role": "chained",
    "seq": 198,
    "status": "not_tried",
@@ -4925,7 +4953,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 26.54146577973826,
+   "q_sqnr": 22.528951536585723,
    "role": "chained",
    "seq": 199,
    "status": "not_tried",
@@ -4949,7 +4977,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 15.23420207493345,
+   "q_sqnr": 9.99902463275522,
    "role": "chained",
    "seq": 200,
    "status": "not_tried",
@@ -4974,7 +5002,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 24.610183127733656,
+   "q_sqnr": 19.164014187056488,
    "role": "chained",
    "seq": 201,
    "status": "not_tried",
@@ -4998,7 +5026,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 24.610183127733656,
+   "q_sqnr": 19.164014187056488,
    "role": "folded_const",
    "seq": 202,
    "status": "not_tried",
@@ -5023,7 +5051,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 23.83251219887378,
+   "q_sqnr": 19.254169986232714,
    "role": "chained",
    "seq": 203,
    "status": "not_tried",
@@ -5048,7 +5076,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 14.742033092860938,
+   "q_sqnr": 9.45529977281776,
    "role": "main",
    "seq": 204,
    "status": "not_tried",
@@ -5073,7 +5101,7 @@
     "n": 1500
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 22.960007531758265,
+   "q_sqnr": 18.97053198820271,
    "role": "chained",
    "seq": 205,
    "status": "not_tried",
@@ -5097,7 +5125,7 @@
     "numel": 45000000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 22.960007531758265,
+   "q_sqnr": 18.97053198820271,
    "role": "chained",
    "seq": 206,
    "status": "not_tried",
@@ -5121,7 +5149,7 @@
     "rows": 30000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 19.208691869981074,
+   "q_sqnr": 12.947007633839164,
    "role": "chained",
    "seq": 207,
    "status": "not_tried",
@@ -5146,7 +5174,7 @@
     "n": 64
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 15.814588938989022,
+   "q_sqnr": 11.016001858875038,
    "role": "chained",
    "seq": 208,
    "status": "not_tried",
@@ -5171,7 +5199,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 20.071166666729063,
+   "q_sqnr": 15.312838249787628,
    "role": "chained",
    "seq": 209,
    "status": "not_tried",
@@ -5195,7 +5223,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 26.45938020109856,
+   "q_sqnr": 22.358580816660798,
    "role": "chained",
    "seq": 210,
    "status": "not_tried",
@@ -5219,7 +5247,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.final_layer_norm",
-   "q_sqnr": 15.132363688346114,
+   "q_sqnr": 9.933192880845407,
    "role": "chained",
    "seq": 211,
    "status": "not_tried",
@@ -5244,7 +5272,7 @@
     "n": 5120
    },
    "path": "model.encoder.layers.*.fc1",
-   "q_sqnr": 35.04327507726861,
+   "q_sqnr": 30.93252082945281,
    "role": "chained",
    "seq": 212,
    "status": "not_tried",
@@ -5266,7 +5294,7 @@
     "numel": 7680000
    },
    "path": "model.encoder.layers.*.activation_fn",
-   "q_sqnr": 26.294189670601924,
+   "q_sqnr": 21.449797568783794,
    "role": "folded_store",
    "seq": 213,
    "status": "not_tried",
@@ -5291,7 +5319,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.fc2",
-   "q_sqnr": 17.96500758390907,
+   "q_sqnr": 14.757186705247094,
    "role": "chained",
    "seq": 214,
    "status": "not_tried",
@@ -5315,7 +5343,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 26.336352664580396,
+   "q_sqnr": 22.388151075080856,
    "role": "chained",
    "seq": 215,
    "status": "not_tried",
@@ -5339,7 +5367,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 18.103625658377894,
+   "q_sqnr": 12.863166655955487,
    "role": "chained",
    "seq": 216,
    "status": "not_tried",
@@ -5364,7 +5392,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 24.4164645668603,
+   "q_sqnr": 19.69833503952898,
    "role": "chained",
    "seq": 217,
    "status": "not_tried",
@@ -5388,7 +5416,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 24.4164645668603,
+   "q_sqnr": 19.69833503952898,
    "role": "folded_const",
    "seq": 218,
    "status": "not_tried",
@@ -5413,7 +5441,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 22.637539023965637,
+   "q_sqnr": 19.08266360813726,
    "role": "chained",
    "seq": 219,
    "status": "not_tried",
@@ -5438,7 +5466,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 17.76521398896588,
+   "q_sqnr": 12.61308996184134,
    "role": "chained",
    "seq": 220,
    "status": "not_tried",
@@ -5463,7 +5491,7 @@
     "n": 1500
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 21.716432435600773,
+   "q_sqnr": 18.462223598056173,
    "role": "chained",
    "seq": 221,
    "status": "not_tried",
@@ -5487,7 +5515,7 @@
     "numel": 45000000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 21.716432435600773,
+   "q_sqnr": 18.462223598056173,
    "role": "chained",
    "seq": 222,
    "status": "not_tried",
@@ -5511,7 +5539,7 @@
     "rows": 30000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 18.413274782462118,
+   "q_sqnr": 12.56170961980499,
    "role": "chained",
    "seq": 223,
    "status": "not_tried",
@@ -5536,7 +5564,7 @@
     "n": 64
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 14.771546718017037,
+   "q_sqnr": 10.641285920460534,
    "role": "chained",
    "seq": 224,
    "status": "not_tried",
@@ -5561,7 +5589,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 17.740587696034535,
+   "q_sqnr": 13.746216416256543,
    "role": "main",
    "seq": 225,
    "status": "not_tried",
@@ -5585,7 +5613,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 26.330527902736193,
+   "q_sqnr": 22.259082732573454,
    "role": "chained",
    "seq": 226,
    "status": "not_tried",
@@ -5609,7 +5637,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.final_layer_norm",
-   "q_sqnr": 14.587922657757028,
+   "q_sqnr": 9.37467949390507,
    "role": "chained",
    "seq": 227,
    "status": "not_tried",
@@ -5634,7 +5662,7 @@
     "n": 5120
    },
    "path": "model.encoder.layers.*.fc1",
-   "q_sqnr": 35.754254001088334,
+   "q_sqnr": 29.607965415289218,
    "role": "chained",
    "seq": 228,
    "status": "not_tried",
@@ -5656,7 +5684,7 @@
     "numel": 7680000
    },
    "path": "model.encoder.layers.*.activation_fn",
-   "q_sqnr": 25.96256733765779,
+   "q_sqnr": 21.07098677104721,
    "role": "folded_store",
    "seq": 229,
    "status": "not_tried",
@@ -5681,7 +5709,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.fc2",
-   "q_sqnr": 15.798357481404615,
+   "q_sqnr": 11.19346791613457,
    "role": "chained",
    "seq": 230,
    "status": "not_tried",
@@ -5705,7 +5733,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 26.347274145065033,
+   "q_sqnr": 22.364108561509383,
    "role": "chained",
    "seq": 231,
    "status": "not_tried",
@@ -5729,7 +5757,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 14.061449714961112,
+   "q_sqnr": 8.668144143077704,
    "role": "chained",
    "seq": 232,
    "status": "not_tried",
@@ -5754,7 +5782,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 22.21303195215013,
+   "q_sqnr": 16.785985099037134,
    "role": "chained",
    "seq": 233,
    "status": "not_tried",
@@ -5778,7 +5806,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 22.21303195215013,
+   "q_sqnr": 16.785985099037134,
    "role": "folded_const",
    "seq": 234,
    "status": "not_tried",
@@ -5803,7 +5831,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 21.949279429783356,
+   "q_sqnr": 17.500624523923182,
    "role": "chained",
    "seq": 235,
    "status": "not_tried",
@@ -5828,7 +5856,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 13.644718056759146,
+   "q_sqnr": 8.29055780914604,
    "role": "chained",
    "seq": 236,
    "status": "not_tried",
@@ -5853,7 +5881,7 @@
     "n": 1500
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 21.474425138551734,
+   "q_sqnr": 17.247742910389626,
    "role": "chained",
    "seq": 237,
    "status": "not_tried",
@@ -5877,7 +5905,7 @@
     "numel": 45000000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 21.474425138551734,
+   "q_sqnr": 17.247742910389626,
    "role": "chained",
    "seq": 238,
    "status": "not_tried",
@@ -5901,7 +5929,7 @@
     "rows": 30000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 18.854595614543015,
+   "q_sqnr": 11.38596647924296,
    "role": "chained",
    "seq": 239,
    "status": "not_tried",
@@ -5926,7 +5954,7 @@
     "n": 64
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 13.374420006244554,
+   "q_sqnr": 9.630620199623651,
    "role": "chained",
    "seq": 240,
    "status": "not_tried",
@@ -5951,7 +5979,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 18.58295924766342,
+   "q_sqnr": 15.054234553820503,
    "role": "chained",
    "seq": 241,
    "status": "not_tried",
@@ -5975,7 +6003,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 26.310456295934365,
+   "q_sqnr": 22.239511543897926,
    "role": "chained",
    "seq": 242,
    "status": "not_tried",
@@ -5999,7 +6027,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.final_layer_norm",
-   "q_sqnr": 14.468105959864754,
+   "q_sqnr": 8.974284862962389,
    "role": "chained",
    "seq": 243,
    "status": "not_tried",
@@ -6024,7 +6052,7 @@
     "n": 5120
    },
    "path": "model.encoder.layers.*.fc1",
-   "q_sqnr": 34.22327274949769,
+   "q_sqnr": 27.65101514257183,
    "role": "chained",
    "seq": 244,
    "status": "not_tried",
@@ -6046,7 +6074,7 @@
     "numel": 7680000
    },
    "path": "model.encoder.layers.*.activation_fn",
-   "q_sqnr": 25.68920356858007,
+   "q_sqnr": 20.556098993516095,
    "role": "folded_store",
    "seq": 245,
    "status": "not_tried",
@@ -6071,7 +6099,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.fc2",
-   "q_sqnr": 18.80141386453478,
+   "q_sqnr": 14.0150979066914,
    "role": "chained",
    "seq": 246,
    "status": "not_tried",
@@ -6095,7 +6123,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 26.255831949747567,
+   "q_sqnr": 22.36956426876885,
    "role": "chained",
    "seq": 247,
    "status": "not_tried",
@@ -6119,7 +6147,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 18.621442975109428,
+   "q_sqnr": 13.039814226690847,
    "role": "main",
    "seq": 248,
    "status": "not_tried",
@@ -6144,7 +6172,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 23.55206772168244,
+   "q_sqnr": 18.144299410255492,
    "role": "chained",
    "seq": 249,
    "status": "not_tried",
@@ -6168,7 +6196,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 23.55206772168244,
+   "q_sqnr": 18.144299410255492,
    "role": "folded_const",
    "seq": 250,
    "status": "not_tried",
@@ -6193,7 +6221,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 21.854498638225284,
+   "q_sqnr": 17.28946939356078,
    "role": "chained",
    "seq": 251,
    "status": "not_tried",
@@ -6218,7 +6246,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 15.68235607615279,
+   "q_sqnr": 10.133759436523071,
    "role": "chained",
    "seq": 252,
    "status": "not_tried",
@@ -6243,7 +6271,7 @@
     "n": 1500
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 20.647506795317923,
+   "q_sqnr": 15.714268055241893,
    "role": "chained",
    "seq": 253,
    "status": "not_tried",
@@ -6267,7 +6295,7 @@
     "numel": 45000000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 20.647506795317923,
+   "q_sqnr": 15.714268055241893,
    "role": "chained",
    "seq": 254,
    "status": "not_tried",
@@ -6291,7 +6319,7 @@
     "rows": 30000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 16.988323949211328,
+   "q_sqnr": 11.997780716561754,
    "role": "chained",
    "seq": 255,
    "status": "not_tried",
@@ -6316,7 +6344,7 @@
     "n": 64
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 15.549258618262447,
+   "q_sqnr": 9.885967996463659,
    "role": "chained",
    "seq": 256,
    "status": "not_tried",
@@ -6341,7 +6369,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 18.398637564696976,
+   "q_sqnr": 12.720525243580802,
    "role": "chained",
    "seq": 257,
    "status": "not_tried",
@@ -6365,7 +6393,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 26.24002082825331,
+   "q_sqnr": 22.328141260565264,
    "role": "chained",
    "seq": 258,
    "status": "not_tried",
@@ -6389,7 +6417,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.final_layer_norm",
-   "q_sqnr": 14.589311036658826,
+   "q_sqnr": 8.835720048247204,
    "role": "chained",
    "seq": 259,
    "status": "not_tried",
@@ -6414,7 +6442,7 @@
     "n": 5120
    },
    "path": "model.encoder.layers.*.fc1",
-   "q_sqnr": 36.06853307966961,
+   "q_sqnr": 28.467311242338376,
    "role": "chained",
    "seq": 260,
    "status": "not_tried",
@@ -6436,7 +6464,7 @@
     "numel": 7680000
    },
    "path": "model.encoder.layers.*.activation_fn",
-   "q_sqnr": 27.390599115166356,
+   "q_sqnr": 21.23291933134198,
    "role": "folded_store",
    "seq": 261,
    "status": "not_tried",
@@ -6461,7 +6489,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.fc2",
-   "q_sqnr": 18.421091931371205,
+   "q_sqnr": 12.67146613045638,
    "role": "chained",
    "seq": 262,
    "status": "not_tried",
@@ -6485,7 +6513,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 26.16712381085474,
+   "q_sqnr": 22.301431339403305,
    "role": "chained",
    "seq": 263,
    "status": "not_tried",
@@ -6509,7 +6537,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 17.56137278195352,
+   "q_sqnr": 11.704626923181277,
    "role": "chained",
    "seq": 264,
    "status": "not_tried",
@@ -6534,7 +6562,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 25.648376433399726,
+   "q_sqnr": 19.871984166911364,
    "role": "chained",
    "seq": 265,
    "status": "not_tried",
@@ -6558,7 +6586,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 25.648376433399726,
+   "q_sqnr": 19.871984166911364,
    "role": "folded_const",
    "seq": 266,
    "status": "not_tried",
@@ -6583,7 +6611,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 22.996549892390433,
+   "q_sqnr": 16.970124669597887,
    "role": "chained",
    "seq": 267,
    "status": "not_tried",
@@ -6608,7 +6636,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 16.562288372876694,
+   "q_sqnr": 10.571753835359337,
    "role": "chained",
    "seq": 268,
    "status": "not_tried",
@@ -6633,7 +6661,7 @@
     "n": 1500
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 23.02902363535011,
+   "q_sqnr": 16.205396277232452,
    "role": "main",
    "seq": 269,
    "status": "not_tried",
@@ -6657,7 +6685,7 @@
     "numel": 45000000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 23.02902363535011,
+   "q_sqnr": 16.205396277232452,
    "role": "chained",
    "seq": 270,
    "status": "not_tried",
@@ -6681,7 +6709,7 @@
     "rows": 30000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 19.37195507314876,
+   "q_sqnr": 11.48181144936684,
    "role": "chained",
    "seq": 271,
    "status": "not_tried",
@@ -6706,7 +6734,7 @@
     "n": 64
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 16.661726063178378,
+   "q_sqnr": 9.038104434601518,
    "role": "chained",
    "seq": 272,
    "status": "not_tried",
@@ -6731,7 +6759,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 20.542197080491192,
+   "q_sqnr": 12.528849879047845,
    "role": "chained",
    "seq": 273,
    "status": "not_tried",
@@ -6755,7 +6783,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 26.03894186717442,
+   "q_sqnr": 22.057078248752614,
    "role": "chained",
    "seq": 274,
    "status": "not_tried",
@@ -6779,7 +6807,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.final_layer_norm",
-   "q_sqnr": 15.145901008343861,
+   "q_sqnr": 9.069809891544695,
    "role": "chained",
    "seq": 275,
    "status": "not_tried",
@@ -6804,7 +6832,7 @@
     "n": 5120
    },
    "path": "model.encoder.layers.*.fc1",
-   "q_sqnr": 33.813994566920954,
+   "q_sqnr": 25.466378958342396,
    "role": "chained",
    "seq": 276,
    "status": "not_tried",
@@ -6826,7 +6854,7 @@
     "numel": 7680000
    },
    "path": "model.encoder.layers.*.activation_fn",
-   "q_sqnr": 25.41847211821224,
+   "q_sqnr": 18.786928313938112,
    "role": "folded_store",
    "seq": 277,
    "status": "not_tried",
@@ -6851,7 +6879,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.fc2",
-   "q_sqnr": 18.13365129032711,
+   "q_sqnr": 12.054184250598137,
    "role": "chained",
    "seq": 278,
    "status": "not_tried",
@@ -6875,7 +6903,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 25.905101726193756,
+   "q_sqnr": 22.049188355725626,
    "role": "chained",
    "seq": 279,
    "status": "not_tried",
@@ -6899,7 +6927,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 15.924671894572061,
+   "q_sqnr": 9.864731367695098,
    "role": "chained",
    "seq": 280,
    "status": "not_tried",
@@ -6924,7 +6952,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 22.583374565966253,
+   "q_sqnr": 16.438039905190408,
    "role": "chained",
    "seq": 281,
    "status": "not_tried",
@@ -6948,7 +6976,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 22.583374565966253,
+   "q_sqnr": 16.438039905190408,
    "role": "folded_const",
    "seq": 282,
    "status": "not_tried",
@@ -6973,7 +7001,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 23.046010239778138,
+   "q_sqnr": 16.930623604542767,
    "role": "chained",
    "seq": 283,
    "status": "not_tried",
@@ -6998,7 +7026,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 15.3760463525342,
+   "q_sqnr": 9.245393812203446,
    "role": "chained",
    "seq": 284,
    "status": "not_tried",
@@ -7023,7 +7051,7 @@
     "n": 1500
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 23.34685585831135,
+   "q_sqnr": 17.331450599036465,
    "role": "chained",
    "seq": 285,
    "status": "not_tried",
@@ -7047,7 +7075,7 @@
     "numel": 45000000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 23.34685585831135,
+   "q_sqnr": 17.331450599036465,
    "role": "chained",
    "seq": 286,
    "status": "not_tried",
@@ -7071,7 +7099,7 @@
     "rows": 30000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 16.88300777193492,
+   "q_sqnr": 9.89979258717852,
    "role": "chained",
    "seq": 287,
    "status": "not_tried",
@@ -7096,7 +7124,7 @@
     "n": 64
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 16.22610504656747,
+   "q_sqnr": 8.358561953612847,
    "role": "chained",
    "seq": 288,
    "status": "not_tried",
@@ -7121,7 +7149,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 19.852378403523517,
+   "q_sqnr": 11.910324438772111,
    "role": "chained",
    "seq": 289,
    "status": "not_tried",
@@ -7145,7 +7173,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 25.765818341619298,
+   "q_sqnr": 21.835969023748095,
    "role": "chained",
    "seq": 290,
    "status": "not_tried",
@@ -7169,7 +7197,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.final_layer_norm",
-   "q_sqnr": 14.943570418932339,
+   "q_sqnr": 8.7578454079516,
    "role": "main",
    "seq": 291,
    "status": "not_tried",
@@ -7194,7 +7222,7 @@
     "n": 5120
    },
    "path": "model.encoder.layers.*.fc1",
-   "q_sqnr": 33.06260740979895,
+   "q_sqnr": 25.3540960027993,
    "role": "chained",
    "seq": 292,
    "status": "not_tried",
@@ -7216,7 +7244,7 @@
     "numel": 7680000
    },
    "path": "model.encoder.layers.*.activation_fn",
-   "q_sqnr": 24.54547428279808,
+   "q_sqnr": 18.134543595742716,
    "role": "folded_store",
    "seq": 293,
    "status": "not_tried",
@@ -7241,7 +7269,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.fc2",
-   "q_sqnr": 17.449589091257486,
+   "q_sqnr": 11.453590932380077,
    "role": "chained",
    "seq": 294,
    "status": "not_tried",
@@ -7265,7 +7293,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 25.697329040349622,
+   "q_sqnr": 21.995656055393617,
    "role": "chained",
    "seq": 295,
    "status": "not_tried",
@@ -7289,7 +7317,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 17.100336242777946,
+   "q_sqnr": 11.082794098751009,
    "role": "chained",
    "seq": 296,
    "status": "not_tried",
@@ -7314,7 +7342,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 23.48165653930665,
+   "q_sqnr": 17.41155595975059,
    "role": "chained",
    "seq": 297,
    "status": "not_tried",
@@ -7338,7 +7366,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 23.48165653930665,
+   "q_sqnr": 17.41155595975059,
    "role": "folded_const",
    "seq": 298,
    "status": "not_tried",
@@ -7363,7 +7391,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 23.197468300778347,
+   "q_sqnr": 17.255135221030887,
    "role": "chained",
    "seq": 299,
    "status": "not_tried",
@@ -7388,7 +7416,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 16.495851364518646,
+   "q_sqnr": 10.393674753430133,
    "role": "chained",
    "seq": 300,
    "status": "not_tried",
@@ -7413,7 +7441,7 @@
     "n": 1500
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 22.24701643130731,
+   "q_sqnr": 16.846522273249153,
    "role": "chained",
    "seq": 301,
    "status": "not_tried",
@@ -7437,7 +7465,7 @@
     "numel": 45000000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 22.24701643130731,
+   "q_sqnr": 16.846522273249153,
    "role": "chained",
    "seq": 302,
    "status": "not_tried",
@@ -7461,7 +7489,7 @@
     "rows": 30000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 15.510992951068934,
+   "q_sqnr": 10.472271725292803,
    "role": "chained",
    "seq": 303,
    "status": "not_tried",
@@ -7486,7 +7514,7 @@
     "n": 64
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 17.99128451709969,
+   "q_sqnr": 10.01513094830557,
    "role": "chained",
    "seq": 304,
    "status": "not_tried",
@@ -7511,7 +7539,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 21.00720123308612,
+   "q_sqnr": 12.955700159463774,
    "role": "chained",
    "seq": 305,
    "status": "not_tried",
@@ -7535,7 +7563,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 25.54305491601407,
+   "q_sqnr": 21.755706727368246,
    "role": "chained",
    "seq": 306,
    "status": "not_tried",
@@ -7559,7 +7587,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.final_layer_norm",
-   "q_sqnr": 14.68373141607939,
+   "q_sqnr": 8.48293669156742,
    "role": "chained",
    "seq": 307,
    "status": "not_tried",
@@ -7584,7 +7612,7 @@
     "n": 5120
    },
    "path": "model.encoder.layers.*.fc1",
-   "q_sqnr": 32.93546885050968,
+   "q_sqnr": 25.276162854583983,
    "role": "chained",
    "seq": 308,
    "status": "not_tried",
@@ -7606,7 +7634,7 @@
     "numel": 7680000
    },
    "path": "model.encoder.layers.*.activation_fn",
-   "q_sqnr": 24.804672951624774,
+   "q_sqnr": 17.819470772361466,
    "role": "folded_store",
    "seq": 309,
    "status": "not_tried",
@@ -7631,7 +7659,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.fc2",
-   "q_sqnr": 16.776080933400372,
+   "q_sqnr": 10.71395930420814,
    "role": "chained",
    "seq": 310,
    "status": "not_tried",
@@ -7655,7 +7683,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 25.45334728958575,
+   "q_sqnr": 21.898551634694915,
    "role": "chained",
    "seq": 311,
    "status": "not_tried",
@@ -7679,7 +7707,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 14.990419203046939,
+   "q_sqnr": 8.725419870398776,
    "role": "chained",
    "seq": 312,
    "status": "not_tried",
@@ -7704,7 +7732,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 21.807377544604883,
+   "q_sqnr": 15.657292733911131,
    "role": "main",
    "seq": 313,
    "status": "not_tried",
@@ -7728,7 +7756,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 21.807377544604883,
+   "q_sqnr": 15.657292733911131,
    "role": "folded_const",
    "seq": 314,
    "status": "not_tried",
@@ -7753,7 +7781,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 22.49859568177468,
+   "q_sqnr": 16.29891223601915,
    "role": "chained",
    "seq": 315,
    "status": "not_tried",
@@ -7778,7 +7806,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 14.349334087705987,
+   "q_sqnr": 8.005304072424975,
    "role": "chained",
    "seq": 316,
    "status": "not_tried",
@@ -7803,7 +7831,7 @@
     "n": 1500
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 21.865453271230756,
+   "q_sqnr": 15.994698507256107,
    "role": "chained",
    "seq": 317,
    "status": "not_tried",
@@ -7827,7 +7855,7 @@
     "numel": 45000000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 21.865453271230756,
+   "q_sqnr": 15.994698507256107,
    "role": "chained",
    "seq": 318,
    "status": "not_tried",
@@ -7851,7 +7879,7 @@
     "rows": 30000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 18.79677342429131,
+   "q_sqnr": 10.387300995282088,
    "role": "chained",
    "seq": 319,
    "status": "not_tried",
@@ -7876,7 +7904,7 @@
     "n": 64
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 17.7794650741853,
+   "q_sqnr": 9.144181825623598,
    "role": "chained",
    "seq": 320,
    "status": "not_tried",
@@ -7901,7 +7929,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 20.801227374281318,
+   "q_sqnr": 12.23300345888452,
    "role": "chained",
    "seq": 321,
    "status": "not_tried",
@@ -7925,7 +7953,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 25.317654638464397,
+   "q_sqnr": 21.683172766613925,
    "role": "chained",
    "seq": 322,
    "status": "not_tried",
@@ -7949,7 +7977,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.final_layer_norm",
-   "q_sqnr": 14.750952462540765,
+   "q_sqnr": 8.46201618975476,
    "role": "chained",
    "seq": 323,
    "status": "not_tried",
@@ -7974,7 +8002,7 @@
     "n": 5120
    },
    "path": "model.encoder.layers.*.fc1",
-   "q_sqnr": 31.995314559283564,
+   "q_sqnr": 24.48119520051945,
    "role": "chained",
    "seq": 324,
    "status": "not_tried",
@@ -7996,7 +8024,7 @@
     "numel": 7680000
    },
    "path": "model.encoder.layers.*.activation_fn",
-   "q_sqnr": 23.86455859351632,
+   "q_sqnr": 17.0875856294673,
    "role": "folded_store",
    "seq": 325,
    "status": "not_tried",
@@ -8021,7 +8049,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.fc2",
-   "q_sqnr": 16.26840164840273,
+   "q_sqnr": 10.447678606488363,
    "role": "chained",
    "seq": 326,
    "status": "not_tried",
@@ -8045,7 +8073,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 25.20177871203124,
+   "q_sqnr": 21.891041925467526,
    "role": "chained",
    "seq": 327,
    "status": "not_tried",
@@ -8069,7 +8097,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 17.267733705723046,
+   "q_sqnr": 11.035299722040335,
    "role": "chained",
    "seq": 328,
    "status": "not_tried",
@@ -8094,7 +8122,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 21.796698408355653,
+   "q_sqnr": 16.110389955979134,
    "role": "chained",
    "seq": 329,
    "status": "not_tried",
@@ -8118,7 +8146,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 21.796698408355653,
+   "q_sqnr": 16.110389955979134,
    "role": "folded_const",
    "seq": 330,
    "status": "not_tried",
@@ -8143,7 +8171,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 22.547829138195624,
+   "q_sqnr": 16.851718226204724,
    "role": "chained",
    "seq": 331,
    "status": "not_tried",
@@ -8168,7 +8196,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 15.562983170424642,
+   "q_sqnr": 9.222951731256849,
    "role": "chained",
    "seq": 332,
    "status": "not_tried",
@@ -8193,7 +8221,7 @@
     "n": 1500
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 22.441399358307244,
+   "q_sqnr": 17.00888135155728,
    "role": "chained",
    "seq": 333,
    "status": "not_tried",
@@ -8217,7 +8245,7 @@
     "numel": 45000000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 22.441399358307244,
+   "q_sqnr": 17.00888135155728,
    "role": "chained",
    "seq": 334,
    "status": "not_tried",
@@ -8241,7 +8269,7 @@
     "rows": 30000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 14.401835060178637,
+   "q_sqnr": 9.571312699660883,
    "role": "main",
    "seq": 335,
    "status": "not_tried",
@@ -8266,7 +8294,7 @@
     "n": 64
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 16.828737472486708,
+   "q_sqnr": 9.115436255732106,
    "role": "chained",
    "seq": 336,
    "status": "not_tried",
@@ -8291,7 +8319,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 18.2754433318411,
+   "q_sqnr": 10.676449984277191,
    "role": "chained",
    "seq": 337,
    "status": "not_tried",
@@ -8315,7 +8343,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 25.049078240159353,
+   "q_sqnr": 21.633035247148076,
    "role": "chained",
    "seq": 338,
    "status": "not_tried",
@@ -8339,7 +8367,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.final_layer_norm",
-   "q_sqnr": 14.532336709175222,
+   "q_sqnr": 7.966503677148715,
    "role": "chained",
    "seq": 339,
    "status": "not_tried",
@@ -8364,7 +8392,7 @@
     "n": 5120
    },
    "path": "model.encoder.layers.*.fc1",
-   "q_sqnr": 29.809845810084177,
+   "q_sqnr": 22.52464822634151,
    "role": "chained",
    "seq": 340,
    "status": "not_tried",
@@ -8386,7 +8414,7 @@
     "numel": 7680000
    },
    "path": "model.encoder.layers.*.activation_fn",
-   "q_sqnr": 17.24307655151088,
+   "q_sqnr": 14.085829588111949,
    "role": "folded_store",
    "seq": 341,
    "status": "not_tried",
@@ -8411,7 +8439,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.fc2",
-   "q_sqnr": 14.471865932779505,
+   "q_sqnr": 12.092254188515772,
    "role": "chained",
    "seq": 342,
    "status": "not_tried",
@@ -8435,7 +8463,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 15.306526736012046,
+   "q_sqnr": 12.935560147128328,
    "role": "chained",
    "seq": 343,
    "status": "not_tried",
@@ -8459,7 +8487,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 14.563980111019106,
+   "q_sqnr": 8.9901596289248,
    "role": "chained",
    "seq": 344,
    "status": "not_tried",
@@ -8484,7 +8512,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 20.230637740088454,
+   "q_sqnr": 14.856569601058599,
    "role": "chained",
    "seq": 345,
    "status": "not_tried",
@@ -8508,7 +8536,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 20.230637740088454,
+   "q_sqnr": 14.856569601058599,
    "role": "folded_const",
    "seq": 346,
    "status": "not_tried",
@@ -8533,7 +8561,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 21.227661723509364,
+   "q_sqnr": 15.913636359416525,
    "role": "chained",
    "seq": 347,
    "status": "not_tried",
@@ -8558,7 +8586,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 13.422768806530707,
+   "q_sqnr": 7.735356125096645,
    "role": "chained",
    "seq": 348,
    "status": "not_tried",
@@ -8583,7 +8611,7 @@
     "n": 1500
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 20.91768406343171,
+   "q_sqnr": 16.229708127621013,
    "role": "chained",
    "seq": 349,
    "status": "not_tried",
@@ -8607,7 +8635,7 @@
     "numel": 45000000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 20.91768406343171,
+   "q_sqnr": 16.229708127621013,
    "role": "chained",
    "seq": 350,
    "status": "not_tried",
@@ -8631,7 +8659,7 @@
     "rows": 30000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 11.555021321767715,
+   "q_sqnr": 7.076019315442341,
    "role": "chained",
    "seq": 351,
    "status": "not_tried",
@@ -8656,7 +8684,7 @@
     "n": 64
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 14.426005470570455,
+   "q_sqnr": 7.507983558935347,
    "role": "chained",
    "seq": 352,
    "status": "not_tried",
@@ -8681,7 +8709,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 15.954362146560296,
+   "q_sqnr": 9.093713674441915,
    "role": "chained",
    "seq": 353,
    "status": "not_tried",
@@ -8705,7 +8733,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 15.302166121568934,
+   "q_sqnr": 12.92925160296175,
    "role": "chained",
    "seq": 354,
    "status": "not_tried",
@@ -8729,7 +8757,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.final_layer_norm",
-   "q_sqnr": 12.356939386539754,
+   "q_sqnr": 7.358779889622987,
    "role": "chained",
    "seq": 355,
    "status": "not_tried",
@@ -8754,7 +8782,7 @@
     "n": 5120
    },
    "path": "model.encoder.layers.*.fc1",
-   "q_sqnr": 27.463047398450406,
+   "q_sqnr": 21.90764907887339,
    "role": "main",
    "seq": 356,
    "status": "not_tried",
@@ -8776,7 +8804,7 @@
     "numel": 7680000
    },
    "path": "model.encoder.layers.*.activation_fn",
-   "q_sqnr": 22.56716260122326,
+   "q_sqnr": 17.053145979196692,
    "role": "folded_store",
    "seq": 357,
    "status": "not_tried",
@@ -8801,7 +8829,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.fc2",
-   "q_sqnr": 12.839238723156729,
+   "q_sqnr": 7.639310760150023,
    "role": "chained",
    "seq": 358,
    "status": "not_tried",
@@ -8825,7 +8853,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 15.289837185989894,
+   "q_sqnr": 12.92217152786765,
    "role": "chained",
    "seq": 359,
    "status": "not_tried",
@@ -8849,7 +8877,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 13.446717505476457,
+   "q_sqnr": 8.906570819356503,
    "role": "chained",
    "seq": 360,
    "status": "not_tried",
@@ -8874,7 +8902,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 17.34393537561261,
+   "q_sqnr": 12.716725590683275,
    "role": "chained",
    "seq": 361,
    "status": "not_tried",
@@ -8898,7 +8926,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 17.34393537561261,
+   "q_sqnr": 12.716725590683275,
    "role": "folded_const",
    "seq": 362,
    "status": "not_tried",
@@ -8923,7 +8951,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 19.368021823217887,
+   "q_sqnr": 14.796507524212297,
    "role": "chained",
    "seq": 363,
    "status": "not_tried",
@@ -8948,7 +8976,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 11.78604090498901,
+   "q_sqnr": 7.208430384625895,
    "role": "chained",
    "seq": 364,
    "status": "not_tried",
@@ -8973,7 +9001,7 @@
     "n": 1500
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 19.37405399320412,
+   "q_sqnr": 15.090101158229478,
    "role": "chained",
    "seq": 365,
    "status": "not_tried",
@@ -8997,7 +9025,7 @@
     "numel": 45000000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 19.37405399320412,
+   "q_sqnr": 15.090101158229478,
    "role": "chained",
    "seq": 366,
    "status": "not_tried",
@@ -9021,7 +9049,7 @@
     "rows": 30000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 13.07219581661045,
+   "q_sqnr": 8.631584226086222,
    "role": "chained",
    "seq": 367,
    "status": "not_tried",
@@ -9046,7 +9074,7 @@
     "n": 64
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 13.265366646779722,
+   "q_sqnr": 7.077814011632939,
    "role": "chained",
    "seq": 368,
    "status": "not_tried",
@@ -9071,7 +9099,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 14.887360616957872,
+   "q_sqnr": 8.814058721532032,
    "role": "chained",
    "seq": 369,
    "status": "not_tried",
@@ -9095,7 +9123,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 15.286023061335083,
+   "q_sqnr": 12.919250553570727,
    "role": "chained",
    "seq": 370,
    "status": "not_tried",
@@ -9119,7 +9147,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.final_layer_norm",
-   "q_sqnr": 11.62011068346606,
+   "q_sqnr": 7.66043405804316,
    "role": "chained",
    "seq": 371,
    "status": "not_tried",
@@ -9144,7 +9172,7 @@
     "n": 5120
    },
    "path": "model.encoder.layers.*.fc1",
-   "q_sqnr": 26.2607145235307,
+   "q_sqnr": 21.783312116639337,
    "role": "chained",
    "seq": 372,
    "status": "not_tried",
@@ -9166,7 +9194,7 @@
     "numel": 7680000
    },
    "path": "model.encoder.layers.*.activation_fn",
-   "q_sqnr": 19.81522249445749,
+   "q_sqnr": 15.416073895604228,
    "role": "folded_store",
    "seq": 373,
    "status": "not_tried",
@@ -9191,7 +9219,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.fc2",
-   "q_sqnr": 11.923552903410656,
+   "q_sqnr": 7.748874454818332,
    "role": "chained",
    "seq": 374,
    "status": "not_tried",
@@ -9215,7 +9243,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 15.266509599978374,
+   "q_sqnr": 12.90049432945005,
    "role": "chained",
    "seq": 375,
    "status": "not_tried",
@@ -9239,7 +9267,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 12.660118187529292,
+   "q_sqnr": 8.822031295172872,
    "role": "chained",
    "seq": 376,
    "status": "not_tried",
@@ -9264,7 +9292,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 15.778839169654082,
+   "q_sqnr": 11.777082111740198,
    "role": "chained",
    "seq": 377,
    "status": "not_tried",
@@ -9288,7 +9316,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 15.778839169654082,
+   "q_sqnr": 11.777082111740198,
    "role": "folded_const",
    "seq": 378,
    "status": "not_tried",
@@ -9313,7 +9341,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 17.747348697632482,
+   "q_sqnr": 13.833063267558519,
    "role": "main",
    "seq": 379,
    "status": "not_tried",
@@ -9338,7 +9366,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 11.372387185526549,
+   "q_sqnr": 7.41241587169557,
    "role": "chained",
    "seq": 380,
    "status": "not_tried",
@@ -9363,7 +9391,7 @@
     "n": 1500
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 17.554689603342155,
+   "q_sqnr": 13.73994273158974,
    "role": "chained",
    "seq": 381,
    "status": "not_tried",
@@ -9387,7 +9415,7 @@
     "numel": 45000000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 17.554689603342155,
+   "q_sqnr": 13.73994273158974,
    "role": "chained",
    "seq": 382,
    "status": "not_tried",
@@ -9411,7 +9439,7 @@
     "rows": 30000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 10.504205524272212,
+   "q_sqnr": 7.153275169385928,
    "role": "chained",
    "seq": 383,
    "status": "not_tried",
@@ -9436,7 +9464,7 @@
     "n": 64
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 12.029102764525081,
+   "q_sqnr": 7.362796413755017,
    "role": "chained",
    "seq": 384,
    "status": "not_tried",
@@ -9461,7 +9489,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 13.059020683623677,
+   "q_sqnr": 8.386343210439458,
    "role": "chained",
    "seq": 385,
    "status": "not_tried",
@@ -9485,7 +9513,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 15.261394734279946,
+   "q_sqnr": 12.895813875372879,
    "role": "chained",
    "seq": 386,
    "status": "not_tried",
@@ -9509,7 +9537,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.final_layer_norm",
-   "q_sqnr": 10.262303425678848,
+   "q_sqnr": 6.928347983462518,
    "role": "chained",
    "seq": 387,
    "status": "not_tried",
@@ -9534,7 +9562,7 @@
     "n": 5120
    },
    "path": "model.encoder.layers.*.fc1",
-   "q_sqnr": 23.765778194057546,
+   "q_sqnr": 19.961110507313688,
    "role": "chained",
    "seq": 388,
    "status": "not_tried",
@@ -9556,7 +9584,7 @@
     "numel": 7680000
    },
    "path": "model.encoder.layers.*.activation_fn",
-   "q_sqnr": 18.395235815639655,
+   "q_sqnr": 14.610133866376216,
    "role": "folded_store",
    "seq": 389,
    "status": "not_tried",
@@ -9581,7 +9609,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.fc2",
-   "q_sqnr": 9.869604414720204,
+   "q_sqnr": 6.2265809534779795,
    "role": "chained",
    "seq": 390,
    "status": "not_tried",
@@ -9605,7 +9633,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 15.251024853011732,
+   "q_sqnr": 12.87908145715939,
    "role": "chained",
    "seq": 391,
    "status": "not_tried",
@@ -9629,7 +9657,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 10.358072267534201,
+   "q_sqnr": 7.089305658877917,
    "role": "chained",
    "seq": 392,
    "status": "not_tried",
@@ -9654,7 +9682,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 13.517028537383153,
+   "q_sqnr": 9.968868618360192,
    "role": "chained",
    "seq": 393,
    "status": "not_tried",
@@ -9678,7 +9706,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 13.517028537383153,
+   "q_sqnr": 9.968868618360192,
    "role": "folded_const",
    "seq": 394,
    "status": "not_tried",
@@ -9703,7 +9731,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 15.602117886658162,
+   "q_sqnr": 12.158114939388419,
    "role": "chained",
    "seq": 395,
    "status": "not_tried",
@@ -9728,7 +9756,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 9.43154579071367,
+   "q_sqnr": 6.028437395323011,
    "role": "chained",
    "seq": 396,
    "status": "not_tried",
@@ -9753,7 +9781,7 @@
     "n": 1500
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 16.193435159808445,
+   "q_sqnr": 12.89584575217113,
    "role": "chained",
    "seq": 397,
    "status": "not_tried",
@@ -9777,7 +9805,7 @@
     "numel": 45000000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 16.193435159808445,
+   "q_sqnr": 12.89584575217113,
    "role": "chained",
    "seq": 398,
    "status": "not_tried",
@@ -9801,7 +9829,7 @@
     "rows": 30000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 10.588500411048807,
+   "q_sqnr": 7.357772156260505,
    "role": "chained",
    "seq": 399,
    "status": "not_tried",
@@ -9826,7 +9854,7 @@
     "n": 64
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 10.284711543201599,
+   "q_sqnr": 6.534993385204267,
    "role": "main",
    "seq": 400,
    "status": "not_tried",
@@ -9851,7 +9879,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 11.642092801815455,
+   "q_sqnr": 8.086540611028715,
    "role": "chained",
    "seq": 401,
    "status": "not_tried",
@@ -9875,7 +9903,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 15.24702437203155,
+   "q_sqnr": 12.876609525211922,
    "role": "chained",
    "seq": 402,
    "status": "not_tried",
@@ -9899,7 +9927,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.final_layer_norm",
-   "q_sqnr": 9.646410675225312,
+   "q_sqnr": 6.7567815759379695,
    "role": "chained",
    "seq": 403,
    "status": "not_tried",
@@ -9924,7 +9952,7 @@
     "n": 5120
    },
    "path": "model.encoder.layers.*.fc1",
-   "q_sqnr": 22.701595591503036,
+   "q_sqnr": 19.444923591963114,
    "role": "chained",
    "seq": 404,
    "status": "not_tried",
@@ -9946,7 +9974,7 @@
     "numel": 7680000
    },
    "path": "model.encoder.layers.*.activation_fn",
-   "q_sqnr": 17.248501941667712,
+   "q_sqnr": 14.062651409360598,
    "role": "folded_store",
    "seq": 405,
    "status": "not_tried",
@@ -9971,7 +9999,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.fc2",
-   "q_sqnr": 9.083739786641052,
+   "q_sqnr": 6.035588074676043,
    "role": "chained",
    "seq": 406,
    "status": "not_tried",
@@ -9995,7 +10023,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 15.237313637970594,
+   "q_sqnr": 12.866118471286628,
    "role": "chained",
    "seq": 407,
    "status": "not_tried",
@@ -10019,7 +10047,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 9.742602070341128,
+   "q_sqnr": 6.871545316947091,
    "role": "chained",
    "seq": 408,
    "status": "not_tried",
@@ -10044,7 +10072,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 12.092337849078671,
+   "q_sqnr": 8.94979686379742,
    "role": "chained",
    "seq": 409,
    "status": "not_tried",
@@ -10068,7 +10096,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 12.092337849078671,
+   "q_sqnr": 8.94979686379742,
    "role": "folded_const",
    "seq": 410,
    "status": "not_tried",
@@ -10093,7 +10121,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 14.550463283770135,
+   "q_sqnr": 11.459358729304398,
    "role": "chained",
    "seq": 411,
    "status": "not_tried",
@@ -10118,7 +10146,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 8.313716307825976,
+   "q_sqnr": 5.378160357948486,
    "role": "chained",
    "seq": 412,
    "status": "not_tried",
@@ -10143,7 +10171,7 @@
     "n": 1500
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 15.575725685530035,
+   "q_sqnr": 12.609657124906757,
    "role": "chained",
    "seq": 413,
    "status": "not_tried",
@@ -10167,7 +10195,7 @@
     "numel": 45000000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 15.575725685530035,
+   "q_sqnr": 12.609657124906757,
    "role": "chained",
    "seq": 414,
    "status": "not_tried",
@@ -10191,7 +10219,7 @@
     "rows": 30000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 6.8487174144761624,
+   "q_sqnr": 5.425005786139618,
    "role": "chained",
    "seq": 415,
    "status": "not_tried",
@@ -10216,7 +10244,7 @@
     "n": 64
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 8.45000770096525,
+   "q_sqnr": 5.77061440556911,
    "role": "chained",
    "seq": 416,
    "status": "not_tried",
@@ -10241,7 +10269,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 9.548448276109728,
+   "q_sqnr": 6.907871047968462,
    "role": "chained",
    "seq": 417,
    "status": "not_tried",
@@ -10265,7 +10293,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 15.231675938332526,
+   "q_sqnr": 12.863368623946897,
    "role": "chained",
    "seq": 418,
    "status": "not_tried",
@@ -10289,7 +10317,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.final_layer_norm",
-   "q_sqnr": 8.770306844753199,
+   "q_sqnr": 6.266693118008947,
    "role": "chained",
    "seq": 419,
    "status": "not_tried",
@@ -10314,7 +10342,7 @@
     "n": 5120
    },
    "path": "model.encoder.layers.*.fc1",
-   "q_sqnr": 20.919464638516978,
+   "q_sqnr": 18.142899446204066,
    "role": "chained",
    "seq": 420,
    "status": "not_tried",
@@ -10336,7 +10364,7 @@
     "numel": 7680000
    },
    "path": "model.encoder.layers.*.activation_fn",
-   "q_sqnr": 15.69758759269964,
+   "q_sqnr": 12.97145683138012,
    "role": "folded_store",
    "seq": 421,
    "status": "not_tried",
@@ -10361,7 +10389,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.fc2",
-   "q_sqnr": 7.9788226358458,
+   "q_sqnr": 5.327986023845275,
    "role": "main",
    "seq": 422,
    "status": "not_tried",
@@ -10385,7 +10413,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 15.219084690808566,
+   "q_sqnr": 12.84981852014851,
    "role": "chained",
    "seq": 423,
    "status": "not_tried",
@@ -10409,7 +10437,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 8.742442481322133,
+   "q_sqnr": 6.196652995955274,
    "role": "chained",
    "seq": 424,
    "status": "not_tried",
@@ -10434,7 +10462,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 10.960847977494414,
+   "q_sqnr": 8.121087298897006,
    "role": "chained",
    "seq": 425,
    "status": "not_tried",
@@ -10458,7 +10486,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 10.960847977494414,
+   "q_sqnr": 8.121087298897006,
    "role": "folded_const",
    "seq": 426,
    "status": "not_tried",
@@ -10483,7 +10511,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 13.468087559946639,
+   "q_sqnr": 10.623579285525047,
    "role": "chained",
    "seq": 427,
    "status": "not_tried",
@@ -10508,7 +10536,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 7.373176032744206,
+   "q_sqnr": 4.767559949457148,
    "role": "chained",
    "seq": 428,
    "status": "not_tried",
@@ -10533,7 +10561,7 @@
     "n": 1500
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 14.713698336394298,
+   "q_sqnr": 12.03917872785789,
    "role": "chained",
    "seq": 429,
    "status": "not_tried",
@@ -10557,7 +10585,7 @@
     "numel": 45000000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 14.713698336394298,
+   "q_sqnr": 12.03917872785789,
    "role": "chained",
    "seq": 430,
    "status": "not_tried",
@@ -10581,7 +10609,7 @@
     "rows": 30000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 9.371675670892959,
+   "q_sqnr": 6.868669397106936,
    "role": "chained",
    "seq": 431,
    "status": "not_tried",
@@ -10606,7 +10634,7 @@
     "n": 64
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 8.356944977503842,
+   "q_sqnr": 5.539674292192647,
    "role": "chained",
    "seq": 432,
    "status": "not_tried",
@@ -10631,7 +10659,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 9.590291973266824,
+   "q_sqnr": 6.820220428789957,
    "role": "chained",
    "seq": 433,
    "status": "not_tried",
@@ -10655,7 +10683,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 15.216328387274933,
+   "q_sqnr": 12.848828825925175,
    "role": "chained",
    "seq": 434,
    "status": "not_tried",
@@ -10679,7 +10707,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.final_layer_norm",
-   "q_sqnr": 8.046936476118685,
+   "q_sqnr": 5.700098233024469,
    "role": "chained",
    "seq": 435,
    "status": "not_tried",
@@ -10704,7 +10732,7 @@
     "n": 5120
    },
    "path": "model.encoder.layers.*.fc1",
-   "q_sqnr": 20.01784671989569,
+   "q_sqnr": 17.3520375356954,
    "role": "chained",
    "seq": 436,
    "status": "not_tried",
@@ -10726,7 +10754,7 @@
     "numel": 7680000
    },
    "path": "model.encoder.layers.*.activation_fn",
-   "q_sqnr": 13.615439980698094,
+   "q_sqnr": 11.018161096563603,
    "role": "folded_store",
    "seq": 437,
    "status": "not_tried",
@@ -10751,7 +10779,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.fc2",
-   "q_sqnr": 7.115709242523031,
+   "q_sqnr": 4.657387977939957,
    "role": "chained",
    "seq": 438,
    "status": "not_tried",
@@ -10775,7 +10803,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 15.186721338528091,
+   "q_sqnr": 12.820714637895684,
    "role": "chained",
    "seq": 439,
    "status": "not_tried",
@@ -10799,7 +10827,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 7.329034335765387,
+   "q_sqnr": 5.0099930753639645,
    "role": "chained",
    "seq": 440,
    "status": "not_tried",
@@ -10824,7 +10852,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 10.227366610361576,
+   "q_sqnr": 7.6609867066508786,
    "role": "chained",
    "seq": 441,
    "status": "not_tried",
@@ -10848,7 +10876,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 10.227366610361576,
+   "q_sqnr": 7.6609867066508786,
    "role": "folded_const",
    "seq": 442,
    "status": "not_tried",
@@ -10873,7 +10901,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 12.430892571496074,
+   "q_sqnr": 9.788810346061524,
    "role": "chained",
    "seq": 443,
    "status": "not_tried",
@@ -10898,7 +10926,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 6.666550498291377,
+   "q_sqnr": 4.261469252264996,
    "role": "main",
    "seq": 444,
    "status": "not_tried",
@@ -10923,7 +10951,7 @@
     "n": 1500
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 14.069727085572094,
+   "q_sqnr": 11.490205088392342,
    "role": "chained",
    "seq": 445,
    "status": "not_tried",
@@ -10947,7 +10975,7 @@
     "numel": 45000000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 14.069727085572094,
+   "q_sqnr": 11.490205088392342,
    "role": "chained",
    "seq": 446,
    "status": "not_tried",
@@ -10971,7 +10999,7 @@
     "rows": 30000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 8.99680127205615,
+   "q_sqnr": 6.607870470220311,
    "role": "chained",
    "seq": 447,
    "status": "not_tried",
@@ -10996,7 +11024,7 @@
     "n": 64
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 7.662880510299437,
+   "q_sqnr": 5.198903519085272,
    "role": "chained",
    "seq": 448,
    "status": "not_tried",
@@ -11021,7 +11049,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 8.737062732945875,
+   "q_sqnr": 6.3207954385303475,
    "role": "chained",
    "seq": 449,
    "status": "not_tried",
@@ -11045,7 +11073,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 15.181395026666692,
+   "q_sqnr": 12.816463012440902,
    "role": "chained",
    "seq": 450,
    "status": "not_tried",
@@ -11069,7 +11097,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.final_layer_norm",
-   "q_sqnr": 7.343718863356523,
+   "q_sqnr": 5.1440855857626,
    "role": "chained",
    "seq": 451,
    "status": "not_tried",
@@ -11094,7 +11122,7 @@
     "n": 5120
    },
    "path": "model.encoder.layers.*.fc1",
-   "q_sqnr": 18.197844573484694,
+   "q_sqnr": 15.852857250415738,
    "role": "chained",
    "seq": 452,
    "status": "not_tried",
@@ -11116,7 +11144,7 @@
     "numel": 7680000
    },
    "path": "model.encoder.layers.*.activation_fn",
-   "q_sqnr": 13.12102785992974,
+   "q_sqnr": 10.868301353699476,
    "role": "folded_store",
    "seq": 453,
    "status": "not_tried",
@@ -11141,7 +11169,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.fc2",
-   "q_sqnr": 6.36750902999001,
+   "q_sqnr": 4.24330296798866,
    "role": "chained",
    "seq": 454,
    "status": "not_tried",
@@ -11165,7 +11193,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 15.145803962566351,
+   "q_sqnr": 12.782669584361152,
    "role": "chained",
    "seq": 455,
    "status": "not_tried",
@@ -11189,7 +11217,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 7.462713068610568,
+   "q_sqnr": 5.27445876498875,
    "role": "chained",
    "seq": 456,
    "status": "not_tried",
@@ -11214,7 +11242,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 9.810077232551876,
+   "q_sqnr": 7.41515299965056,
    "role": "chained",
    "seq": 457,
    "status": "not_tried",
@@ -11238,7 +11266,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 9.810077232551876,
+   "q_sqnr": 7.41515299965056,
    "role": "folded_const",
    "seq": 458,
    "status": "not_tried",
@@ -11263,7 +11291,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 11.623948395034525,
+   "q_sqnr": 9.185027563576337,
    "role": "chained",
    "seq": 459,
    "status": "not_tried",
@@ -11288,7 +11316,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 6.1154220002214785,
+   "q_sqnr": 3.9050840698733724,
    "role": "chained",
    "seq": 460,
    "status": "not_tried",
@@ -11313,7 +11341,7 @@
     "n": 1500
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 13.608972357114242,
+   "q_sqnr": 11.132452108113819,
    "role": "chained",
    "seq": 461,
    "status": "not_tried",
@@ -11337,7 +11365,7 @@
     "numel": 45000000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 13.608972357114242,
+   "q_sqnr": 11.132452108113819,
    "role": "chained",
    "seq": 462,
    "status": "not_tried",
@@ -11361,7 +11389,7 @@
     "rows": 30000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 7.151338214100233,
+   "q_sqnr": 4.990977291916265,
    "role": "chained",
    "seq": 463,
    "status": "not_tried",
@@ -11386,7 +11414,7 @@
     "n": 64
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 7.473907864386371,
+   "q_sqnr": 5.1969943064655055,
    "role": "chained",
    "seq": 464,
    "status": "not_tried",
@@ -11411,7 +11439,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 7.827025815980208,
+   "q_sqnr": 5.613562658631479,
    "role": "main",
    "seq": 465,
    "status": "not_tried",
@@ -11435,7 +11463,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 15.142836939488797,
+   "q_sqnr": 12.780500112061148,
    "role": "chained",
    "seq": 466,
    "status": "not_tried",
@@ -11459,7 +11487,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.final_layer_norm",
-   "q_sqnr": 6.657981424201449,
+   "q_sqnr": 4.600493114443357,
    "role": "chained",
    "seq": 467,
    "status": "not_tried",
@@ -11484,7 +11512,7 @@
     "n": 5120
    },
    "path": "model.encoder.layers.*.fc1",
-   "q_sqnr": 16.464711638303452,
+   "q_sqnr": 14.314626578388246,
    "role": "chained",
    "seq": 468,
    "status": "not_tried",
@@ -11506,7 +11534,7 @@
     "numel": 7680000
    },
    "path": "model.encoder.layers.*.activation_fn",
-   "q_sqnr": 11.193267176788433,
+   "q_sqnr": 9.22793147531356,
    "role": "folded_store",
    "seq": 469,
    "status": "not_tried",
@@ -11531,7 +11559,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.fc2",
-   "q_sqnr": 4.513667232485731,
+   "q_sqnr": 2.8367554696034762,
    "role": "chained",
    "seq": 470,
    "status": "not_tried",
@@ -11555,7 +11583,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 15.021489059829358,
+   "q_sqnr": 12.677526975474589,
    "role": "chained",
    "seq": 471,
    "status": "not_tried",
@@ -11579,7 +11607,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 6.444901826274933,
+   "q_sqnr": 4.408583492452268,
    "role": "chained",
    "seq": 472,
    "status": "not_tried",
@@ -11604,7 +11632,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 8.522201724031547,
+   "q_sqnr": 6.339749826142657,
    "role": "chained",
    "seq": 473,
    "status": "not_tried",
@@ -11628,7 +11656,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 8.522201724031547,
+   "q_sqnr": 6.339749826142657,
    "role": "folded_const",
    "seq": 474,
    "status": "not_tried",
@@ -11653,7 +11681,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 10.678027979348233,
+   "q_sqnr": 8.462524999443467,
    "role": "chained",
    "seq": 475,
    "status": "not_tried",
@@ -11678,7 +11706,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 5.220583732615099,
+   "q_sqnr": 3.1942887887773237,
    "role": "chained",
    "seq": 476,
    "status": "not_tried",
@@ -11703,7 +11731,7 @@
     "n": 1500
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 13.215433696941572,
+   "q_sqnr": 10.953705853129918,
    "role": "chained",
    "seq": 477,
    "status": "not_tried",
@@ -11727,7 +11755,7 @@
     "numel": 45000000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 13.215433696941572,
+   "q_sqnr": 10.953705853129918,
    "role": "chained",
    "seq": 478,
    "status": "not_tried",
@@ -11751,7 +11779,7 @@
     "rows": 30000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 7.917671730915324,
+   "q_sqnr": 6.122592031238002,
    "role": "chained",
    "seq": 479,
    "status": "not_tried",
@@ -11776,7 +11804,7 @@
     "n": 64
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 6.653289402527514,
+   "q_sqnr": 4.70926522427834,
    "role": "chained",
    "seq": 480,
    "status": "not_tried",
@@ -11801,7 +11829,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 6.885789494485632,
+   "q_sqnr": 4.995320398438857,
    "role": "chained",
    "seq": 481,
    "status": "not_tried",
@@ -11825,7 +11853,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 15.012951274877508,
+   "q_sqnr": 12.672390893510716,
    "role": "chained",
    "seq": 482,
    "status": "not_tried",
@@ -11849,7 +11877,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.final_layer_norm",
-   "q_sqnr": 6.066502746250999,
+   "q_sqnr": 4.160616111264472,
    "role": "chained",
    "seq": 483,
    "status": "not_tried",
@@ -11874,7 +11902,7 @@
     "n": 5120
    },
    "path": "model.encoder.layers.*.fc1",
-   "q_sqnr": 15.370932567916393,
+   "q_sqnr": 13.401102946629809,
    "role": "chained",
    "seq": 484,
    "status": "not_tried",
@@ -11896,7 +11924,7 @@
     "numel": 7680000
    },
    "path": "model.encoder.layers.*.activation_fn",
-   "q_sqnr": 10.665228635431134,
+   "q_sqnr": 8.802634175667247,
    "role": "folded_store",
    "seq": 485,
    "status": "not_tried",
@@ -11921,7 +11949,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.fc2",
-   "q_sqnr": 4.7148815051694735,
+   "q_sqnr": 2.95226071657755,
    "role": "chained",
    "seq": 486,
    "status": "not_tried",
@@ -11945,7 +11973,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 14.868130795661475,
+   "q_sqnr": 12.550357750713893,
    "role": "chained",
    "seq": 487,
    "status": "not_tried",
@@ -11969,7 +11997,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 6.118062460398157,
+   "q_sqnr": 4.193782840695678,
    "role": "main",
    "seq": 488,
    "status": "not_tried",
@@ -11994,7 +12022,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 7.879262179937985,
+   "q_sqnr": 5.838383316594358,
    "role": "chained",
    "seq": 489,
    "status": "not_tried",
@@ -12018,7 +12046,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 7.879262179937985,
+   "q_sqnr": 5.838383316594358,
    "role": "folded_const",
    "seq": 490,
    "status": "not_tried",
@@ -12043,7 +12071,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 10.099806646286286,
+   "q_sqnr": 8.019794044269695,
    "role": "chained",
    "seq": 491,
    "status": "not_tried",
@@ -12068,7 +12096,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 4.698203194346457,
+   "q_sqnr": 2.7629548146823115,
    "role": "chained",
    "seq": 492,
    "status": "not_tried",
@@ -12093,7 +12121,7 @@
     "n": 1500
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 12.40717691629615,
+   "q_sqnr": 10.293633917119676,
    "role": "chained",
    "seq": 493,
    "status": "not_tried",
@@ -12117,7 +12145,7 @@
     "numel": 45000000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 12.40717691629615,
+   "q_sqnr": 10.293633917119676,
    "role": "chained",
    "seq": 494,
    "status": "not_tried",
@@ -12141,7 +12169,7 @@
     "rows": 30000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 6.886897567835022,
+   "q_sqnr": 4.868426097600051,
    "role": "chained",
    "seq": 495,
    "status": "not_tried",
@@ -12166,7 +12194,7 @@
     "n": 64
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 6.06587162452631,
+   "q_sqnr": 4.017104792804547,
    "role": "chained",
    "seq": 496,
    "status": "not_tried",
@@ -12191,7 +12219,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 6.227296034981794,
+   "q_sqnr": 4.24597157246628,
    "role": "chained",
    "seq": 497,
    "status": "not_tried",
@@ -12215,7 +12243,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 14.855382836195464,
+   "q_sqnr": 12.538832998668536,
    "role": "chained",
    "seq": 498,
    "status": "not_tried",
@@ -12239,7 +12267,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.final_layer_norm",
-   "q_sqnr": 5.428894273404525,
+   "q_sqnr": 3.597441433883326,
    "role": "chained",
    "seq": 499,
    "status": "not_tried",
@@ -12264,7 +12292,7 @@
     "n": 5120
    },
    "path": "model.encoder.layers.*.fc1",
-   "q_sqnr": 13.712040264119999,
+   "q_sqnr": 11.809698354929434,
    "role": "chained",
    "seq": 500,
    "status": "not_tried",
@@ -12286,7 +12314,7 @@
     "numel": 7680000
    },
    "path": "model.encoder.layers.*.activation_fn",
-   "q_sqnr": 8.427446174315603,
+   "q_sqnr": 6.685029221025195,
    "role": "folded_store",
    "seq": 501,
    "status": "not_tried",
@@ -12311,7 +12339,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.fc2",
-   "q_sqnr": 3.8318908201238795,
+   "q_sqnr": 2.164492931767103,
    "role": "chained",
    "seq": 502,
    "status": "not_tried",
@@ -12335,7 +12363,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 14.54497770265959,
+   "q_sqnr": 12.27582853104569,
    "role": "chained",
    "seq": 503,
    "status": "not_tried",
@@ -12359,7 +12387,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 5.194951763235104,
+   "q_sqnr": 3.386474522165191,
    "role": "chained",
    "seq": 504,
    "status": "not_tried",
@@ -12384,7 +12412,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 6.831901394832692,
+   "q_sqnr": 4.917127591427213,
    "role": "chained",
    "seq": 505,
    "status": "not_tried",
@@ -12408,7 +12436,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 6.831901394832692,
+   "q_sqnr": 4.917127591427213,
    "role": "folded_const",
    "seq": 506,
    "status": "not_tried",
@@ -12433,7 +12461,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 8.297180475880436,
+   "q_sqnr": 6.357337740448191,
    "role": "chained",
    "seq": 507,
    "status": "not_tried",
@@ -12458,7 +12486,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 4.3248770610879514,
+   "q_sqnr": 2.495216743879338,
    "role": "chained",
    "seq": 508,
    "status": "not_tried",
@@ -12483,7 +12511,7 @@
     "n": 1500
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 10.181143632222314,
+   "q_sqnr": 8.300034569688968,
    "role": "main",
    "seq": 509,
    "status": "not_tried",
@@ -12507,7 +12535,7 @@
     "numel": 45000000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 10.181143632222314,
+   "q_sqnr": 8.300034569688968,
    "role": "chained",
    "seq": 510,
    "status": "not_tried",
@@ -12531,7 +12559,7 @@
     "rows": 30000
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 5.411878748431538,
+   "q_sqnr": 3.609172074096123,
    "role": "chained",
    "seq": 511,
    "status": "not_tried",
@@ -12556,7 +12584,7 @@
     "n": 64
    },
    "path": "model.encoder.layers.*.self_attn",
-   "q_sqnr": 6.134950162420047,
+   "q_sqnr": 4.141741510145376,
    "role": "chained",
    "seq": 512,
    "status": "not_tried",
@@ -12581,7 +12609,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 5.716308801925124,
+   "q_sqnr": 3.7780976653610194,
    "role": "chained",
    "seq": 513,
    "status": "not_tried",
@@ -12605,7 +12633,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 14.540951905143107,
+   "q_sqnr": 12.272365540673052,
    "role": "chained",
    "seq": 514,
    "status": "not_tried",
@@ -12629,7 +12657,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layers.*.final_layer_norm",
-   "q_sqnr": 4.5285000303783685,
+   "q_sqnr": 2.7772381604941905,
    "role": "chained",
    "seq": 515,
    "status": "not_tried",
@@ -12654,7 +12682,7 @@
     "n": 5120
    },
    "path": "model.encoder.layers.*.fc1",
-   "q_sqnr": 11.751759096161061,
+   "q_sqnr": 9.941571667128425,
    "role": "chained",
    "seq": 516,
    "status": "not_tried",
@@ -12676,7 +12704,7 @@
     "numel": 7680000
    },
    "path": "model.encoder.layers.*.activation_fn",
-   "q_sqnr": 5.607470507890673,
+   "q_sqnr": 4.0018394873060465,
    "role": "folded_store",
    "seq": 517,
    "status": "not_tried",
@@ -12701,7 +12729,7 @@
     "n": 1280
    },
    "path": "model.encoder.layers.*.fc2",
-   "q_sqnr": 4.62650981670744,
+   "q_sqnr": 3.106891020149165,
    "role": "chained",
    "seq": 518,
    "status": "not_tried",
@@ -12725,7 +12753,7 @@
     "numel": 1920000
    },
    "path": "model.encoder.layers.*",
-   "q_sqnr": 13.512199644167334,
+   "q_sqnr": 11.4124123244094,
    "role": "chained",
    "seq": 519,
    "status": "not_tried",
@@ -12749,7 +12777,7 @@
     "tokens": 1500
    },
    "path": "model.encoder.layer_norm",
-   "q_sqnr": 5.125803862481561,
+   "q_sqnr": 3.38910867541381,
    "role": "chained",
    "seq": 520,
    "status": "not_tried",
@@ -12774,7 +12802,7 @@
     "vocab": 51866
    },
    "path": "model.decoder.embed_tokens",
-   "q_sqnr": 42.48358351821531,
+   "q_sqnr": 37.55703062466519,
    "role": null,
    "seq": 521,
    "status": "in_replacement",
@@ -12843,7 +12871,7 @@
     "sel": 1
    },
    "path": "model.decoder.embed_positions",
-   "q_sqnr": 41.136868454837874,
+   "q_sqnr": 37.390379230925824,
    "role": "folded_const",
    "seq": 524,
    "status": "not_tried",
@@ -12867,7 +12895,7 @@
     "numel": 40960
    },
    "path": "model.decoder",
-   "q_sqnr": 38.86682910961088,
+   "q_sqnr": 34.10575193929727,
    "role": "main",
    "seq": 525,
    "status": "not_tried",
@@ -12938,7 +12966,7 @@
     "sel": 0
    },
    "path": "model.decoder",
-   "q_sqnr": 0.0,
+   "q_sqnr": Infinity,
    "role": "folded_const",
    "seq": 528,
    "status": "not_tried",
@@ -12962,7 +12990,7 @@
     "tokens": 32
    },
    "path": "model.decoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 35.327931173930935,
+   "q_sqnr": 31.25328221796698,
    "role": "chained",
    "seq": 529,
    "status": "not_tried",
@@ -12987,7 +13015,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 41.94398517808253,
+   "q_sqnr": 36.25998055566814,
    "role": "chained",
    "seq": 530,
    "status": "not_tried",
@@ -13011,7 +13039,7 @@
     "numel": 40960
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 41.94398517808253,
+   "q_sqnr": 36.25998055566814,
    "role": "folded_const",
    "seq": 531,
    "status": "not_tried",
@@ -13036,7 +13064,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 43.437801509028986,
+   "q_sqnr": 36.82177656012933,
    "role": "chained",
    "seq": 532,
    "status": "not_tried",
@@ -13061,7 +13089,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 37.11559470053132,
+   "q_sqnr": 33.844589991896825,
    "role": "chained",
    "seq": 533,
    "status": "not_tried",
@@ -13083,7 +13111,7 @@
     "numel": 40960
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 43.437801509028986,
+   "q_sqnr": 36.82177656012933,
    "role": "layout",
    "seq": 534,
    "status": "not_tried",
@@ -13105,7 +13133,7 @@
     "numel": 40960
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 37.11559470053132,
+   "q_sqnr": 33.844589991896825,
    "role": "layout",
    "seq": 535,
    "status": "not_tried",
@@ -13130,7 +13158,7 @@
     "n": 32
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 43.04860368264691,
+   "q_sqnr": 35.82229323875797,
    "role": "chained",
    "seq": 536,
    "status": "not_tried",
@@ -13154,7 +13182,7 @@
     "numel": 20480
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 43.04860368264691,
+   "q_sqnr": 35.82229323875797,
    "role": "chained",
    "seq": 537,
    "status": "not_tried",
@@ -13178,7 +13206,7 @@
     "numel": 20480
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 0.0,
+   "q_sqnr": 35.993140546027085,
    "role": "chained",
    "seq": 538,
    "status": "not_tried",
@@ -13202,7 +13230,7 @@
     "rows": 640
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 2.4905806228454686,
+   "q_sqnr": 37.18844291673672,
    "role": "chained",
    "seq": 539,
    "status": "not_tried",
@@ -13227,7 +13255,7 @@
     "n": 64
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 2.8618038167034614,
+   "q_sqnr": 32.162763132159846,
    "role": "chained",
    "seq": 540,
    "status": "not_tried",
@@ -13252,7 +13280,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 3.5490066351990794,
+   "q_sqnr": 32.40174554072979,
    "role": "chained",
    "seq": 541,
    "status": "not_tried",
@@ -13276,7 +13304,7 @@
     "numel": 40960
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": 6.373800571864276,
+   "q_sqnr": 30.956539209447666,
    "role": "chained",
    "seq": 542,
    "status": "not_tried",
@@ -13300,7 +13328,7 @@
     "tokens": 32
    },
    "path": "model.decoder.layers.*.encoder_attn_layer_norm",
-   "q_sqnr": 9.271012222100556,
+   "q_sqnr": 30.59631152820422,
    "role": "chained",
    "seq": 543,
    "status": "not_tried",
@@ -13325,7 +13353,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.encoder_attn.q_proj",
-   "q_sqnr": 18.604125901741185,
+   "q_sqnr": 36.808766106804,
    "role": "chained",
    "seq": 544,
    "status": "not_tried",
@@ -13349,7 +13377,7 @@
     "numel": 40960
    },
    "path": "model.decoder.layers.*.encoder_attn",
-   "q_sqnr": 18.604125901741185,
+   "q_sqnr": 36.808766106804,
    "role": "folded_const",
    "seq": 545,
    "status": "not_tried",
@@ -13374,7 +13402,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.encoder_attn.k_proj",
-   "q_sqnr": 9.4610229312198,
+   "q_sqnr": 7.577803876339387,
    "role": "chained",
    "seq": 546,
    "status": "not_tried",
@@ -13399,7 +13427,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.encoder_attn.v_proj",
-   "q_sqnr": 4.900658545456846,
+   "q_sqnr": 3.118679859153945,
    "role": "chained",
    "seq": 547,
    "status": "not_tried",
@@ -13421,7 +13449,7 @@
     "numel": 1920000
    },
    "path": "model.decoder.layers.*.encoder_attn",
-   "q_sqnr": 9.4610229312198,
+   "q_sqnr": 7.577803876339388,
    "role": "layout",
    "seq": 548,
    "status": "not_tried",
@@ -13443,7 +13471,7 @@
     "numel": 1920000
    },
    "path": "model.decoder.layers.*.encoder_attn",
-   "q_sqnr": 4.900658545456846,
+   "q_sqnr": 3.118679859153946,
    "role": "layout",
    "seq": 549,
    "status": "not_tried",
@@ -13468,7 +13496,7 @@
     "n": 1500
    },
    "path": "model.decoder.layers.*.encoder_attn",
-   "q_sqnr": 13.883403861137856,
+   "q_sqnr": 12.77759602418255,
    "role": "chained",
    "seq": 550,
    "status": "not_tried",
@@ -13492,7 +13520,7 @@
     "numel": 960000
    },
    "path": "model.decoder.layers.*.encoder_attn",
-   "q_sqnr": 13.883403861137856,
+   "q_sqnr": 12.77759602418255,
    "role": "chained",
    "seq": 551,
    "status": "not_tried",
@@ -13516,7 +13544,7 @@
     "rows": 640
    },
    "path": "model.decoder.layers.*.encoder_attn",
-   "q_sqnr": 12.296945497725808,
+   "q_sqnr": 12.419049103230332,
    "role": "chained",
    "seq": 552,
    "status": "not_tried",
@@ -13541,7 +13569,7 @@
     "n": 64
    },
    "path": "model.decoder.layers.*.encoder_attn",
-   "q_sqnr": 5.094656737678922,
+   "q_sqnr": 9.507962912399226,
    "role": "chained",
    "seq": 553,
    "status": "not_tried",
@@ -13566,7 +13594,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.encoder_attn.out_proj",
-   "q_sqnr": 10.379720613745462,
+   "q_sqnr": 16.329543849823906,
    "role": "main",
    "seq": 554,
    "status": "not_tried",
@@ -13590,7 +13618,7 @@
     "numel": 40960
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": 6.933320829793484,
+   "q_sqnr": 23.352859270799826,
    "role": "chained",
    "seq": 555,
    "status": "not_tried",
@@ -13614,7 +13642,7 @@
     "tokens": 32
    },
    "path": "model.decoder.layers.*.final_layer_norm",
-   "q_sqnr": 11.008852187762681,
+   "q_sqnr": 25.07356603927027,
    "role": "chained",
    "seq": 556,
    "status": "not_tried",
@@ -13639,7 +13667,7 @@
     "n": 5120
    },
    "path": "model.decoder.layers.*.fc1",
-   "q_sqnr": 24.624208985171446,
+   "q_sqnr": 36.19392326872765,
    "role": "chained",
    "seq": 557,
    "status": "not_tried",
@@ -13661,7 +13689,7 @@
     "numel": 163840
    },
    "path": "model.decoder.layers.*.activation_fn",
-   "q_sqnr": 7.8524136049068165,
+   "q_sqnr": 22.6030444912211,
    "role": "folded_store",
    "seq": 558,
    "status": "not_tried",
@@ -13686,7 +13714,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.fc2",
-   "q_sqnr": 3.160673408691707,
+   "q_sqnr": 26.77455350542019,
    "role": "chained",
    "seq": 559,
    "status": "not_tried",
@@ -13710,7 +13738,7 @@
     "numel": 40960
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": 3.357192314059627,
+   "q_sqnr": 23.57132823640803,
    "role": "chained",
    "seq": 560,
    "status": "not_tried",
@@ -13734,7 +13762,7 @@
     "tokens": 32
    },
    "path": "model.decoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 4.969557885429647,
+   "q_sqnr": 23.981641857131617,
    "role": "chained",
    "seq": 561,
    "status": "not_tried",
@@ -13759,7 +13787,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 7.679774963804126,
+   "q_sqnr": 33.03063115020906,
    "role": "chained",
    "seq": 562,
    "status": "not_tried",
@@ -13783,7 +13811,7 @@
     "numel": 40960
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 7.679774963804126,
+   "q_sqnr": 33.03063115020906,
    "role": "folded_const",
    "seq": 563,
    "status": "not_tried",
@@ -13808,7 +13836,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 6.035112304274868,
+   "q_sqnr": 31.29667522959329,
    "role": "chained",
    "seq": 564,
    "status": "not_tried",
@@ -13833,7 +13861,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 8.256960050291516,
+   "q_sqnr": 21.905331923896647,
    "role": "chained",
    "seq": 565,
    "status": "not_tried",
@@ -13855,7 +13883,7 @@
     "numel": 40960
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 6.024925330201677,
+   "q_sqnr": 31.29667522959329,
    "role": "layout",
    "seq": 566,
    "status": "not_tried",
@@ -13877,7 +13905,7 @@
     "numel": 40960
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 8.256960050291516,
+   "q_sqnr": 21.905331923896647,
    "role": "layout",
    "seq": 567,
    "status": "not_tried",
@@ -13902,7 +13930,7 @@
     "n": 32
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 1.9821482209472852,
+   "q_sqnr": 25.151033324325176,
    "role": "chained",
    "seq": 568,
    "status": "not_tried",
@@ -13926,7 +13954,7 @@
     "numel": 20480
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 1.9821482209472852,
+   "q_sqnr": 25.151033324325176,
    "role": "chained",
    "seq": 569,
    "status": "not_tried",
@@ -13950,7 +13978,7 @@
     "numel": 20480
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 0.0,
+   "q_sqnr": 25.445528730365815,
    "role": "chained",
    "seq": 570,
    "status": "not_tried",
@@ -13974,7 +14002,7 @@
     "rows": 640
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 2.261386055789726,
+   "q_sqnr": 21.847249967705373,
    "role": "chained",
    "seq": 571,
    "status": "not_tried",
@@ -13999,7 +14027,7 @@
     "n": 64
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": -2.2163956501046793,
+   "q_sqnr": 17.002124772426807,
    "role": "chained",
    "seq": 572,
    "status": "not_tried",
@@ -14024,7 +14052,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.self_attn.out_proj",
-   "q_sqnr": -2.2329948945158566,
+   "q_sqnr": 16.925588056839477,
    "role": "chained",
    "seq": 573,
    "status": "not_tried",
@@ -14048,7 +14076,7 @@
     "numel": 40960
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": 0.8181286298066092,
+   "q_sqnr": 20.23403062545853,
    "role": "chained",
    "seq": 574,
    "status": "not_tried",
@@ -14072,7 +14100,7 @@
     "tokens": 32
    },
    "path": "model.decoder.layers.*.encoder_attn_layer_norm",
-   "q_sqnr": 1.93083116816201,
+   "q_sqnr": 18.259801997116767,
    "role": "chained",
    "seq": 575,
    "status": "not_tried",
@@ -14097,7 +14125,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.encoder_attn.q_proj",
-   "q_sqnr": 7.221765004925179,
+   "q_sqnr": 23.46041452190711,
    "role": "chained",
    "seq": 576,
    "status": "not_tried",
@@ -14121,7 +14149,7 @@
     "numel": 40960
    },
    "path": "model.decoder.layers.*.encoder_attn",
-   "q_sqnr": 7.221765004925179,
+   "q_sqnr": 23.46041452190711,
    "role": "folded_const",
    "seq": 577,
    "status": "not_tried",
@@ -14146,7 +14174,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.encoder_attn.k_proj",
-   "q_sqnr": 8.363320442304607,
+   "q_sqnr": 6.462801901776514,
    "role": "chained",
    "seq": 578,
    "status": "not_tried",
@@ -14171,7 +14199,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.encoder_attn.v_proj",
-   "q_sqnr": 4.141850666890906,
+   "q_sqnr": 2.3869605787232913,
    "role": "main",
    "seq": 579,
    "status": "not_tried",
@@ -14193,7 +14221,7 @@
     "numel": 1920000
    },
    "path": "model.decoder.layers.*.encoder_attn",
-   "q_sqnr": 8.363320442304607,
+   "q_sqnr": 6.462801901776514,
    "role": "layout",
    "seq": 580,
    "status": "not_tried",
@@ -14215,7 +14243,7 @@
     "numel": 1920000
    },
    "path": "model.decoder.layers.*.encoder_attn",
-   "q_sqnr": 4.141850666890906,
+   "q_sqnr": 2.38696057872329,
    "role": "layout",
    "seq": 581,
    "status": "not_tried",
@@ -14240,7 +14268,7 @@
     "n": 1500
    },
    "path": "model.decoder.layers.*.encoder_attn",
-   "q_sqnr": 11.339940442361005,
+   "q_sqnr": 11.984946645954313,
    "role": "chained",
    "seq": 582,
    "status": "not_tried",
@@ -14264,7 +14292,7 @@
     "numel": 960000
    },
    "path": "model.decoder.layers.*.encoder_attn",
-   "q_sqnr": 11.339940442361005,
+   "q_sqnr": 11.984946645954313,
    "role": "chained",
    "seq": 583,
    "status": "not_tried",
@@ -14288,7 +14316,7 @@
     "rows": 640
    },
    "path": "model.decoder.layers.*.encoder_attn",
-   "q_sqnr": 7.1757164029761835,
+   "q_sqnr": 11.293235480957657,
    "role": "chained",
    "seq": 584,
    "status": "not_tried",
@@ -14313,7 +14341,7 @@
     "n": 64
    },
    "path": "model.decoder.layers.*.encoder_attn",
-   "q_sqnr": -0.07025389962997292,
+   "q_sqnr": 10.137311644453494,
    "role": "chained",
    "seq": 585,
    "status": "not_tried",
@@ -14338,7 +14366,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.encoder_attn.out_proj",
-   "q_sqnr": 1.6211228945484588,
+   "q_sqnr": 12.393685836525755,
    "role": "chained",
    "seq": 586,
    "status": "not_tried",
@@ -14362,7 +14390,7 @@
     "numel": 40960
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": 1.0472714300827592,
+   "q_sqnr": 17.659466516910523,
    "role": "chained",
    "seq": 587,
    "status": "not_tried",
@@ -14386,7 +14414,7 @@
     "tokens": 32
    },
    "path": "model.decoder.layers.*.final_layer_norm",
-   "q_sqnr": 3.769442252901429,
+   "q_sqnr": 17.929709194859285,
    "role": "chained",
    "seq": 588,
    "status": "not_tried",
@@ -14411,7 +14439,7 @@
     "n": 5120
    },
    "path": "model.decoder.layers.*.fc1",
-   "q_sqnr": 17.007968160809025,
+   "q_sqnr": 30.52196540957752,
    "role": "chained",
    "seq": 589,
    "status": "not_tried",
@@ -14433,7 +14461,7 @@
     "numel": 163840
    },
    "path": "model.decoder.layers.*.activation_fn",
-   "q_sqnr": 1.1104786888075817,
+   "q_sqnr": 14.855754114711218,
    "role": "folded_store",
    "seq": 590,
    "status": "not_tried",
@@ -14458,7 +14486,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.fc2",
-   "q_sqnr": -0.07411152516150656,
+   "q_sqnr": 17.41937133304803,
    "role": "chained",
    "seq": 591,
    "status": "not_tried",
@@ -14482,7 +14510,7 @@
     "numel": 40960
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": 0.027605641222991188,
+   "q_sqnr": 18.898757656370496,
    "role": "chained",
    "seq": 592,
    "status": "not_tried",
@@ -14506,7 +14534,7 @@
     "tokens": 32
    },
    "path": "model.decoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 0.28104977739281517,
+   "q_sqnr": 15.32118083110835,
    "role": "chained",
    "seq": 593,
    "status": "not_tried",
@@ -14531,7 +14559,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 4.803607396488847,
+   "q_sqnr": 21.785980804432597,
    "role": "chained",
    "seq": 594,
    "status": "not_tried",
@@ -14555,7 +14583,7 @@
     "numel": 40960
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 4.803607396488847,
+   "q_sqnr": 21.785980804432597,
    "role": "folded_const",
    "seq": 595,
    "status": "not_tried",
@@ -14580,7 +14608,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 4.400356477420574,
+   "q_sqnr": 21.16883949592708,
    "role": "chained",
    "seq": 596,
    "status": "not_tried",
@@ -14605,7 +14633,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.self_attn.v_proj",
-   "q_sqnr": -0.46268938988197256,
+   "q_sqnr": 13.932372701775463,
    "role": "chained",
    "seq": 597,
    "status": "not_tried",
@@ -14627,7 +14655,7 @@
     "numel": 40960
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 4.400356477420574,
+   "q_sqnr": 21.16883949592708,
    "role": "layout",
    "seq": 598,
    "status": "not_tried",
@@ -14649,7 +14677,7 @@
     "numel": 40960
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": -0.46268938988197256,
+   "q_sqnr": 13.932372701775463,
    "role": "layout",
    "seq": 599,
    "status": "not_tried",
@@ -14674,7 +14702,7 @@
     "n": 32
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 3.964611797499473,
+   "q_sqnr": 20.823890720712267,
    "role": "chained",
    "seq": 600,
    "status": "not_tried",
@@ -14698,7 +14726,7 @@
     "numel": 20480
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 3.964611797499473,
+   "q_sqnr": 20.823890720712267,
    "role": "chained",
    "seq": 601,
    "status": "not_tried",
@@ -14722,7 +14750,7 @@
     "numel": 20480
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 0.0,
+   "q_sqnr": 21.154445460382235,
    "role": "chained",
    "seq": 602,
    "status": "not_tried",
@@ -14746,7 +14774,7 @@
     "rows": 640
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 1.5861286555112852,
+   "q_sqnr": 24.596870717850162,
    "role": "chained",
    "seq": 603,
    "status": "not_tried",
@@ -14771,7 +14799,7 @@
     "n": 64
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": -9.339121493216446,
+   "q_sqnr": 13.337318327148488,
    "role": "chained",
    "seq": 604,
    "status": "not_tried",
@@ -14796,7 +14824,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.self_attn.out_proj",
-   "q_sqnr": -7.413362978275336,
+   "q_sqnr": 13.630193920947713,
    "role": "main",
    "seq": 605,
    "status": "not_tried",
@@ -14820,7 +14848,7 @@
     "numel": 40960
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": -0.965254219524404,
+   "q_sqnr": 18.211809680657982,
    "role": "chained",
    "seq": 606,
    "status": "not_tried",
@@ -14844,7 +14872,7 @@
     "tokens": 32
    },
    "path": "model.decoder.layers.*.encoder_attn_layer_norm",
-   "q_sqnr": -0.9831530094757135,
+   "q_sqnr": 14.351222184706135,
    "role": "chained",
    "seq": 607,
    "status": "not_tried",
@@ -14869,7 +14897,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.encoder_attn.q_proj",
-   "q_sqnr": 3.069852375188921,
+   "q_sqnr": 18.398929149640306,
    "role": "chained",
    "seq": 608,
    "status": "not_tried",
@@ -14893,7 +14921,7 @@
     "numel": 40960
    },
    "path": "model.decoder.layers.*.encoder_attn",
-   "q_sqnr": 3.069852375188921,
+   "q_sqnr": 18.398929149640306,
    "role": "folded_const",
    "seq": 609,
    "status": "not_tried",
@@ -14918,7 +14946,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.encoder_attn.k_proj",
-   "q_sqnr": 7.267273386459978,
+   "q_sqnr": 5.434823994948161,
    "role": "chained",
    "seq": 610,
    "status": "not_tried",
@@ -14943,7 +14971,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.encoder_attn.v_proj",
-   "q_sqnr": 4.2065979838794565,
+   "q_sqnr": 2.46657655962355,
    "role": "chained",
    "seq": 611,
    "status": "not_tried",
@@ -14965,7 +14993,7 @@
     "numel": 1920000
    },
    "path": "model.decoder.layers.*.encoder_attn",
-   "q_sqnr": 7.267273386459978,
+   "q_sqnr": 5.434823994948161,
    "role": "layout",
    "seq": 612,
    "status": "not_tried",
@@ -14987,7 +15015,7 @@
     "numel": 1920000
    },
    "path": "model.decoder.layers.*.encoder_attn",
-   "q_sqnr": 4.206597983879457,
+   "q_sqnr": 2.46657655962355,
    "role": "layout",
    "seq": 613,
    "status": "not_tried",
@@ -15012,7 +15040,7 @@
     "n": 1500
    },
    "path": "model.decoder.layers.*.encoder_attn",
-   "q_sqnr": 8.564772230367566,
+   "q_sqnr": 11.59237278514113,
    "role": "chained",
    "seq": 614,
    "status": "not_tried",
@@ -15036,7 +15064,7 @@
     "numel": 960000
    },
    "path": "model.decoder.layers.*.encoder_attn",
-   "q_sqnr": 8.564772230367566,
+   "q_sqnr": 11.59237278514113,
    "role": "chained",
    "seq": 615,
    "status": "not_tried",
@@ -15060,7 +15088,7 @@
     "rows": 640
    },
    "path": "model.decoder.layers.*.encoder_attn",
-   "q_sqnr": 4.290628095308084,
+   "q_sqnr": 10.098213114805345,
    "role": "chained",
    "seq": 616,
    "status": "not_tried",
@@ -15085,7 +15113,7 @@
     "n": 64
    },
    "path": "model.decoder.layers.*.encoder_attn",
-   "q_sqnr": -1.5662760510779992,
+   "q_sqnr": 8.599472178816187,
    "role": "chained",
    "seq": 617,
    "status": "not_tried",
@@ -15110,7 +15138,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.encoder_attn.out_proj",
-   "q_sqnr": 1.2712797374058027,
+   "q_sqnr": 12.696536234706802,
    "role": "chained",
    "seq": 618,
    "status": "not_tried",
@@ -15134,7 +15162,7 @@
     "numel": 40960
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": -0.5488625583181076,
+   "q_sqnr": 16.645965104993714,
    "role": "chained",
    "seq": 619,
    "status": "not_tried",
@@ -15158,7 +15186,7 @@
     "tokens": 32
    },
    "path": "model.decoder.layers.*.final_layer_norm",
-   "q_sqnr": -1.5988245000349361,
+   "q_sqnr": 12.871363005810739,
    "role": "chained",
    "seq": 620,
    "status": "not_tried",
@@ -15183,7 +15211,7 @@
     "n": 5120
    },
    "path": "model.decoder.layers.*.fc1",
-   "q_sqnr": -1.0062431696468255,
+   "q_sqnr": 13.202872816113025,
    "role": "chained",
    "seq": 621,
    "status": "not_tried",
@@ -15205,7 +15233,7 @@
     "numel": 163840
    },
    "path": "model.decoder.layers.*.activation_fn",
-   "q_sqnr": -1.4089089571041868,
+   "q_sqnr": 12.855064842325895,
    "role": "folded_store",
    "seq": 622,
    "status": "not_tried",
@@ -15230,7 +15258,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.fc2",
-   "q_sqnr": 0.034839497391167346,
+   "q_sqnr": 13.931018085254653,
    "role": "chained",
    "seq": 623,
    "status": "not_tried",
@@ -15254,7 +15282,7 @@
     "numel": 40960
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": -0.5259670581328134,
+   "q_sqnr": 15.903135918436519,
    "role": "chained",
    "seq": 624,
    "status": "not_tried",
@@ -15278,7 +15306,7 @@
     "tokens": 32
    },
    "path": "model.decoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": -0.43376884785744374,
+   "q_sqnr": 13.51842567168887,
    "role": "chained",
    "seq": 625,
    "status": "not_tried",
@@ -15303,7 +15331,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 1.2552508534250773,
+   "q_sqnr": 16.842097796997976,
    "role": "chained",
    "seq": 626,
    "status": "not_tried",
@@ -15327,7 +15355,7 @@
     "numel": 40960
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 1.2552508534250773,
+   "q_sqnr": 16.842097796997976,
    "role": "folded_const",
    "seq": 627,
    "status": "not_tried",
@@ -15352,7 +15380,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 1.7394963798802001,
+   "q_sqnr": 16.994487254416228,
    "role": "chained",
    "seq": 628,
    "status": "not_tried",
@@ -15377,7 +15405,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.self_attn.v_proj",
-   "q_sqnr": -0.07002834003181477,
+   "q_sqnr": 13.391538982662944,
    "role": "main",
    "seq": 629,
    "status": "not_tried",
@@ -15399,7 +15427,7 @@
     "numel": 40960
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 1.7394963798801988,
+   "q_sqnr": 16.994487254416228,
    "role": "layout",
    "seq": 630,
    "status": "not_tried",
@@ -15421,7 +15449,7 @@
     "numel": 40960
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": -0.07002834003181574,
+   "q_sqnr": 13.391538982662944,
    "role": "layout",
    "seq": 631,
    "status": "not_tried",
@@ -15446,7 +15474,7 @@
     "n": 32
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 3.038521946418908,
+   "q_sqnr": 17.593417431692693,
    "role": "chained",
    "seq": 632,
    "status": "not_tried",
@@ -15470,7 +15498,7 @@
     "numel": 20480
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 3.038521946418908,
+   "q_sqnr": 17.593417431692693,
    "role": "chained",
    "seq": 633,
    "status": "not_tried",
@@ -15494,7 +15522,7 @@
     "numel": 20480
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 0.0,
+   "q_sqnr": 18.179517499476695,
    "role": "chained",
    "seq": 634,
    "status": "not_tried",
@@ -15518,7 +15546,7 @@
     "rows": 640
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 1.1284704733255337,
+   "q_sqnr": 21.429477052086618,
    "role": "chained",
    "seq": 635,
    "status": "not_tried",
@@ -15543,7 +15571,7 @@
     "n": 64
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": -7.410847170870141,
+   "q_sqnr": 11.529164579218087,
    "role": "chained",
    "seq": 636,
    "status": "not_tried",
@@ -15568,7 +15596,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.self_attn.out_proj",
-   "q_sqnr": -6.747639970560626,
+   "q_sqnr": 11.136509585064914,
    "role": "chained",
    "seq": 637,
    "status": "not_tried",
@@ -15592,7 +15620,7 @@
     "numel": 40960
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": -2.1534636536520084,
+   "q_sqnr": 14.781994988557688,
    "role": "chained",
    "seq": 638,
    "status": "not_tried",
@@ -15616,7 +15644,7 @@
     "tokens": 32
    },
    "path": "model.decoder.layers.*.encoder_attn_layer_norm",
-   "q_sqnr": -1.1797559877814048,
+   "q_sqnr": 12.572004067007164,
    "role": "chained",
    "seq": 639,
    "status": "not_tried",
@@ -15641,7 +15669,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.encoder_attn.q_proj",
-   "q_sqnr": 2.585982196921072,
+   "q_sqnr": 16.52192874027516,
    "role": "chained",
    "seq": 640,
    "status": "not_tried",
@@ -15665,7 +15693,7 @@
     "numel": 40960
    },
    "path": "model.decoder.layers.*.encoder_attn",
-   "q_sqnr": 2.585982196921072,
+   "q_sqnr": 16.52192874027516,
    "role": "folded_const",
    "seq": 641,
    "status": "not_tried",
@@ -15690,7 +15718,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.encoder_attn.k_proj",
-   "q_sqnr": 7.297673783108928,
+   "q_sqnr": 5.469794067001485,
    "role": "chained",
    "seq": 642,
    "status": "not_tried",
@@ -15715,7 +15743,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.encoder_attn.v_proj",
-   "q_sqnr": 4.306465827013374,
+   "q_sqnr": 2.572406902446987,
    "role": "chained",
    "seq": 643,
    "status": "not_tried",
@@ -15737,7 +15765,7 @@
     "numel": 1920000
    },
    "path": "model.decoder.layers.*.encoder_attn",
-   "q_sqnr": 7.297673783108928,
+   "q_sqnr": 5.469794067001485,
    "role": "layout",
    "seq": 644,
    "status": "not_tried",
@@ -15759,7 +15787,7 @@
     "numel": 1920000
    },
    "path": "model.decoder.layers.*.encoder_attn",
-   "q_sqnr": 4.306465827013374,
+   "q_sqnr": 2.572406902446987,
    "role": "layout",
    "seq": 645,
    "status": "not_tried",
@@ -15784,7 +15812,7 @@
     "n": 1500
    },
    "path": "model.decoder.layers.*.encoder_attn",
-   "q_sqnr": 6.664809734673337,
+   "q_sqnr": 9.798371775371866,
    "role": "chained",
    "seq": 646,
    "status": "not_tried",
@@ -15808,7 +15836,7 @@
     "numel": 960000
    },
    "path": "model.decoder.layers.*.encoder_attn",
-   "q_sqnr": 6.664809734673337,
+   "q_sqnr": 9.798371775371866,
    "role": "chained",
    "seq": 647,
    "status": "not_tried",
@@ -15832,7 +15860,7 @@
     "rows": 640
    },
    "path": "model.decoder.layers.*.encoder_attn",
-   "q_sqnr": -0.6606121996870152,
+   "q_sqnr": 4.472751538071578,
    "role": "chained",
    "seq": 648,
    "status": "not_tried",
@@ -15857,7 +15885,7 @@
     "n": 64
    },
    "path": "model.decoder.layers.*.encoder_attn",
-   "q_sqnr": 0.2526101355152021,
+   "q_sqnr": 10.768336784356524,
    "role": "chained",
    "seq": 649,
    "status": "not_tried",
@@ -15882,7 +15910,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.encoder_attn.out_proj",
-   "q_sqnr": 0.4656974509609007,
+   "q_sqnr": 11.876376973376022,
    "role": "chained",
    "seq": 650,
    "status": "not_tried",
@@ -15906,7 +15934,7 @@
     "numel": 40960
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": -1.0615474865382974,
+   "q_sqnr": 12.479814425930142,
    "role": "chained",
    "seq": 651,
    "status": "not_tried",
@@ -15930,7 +15958,7 @@
     "tokens": 32
    },
    "path": "model.decoder.layers.*.final_layer_norm",
-   "q_sqnr": -1.0971076441874743,
+   "q_sqnr": 11.576841741174611,
    "role": "chained",
    "seq": 652,
    "status": "not_tried",
@@ -15955,7 +15983,7 @@
     "n": 5120
    },
    "path": "model.decoder.layers.*.fc1",
-   "q_sqnr": 3.2624264078480585,
+   "q_sqnr": 15.790836802123023,
    "role": "chained",
    "seq": 653,
    "status": "not_tried",
@@ -15977,7 +16005,7 @@
     "numel": 163840
    },
    "path": "model.decoder.layers.*.activation_fn",
-   "q_sqnr": 0.9170379606440182,
+   "q_sqnr": 12.378687694204727,
    "role": "folded_store",
    "seq": 654,
    "status": "not_tried",
@@ -16002,7 +16030,7 @@
     "n": 1280
    },
    "path": "model.decoder.layers.*.fc2",
-   "q_sqnr": -0.03581815844326314,
+   "q_sqnr": 11.51130274368631,
    "role": "main",
    "seq": 655,
    "status": "not_tried",
@@ -16026,7 +16054,7 @@
     "numel": 40960
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": -0.025408750108918146,
+   "q_sqnr": 11.44410698457441,
    "role": "chained",
    "seq": 656,
    "status": "not_tried",
@@ -16050,7 +16078,7 @@
     "tokens": 32
    },
    "path": "model.decoder.layer_norm",
-   "q_sqnr": -1.1844522025624724,
+   "q_sqnr": 10.945064515962875,
    "role": "chained",
    "seq": 657,
    "status": "not_tried",
@@ -16075,7 +16103,7 @@
     "n": 51866
    },
    "path": "proj_out",
-   "q_sqnr": -0.6948441624092178,
+   "q_sqnr": 9.536457945081994,
    "role": "chained",
    "seq": 658,
    "status": "not_tried",
@@ -16085,7 +16113,7 @@
  ],
  "params": 808878080,
  "summary": {
-  "base_fp_q_delta": null,
+  "base_fp_q_delta": -0.12418300653594772,
   "blockers_failed": 0,
   "blockers_kernel": 656,
   "blockers_layout": 0,
