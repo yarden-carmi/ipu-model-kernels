@@ -45,8 +45,8 @@
   "title": "Resource limits"
  },
  {
-  "body": "The IPU architecture's most costly issue is format pressure, affecting 535 models with fp8_e2m5 chosen 802 times and a worst tensor bmm of 14.1 dB in nvidia/segformer-b2-finetuned-ade-512-512. Next, layout conversions affect 30 of 75 tensors between kernels (with 30 others), though no links fail. Resource limits are third: 131 operations go through the 256-entry LUT, 0 kernels use over 80% of IMEM bank, and least FP32 headroom is 0.0 decades. ISA gaps are less costly: no chip operation for upsample affects 8 operations in 2 models (0 failed), with 0.00 dB and 0 cycles in replacements. Compute efficiency has no kernel measured yet, and the what-if for the upsample gap shows +0.00% of MACs 1-to-1 and 0.00 dB recovered.",
-  "created_at": 1794530016.7102551,
+  "body": "The IPU's biggest measured cost is **format pressure**: across 664 models the compiler overwhelmingly picks fp8 variants (fp8_e2m5 in 1719 tensors), and the worst-case tensor (softmax in hustvl/yolos-small) loses 7.1 dB. Second is **layout conversions**: 75 of 169 inter-kernel tensors (44%) change arrangement, mostly involving attention heads (39), though no link fails. Third is **resource limits**: 295 operations fall back to the 256-entry LUT, but IMEM bank usage and FP32 headroom are not constraints. Fourth are **ISA gaps**: upsample and runtime-indexed lookup have no chip operations (9 operations across 3 models), but replacements cost 0 cycles and 0 dB, so they are cheap to emulate. The **what-if** analysis confirms the ISA gaps are negligible \u2014 no MAC overhead and no accuracy recovered \u2014 while compute efficiency remains unmeasured.",
+  "created_at": 1794530498.9624794,
   "id": 7,
   "kind": "summary",
   "numbers": null,

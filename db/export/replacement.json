@@ -420,6 +420,30 @@
   "proposed_by": 7
  },
  {
+  "chain": "[{\"op\": \"fused_masked_row_reduce\", \"params\": {\"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: AttributeError: 'Tensor' object has no attribute 'table'; code: relative difference 0 (within 0.0001)",
+  "check_ok": 0,
+  "code": "def forward(module, ids):\n    ids = ids.reshape(-1).long()\n    table = module.weight\n    vocab = table.shape[0]\n    tokens = ids.numel()\n    mask = (ids.unsqueeze(1) == torch.arange(vocab, device=table.device)).to(table.dtype)\n    return (mask.unsqueeze(2) * table.unsqueeze(0)).sum(dim=1)",
+  "id": 108,
+  "kind": "equivalent",
+  "name": "masked_row_reduce_embedding_256x30522_e",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the runtime-index lookup with a fused masked reduction. Step 1: flatten ids to a column (256 x 1) and compare against arange(vocab=30522) to get a 0/1 mask of shape tokens=256 x vocab. Step 2: broadcast-multiply the mask (as a column per token) with the embedding table rows (30522 x 768), zeroing all rows except the selected one per token. Step 3: sum over the vocab dimension, yielding exactly the selected rows (256 x 768). Mathematically identical to embedding; the table is a constant passed alongside the ids as input to the primitive.\", \"rel_err\": 0.0}",
+  "proposed_by": 54
+ },
+ {
+  "chain": "[{\"op\": \"fused_masked_row_reduce\", \"params\": {\"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    ids = ids.reshape(-1).long()\n    table = module.weight\n    vocab = table.shape[0]\n    tokens = ids.numel()\n    mask = (ids.unsqueeze(1) == torch.arange(vocab, device=table.device)).to(table.dtype)\n    return (mask.unsqueeze(2) * table.unsqueeze(0)).sum(dim=1)",
+  "id": 111,
+  "kind": "equivalent",
+  "name": "masked_row_reduce_embedding_256x30522_g",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the runtime-index lookup with a fused masked reduction. Step 1: flatten ids to a column (256 x 1) and compare against arange(vocab=30522) to get a 0/1 mask of shape tokens=256 x vocab. Step 2: broadcast-multiply the mask (as a column per token) with the embedding table rows (30522 x 768), zeroing all rows except the selected one per token. Step 3: sum over the vocab dimension, yielding exactly the selected rows (256 x 768). Mathematically identical to embedding; the table is a constant passed alongside the ids to the primitive.\", \"rel_err\": 0.0}",
+  "proposed_by": 54
+ },
+ {
   "chain": "[{\"op\": \"masked_row_reduce\", \"params\": {\"dim\": 768, \"vocab\": 30522}}]",
   "check_detail": "chain: the path does not compute embedding as called (): largest difference 5.96 (relative 3) at element 69000: -4.13468 where embedding gives 1.8249; code: relative difference 0 (within 0.0001)",
   "check_ok": 0,
@@ -586,6 +610,42 @@
   "op": "embedding",
   "proposal": "{\"description\": \"Replace the runtime-index lookup with a fused one-hot GEMM. Step 1: flatten the ids (1x256 -> 256) and build a one-hot matrix of shape tokens=256 x vocab=30522 (row i has 1 at column ids[i], 0 elsewhere; ids cast to long). Step 2: GEMM the one-hot matrix (256 x 30522) by the embedding table (30522 x 768), no transposes. Each output row equals exactly the table row selected by the corresponding id, so the result (256 x 768) is mathematically identical to embedding. The table is a constant passed alongside the ids as input to the primitive.\", \"rel_err\": 0.0}",
   "proposed_by": 37
+ },
+ {
+  "chain": "[{\"op\": \"fused_onehot_gemm\", \"params\": {\"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: AttributeError: 'Tensor' object has no attribute 'table'; code: relative difference 0 (within 0.0001)",
+  "check_ok": 0,
+  "code": "def forward(module, ids):\n    ids = ids.reshape(-1).long()\n    table = module.weight\n    vocab = table.shape[0]\n    tokens = ids.numel()\n    onehot = torch.zeros(tokens, vocab, dtype=table.dtype, device=table.device)\n    onehot[torch.arange(tokens, device=table.device), ids] = 1.0\n    return onehot @ table",
+  "id": 107,
+  "kind": "equivalent",
+  "name": "onehot_gemm_embedding_256x30522_e",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the runtime-index lookup with a fused one-hot GEMM. Step 1: flatten the ids (1x256 -> 256) and build a one-hot matrix of shape tokens=256 x vocab=30522 (row i has 1 at column ids[i], 0 elsewhere; ids cast to long). Step 2: GEMM the one-hot matrix (256 x 30522) by the embedding table (30522 x 768), no transposes. Each output row equals exactly the table row selected by the corresponding id, so the result (256 x 768) is mathematically identical to embedding. The table is a constant attribute of the module, so the fused primitive takes only the ids as input.\", \"rel_err\": 0.0}",
+  "proposed_by": 54
+ },
+ {
+  "chain": "[{\"op\": \"one_hot\", \"params\": {\"num_classes\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "chain: one_hot {\"num_classes\": 30522}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
+  "check_ok": null,
+  "code": "def forward(module, ids):\n    ids = ids.reshape(-1).long()\n    table = module.weight\n    vocab = table.shape[0]\n    tokens = ids.numel()\n    onehot = torch.zeros(tokens, vocab, dtype=table.dtype, device=table.device)\n    onehot[torch.arange(tokens, device=table.device), ids] = 1.0\n    return onehot @ table",
+  "id": 109,
+  "kind": "equivalent",
+  "name": "onehot_gemm_embedding_256x30522_f",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the runtime-index lookup with a one-hot GEMM. Step 1: one_hot \\u2014 flatten the ids (1x256 -> 256) and build a one-hot matrix of shape tokens=256 x vocab=30522 (row i has 1 at column ids[i], 0 elsewhere; ids cast to long). Step 2: gemm \\u2014 multiply the one-hot matrix (256 x 30522) by the embedding table (30522 x 768, the layer's constant, used as the second activation), no transposes. Each output row equals exactly the table row selected by the corresponding id, so the result (256 x 768) is mathematically identical to embedding.\", \"rel_err\": 0.0}",
+  "proposed_by": 54
+ },
+ {
+  "chain": "[{\"op\": \"fused_onehot_gemm\", \"params\": {\"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    ids = ids.reshape(-1).long()\n    table = module.weight\n    vocab = table.shape[0]\n    tokens = ids.numel()\n    onehot = torch.zeros(tokens, vocab, dtype=table.dtype, device=table.device)\n    onehot[torch.arange(tokens, device=table.device), ids] = 1.0\n    return onehot @ table",
+  "id": 110,
+  "kind": "equivalent",
+  "name": "onehot_gemm_embedding_256x30522_g",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the runtime-index lookup with a fused one-hot GEMM. Step 1: flatten the ids (1x256 -> 256) and build a one-hot matrix of shape tokens=256 x vocab=30522 (row i has 1 at column ids[i], 0 elsewhere; ids cast to long). Step 2: GEMM the one-hot matrix (256 x 30522) by the embedding table (30522 x 768), no transposes. Each output row equals exactly the table row selected by the corresponding id, so the result (256 x 768) is mathematically identical to embedding. The table is a constant passed alongside the ids to the primitive.\", \"rel_err\": 0.0}",
+  "proposed_by": 54
  },
  {
   "chain": "[{\"op\": \"one_hot_gemm\", \"params\": {\"num_classes\": 30522}}]",
@@ -1032,6 +1092,30 @@
   "proposed_by": 28
  },
  {
+  "chain": "[{\"op\": \"bilinear_to56\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "chain: matches upsample (FP32, relative 1e-07); code: the code failed: AttributeError: 'types.SimpleNamespace' object has no attribute 'bilinear_to56'",
+  "check_ok": 0,
+  "code": "def forward(module, x):\n    return module.bilinear_to56(x)",
+  "id": 114,
+  "kind": "equivalent",
+  "name": "bilinear_to56_14to56_final",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear upsample of the (768, 14, 14) CHW activation (196 = 14*14 tokens from the linear, k=320) to (768, 56, 56) = 2408448 elements, align_corners=False (4x upsample). For each output pixel (oh, ow) in 56x56: source coords sy=(oh+0.5)*14/56-0.5, sx=(ow+0.5)*14/56-0.5 (half-pixel centers, align_corners=False); iy=floor(sy), ix=floor(sx); fractional weights wy=sy-iy, wx=sx-ix computed from the UNCLAMPED floor; indices iy, iy+1, ix, ix+1 clamped to [0,13] (border replication); output = (1-wy)(1-wx)*x[:,iy,ix] + (1-wy)wx*x[:,iy,ix+1] + wy(1-wx)*x[:,iy+1,ix] + wy*wx*x[:,iy+1,ix+1]. Exactly torch's F.interpolate(size=(56,56), mode='bilinear', align_corners=False, antialias=False).\", \"rel_err\": null}",
+  "proposed_by": 56
+ },
+ {
+  "chain": "[{\"op\": \"bilinear_to56\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "chain: matches upsample (FP32, relative 1e-07); code: relative difference 1.19e-07 (within 0.0001)",
+  "check_ok": 1,
+  "code": "import torch\n\ndef forward(module, x):\n    C, H, W = x.shape\n    oh = torch.arange(56, dtype=x.dtype)\n    ow = torch.arange(56, dtype=x.dtype)\n    sy = (oh + 0.5) * H / 56 - 0.5\n    sx = (ow + 0.5) * W / 56 - 0.5\n    iy = sy.floor().long(); ix = sx.floor().long()\n    wy = sy - iy; wx = sx - ix\n    iy0 = iy.clamp(0, H - 1); iy1 = (iy + 1).clamp(0, H - 1)\n    ix0 = ix.clamp(0, W - 1); ix1 = (ix + 1).clamp(0, W - 1)\n    a = x[:, iy0][:, :, ix0]\n    b = x[:, iy0][:, :, ix1]\n    c = x[:, iy1][:, :, ix0]\n    d = x[:, iy1][:, :, ix1]\n    wy = wy.view(1, 56, 1); wx = wx.view(1, 1, 56)\n    return (1 - wy) * (1 - wx) * a + (1 - wy) * wx * b + wy * (1 - wx) * c + wy * wx * d",
+  "id": 115,
+  "kind": "equivalent",
+  "name": "bilinear_to56_14to56_v4",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear upsample of the (768, 14, 14) CHW activation (196 = 14*14 tokens from the linear, k=320) to (768, 56, 56) = 2408448 elements, align_corners=False (4x upsample). For each output pixel (oh, ow) in 56x56: source coords sy=(oh+0.5)*14/56-0.5, sx=(ow+0.5)*14/56-0.5 (half-pixel centers, align_corners=False); iy=floor(sy), ix=floor(sx); fractional weights wy=sy-iy, wx=sx-ix computed from the UNCLAMPED floor; indices iy, iy+1, ix, ix+1 clamped to [0,13] (border replication); output = (1-wy)(1-wx)*x[:,iy,ix] + (1-wy)wx*x[:,iy,ix+1] + wy(1-wx)*x[:,iy+1,ix] + wy*wx*x[:,iy+1,ix+1]. Exactly torch's F.interpolate(size=(56,56), mode='bilinear', align_corners=False, antialias=False).\", \"rel_err\": 1.1927091123214722e-07}",
+  "proposed_by": 56
+ },
+ {
   "chain": "[{\"op\": \"bilinear_to56\", \"params\": {}}]",
   "check_detail": "chain: bilinear_to56 {}: no reference to check it with (a new primitive needs `reference`); code: the code failed: RuntimeError: The size of tensor a (56) must match the size of tensor b (768) at non-singleton dimension 1",
   "check_ok": 0,
@@ -1054,6 +1138,30 @@
   "op": "upsample",
   "proposal": "{\"description\": \"Bilinear 2x upsample of the (768, 28, 28) CHW activation to (768, 56, 56) = 2408448 elements, align_corners=False, via a self-defined bilinear_up2x primitive with an explicit reference implementation.\\n\\nFor each output pixel (oh, ow) in 56x56: source coords sy=(oh+0.5)*28/56-0.5, sx=(ow+0.5)*28/56-0.5 (half-pixel centers); iy=floor(sy), ix=floor(sx), fractional weights wy=sy-iy, wx=sx-ix (computed from the UNCLAMPED floor); indices iy, iy+1, ix, ix+1 clamped to [0,27] (border replication); output = (1-wy)(1-wx)*x[:,iy,ix] + (1-wy)wx*x[:,iy,ix+1] + wy(1-wx)*x[:,iy+1,ix] + wy*wx*x[:,iy+1,ix+1]. This is exactly torch's F.interpolate(mode='bilinear', align_corners=False, antialias=False) 2x upsample.\", \"rel_err\": null}",
   "proposed_by": 32
+ },
+ {
+  "chain": "[{\"op\": \"bilinear_up2x_28\", \"params\": {\"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "chain: matches upsample (FP32, relative 2e-07); code: the code failed: AttributeError: 'types.SimpleNamespace' object has no attribute 'bilinear_up2x_28'",
+  "check_ok": 0,
+  "code": "import torch\n\ndef forward(module, x):\n    # x: (768, 28, 28) CHW\n    return module.bilinear_up2x_28(x)",
+  "id": 112,
+  "kind": "equivalent",
+  "name": "bilinear_up2x_28to56_equiv",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x upsample of the (768, 28, 28) CHW activation to (768, 56, 56) = 2408448 elements, align_corners=False. For each output pixel (oh, ow) in 56x56: source coords sy=(oh+0.5)*28/56-0.5=(oh-0.5)/2, sx=(ow+0.5)*28/56-0.5 (half-pixel centers); iy=floor(sy), ix=floor(sx); fractional weights wy=sy-iy, wx=sx-ix computed from the UNCLAMPED floor; indices iy, iy+1, ix, ix+1 clamped to [0,27] (border replication); output = (1-wy)(1-wx)*x[:,iy,ix] + (1-wy)wx*x[:,iy,ix+1] + wy(1-wx)*x[:,iy+1,ix] + wy*wx*x[:,iy+1,ix+1]. Exactly torch's F.interpolate(mode='bilinear', align_corners=False, antialias=False) 2x upsample.\", \"rel_err\": null}",
+  "proposed_by": 55
+ },
+ {
+  "chain": "[{\"op\": \"bilinear_up2x_28\", \"params\": {\"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "chain: matches upsample (FP32, relative 2e-07); code: relative difference 1.79e-07 (within 0.0001)",
+  "check_ok": 1,
+  "code": "import torch\n\ndef forward(module, x):\n    # x: (C, h, w) CHW = (768, 28, 28); bilinear 2x upsample, align_corners=False\n    h, w = x.shape[1], x.shape[2]\n    oh = torch.arange(2*h, dtype=x.dtype)\n    ow = torch.arange(2*w, dtype=x.dtype)\n    sy = (oh + 0.5) * h / (2*h) - 0.5\n    sx = (ow + 0.5) * w / (2*w) - 0.5\n    iy = torch.floor(sy).long()\n    ix = torch.floor(sx).long()\n    wy = sy - iy\n    wx = sx - ix\n    iy0 = iy.clamp(0, h-1); iy1 = (iy+1).clamp(0, h-1)\n    ix0 = ix.clamp(0, w-1); ix1 = (ix+1).clamp(0, w-1)\n    a = x[:, iy0][:, :, ix0]\n    b = x[:, iy0][:, :, ix1]\n    c = x[:, iy1][:, :, ix0]\n    d = x[:, iy1][:, :, ix1]\n    wy = wy.view(1, 2*h, 1)\n    wx = wx.view(1, 1, 2*w)\n    return (1-wy)*(1-wx)*a + (1-wy)*wx*b + wy*(1-wx)*c + wy*wx*d",
+  "id": 113,
+  "kind": "equivalent",
+  "name": "bilinear_up2x_28to56_equiv2",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x upsample of the (768, 28, 28) CHW activation to (768, 56, 56) = 2408448 elements, align_corners=False. For each output pixel (oh, ow) in 56x56: source coords sy=(oh+0.5)*28/56-0.5, sx=(ow+0.5)*28/56-0.5 (half-pixel centers); iy=floor(sy), ix=floor(sx); fractional weights wy=sy-iy, wx=sx-ix computed from the UNCLAMPED floor; indices iy, iy+1, ix, ix+1 clamped to [0,27] (border replication); output = (1-wy)(1-wx)*x[:,iy,ix] + (1-wy)wx*x[:,iy,ix+1] + wy(1-wx)*x[:,iy+1,ix] + wy*wx*x[:,iy+1,ix+1]. Exactly torch's F.interpolate(mode='bilinear', align_corners=False, antialias=False) 2x upsample.\", \"rel_err\": 1.7884864396958143e-07}",
+  "proposed_by": 55
  },
  {
   "chain": "[{\"op\": \"bilinear_resize2d\", \"params\": {\"out\": [56, 56]}}]",
@@ -1246,5 +1354,29 @@
   "op": "upsample",
   "proposal": "{\"description\": \"Probe of tril_const semantics.\", \"rel_err\": null}",
   "proposed_by": 30
+ },
+ {
+  "chain": "[{\"op\": \"bilinear_identity56\", \"params\": {}}]",
+  "check_detail": "chain: matches upsample (FP32, relative 0); code: the code failed: AttributeError: 'types.SimpleNamespace' object has no attribute 'bilinear_identity56'",
+  "check_ok": 0,
+  "code": "def forward(module, x):\n    # x: (768, 56, 56) CHW activation from the linear (3136 tokens x 768)\n    return module.bilinear_identity56(x)",
+  "id": 105,
+  "kind": "equivalent",
+  "name": "upsample_identity56_chip",
+  "op": "upsample",
+  "proposal": "{\"description\": \"The operation is a bilinear2d upsample whose output spatial size (56x56) equals the input spatial size (56x56, since the linear produces 3136 = 56*56 tokens of 768 channels). With align_corners=False half-pixel mapping, source coords sy=(oh+0.5)*56/56-0.5=oh, sx=(ow+0.5)*56/56-0.5=ow land exactly on integer pixel centers, so weights wy=wx=0 and each output pixel exactly equals the corresponding input pixel: the bilinear resize at unit scale is the identity. Use the chip's bilinear_identity56 primitive directly on the (768, 56, 56) CHW activation; output is 768*56*56 = 2408448 elements, matching out_elements.\", \"rel_err\": null}",
+  "proposed_by": 53
+ },
+ {
+  "chain": "[{\"op\": \"bilinear_identity56\", \"params\": {}}]",
+  "check_detail": "chain: matches upsample (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, x):\n    # x: (768, 56, 56) CHW activation from the linear (3136 tokens x 768)\n    # Unit-scale bilinear resize (align_corners=False) is the identity:\n    # sy=(oh+0.5)*56/56-0.5=oh, sx=ow land on integer pixel centers, wy=wx=0.\n    c, h, w = x.shape\n    oh = torch.arange(h, dtype=x.dtype)\n    ow = torch.arange(w, dtype=x.dtype)\n    iy = oh.long().clamp(0, h - 1)\n    ix = ow.long().clamp(0, w - 1)\n    return x[:, iy.unsqueeze(1), ix.unsqueeze(0)]",
+  "id": 106,
+  "kind": "equivalent",
+  "name": "upsample_identity56_chip_v2",
+  "op": "upsample",
+  "proposal": "{\"description\": \"The operation is a bilinear2d upsample whose output spatial size (56x56) equals the input spatial size (56x56, since the linear produces 3136 = 56*56 tokens of 768 channels). With align_corners=False half-pixel mapping, source coords sy=(oh+0.5)*56/56-0.5=oh, sx=(ow+0.5)*56/56-0.5=ow land exactly on integer pixel centers, so weights wy=wx=0 and each output pixel exactly equals the corresponding input pixel: the bilinear resize at unit scale is the identity. Use the chip's bilinear_identity56 primitive directly on the (768, 56, 56) CHW activation; output is 768*56*56 = 2408448 elements, matching out_elements.\", \"rel_err\": 0.0}",
+  "proposed_by": 53
  }
 ]
