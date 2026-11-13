@@ -24,6 +24,14 @@
   "tensors": null
  },
  {
+  "doc": "One-hot over buckets: bucket = id mod buckets, X[i, bucket_i] = 1.",
+  "name": "bucket_onehot",
+  "origin": "agent",
+  "params": "[\"buckets\"]",
+  "reference": "def fn(x, buckets):\n    import torch, torch.nn.functional as F\n    ids = x.long().reshape(-1) % buckets\n    return F.one_hot(ids, buckets).float()",
+  "tensors": null
+ },
+ {
   "doc": null,
   "name": "conv2d",
   "origin": "builtin",
@@ -37,6 +45,22 @@
   "origin": "builtin",
   "params": null,
   "reference": null,
+  "tensors": null
+ },
+ {
+  "doc": "Matrix multiply X (m, k) @ W (k, n) -> (m, n); W is the constant embedding table.",
+  "name": "gemm_ref",
+  "origin": "agent",
+  "params": "[\"m\", \"k\", \"n\"]",
+  "reference": "def fn(X, W, m, k, n):\n    import torch\n    return X @ W",
+  "tensors": null
+ },
+ {
+  "doc": "Hash each id modulo `buckets` and return the one-hot matrix over buckets of shape (tokens, buckets).",
+  "name": "hash_ids",
+  "origin": "agent",
+  "params": "[\"tokens\", \"buckets\"]",
+  "reference": "def fn(ids, tokens, buckets):\n    ids = ids.long().view(-1)\n    b = ids.remainder(buckets)\n    x = torch.zeros(tokens, buckets)\n    x.scatter_(1, b.view(-1, 1), 1.0)\n    return x",
   "tensors": null
  },
  {
@@ -56,11 +80,35 @@
   "tensors": null
  },
  {
-  "doc": "Given integer ids of shape (tokens,), produce a one-hot matrix of shape (tokens, classes) with X[i, id_i] = 1.",
+  "doc": "Dense matmul of activation X (m, k) with a constant table W (k, n): E = X @ W.",
+  "name": "matmul_table_ref",
+  "origin": "agent",
+  "params": "[\"m\", \"k\", \"n\"]",
+  "reference": "def fn(X, table, m, k, n):\n    return X @ table",
+  "tensors": null
+ },
+ {
+  "doc": "Build a one-hot matrix from integer ids: X[i, id_i] = 1.",
   "name": "one_hot",
   "origin": "agent",
-  "params": "{\"classes\": \"number of classes (vocab size)\"}",
-  "reference": "def fn(ids, classes):\n    ids = ids.long()\n    x = torch.zeros(ids.numel(), classes, device=ids.device)\n    x.scatter_(1, ids.unsqueeze(1), 1.0)\n    return x",
+  "params": "[\"classes\"]",
+  "reference": "def fn(ids, classes):\n    x = torch.zeros(ids.shape[0], classes, dtype=torch.float32, device=ids.device)\n    x[torch.arange(ids.shape[0]), ids.long()] = 1.0\n    return x",
+  "tensors": null
+ },
+ {
+  "doc": "Build a one-hot matrix X (tokens, classes) from integer ids (tokens,): X[i, id_i] = 1. Pure elementwise construction, no data addressing.",
+  "name": "one_hot_build",
+  "origin": "agent",
+  "params": "[\"classes\"]",
+  "reference": "def fn(ids, classes):\n    X = torch.zeros(ids.numel(), classes, dtype=torch.float32, device=ids.device)\n    X[torch.arange(ids.numel()), ids.long()] = 1.0\n    return X",
+  "tensors": null
+ },
+ {
+  "doc": "Build a one-hot matrix X of shape (tokens, classes) from integer ids: X[i, id_i] = 1.",
+  "name": "one_hot_ref",
+  "origin": "agent",
+  "params": "[\"classes\"]",
+  "reference": "def fn(ids, classes):\n    import torch\n    X = torch.zeros(ids.shape[0], classes, device=ids.device, dtype=torch.float32)\n    X[torch.arange(ids.shape[0], device=ids.device), ids.long()] = 1.0\n    return X",
   "tensors": null
  },
  {
@@ -93,6 +141,38 @@
   "origin": "builtin",
   "params": null,
   "reference": null,
+  "tensors": null
+ },
+ {
+  "doc": "One-hot of the ids (tokens, vocab) multiplied by a fixed seeded Gaussian sketch R (vocab, rank): returns X @ R of shape (tokens, rank).",
+  "name": "sketch_onehot",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\", \"rank\"]",
+  "reference": "def fn(ids, tokens, vocab, rank):\n    ids = ids.long().view(-1)\n    g = torch.Generator(device='cpu').manual_seed(1234)\n    R = torch.randn(vocab, rank, generator=g) / (rank ** 0.5)\n    x = torch.zeros(tokens, vocab)\n    x.scatter_(1, ids.view(-1, 1), 1.0)\n    return x @ R",
+  "tensors": null
+ },
+ {
+  "doc": "Project a one-hot of the ids through a seeded Gaussian sketch R (vocab, rank), entries N(0, 1/rank): returns X @ R.",
+  "name": "sketch_proj",
+  "origin": "agent",
+  "params": "[\"vocab\", \"rank\"]",
+  "reference": "def fn(x, vocab, rank):\n    import torch, torch.nn.functional as F\n    g = torch.Generator().manual_seed(0)\n    R = torch.randn(vocab, rank, generator=g) / (rank ** 0.5)\n    X = F.one_hot(x.long().reshape(-1), vocab).float()\n    return X @ R",
+  "tensors": null
+ },
+ {
+  "doc": "Soft one-hot over the vocabulary: weight 0.5 on the id itself and 0.5 on the next id (cyclically), shape (tokens, vocab).",
+  "name": "soft_onehot",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(ids, tokens, vocab):\n    ids = ids.long().view(-1)\n    x = torch.zeros(tokens, vocab)\n    x.scatter_(1, ids.view(-1, 1), 0.5)\n    x.scatter_add_(1, (ids + 1).remainder(vocab).view(-1, 1), torch.full((tokens, 1), 0.5))\n    return x",
+  "tensors": null
+ },
+ {
+  "doc": "Soft one-hot over the ids: weight 0.75 on the id itself, 0.25 on its cyclic neighbor (id+1) mod classes.",
+  "name": "soft_onehot_build",
+  "origin": "agent",
+  "params": "[\"classes\"]",
+  "reference": "def fn(x, classes):\n    import torch, torch.nn.functional as F\n    ids = x.long().reshape(-1)\n    X = F.one_hot(ids, classes).float()\n    Y = torch.zeros_like(X)\n    Y[torch.arange(ids.numel()), (ids + 1) % classes] = 1.0\n    return 0.75 * X + 0.25 * Y",
   "tensors": null
  },
  {
