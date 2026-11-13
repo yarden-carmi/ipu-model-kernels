@@ -25,6 +25,42 @@
  },
  {
   "chain": "[{\"op\": \"bucket_onehot\", \"params\": {\"buckets\": \"vocab // 8\", \"tokens\": \"tokens\"}}, {\"op\": \"matmul_table\", \"params\": {\"k\": \"vocab // 8\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "chain: bucket_onehot {\"buckets\": 125, \"tokens\": 1}: no reference to check it with (a new primitive needs `reference`); code: the code failed: AttributeError: 'types.SimpleNamespace' object has no attribute 'vocab'",
+  "check_ok": 0,
+  "code": "def forward(module, ids):\n    ids = ids.long().view(-1)\n    tokens = ids.shape[0]\n    buckets = module.vocab // 8\n    b = ids % buckets\n    X = torch.zeros(tokens, buckets)\n    X[torch.arange(tokens), b] = 1.0\n    W = module.table\n    Wb = torch.zeros(buckets, W.shape[1]).index_add_(0, b, W)\n    counts = torch.bincount(b, minlength=buckets).clamp(min=1).unsqueeze(1)\n    Wb = Wb / counts\n    return X @ Wb",
+  "id": 55,
+  "kind": "approximate",
+  "name": "bucket_centroid_lookup_mod8",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Hashed-bucket centroid lookup with buckets = vocab//8 (125). 1) Map each id to bucket b = id mod (vocab//8) and build a one-hot X (tokens, buckets) over buckets \\u2014 pure elementwise, no data addressing. 2) Precompute the reduced table Wb (buckets, dim) where Wb[j] is the mean of all table rows assigned to bucket j (a constant of the operation). 3) matmul_table: E = X @ Wb, shape (tokens, dim). Row i of E is the centroid of the id's bucket, an approximation of table[id_i]; the error shrinks as the bucket count approaches vocab.\", \"rel_err\": null}",
+  "proposed_by": 16
+ },
+ {
+  "chain": "[{\"op\": \"bucket_onehot\", \"params\": {\"buckets\": \"vocab // 8\", \"tokens\": \"tokens\"}}, {\"op\": \"matmul_table\", \"params\": {\"k\": \"vocab // 8\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "chain: bucket_onehot {\"buckets\": 125, \"tokens\": 1}: no reference to check it with (a new primitive needs `reference`); code: the code failed: RuntimeError: index_add_(): Number of indices (1) should be equal to source.size(dim): (1001), for dim: 0",
+  "check_ok": 0,
+  "code": "def forward(module, ids):\n    ids = ids.long().view(-1)\n    tokens = ids.shape[0]\n    buckets = module.table.shape[0] // 8\n    b = ids % buckets\n    X = torch.zeros(tokens, buckets)\n    X[torch.arange(tokens), b] = 1.0\n    W = module.table\n    Wb = torch.zeros(buckets, W.shape[1]).index_add_(0, b, W)\n    counts = torch.bincount(b, minlength=buckets).clamp(min=1).unsqueeze(1)\n    Wb = Wb / counts\n    return X @ Wb",
+  "id": 58,
+  "kind": "approximate",
+  "name": "bucket_centroid_lookup_mod8b",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Hashed-bucket centroid lookup with buckets = vocab//8 (125). 1) Map each id to bucket b = id mod (vocab//8) and build a one-hot X (tokens, buckets) over buckets \\u2014 pure elementwise, no data addressing. 2) Precompute the reduced table Wb (buckets, dim) where Wb[j] is the mean of all table rows assigned to bucket j (a constant of the operation). 3) matmul_table: E = X @ Wb, shape (tokens, dim). Row i of E is the centroid of the id's bucket, an approximation of table[id_i]; the error shrinks as the bucket count approaches vocab.\", \"rel_err\": null}",
+  "proposed_by": 16
+ },
+ {
+  "chain": "[{\"op\": \"bucket_onehot\", \"params\": {\"buckets\": \"vocab // 8\", \"tokens\": \"tokens\"}}, {\"op\": \"matmul_table\", \"params\": {\"k\": \"vocab // 8\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "chain: bucket_onehot {\"buckets\": 125, \"tokens\": 1}: no reference to check it with (a new primitive needs `reference`); code: relative difference 1.21 (over 0.0001)",
+  "check_ok": 0,
+  "code": "def forward(module, ids):\n    ids = ids.long().view(-1)\n    tokens = ids.shape[0]\n    W = module.table\n    vocab = W.shape[0]\n    buckets = vocab // 8\n    b = torch.arange(vocab) % buckets\n    Wb = torch.zeros(buckets, W.shape[1]).index_add_(0, b, W)\n    counts = torch.bincount(b, minlength=buckets).clamp(min=1).unsqueeze(1)\n    Wb = Wb / counts\n    X = torch.zeros(tokens, buckets)\n    X[torch.arange(tokens), ids % buckets] = 1.0\n    return X @ Wb",
+  "id": 60,
+  "kind": "approximate",
+  "name": "bucket_centroid_lookup_mod8c",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Hashed-bucket centroid lookup with buckets = vocab//8 (125). 1) Map each id to bucket b = id mod (vocab//8) and build a one-hot X (tokens, buckets) over buckets \\u2014 pure elementwise, no data addressing. 2) Precompute the reduced table Wb (buckets, dim) where Wb[j] is the mean of all table rows assigned to bucket j (a constant of the operation). 3) matmul_table: E = X @ Wb, shape (tokens, dim). Row i of E is the centroid of the id's bucket, an approximation of table[id_i]; the error shrinks as the bucket count approaches vocab.\", \"rel_err\": 1.2068321643023434}",
+  "proposed_by": 16
+ },
+ {
+  "chain": "[{\"op\": \"bucket_onehot\", \"params\": {\"buckets\": \"vocab // 8\", \"tokens\": \"tokens\"}}, {\"op\": \"matmul_table\", \"params\": {\"k\": \"vocab // 8\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
   "check_detail": "chain: matmul_table {\"k\": 125, \"m\": 1, \"n\": 1152}: no reference to check it with (a new primitive needs `reference`); code: relative difference 1.21 (over 0.0001)",
   "check_ok": 0,
   "code": "import torch\n\ndef forward(module, ids):\n    ids = ids.long()\n    tokens = ids.shape[0]\n    buckets = module.table.shape[0] // 8\n    b = ids % buckets\n    X = torch.zeros(tokens, buckets, dtype=module.table.dtype, device=module.table.device)\n    X[torch.arange(tokens), b] = 1.0\n    Wb = torch.zeros(buckets, module.table.shape[1], dtype=module.table.dtype, device=module.table.device)\n    counts = torch.bincount(torch.arange(module.table.shape[0]) % buckets, minlength=buckets).clamp(min=1).to(Wb.dtype)\n    Wb.index_add_(0, torch.arange(module.table.shape[0]) % buckets, module.table)\n    Wb = Wb / counts.unsqueeze(1)\n    return X @ Wb",
@@ -46,6 +82,18 @@
   "op": "embedding",
   "proposal": "{\"description\": \"Replace the embedding lookup with a single fused primitive. 1) gather_gemm: from the ids (tokens,), build the one-hot X (tokens, vocab) with X[i, id_i] = 1 (pure elementwise, no data addressing), then compute E = X @ W with W the embedding table (vocab, dim), a constant of the operation, giving (tokens, dim). Row i of the result is exactly table[id_i], identical to the lookup.\", \"rel_err\": 0.0}",
   "proposed_by": 14
+ },
+ {
+  "chain": "[{\"op\": \"gather_gemm_ref\", \"params\": {\"dim\": \"dim\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    W = module.table if hasattr(module, \"table\") else module.weight\n    X = torch.zeros(ids.shape[0], W.shape[0], dtype=torch.float32, device=ids.device)\n    X[torch.arange(ids.shape[0], device=ids.device), ids.long()] = 1.0\n    return X @ W",
+  "id": 49,
+  "kind": "equivalent",
+  "name": "gather_gemm_fused_ref",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the embedding lookup with a single fused primitive. 1) gather_gemm_ref: from the ids (tokens,), build the one-hot X (tokens, vocab) with X[i, id_i] = 1 (pure elementwise, no data addressing), then compute E = X @ W with W the embedding table (vocab, dim), a constant of the operation, giving (tokens, dim). Row i of the result is exactly table[id_i], identical to the lookup.\", \"rel_err\": 0.0}",
+  "proposed_by": 15
  },
  {
   "chain": "[{\"op\": \"hash_ids\", \"params\": {\"buckets\": \"128\", \"tokens\": \"tokens\"}}, {\"op\": \"matmul_table\", \"params\": {\"k\": \"128\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
@@ -181,6 +229,18 @@
  },
  {
   "chain": "[{\"op\": \"one_hot\", \"params\": {\"classes\": \"vocab\"}}, {\"op\": \"bmm\", \"params\": {\"b\": 1, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "chain: one_hot {\"classes\": 1001}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
+  "check_ok": null,
+  "code": "def forward(module, ids):\n    W = module.table\n    X = torch.zeros(ids.shape[0], W.shape[0], dtype=W.dtype, device=W.device)\n    X[torch.arange(ids.shape[0]), ids.long()] = 1.0\n    return torch.bmm(X.unsqueeze(0), W.unsqueeze(0)).squeeze(0)",
+  "id": 53,
+  "kind": "equivalent",
+  "name": "onehot_bmm_final",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the embedding lookup with a batched matmul against the constant table. 1) one_hot: from the ids (tokens,), build X (tokens, vocab) with X[i, id_i] = 1 (cast ids to long) \\u2014 a pure elementwise construction, no data addressing. 2) bmm: reshape X to (1, tokens, vocab) and the table W (vocab, dim) to (1, vocab, dim); compute E = bmm(X, W), giving (1, tokens, dim); squeeze the batch dim. Row i of the result is exactly table[id_i], identical to the lookup.\", \"rel_err\": 0.0}",
+  "proposed_by": 16
+ },
+ {
+  "chain": "[{\"op\": \"one_hot\", \"params\": {\"classes\": \"vocab\"}}, {\"op\": \"bmm\", \"params\": {\"b\": 1, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
   "check_detail": "chain: bmm {\"b\": 1, \"k\": 1001, \"m\": 1, \"n\": 1152}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
   "check_ok": null,
   "code": "import torch\n\ndef forward(module, *inputs):\n    ids = inputs[0]\n    table = getattr(module, \"table\", None)\n    if table is None:\n        table = module.weight\n    x = torch.nn.functional.one_hot(ids.long(), table.shape[0]).to(table.dtype)\n    return torch.bmm(x.unsqueeze(0), table.unsqueeze(0)).squeeze(0)",
@@ -250,6 +310,30 @@
   "op": "embedding",
   "proposal": "{\"description\": \"Replace the embedding lookup with a batched matmul against the constant table. 1) one_hot_build: from the ids (tokens,), build X (tokens, vocab) with X[i, id_i] = 1 (cast ids to long) \\u2014 a pure elementwise construction, no data addressing. 2) bmm_gather (chip op): reshape X to (1, tokens, vocab) and the table W (vocab, dim) to (1, vocab, dim); compute E = bmm(X, W), giving (1, tokens, dim); squeeze the batch dim. Row i of the result is exactly table[id_i], identical to the lookup.\", \"rel_err\": 0.0}",
   "proposed_by": 14
+ },
+ {
+  "chain": "[{\"op\": \"one_hot_build\", \"params\": {\"classes\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "chain: gemm {\"bias\": false, \"k\": 1001, \"m\": 1, \"n\": 1152}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
+  "check_ok": null,
+  "code": "def forward(module, ids):\n    W = module.table if hasattr(module, \"table\") else module.weight\n    X = torch.zeros(ids.shape[0], W.shape[0], dtype=torch.float32, device=ids.device)\n    X[torch.arange(ids.shape[0], device=ids.device), ids.long()] = 1.0\n    return X @ W",
+  "id": 48,
+  "kind": "equivalent",
+  "name": "onehot_build_gemm_ref",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the embedding lookup with a dense matmul against the constant table, with a checkable one-hot primitive. 1) one_hot_build (primitive with reference): from the ids (tokens,), build X (tokens, vocab) with X[i, id_i] = 1 (cast ids to long) \\u2014 a pure elementwise construction, no data addressing. 2) gemm (chip op): E = X @ W with W the embedding table (vocab, dim), a constant of the operation, giving (tokens, dim). Row i of the result is exactly table[id_i], identical to the lookup.\", \"rel_err\": 0.0}",
+  "proposed_by": 15
+ },
+ {
+  "chain": "[{\"op\": \"one_hot_build\", \"params\": {\"classes\": \"vocab\"}}, {\"op\": \"gemm_ref\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "chain: gemm_ref {\"k\": 1001, \"m\": 1, \"n\": 1152}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
+  "check_ok": null,
+  "code": "def forward(module, ids):\n    W = module.table if hasattr(module, \"table\") else module.weight\n    X = torch.zeros(ids.shape[0], W.shape[0], dtype=torch.float32, device=ids.device)\n    X[torch.arange(ids.shape[0], device=ids.device), ids.long()] = 1.0\n    return X @ W",
+  "id": 50,
+  "kind": "equivalent",
+  "name": "onehot_build_gemm_ref2",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the embedding lookup with a dense matmul against the constant table, with checkable primitives. 1) one_hot_build: from the ids (tokens,), build X (tokens, vocab) with X[i, id_i] = 1 (cast ids to long) \\u2014 pure elementwise construction, no data addressing. 2) gemm_ref: E = X @ W with W the embedding table (vocab, dim), a constant of the operation, giving (tokens, dim). Row i of the result is exactly table[id_i], identical to the lookup.\", \"rel_err\": 0.0}",
+  "proposed_by": 15
  },
  {
   "chain": "[{\"op\": \"one_hot_build\", \"params\": {\"classes\": \"vocab\"}}, {\"op\": \"matmul_table\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
@@ -348,6 +432,18 @@
   "proposed_by": 9
  },
  {
+  "chain": "[{\"op\": \"one_hot\", \"params\": {\"classes\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "chain: one_hot {\"classes\": 1001}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
+  "check_ok": null,
+  "code": "def forward(module, ids):\n    W = module.table\n    X = torch.zeros(ids.shape[0], W.shape[0], dtype=W.dtype, device=W.device)\n    X[torch.arange(ids.shape[0]), ids.long()] = 1.0\n    return X @ W",
+  "id": 52,
+  "kind": "equivalent",
+  "name": "onehot_gemm_final",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the embedding lookup with a dense matmul against the constant table. 1) one_hot: from the ids (tokens,), build X (tokens, vocab) with X[i, id_i] = 1 (cast ids to long) \\u2014 a pure elementwise construction, no data addressing. 2) gemm: E = X @ W with W the embedding table (vocab, dim), a constant of the operation, giving (tokens, dim). Row i of the result is exactly table[id_i], identical to the lookup.\", \"rel_err\": 0.0}",
+  "proposed_by": 16
+ },
+ {
   "chain": "[{\"op\": \"one_hot_build\", \"params\": {\"classes\": \"vocab\"}}, {\"op\": \"gemm_ref\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
   "check_detail": "chain: gemm_ref takes 2 activations; the path has only 1 left (the layer's inputs, in order: [1]); code: relative difference 0 (within 0.0001)",
   "check_ok": 0,
@@ -430,6 +526,18 @@
   "op": "embedding",
   "proposal": "{\"description\": \"Replace the embedding lookup with a dense matmul against the constant table, with fully checkable primitives. 1) one_hot_ref: build X (tokens, vocab) with X[i, id_i] = 1 from the ids \\u2014 pure elementwise construction, no data addressing. 2) matmul_table_ref: E = X @ W with W the embedding table (vocab, dim), a constant of the operation, giving (tokens, dim). Row i of the result is exactly table[id_i], identical to the lookup.\", \"rel_err\": 0.0}",
   "proposed_by": 9
+ },
+ {
+  "chain": "[{\"op\": \"one_hot_build\", \"params\": {\"classes\": \"vocab\"}}, {\"op\": \"matmul_table_ref\", \"params\": {\"dim\": \"dim\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    W = module.table if hasattr(module, \"table\") else module.weight\n    X = torch.zeros(ids.shape[0], W.shape[0], dtype=torch.float32, device=ids.device)\n    X[torch.arange(ids.shape[0], device=ids.device), ids.long()] = 1.0\n    return X @ W",
+  "id": 51,
+  "kind": "equivalent",
+  "name": "onehot_matmul_table_full_ref",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the embedding lookup with a dense matmul against the constant table, with fully checkable primitives. 1) one_hot_build: from the ids (tokens,), build X (tokens, vocab) with X[i, id_i] = 1 (cast ids to long) \\u2014 pure elementwise construction, no data addressing. 2) matmul_table_ref: E = X @ W with W the embedding table (vocab, dim), a constant of the operation, giving (tokens, dim). Row i of the result is exactly table[id_i], identical to the lookup.\", \"rel_err\": 0.0}",
+  "proposed_by": 15
  },
  {
   "chain": "[{\"op\": \"one_hot_ref\", \"params\": {\"classes\": \"vocab\"}}, {\"op\": \"matmul_table\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
@@ -516,6 +624,30 @@
   "proposed_by": 11
  },
  {
+  "chain": "[{\"op\": \"sketch_proj\", \"params\": {\"rank\": \"vocab // 16\", \"vocab\": \"vocab\"}}, {\"op\": \"matmul_table\", \"params\": {\"k\": \"vocab // 16\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "chain: sketch_proj {\"rank\": 62, \"vocab\": 1001}: no reference to check it with (a new primitive needs `reference`); code: the code failed: AttributeError: 'types.SimpleNamespace' object has no attribute 'vocab'",
+  "check_ok": 0,
+  "code": "def forward(module, ids):\n    ids = ids.long().view(-1)\n    tokens, vocab = ids.shape[0], module.vocab\n    rank = vocab // 16\n    g = torch.Generator().manual_seed(0)\n    R = torch.randn(vocab, rank, generator=g) / (rank ** 0.5)\n    X = torch.zeros(tokens, vocab)\n    X[torch.arange(tokens), ids] = 1.0\n    Z = X @ R\n    Wp = R.T @ module.table\n    return Z @ Wp",
+  "id": 56,
+  "kind": "approximate",
+  "name": "sketch_rank62_lookup_v2",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Random-projection sketch lookup with rank r = vocab//16 (62). 1) From the ids, compute Z (tokens, r) by multiplying the implicit one-hot X by a seeded Gaussian sketch R (vocab, r), entries N(0, 1/r) \\u2014 a constant of the operation; Z rows are the id's sketch row, no data addressing needed beyond the constant R. 2) Precompute the sketched table W' = R^T W of shape (r, dim) from the constant table. 3) matmul_table: E = Z @ W', shape (tokens, dim). Row i of E is a rank-r approximation of table[id_i]; the error shrinks as r grows toward vocab.\", \"rel_err\": null}",
+  "proposed_by": 16
+ },
+ {
+  "chain": "[{\"op\": \"sketch_proj\", \"params\": {\"rank\": \"vocab // 16\", \"vocab\": \"vocab\"}}, {\"op\": \"matmul_table\", \"params\": {\"k\": \"vocab // 16\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "chain: sketch_proj {\"rank\": 62, \"vocab\": 1001}: no reference to check it with (a new primitive needs `reference`); code: relative difference 9.03 (over 0.0001)",
+  "check_ok": 0,
+  "code": "def forward(module, ids):\n    ids = ids.long().view(-1)\n    tokens = ids.shape[0]\n    vocab = module.table.shape[0]\n    rank = vocab // 16\n    g = torch.Generator().manual_seed(0)\n    R = torch.randn(vocab, rank, generator=g) / (rank ** 0.5)\n    X = torch.zeros(tokens, vocab)\n    X[torch.arange(tokens), ids] = 1.0\n    Z = X @ R\n    Wp = R.T @ module.table\n    return Z @ Wp",
+  "id": 59,
+  "kind": "approximate",
+  "name": "sketch_rank62_lookup_v3",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Random-projection sketch lookup with rank r = vocab//16 (62). 1) From the ids, compute Z (tokens, r) by multiplying the implicit one-hot X by a seeded Gaussian sketch R (vocab, r), entries N(0, 1/r) \\u2014 a constant of the operation; Z rows are the id's sketch row, no data addressing needed beyond the constant R. 2) Precompute the sketched table W' = R^T W of shape (r, dim) from the constant table. 3) matmul_table: E = Z @ W', shape (tokens, dim). Row i of E is a rank-r approximation of table[id_i]; the error shrinks as r grows toward vocab.\", \"rel_err\": 9.03085538324743}",
+  "proposed_by": 16
+ },
+ {
   "chain": "[{\"op\": \"one_hot\", \"params\": {\"classes\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
   "check_detail": "chain: one_hot {\"classes\": 1001}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0.991 (over 0.0001)",
   "check_ok": 0,
@@ -550,6 +682,30 @@
   "op": "embedding",
   "proposal": "{\"description\": \"Soft one-hot lookup with cyclic-neighbor blur. 1) From the ids (tokens,), build a soft one-hot S (tokens, vocab): S[i, id_i] = 0.75 and S[i, (id_i + 1) mod vocab] = 0.25 \\u2014 pure elementwise construction, no data addressing. 2) matmul_table: E = S @ W with W the constant embedding table (vocab, dim), shape (tokens, dim). Row i of E is 0.75 * table[id_i] + 0.25 * table[(id_i + 1) mod vocab]: a local-smoothing heuristic keeping most of its weight on the exact row.\", \"rel_err\": 0.4955902165822979}",
   "proposed_by": 9
+ },
+ {
+  "chain": "[{\"op\": \"soft_onehot\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"matmul_table\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "chain: soft_onehot {\"tokens\": 1, \"vocab\": 1001}: no reference to check it with (a new primitive needs `reference`); code: the code failed: AttributeError: 'types.SimpleNamespace' object has no attribute 'vocab'",
+  "check_ok": 0,
+  "code": "def forward(module, ids):\n    ids = ids.long().view(-1)\n    tokens, vocab = ids.shape[0], module.vocab\n    S = torch.zeros(tokens, vocab)\n    rows = torch.arange(tokens)\n    S[rows, ids] = 0.5\n    S[rows, (ids + 1) % vocab] = 0.5\n    return S @ module.table",
+  "id": 54,
+  "kind": "approximate",
+  "name": "soft_onehot_half_blur",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Soft one-hot lookup with cyclic-neighbor blur. 1) From the ids (tokens,), build a soft one-hot S (tokens, vocab): S[i, id_i] = 0.5 and S[i, (id_i + 1) mod vocab] = 0.5 \\u2014 a pure elementwise construction, no data addressing. 2) matmul_table: E = S @ W with W the constant embedding table (vocab, dim), shape (tokens, dim). Row i of E is the average of table[id_i] and table[(id_i+1) mod vocab]: a local-smoothing heuristic keeping half its weight on the exact row.\", \"rel_err\": null}",
+  "proposed_by": 16
+ },
+ {
+  "chain": "[{\"op\": \"soft_onehot\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"matmul_table\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "chain: soft_onehot {\"tokens\": 1, \"vocab\": 1001}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0.991 (over 0.0001)",
+  "check_ok": 0,
+  "code": "def forward(module, ids):\n    ids = ids.long().view(-1)\n    tokens = ids.shape[0]\n    vocab = module.table.shape[0]\n    S = torch.zeros(tokens, vocab)\n    rows = torch.arange(tokens)\n    S[rows, ids] = 0.5\n    S[rows, (ids + 1) % vocab] = 0.5\n    return S @ module.table",
+  "id": 57,
+  "kind": "approximate",
+  "name": "soft_onehot_half_blur2",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Soft one-hot lookup with cyclic-neighbor blur. 1) From the ids (tokens,), build a soft one-hot S (tokens, vocab): S[i, id_i] = 0.5 and S[i, (id_i + 1) mod vocab] = 0.5 \\u2014 a pure elementwise construction, no data addressing. 2) matmul_table: E = S @ W with W the constant embedding table (vocab, dim), shape (tokens, dim). Row i of E is the average of table[id_i] and table[(id_i+1) mod vocab]: a local-smoothing heuristic keeping half its weight on the exact row.\", \"rel_err\": 0.9911804331645958}",
+  "proposed_by": 16
  },
  {
   "chain": "[{\"op\": \"soft_onehot_build\", \"params\": {\"classes\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",

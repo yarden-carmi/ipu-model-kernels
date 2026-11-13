@@ -56,6 +56,14 @@
   "tensors": null
  },
  {
+  "doc": "Fused embedding lookup: build the one-hot X (tokens, vocab) from the ids (pure elementwise, no data addressing), then compute E = X @ W with W the constant embedding table (vocab, dim). Row i of the result is exactly table[id_i].",
+  "name": "gather_gemm_ref",
+  "origin": "agent",
+  "params": "[\"vocab\", \"dim\"]",
+  "reference": "def fn(ids, table, vocab, dim):\n    X = torch.zeros(ids.shape[0], vocab, dtype=torch.float32, device=ids.device)\n    X[torch.arange(ids.shape[0], device=ids.device), ids.long()] = 1.0\n    return X @ table",
+  "tensors": null
+ },
+ {
   "doc": null,
   "name": "gemm",
   "origin": "builtin",
@@ -96,11 +104,11 @@
   "tensors": null
  },
  {
-  "doc": "Dense matrix multiply of activation X (m, k) against a constant table W (k, n): E = X @ W.",
+  "doc": "Dense matmul against the constant embedding table: E = X @ W, W (vocab, dim) a constant of the operation. Row i of the result is exactly table[id_i].",
   "name": "matmul_table_ref",
   "origin": "agent",
-  "params": "[\"m\", \"k\", \"n\"]",
-  "reference": "def fn(X, W, m, k, n):\n    import torch\n    return X @ W",
+  "params": "[\"vocab\", \"dim\"]",
+  "reference": "def fn(X, table, vocab, dim):\n    return X @ table",
   "tensors": null
  },
  {
@@ -112,11 +120,11 @@
   "tensors": null
  },
  {
-  "doc": "Build a one-hot matrix X of shape (tokens, classes) from integer ids: X[i, id_i] = 1. Pure elementwise construction, no data addressing.",
+  "doc": "Build a one-hot matrix X of shape (tokens, classes) from integer ids (tokens,): X[i, id_i] = 1. Pure elementwise construction, no data addressing.",
   "name": "one_hot_build",
   "origin": "agent",
   "params": "[\"classes\"]",
-  "reference": "def fn(ids, classes):\n    import torch\n    x = torch.zeros(ids.shape[0], classes, dtype=torch.float32, device=ids.device)\n    x[torch.arange(ids.shape[0], device=ids.device), ids.long()] = 1.0\n    return x",
+  "reference": "def fn(ids, classes):\n    x = torch.zeros(ids.shape[0], classes, dtype=torch.float32, device=ids.device)\n    x[torch.arange(ids.shape[0], device=ids.device), ids.long()] = 1.0\n    return x",
   "tensors": null
  },
  {
