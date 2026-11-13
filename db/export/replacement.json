@@ -492,6 +492,18 @@
   "proposed_by": 83
  },
  {
+  "chain": "[{\"op\": \"bf16_trunc_row\", \"params\": {\"dim\": \"dim\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: the path does not compute embedding as called (): largest difference 0.0039 (relative 0.002) at element 345: -1.13281 where embedding gives -1.13671; code: relative difference 0.00196 (over 0.0001)",
+  "check_ok": 0,
+  "code": "def forward(module, ids):\n    table = module.table\n    idx = ids.long().reshape(-1)\n    rows = table[idx]\n    return rows.to(torch.bfloat16).float()",
+  "id": 227,
+  "kind": "approximate",
+  "name": "bf16_trunc_embedding_1001x1152",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Approximate the embedding by bfloat16 mantissa truncation of the selected row. Step 1: select the table row for the token id (ids cast to long). Step 2: round the row to bfloat16 (8-bit mantissa) and cast back to float32. Row selection is exact; the only approximation is the bf16 mantissa truncation, relative error ~2^-9 (~0.2%) per element.\", \"rel_err\": 0.0019570855337783894}",
+  "proposed_by": 103
+ },
+ {
   "chain": "[{\"op\": \"bf16_row_select\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
   "check_detail": "chain: the path does not compute embedding as called (): largest difference 0.00391 (relative 0.002) at element 94289: 1.78125 where embedding gives 1.78516; code: relative difference 0.00195 (over 0.0001)",
   "check_ok": 0,
@@ -514,6 +526,18 @@
   "op": "embedding",
   "proposal": "{\"description\": \"Approximate the embedding lookup by hash-bucketing the vocabulary. Step 1: take the token id and reduce it modulo buckets=256 (ids cast to long). Step 2: select row idx from a compressed table of shape 256 x dim=1152 (built once from the full 1001 x 1152 table by summing rows that collide into the same bucket, i.e. compressed[b] = sum of table rows with id % 256 == b). The output is the bucket row instead of the exact embedding row; ids colliding in a bucket share an embedding, so this is an approximation whose error is controlled by the number of buckets.\", \"rel_err\": 1.9903784803382774}",
   "proposed_by": 83
+ },
+ {
+  "chain": "[{\"op\": \"hash_bucket\", \"params\": {\"buckets\": 256, \"dim\": \"dim\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: the path does not compute embedding as called (): largest difference 5.47 (relative 2.7) at element 1053: -6.84126 where embedding gives -1.37234; code: relative difference 2.74 (over 0.0001)",
+  "check_ok": 0,
+  "code": "def forward(module, ids):\n    table = module.table\n    idx = ids.long().reshape(-1)\n    buckets = 256\n    compressed = torch.zeros(buckets, table.shape[1], dtype=table.dtype, device=table.device)\n    compressed.index_add_(0, torch.arange(table.shape[0], device=table.device) % buckets, table)\n    return compressed[idx % buckets]",
+  "id": 228,
+  "kind": "approximate",
+  "name": "hash_bucket_embedding_256_1001x1152",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Approximate the embedding by hash-bucketing the vocabulary. Step 1: reduce the token id modulo buckets=256 (ids cast to long). Step 2: build a compressed table of shape 256 x dim=1152 by summing all table rows that collide into the same bucket (compressed[b] = sum of table rows with id % 256 == b). Step 3: select the bucket row for the id. Colliding ids share an embedding, so the result approximates the exact row; the compressed table is ~4x smaller than the full one.\", \"rel_err\": 2.744356031162621}",
+  "proposed_by": 103
  },
  {
   "chain": "[{\"op\": \"hash_bucket_embed\", \"params\": {\"buckets\": 32768, \"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
@@ -598,6 +622,18 @@
   "op": "embedding",
   "proposal": "{\"description\": \"Approximate the embedding by a rank-64 low-rank factorization of the table. Step 1: build a one-hot row vector of length vocab=1001 from the token id. Step 2: multiply the one-hot by A (vocab x rank=64), the truncated-SVD left factor of the table scaled by singular values. Step 3: multiply the resulting (1 x 64) vector by B (rank=64 x dim=1152), the right factor. The result approximates the exact embedding row with rank-64 truncation error; A and B are precomputed constants from the table.\", \"rel_err\": 1.30579949001878}",
   "proposed_by": 83
+ },
+ {
+  "chain": "[{\"op\": \"lowrank_row\", \"params\": {\"dim\": \"dim\", \"rank\": 64, \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: the path does not compute embedding as called (): largest difference 2.6 (relative 1.3) at element 936: -0.711394 where embedding gives 1.89078; code: relative difference 1.31 (over 0.0001)",
+  "check_ok": 0,
+  "code": "def forward(module, ids):\n    table = module.table\n    idx = ids.long().reshape(-1)\n    rank = 64\n    U, S, Vh = torch.linalg.svd(table, full_matrices=False)\n    A = U[:, :rank] * S[:rank]\n    B = Vh[:rank, :]\n    return A[idx] @ B",
+  "id": 229,
+  "kind": "approximate",
+  "name": "lowrank_embedding_r64_1001x1152",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Approximate the embedding by a rank-64 low-rank factorization of the table. Step 1: compute a truncated SVD of the embedding table (1001 x 1152) keeping rank=64; form A = U[:, :64] * S[:64] (vocab x 64) and B = Vh[:64, :] (64 x dim) as constants. Step 2: take the row of A for the token id (ids cast to long). Step 3: multiply by B, giving a (1 x 1152) result approximating the exact embedding row with rank-64 truncation error.\", \"rel_err\": 1.30579949001878}",
+  "proposed_by": 103
  },
  {
   "chain": "[{\"op\": \"lowrank_gemm\", \"params\": {\"dim\": \"dim\", \"rank\": 64, \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
@@ -732,6 +768,54 @@
   "proposed_by": 82
  },
  {
+  "chain": "[{\"op\": \"fused_masked_row_reduce\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: fused_masked_row_reduce {\"tokens\": 1, \"vocab\": 1001, \"dim\": 1152}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
+  "check_ok": null,
+  "code": "def forward(module, ids):\n    table = module.table\n    ids = ids.long().reshape(-1, 1)\n    tokens = ids.shape[0]\n    vocab, dim = table.shape\n    mask = (ids == torch.arange(vocab, device=ids.device).view(1, -1)).to(table.dtype)\n    masked = mask.view(tokens, vocab, 1) * table.view(1, vocab, dim)\n    return masked.sum(dim=1)",
+  "id": 225,
+  "kind": "equivalent",
+  "name": "masked_row_reduce_embedding_1x1001x1152_chip",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the runtime-index lookup with the chip's fused masked row reduction. Step 1: flatten the id to a column (1 x 1) and compare against arange(vocab=1001) to get a 0/1 mask of shape 1 x 1001. Step 2: broadcast-multiply the mask (tokens x vocab x 1) with the table rows (1 x vocab x dim), zeroing all rows except the selected one. Step 3: sum over the vocab dimension, yielding exactly the selected row (1 x 1152). Mathematically identical to embedding for tokens=1; the table is a constant passed alongside the ids as input to the primitive.\", \"rel_err\": 0.0}",
+  "proposed_by": 103
+ },
+ {
+  "chain": "[{\"op\": \"fused_masked_row_reduce\", \"params\": {\"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: fused_masked_row_reduce {\"vocab\": 1001}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
+  "check_ok": null,
+  "code": "def forward(module, ids):\n    table = module.table\n    ids = ids.long().reshape(-1, 1)\n    vocab, dim = table.shape[0], table.shape[1]\n    mask = (ids == torch.arange(vocab, device=ids.device).view(1, -1)).to(table.dtype)\n    masked = mask.view(1, vocab, 1) * table.view(1, vocab, dim)\n    return masked.sum(dim=1)",
+  "id": 218,
+  "kind": "equivalent",
+  "name": "masked_row_reduce_embedding_1x1001x1152_final",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the lookup with the chip's fused masked row reduction. Step 1: flatten the id to a column (1 x 1) and compare against arange(vocab=1001) to get a 0/1 mask of shape 1 x 1001. Step 2: broadcast-multiply the mask (tokens x vocab x 1) with the table rows (1 x vocab x dim), zeroing all rows except the selected one. Step 3: sum over the vocab dimension, yielding exactly the selected row (1 x 1152). Mathematically identical to embedding for tokens=1; the table is a constant passed alongside the ids as input to the primitive.\", \"rel_err\": 0.0}",
+  "proposed_by": 100
+ },
+ {
+  "chain": "[{\"op\": \"fused_masked_row_reduce\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    table = module.table\n    idx = ids.reshape(-1).long()\n    mask = (torch.arange(table.shape[0], device=table.device)[None, :] == idx[:, None]).to(table.dtype)\n    return (mask[:, :, None] * table[None, :, :]).sum(dim=1)",
+  "id": 222,
+  "kind": "equivalent",
+  "name": "masked_row_reduce_embedding_1x1001x1152_final2",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the runtime-index lookup with a fused masked row reduction. Step 1: flatten the id to a column (1 x 1) and compare against arange(vocab=1001) to get a 0/1 mask of shape 1 x 1001. Step 2: broadcast-multiply the mask (tokens x vocab x 1) with the table rows (1 x vocab x dim), zeroing all rows except the selected one. Step 3: sum over the vocab dimension, yielding exactly the selected row (1 x 1152). Mathematically identical to embedding for tokens=1; the table is a constant passed alongside the ids as input to the primitive.\", \"rel_err\": 0.0}",
+  "proposed_by": 102
+ },
+ {
+  "chain": "[{\"op\": \"masked_row_reduce\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    table = module.table\n    ids = ids.long().reshape(-1, 1)\n    tokens, vocab, dim = 1, table.shape[0], table.shape[1]\n    mask = (ids == torch.arange(vocab, device=ids.device).view(1, -1)).to(table.dtype)\n    masked = mask.view(tokens, vocab, 1) * table.view(1, vocab, dim)\n    return masked.sum(dim=1)",
+  "id": 220,
+  "kind": "equivalent",
+  "name": "masked_row_reduce_embedding_1x1001x1152_ref",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the lookup with a fused masked row reduction. Step 1: flatten the id to a column (1 x 1) and compare against arange(vocab=1001) to get a 0/1 mask of shape 1 x 1001. Step 2: broadcast-multiply the mask (tokens x vocab x 1) with the table rows (1 x vocab x dim), zeroing all rows except the selected one. Step 3: sum over the vocab dimension, yielding exactly the selected row (1 x 1152). Mathematically identical to embedding for tokens=1; the table is a constant passed alongside the ids as input to the primitive.\", \"rel_err\": 0.0}",
+  "proposed_by": 100
+ },
+ {
   "chain": "[{\"op\": \"fused_masked_row_reduce\", \"params\": {\"dim\": \"dim\", \"vocab\": \"vocab\"}}]",
   "check_detail": "chain: the path does not compute embedding as called (): largest difference 4.84 (relative 2.4) at element 878: 2.84425 where embedding gives -1.99187; code: relative difference 0 (within 0.0001)",
   "check_ok": 0,
@@ -778,6 +862,18 @@
   "op": "embedding",
   "proposal": "{\"description\": \"Replace the lookup with a fused masked row reduction. Step 1: flatten the id to a column (1 x 1) and compare against arange(vocab=1001) to get a 0/1 mask of shape 1 x 1001. Step 2: transpose the mask to a column (1001 x 1) and broadcast-multiply with the embedding table rows (1001 x 1152), zeroing all rows except the selected one. Step 3: sum over the vocab dimension, yielding exactly the selected row (1 x 1152). Mathematically identical to embedding for tokens=1; the table is a constant passed alongside the ids as input to the primitive.\", \"rel_err\": 0.0}",
   "proposed_by": 83
+ },
+ {
+  "chain": "[{\"op\": \"fused_masked_row_reduce\", \"params\": {\"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    table = module.table\n    ids = ids.long().reshape(-1, 1)\n    mask = (ids == torch.arange(table.shape[0], device=table.device, dtype=ids.dtype).view(1, -1)).to(table.dtype)\n    return (mask.view(-1, table.shape[0], 1) * table.view(1, table.shape[0], -1)).sum(dim=1)",
+  "id": 216,
+  "kind": "equivalent",
+  "name": "masked_row_reduce_embedding_1x1001x1152_v6",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the lookup with a fused masked row reduction. Step 1: flatten the id to a column (1 x 1) and compare against arange(vocab=1001) to get a 0/1 mask of shape 1 x 1001. Step 2: broadcast-multiply the mask (tokens x vocab x 1) with the table rows (1 x vocab x dim), zeroing all rows except the selected one. Step 3: sum over the vocab dimension, yielding exactly the selected row (1 x 1152). Mathematically identical to embedding for tokens=1; the table is a constant passed alongside the ids as input to the primitive.\", \"rel_err\": 0.0}",
+  "proposed_by": 99
  },
  {
   "chain": "[{\"name\": \"fused_masked_row_reduce\", \"op\": \"fused_masked_row_reduce\", \"params\": {\"n\": \"dim\", \"rows\": \"tokens\", \"vocab\": \"vocab\"}}]",
@@ -936,6 +1032,18 @@
   "proposed_by": 96
  },
  {
+  "chain": "[{\"op\": \"fused_masked_row_reduce\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    ids = ids.reshape(-1, 1).long()\n    table = module.table\n    vocab = table.shape[0]\n    mask = (ids == torch.arange(vocab, device=ids.device)).to(table.dtype)\n    return (mask.unsqueeze(-1) * table.unsqueeze(0)).sum(dim=1)",
+  "id": 224,
+  "kind": "equivalent",
+  "name": "masked_row_reduce_embedding_64x4096x768",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the lookup with a fused masked row reduction. Step 1: flatten ids to a column (64 x 1) and compare against arange(vocab=4096) to get a 0/1 mask of shape tokens=64 x vocab. Step 2: broadcast-multiply the mask (tokens x vocab x 1) with the table rows (1 x vocab x dim), zeroing all rows except the selected one per token. Step 3: sum over the vocab dimension, yielding exactly the selected rows (64 x 768). Mathematically identical to embedding; the table is a constant passed alongside the ids as input to the primitive.\", \"rel_err\": 0.0}",
+  "proposed_by": 104
+ },
+ {
   "chain": "[{\"op\": \"masked_row_reduce\", \"params\": {\"dim\": 768, \"vocab\": 30522}}]",
   "check_detail": "chain: the path does not compute embedding as called (): largest difference 5.96 (relative 3) at element 69000: -4.13468 where embedding gives 1.8249; code: relative difference 0 (within 0.0001)",
   "check_ok": 0,
@@ -1080,6 +1188,18 @@
   "proposed_by": 83
  },
  {
+  "chain": "[{\"op\": \"noisy_row\", \"params\": {\"dim\": \"dim\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: the path does not compute embedding as called (): largest difference 0.0324 (relative 0.016) at element 807: -0.740435 where embedding gives -0.708058; code: relative difference 0.0172 (over 0.0001)",
+  "check_ok": 0,
+  "code": "def forward(module, ids):\n    table = module.table\n    idx = ids.long().reshape(-1)\n    rows = table[idx]\n    noise = torch.randn_like(rows) * (rows.abs().mean() * 0.01)\n    return rows + noise",
+  "id": 230,
+  "kind": "approximate",
+  "name": "noisy_row_embedding_1001x1152_v2",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Approximate the embedding by a noisy analog row select. Step 1: select the table row for the token id (ids cast to long). Step 2: add zero-mean Gaussian noise with standard deviation 1% of the mean absolute value of the selected row, modeling a noisy/analog read path. The result is an unbiased estimator of the exact embedding row.\", \"rel_err\": 0.017214647824504055}",
+  "proposed_by": 103
+ },
+ {
   "chain": "[{\"op\": \"noisy_row_embed\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
   "check_detail": "chain: the path does not compute embedding as called (): largest difference 0.0458 (relative 0.023) at element 159629: 1.28637 where embedding gives 1.33214; code: relative difference 0.0255 (over 0.0001)",
   "check_ok": 0,
@@ -1128,6 +1248,54 @@
   "proposed_by": 82
  },
  {
+  "chain": "[{\"op\": \"fused_onehot_gemm\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: fused_onehot_gemm {\"tokens\": 1, \"vocab\": 1001, \"dim\": 1152}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
+  "check_ok": null,
+  "code": "def forward(module, ids):\n    table = module.table\n    ids = ids.long().reshape(-1)\n    tokens = ids.shape[0]\n    vocab, dim = table.shape\n    onehot = torch.zeros(tokens, vocab, dtype=table.dtype, device=table.device)\n    onehot[torch.arange(tokens, device=ids.device), ids] = 1.0\n    return onehot @ table",
+  "id": 226,
+  "kind": "equivalent",
+  "name": "onehot_gemm_embedding_1x1001x1152_chip2",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the runtime-index lookup with the chip's fused one-hot GEMM. Step 1: build a one-hot matrix of shape tokens=1 x vocab=1001 from the single token id (row 0 has 1 at column ids[0], 0 elsewhere; ids cast to long). Step 2: GEMM the one-hot matrix (1 x 1001) by the embedding table (1001 x 1152), no transposes. The result row equals exactly the table row selected by the id, so the result (1 x 1152) is mathematically identical to embedding for tokens=1. The table is a constant passed alongside the ids as input to the primitive.\", \"rel_err\": 0.0}",
+  "proposed_by": 103
+ },
+ {
+  "chain": "[{\"op\": \"fused_onehot_gemm\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "chain: fused_onehot_gemm {\"k\": 1001, \"m\": 1, \"n\": 1152}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
+  "check_ok": null,
+  "code": "def forward(module, ids):\n    table = module.table\n    ids = ids.long().reshape(-1)\n    tokens, vocab, dim = 1, table.shape[0], table.shape[1]\n    onehot = torch.zeros(tokens, vocab, device=table.device, dtype=table.dtype)\n    onehot[torch.arange(tokens), ids] = 1.0\n    return onehot @ table",
+  "id": 217,
+  "kind": "equivalent",
+  "name": "onehot_gemm_embedding_1x1001x1152_final",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the runtime-index lookup with the chip's fused one-hot GEMM. Step 1: build a one-hot row vector of length vocab=1001 from the single token id (1 at position id, 0 elsewhere; ids cast to long). Step 2: GEMM the one-hot row (1 x 1001) by the embedding table (1001 x 1152), no transposes. The result row equals exactly the table row selected by the id, so the result (1 x 1152) is mathematically identical to embedding for tokens=1. The table is a constant passed alongside the ids as input to the primitive.\", \"rel_err\": 0.0}",
+  "proposed_by": 100
+ },
+ {
+  "chain": "[{\"op\": \"fused_onehot_gemm\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    table = module.table\n    idx = ids.reshape(-1).long()\n    onehot = torch.zeros(idx.shape[0], table.shape[0], dtype=table.dtype, device=table.device)\n    onehot[torch.arange(idx.shape[0], device=table.device), idx] = 1.0\n    return onehot @ table",
+  "id": 221,
+  "kind": "equivalent",
+  "name": "onehot_gemm_embedding_1x1001x1152_final2",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the runtime-index lookup with a fused one-hot GEMM. Step 1: build a one-hot matrix of shape tokens=1 x vocab=1001 from the single token id (row 0 has 1 at column ids[0], 0 elsewhere; ids cast to long). Step 2: GEMM the one-hot matrix (1 x 1001) by the embedding table (1001 x 1152), no transposes. The result row equals exactly the table row selected by the id, so the result (1 x 1152) is mathematically identical to embedding for tokens=1. The table is a constant passed alongside the ids as input to the primitive.\", \"rel_err\": 0.0}",
+  "proposed_by": 102
+ },
+ {
+  "chain": "[{\"op\": \"onehot_gemm\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    table = module.table\n    ids = ids.long().reshape(-1)\n    tokens, vocab, dim = 1, table.shape[0], table.shape[1]\n    onehot = torch.zeros(tokens, vocab, device=table.device, dtype=table.dtype)\n    onehot[torch.arange(tokens), ids] = 1.0\n    return onehot @ table",
+  "id": 219,
+  "kind": "equivalent",
+  "name": "onehot_gemm_embedding_1x1001x1152_ref",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the runtime-index lookup with a fused one-hot GEMM. Step 1: build a one-hot row vector of length vocab=1001 from the single token id (1 at position id, 0 elsewhere; ids cast to long). Step 2: GEMM the one-hot row (1 x 1001) by the embedding table (1001 x 1152), no transposes. The result row equals exactly the table row selected by the id, so the result (1 x 1152) is mathematically identical to embedding for tokens=1. The table is a constant passed alongside the ids as input to the primitive.\", \"rel_err\": 0.0}",
+  "proposed_by": 100
+ },
+ {
   "chain": "[{\"op\": \"fused_onehot_gemm\", \"params\": {\"dim\": \"dim\", \"vocab\": \"vocab\"}}]",
   "check_detail": "chain: the path does not compute embedding as called (): largest difference 4.71 (relative 2.4) at element 1016: -3.29887 where embedding gives 1.41143; code: relative difference 0 (within 0.0001)",
   "check_ok": 0,
@@ -1162,6 +1330,18 @@
   "op": "embedding",
   "proposal": "{\"description\": \"Replace the runtime-index lookup with a fused one-hot GEMM. Step 1: build a one-hot row vector of length vocab=1001 from the single token id (1 at position id, 0 elsewhere; ids cast to long). Step 2: GEMM the one-hot row (1 x 1001) by the embedding table (1001 x 1152), no transposes. The result row equals exactly the table row selected by the id, so the result (1 x 1152) is mathematically identical to embedding for tokens=1. The table is a constant passed alongside the ids as input to the primitive.\", \"rel_err\": 0.0}",
   "proposed_by": 83
+ },
+ {
+  "chain": "[{\"op\": \"fused_onehot_gemm\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    table = module.table\n    ids = ids.long().reshape(-1)\n    onehot = torch.zeros(ids.shape[0], table.shape[0], device=table.device, dtype=table.dtype)\n    onehot[torch.arange(ids.shape[0]), ids] = 1.0\n    return onehot @ table",
+  "id": 215,
+  "kind": "equivalent",
+  "name": "onehot_gemm_embedding_1x1001x1152_v5",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the runtime-index lookup with a fused one-hot GEMM. Step 1: build a one-hot row vector of length vocab=1001 from the single token id (1 at position id, 0 elsewhere; ids cast to long). Step 2: GEMM the one-hot row (1 x 1001) by the embedding table (1001 x 1152), no transposes. The result row equals exactly the table row selected by the id, so the result (1 x 1152) is mathematically identical to embedding for tokens=1. The table is a constant passed alongside the ids as input to the primitive.\", \"rel_err\": 0.0}",
+  "proposed_by": 99
  },
  {
   "chain": "[{\"name\": \"fused_onehot_gemm\", \"op\": \"fused_onehot_gemm\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
@@ -1330,6 +1510,18 @@
   "op": "embedding",
   "proposal": "{\"description\": \"Replace the runtime-index lookup with a fused one-hot GEMM. Step 1: flatten the ids (1x64 -> 64) and build a one-hot matrix of shape tokens=64 x vocab=4096 (row i has 1 at column ids[i], 0 elsewhere; ids cast to long). Step 2: GEMM the one-hot matrix (64 x 4096) by the embedding table (4096 x 384), no transposes. Each output row equals exactly the table row selected by the corresponding id, so the result (64 x 384) is mathematically identical to embedding. The table is a constant attribute of the module.\", \"rel_err\": 0.0}",
   "proposed_by": 96
+ },
+ {
+  "chain": "[{\"op\": \"fused_onehot_gemm\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    ids = ids.reshape(-1).long()\n    table = module.table\n    onehot = torch.zeros(ids.shape[0], table.shape[0], dtype=table.dtype, device=table.device)\n    onehot[torch.arange(ids.shape[0]), ids] = 1.0\n    return onehot @ table",
+  "id": 223,
+  "kind": "equivalent",
+  "name": "onehot_gemm_embedding_64x4096x768",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the runtime-index lookup with a fused one-hot GEMM. Step 1: flatten the ids (1x64 -> 64) and build a one-hot matrix of shape tokens=64 x vocab=4096 (row i has 1 at column ids[i], 0 elsewhere; ids cast to long). Step 2: GEMM the one-hot matrix (64 x 4096) by the embedding table (4096 x 768), no transposes. Each output row equals exactly the table row selected by the corresponding id, so the result (64 x 768) is mathematically identical to embedding. The table is a constant passed alongside the ids as input to the primitive.\", \"rel_err\": 0.0}",
+  "proposed_by": 104
  },
  {
   "chain": "[{\"op\": \"one_hot_gemm\", \"params\": {\"num_classes\": 30522}}]",

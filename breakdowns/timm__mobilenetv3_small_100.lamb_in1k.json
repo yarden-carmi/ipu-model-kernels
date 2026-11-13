@@ -111,6 +111,48 @@
    "sim_ppl": null,
    "sim_top1": 0.875,
    "sqnr_db": 8.37467524933115
+  },
+  {
+   "agreement": null,
+   "at": 1794536528.6504545,
+   "cosine": null,
+   "mode": "full",
+   "nonfinite": null,
+   "precision": "tf32",
+   "purpose": "baseline",
+   "ref_ppl": null,
+   "ref_top1": 0.875,
+   "sim_ppl": null,
+   "sim_top1": 0.875,
+   "sqnr_db": null
+  },
+  {
+   "agreement": 0.875,
+   "at": 1794536528.6533077,
+   "cosine": 0.9020397280211518,
+   "mode": "quantized",
+   "nonfinite": 0,
+   "precision": "nx8",
+   "purpose": "baseline",
+   "ref_ppl": null,
+   "ref_top1": 0.875,
+   "sim_ppl": null,
+   "sim_top1": 0.75,
+   "sqnr_db": 5.382233458547736
+  },
+  {
+   "agreement": 0.875,
+   "at": 1794536575.5156507,
+   "cosine": 0.9529250545058419,
+   "mode": "quantized",
+   "nonfinite": 0,
+   "precision": "nx8",
+   "purpose": "formats",
+   "ref_ppl": null,
+   "ref_top1": 0.875,
+   "sim_ppl": null,
+   "sim_top1": 0.875,
+   "sqnr_db": 9.665666084054134
   }
  ],
  "category": "image-classification",
@@ -149,12 +191,12 @@
     "w": 224
    },
    "path": "conv_stem",
-   "q_sqnr": 49.64726218950011,
+   "q_sqnr": 43.10823203554364,
    "role": "main",
    "seq": 1,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "3 attempts, best milestone 0: files missing: conv2d_hardswish__conv2d_relu__reduce_rows__gemm_04f7b75c.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -172,12 +214,12 @@
     "hw": 12544
    },
    "path": "bn1",
-   "q_sqnr": 33.770624637594146,
+   "q_sqnr": 31.514036224003924,
    "role": "folded_weights",
    "seq": 2,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "3 attempts, best milestone 0: files missing: conv2d_hardswish__conv2d_relu__reduce_rows__gemm_04f7b75c.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -194,12 +236,12 @@
     "numel": 200704
    },
    "path": "bn1",
-   "q_sqnr": 36.400220496164856,
+   "q_sqnr": 34.15500087225946,
    "role": "folded_store",
    "seq": 3,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "3 attempts, best milestone 0: files missing: conv2d_hardswish__conv2d_relu__reduce_rows__gemm_04f7b75c.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -227,12 +269,12 @@
     "w": 112
    },
    "path": "blocks.*.*.conv_dw",
-   "q_sqnr": 35.72337136256665,
+   "q_sqnr": 32.910194789598,
    "role": "chained",
    "seq": 4,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "3 attempts, best milestone 0: files missing: conv2d_hardswish__conv2d_relu__reduce_rows__gemm_04f7b75c.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -250,12 +292,12 @@
     "hw": 3136
    },
    "path": "blocks.*.*.bn1",
-   "q_sqnr": 27.188992272130612,
+   "q_sqnr": 26.30187235150819,
    "role": "folded_weights",
    "seq": 5,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "3 attempts, best milestone 0: files missing: conv2d_hardswish__conv2d_relu__reduce_rows__gemm_04f7b75c.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -272,12 +314,12 @@
     "numel": 50176
    },
    "path": "blocks.*.*.bn1",
-   "q_sqnr": 28.59722249418681,
+   "q_sqnr": 27.573145618130383,
    "role": "folded_store",
    "seq": 6,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "3 attempts, best milestone 0: files missing: conv2d_hardswish__conv2d_relu__reduce_rows__gemm_04f7b75c.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -295,12 +337,12 @@
     "out": 16
    },
    "path": "blocks.*.*.se",
-   "q_sqnr": 30.988100588771076,
+   "q_sqnr": 30.728023311188668,
    "role": "chained",
    "seq": 7,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "3 attempts, best milestone 0: files missing: conv2d_hardswish__conv2d_relu__reduce_rows__gemm_04f7b75c.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -328,12 +370,12 @@
     "w": 1
    },
    "path": "blocks.*.*.se.conv_reduce",
-   "q_sqnr": 24.896184402810807,
+   "q_sqnr": 24.57439010011212,
    "role": "chained",
    "seq": 8,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "3 attempts, best milestone 0: files missing: conv2d_hardswish__conv2d_relu__reduce_rows__gemm_04f7b75c.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -350,12 +392,12 @@
     "numel": 8
    },
    "path": "blocks.*.*.se.act1",
-   "q_sqnr": 25.071360426318392,
+   "q_sqnr": 24.722483576644546,
    "role": "folded_store",
    "seq": 9,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "3 attempts, best milestone 0: files missing: conv2d_hardswish__conv2d_relu__reduce_rows__gemm_04f7b75c.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -383,12 +425,12 @@
     "w": 1
    },
    "path": "blocks.*.*.se.conv_expand",
-   "q_sqnr": 46.50022434326003,
+   "q_sqnr": 44.96982406533697,
    "role": "chained",
    "seq": 10,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "3 attempts, best milestone 0: files missing: conv2d_hardswish__conv2d_relu__reduce_rows__gemm_04f7b75c.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -405,12 +447,12 @@
     "numel": 16
    },
    "path": "blocks.*.*.se.gate",
-   "q_sqnr": 46.11617719741109,
+   "q_sqnr": 44.88039657639709,
    "role": "folded_store",
    "seq": 11,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "3 attempts, best milestone 0: files missing: conv2d_hardswish__conv2d_relu__reduce_rows__gemm_04f7b75c.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -429,12 +471,12 @@
     "numel": 50176
    },
    "path": "blocks.*.*.se",
-   "q_sqnr": 28.025894977668084,
+   "q_sqnr": 27.147974922997417,
    "role": "chained",
    "seq": 12,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "3 attempts, best milestone 0: files missing: conv2d_hardswish__conv2d_relu__reduce_rows__gemm_04f7b75c.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -462,12 +504,12 @@
     "w": 56
    },
    "path": "blocks.*.*.conv_pw",
-   "q_sqnr": 28.183985189339673,
+   "q_sqnr": 27.341840350587052,
    "role": "chained",
    "seq": 13,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "3 attempts, best milestone 0: files missing: conv2d_hardswish__conv2d_relu__reduce_rows__gemm_04f7b75c.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -485,12 +527,12 @@
     "hw": 3136
    },
    "path": "blocks.*.*.bn2",
-   "q_sqnr": 17.809967697815758,
+   "q_sqnr": 17.15656120231579,
    "role": "folded_weights",
    "seq": 14,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "3 attempts, best milestone 0: files missing: conv2d_hardswish__conv2d_relu__reduce_rows__gemm_04f7b75c.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -518,12 +560,12 @@
     "w": 56
    },
    "path": "blocks.*.*.conv_pw",
-   "q_sqnr": 21.083930428110765,
+   "q_sqnr": 20.05900035388112,
    "role": "chained",
    "seq": 15,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "3 attempts, best milestone 0: files missing: conv2d_hardswish__conv2d_relu__reduce_rows__gemm_04f7b75c.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -541,12 +583,12 @@
     "hw": 3136
    },
    "path": "blocks.*.*.bn1",
-   "q_sqnr": 18.42491048847218,
+   "q_sqnr": 17.833518209309492,
    "role": "folded_weights",
    "seq": 16,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "3 attempts, best milestone 0: files missing: conv2d_hardswish__conv2d_relu__reduce_rows__gemm_04f7b75c.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -563,12 +605,12 @@
     "numel": 225792
    },
    "path": "blocks.*.*.bn1",
-   "q_sqnr": 18.653977977065864,
+   "q_sqnr": 18.10785693732364,
    "role": "folded_store",
    "seq": 17,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "3 attempts, best milestone 0: files missing: conv2d_hardswish__conv2d_relu__reduce_rows__gemm_04f7b75c.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -596,12 +638,12 @@
     "w": 56
    },
    "path": "blocks.*.*.conv_dw",
-   "q_sqnr": 17.007549041891515,
+   "q_sqnr": 16.770844084717854,
    "role": "chained",
    "seq": 18,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "3 attempts, best milestone 0: files missing: conv2d_hardswish__conv2d_relu__reduce_rows__gemm_04f7b75c.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -619,12 +661,12 @@
     "hw": 784
    },
    "path": "blocks.*.*.bn2",
-   "q_sqnr": 20.96345841508908,
+   "q_sqnr": 20.118189189767662,
    "role": "folded_weights",
    "seq": 19,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "3 attempts, best milestone 0: files missing: conv2d_hardswish__conv2d_relu__reduce_rows__gemm_04f7b75c.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -641,12 +683,12 @@
     "numel": 56448
    },
    "path": "blocks.*.*.bn2",
-   "q_sqnr": 21.704940777034395,
+   "q_sqnr": 20.88628736344418,
    "role": "folded_store",
    "seq": 20,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "3 attempts, best milestone 0: files missing: conv2d_hardswish__conv2d_relu__reduce_rows__gemm_04f7b75c.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -674,12 +716,12 @@
     "w": 28
    },
    "path": "blocks.*.*.conv_pwl",
-   "q_sqnr": 23.227461125260163,
+   "q_sqnr": 22.15104721207082,
    "role": "chained",
    "seq": 21,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "3 attempts, best milestone 0: files missing: conv2d_hardswish__conv2d_relu__reduce_rows__gemm_04f7b75c.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -697,12 +739,12 @@
     "hw": 784
    },
    "path": "blocks.*.*.bn3",
-   "q_sqnr": 16.49604002666053,
+   "q_sqnr": 15.65264605806888,
    "role": "folded_weights",
    "seq": 22,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "3 attempts, best milestone 0: files missing: conv2d_hardswish__conv2d_relu__reduce_rows__gemm_04f7b75c.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -730,12 +772,12 @@
     "w": 28
    },
    "path": "blocks.*.*.conv_pw",
-   "q_sqnr": 18.841023140697708,
+   "q_sqnr": 17.917405925083496,
    "role": "chained",
    "seq": 23,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "3 attempts, best milestone 0: files missing: conv2d_hardswish__conv2d_relu__reduce_rows__gemm_04f7b75c.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -753,12 +795,12 @@
     "hw": 784
    },
    "path": "blocks.*.*.bn1",
-   "q_sqnr": 17.812804387654285,
+   "q_sqnr": 17.518037536176777,
    "role": "folded_weights",
    "seq": 24,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "3 attempts, best milestone 0: files missing: conv2d_hardswish__conv2d_relu__reduce_rows__gemm_04f7b75c.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -775,12 +817,12 @@
     "numel": 68992
    },
    "path": "blocks.*.*.bn1",
-   "q_sqnr": 17.67888816448808,
+   "q_sqnr": 17.54345589218582,
    "role": "folded_store",
    "seq": 25,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "3 attempts, best milestone 0: files missing: conv2d_hardswish__conv2d_relu__reduce_rows__gemm_04f7b75c.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -808,12 +850,12 @@
     "w": 28
    },
    "path": "blocks.*.*.conv_dw",
-   "q_sqnr": 16.40690857182462,
+   "q_sqnr": 15.849762664096584,
    "role": "chained",
    "seq": 26,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "3 attempts, best milestone 0: files missing: conv2d_hardswish__conv2d_relu__reduce_rows__gemm_04f7b75c.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -831,12 +873,12 @@
     "hw": 784
    },
    "path": "blocks.*.*.bn2",
-   "q_sqnr": 20.745858257291246,
+   "q_sqnr": 19.668725814466768,
    "role": "folded_weights",
    "seq": 27,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "3 attempts, best milestone 0: files missing: conv2d_hardswish__conv2d_relu__reduce_rows__gemm_04f7b75c.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -853,12 +895,12 @@
     "numel": 68992
    },
    "path": "blocks.*.*.bn2",
-   "q_sqnr": 22.444797496014736,
+   "q_sqnr": 21.436321540519337,
    "role": "folded_store",
    "seq": 28,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "3 attempts, best milestone 0: files missing: conv2d_hardswish__conv2d_relu__reduce_rows__gemm_04f7b75c.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -886,12 +928,12 @@
     "w": 28
    },
    "path": "blocks.*.*.conv_pwl",
-   "q_sqnr": 21.90762393024514,
+   "q_sqnr": 20.966735819037382,
    "role": "chained",
    "seq": 29,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "3 attempts, best milestone 0: files missing: conv2d_hardswish__conv2d_relu__reduce_rows__gemm_04f7b75c.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -909,12 +951,12 @@
     "hw": 784
    },
    "path": "blocks.*.*.bn3",
-   "q_sqnr": 12.380925322717806,
+   "q_sqnr": 11.340769264822363,
    "role": "folded_weights",
    "seq": 30,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "3 attempts, best milestone 0: files missing: conv2d_hardswish__conv2d_relu__reduce_rows__gemm_04f7b75c.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -933,12 +975,12 @@
     "numel": 18816
    },
    "path": "blocks.*.*",
-   "q_sqnr": 13.800842143139933,
+   "q_sqnr": 12.790686270673302,
    "role": "chained",
    "seq": 31,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "3 attempts, best milestone 0: files missing: conv2d_hardswish__conv2d_relu__reduce_rows__gemm_04f7b75c.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -966,7 +1008,7 @@
     "w": 28
    },
    "path": "blocks.*.*.conv_pw",
-   "q_sqnr": 14.460084675618157,
+   "q_sqnr": 13.331799272551766,
    "role": "main",
    "seq": 32,
    "status": "not_tried",
@@ -989,7 +1031,7 @@
     "hw": 784
    },
    "path": "blocks.*.*.bn1",
-   "q_sqnr": 15.166683389421525,
+   "q_sqnr": 14.104977593715278,
    "role": "folded_weights",
    "seq": 33,
    "status": "not_tried",
@@ -1011,7 +1053,7 @@
     "numel": 75264
    },
    "path": "blocks.*.*.bn1",
-   "q_sqnr": 14.669892852869388,
+   "q_sqnr": 13.61830143914785,
    "role": "folded_store",
    "seq": 34,
    "status": "not_tried",
@@ -1044,7 +1086,7 @@
     "w": 28
    },
    "path": "blocks.*.*.conv_dw",
-   "q_sqnr": 15.9915003346828,
+   "q_sqnr": 15.457221307448503,
    "role": "chained",
    "seq": 35,
    "status": "not_tried",
@@ -1067,7 +1109,7 @@
     "hw": 196
    },
    "path": "blocks.*.*.bn2",
-   "q_sqnr": 15.4178393352072,
+   "q_sqnr": 15.32641410372501,
    "role": "folded_weights",
    "seq": 36,
    "status": "not_tried",
@@ -1089,7 +1131,7 @@
     "numel": 18816
    },
    "path": "blocks.*.*.bn2",
-   "q_sqnr": 15.369447149507337,
+   "q_sqnr": 15.241318839298687,
    "role": "folded_store",
    "seq": 37,
    "status": "not_tried",
@@ -1112,7 +1154,7 @@
     "out": 96
    },
    "path": "blocks.*.*.se",
-   "q_sqnr": 17.190751443177362,
+   "q_sqnr": 17.32642778566548,
    "role": "chained",
    "seq": 38,
    "status": "not_tried",
@@ -1145,7 +1187,7 @@
     "w": 1
    },
    "path": "blocks.*.*.se.conv_reduce",
-   "q_sqnr": 19.636941107145894,
+   "q_sqnr": 19.20843613434582,
    "role": "chained",
    "seq": 39,
    "status": "not_tried",
@@ -1167,7 +1209,7 @@
     "numel": 24
    },
    "path": "blocks.*.*.se.act1",
-   "q_sqnr": 19.84844228773052,
+   "q_sqnr": 19.58769314234344,
    "role": "folded_store",
    "seq": 40,
    "status": "not_tried",
@@ -1200,7 +1242,7 @@
     "w": 1
    },
    "path": "blocks.*.*.se.conv_expand",
-   "q_sqnr": 29.607733043159776,
+   "q_sqnr": 29.356082562201596,
    "role": "chained",
    "seq": 41,
    "status": "not_tried",
@@ -1222,7 +1264,7 @@
     "numel": 96
    },
    "path": "blocks.*.*.se.gate",
-   "q_sqnr": 34.70081872616748,
+   "q_sqnr": 34.56128421899421,
    "role": "folded_store",
    "seq": 42,
    "status": "not_tried",
@@ -1246,7 +1288,7 @@
     "numel": 18816
    },
    "path": "blocks.*.*.se",
-   "q_sqnr": 18.413923442969647,
+   "q_sqnr": 17.90856725172664,
    "role": "chained",
    "seq": 43,
    "status": "not_tried",
@@ -1279,7 +1321,7 @@
     "w": 14
    },
    "path": "blocks.*.*.conv_pwl",
-   "q_sqnr": 16.63853316698412,
+   "q_sqnr": 15.935343598813258,
    "role": "chained",
    "seq": 44,
    "status": "not_tried",
@@ -1302,7 +1344,7 @@
     "hw": 196
    },
    "path": "blocks.*.*.bn3",
-   "q_sqnr": 10.265053743764101,
+   "q_sqnr": 9.617100071355418,
    "role": "folded_weights",
    "seq": 45,
    "status": "not_tried",
@@ -1335,7 +1377,7 @@
     "w": 14
    },
    "path": "blocks.*.*.conv_pw",
-   "q_sqnr": 11.393419731588448,
+   "q_sqnr": 10.68203130087815,
    "role": "chained",
    "seq": 46,
    "status": "not_tried",
@@ -1358,7 +1400,7 @@
     "hw": 196
    },
    "path": "blocks.*.*.bn1",
-   "q_sqnr": 12.462028407513916,
+   "q_sqnr": 11.926021203683895,
    "role": "folded_weights",
    "seq": 47,
    "status": "not_tried",
@@ -1380,7 +1422,7 @@
     "numel": 47040
    },
    "path": "blocks.*.*.bn1",
-   "q_sqnr": 11.464272736411639,
+   "q_sqnr": 10.908457079086883,
    "role": "folded_store",
    "seq": 48,
    "status": "not_tried",
@@ -1413,7 +1455,7 @@
     "w": 14
    },
    "path": "blocks.*.*.conv_dw",
-   "q_sqnr": 11.997087980635833,
+   "q_sqnr": 11.575358913565559,
    "role": "chained",
    "seq": 49,
    "status": "not_tried",
@@ -1436,7 +1478,7 @@
     "hw": 196
    },
    "path": "blocks.*.*.bn2",
-   "q_sqnr": 11.620264359676462,
+   "q_sqnr": 10.698881951174277,
    "role": "folded_weights",
    "seq": 50,
    "status": "not_tried",
@@ -1458,7 +1500,7 @@
     "numel": 47040
    },
    "path": "blocks.*.*.bn2",
-   "q_sqnr": 10.25137959072531,
+   "q_sqnr": 9.283455836134454,
    "role": "folded_store",
    "seq": 51,
    "status": "not_tried",
@@ -1481,7 +1523,7 @@
     "out": 240
    },
    "path": "blocks.*.*.se",
-   "q_sqnr": 11.031760931870496,
+   "q_sqnr": 10.095246998970651,
    "role": "chained",
    "seq": 52,
    "status": "not_tried",
@@ -1514,7 +1556,7 @@
     "w": 1
    },
    "path": "blocks.*.*.se.conv_reduce",
-   "q_sqnr": 13.239025432477709,
+   "q_sqnr": 11.817827014898455,
    "role": "chained",
    "seq": 53,
    "status": "not_tried",
@@ -1536,7 +1578,7 @@
     "numel": 64
    },
    "path": "blocks.*.*.se.act1",
-   "q_sqnr": 13.32984137243519,
+   "q_sqnr": 12.404516941137908,
    "role": "folded_store",
    "seq": 54,
    "status": "not_tried",
@@ -1569,7 +1611,7 @@
     "w": 1
    },
    "path": "blocks.*.*.se.conv_expand",
-   "q_sqnr": 36.864025368557364,
+   "q_sqnr": 35.67409481677704,
    "role": "chained",
    "seq": 55,
    "status": "not_tried",
@@ -1591,7 +1633,7 @@
     "numel": 240
    },
    "path": "blocks.*.*.se.gate",
-   "q_sqnr": 31.95553183912142,
+   "q_sqnr": 30.711911848782716,
    "role": "folded_store",
    "seq": 56,
    "status": "not_tried",
@@ -1615,7 +1657,7 @@
     "numel": 47040
    },
    "path": "blocks.*.*.se",
-   "q_sqnr": 16.4935730157033,
+   "q_sqnr": 15.734652249955053,
    "role": "chained",
    "seq": 57,
    "status": "not_tried",
@@ -1648,7 +1690,7 @@
     "w": 14
    },
    "path": "blocks.*.*.conv_pwl",
-   "q_sqnr": 21.831156452539947,
+   "q_sqnr": 21.020415377324888,
    "role": "chained",
    "seq": 58,
    "status": "not_tried",
@@ -1671,7 +1713,7 @@
     "hw": 196
    },
    "path": "blocks.*.*.bn3",
-   "q_sqnr": 9.779272057162503,
+   "q_sqnr": 9.01643566177438,
    "role": "folded_weights",
    "seq": 59,
    "status": "not_tried",
@@ -1695,7 +1737,7 @@
     "numel": 7840
    },
    "path": "blocks.*.*",
-   "q_sqnr": 9.989927246279969,
+   "q_sqnr": 9.45449108319162,
    "role": "chained",
    "seq": 60,
    "status": "not_tried",
@@ -1728,7 +1770,7 @@
     "w": 14
    },
    "path": "blocks.*.*.conv_pw",
-   "q_sqnr": 11.16179960679222,
+   "q_sqnr": 10.519207336927145,
    "role": "chained",
    "seq": 61,
    "status": "not_tried",
@@ -1751,7 +1793,7 @@
     "hw": 196
    },
    "path": "blocks.*.*.bn1",
-   "q_sqnr": 14.403416621247311,
+   "q_sqnr": 13.739975319135635,
    "role": "folded_weights",
    "seq": 62,
    "status": "not_tried",
@@ -1773,7 +1815,7 @@
     "numel": 47040
    },
    "path": "blocks.*.*.bn1",
-   "q_sqnr": 13.481192453111088,
+   "q_sqnr": 13.005732868724841,
    "role": "folded_store",
    "seq": 63,
    "status": "not_tried",
@@ -1806,7 +1848,7 @@
     "w": 14
    },
    "path": "blocks.*.*.conv_dw",
-   "q_sqnr": 15.41358811620457,
+   "q_sqnr": 15.113472091789596,
    "role": "main",
    "seq": 64,
    "status": "not_tried",
@@ -1829,7 +1871,7 @@
     "hw": 196
    },
    "path": "blocks.*.*.bn2",
-   "q_sqnr": 9.601416096309386,
+   "q_sqnr": 9.277422652156913,
    "role": "folded_weights",
    "seq": 65,
    "status": "not_tried",
@@ -1851,7 +1893,7 @@
     "numel": 47040
    },
    "path": "blocks.*.*.bn2",
-   "q_sqnr": 9.434711945589903,
+   "q_sqnr": 8.868191967983261,
    "role": "folded_store",
    "seq": 66,
    "status": "not_tried",
@@ -1874,7 +1916,7 @@
     "out": 240
    },
    "path": "blocks.*.*.se",
-   "q_sqnr": 12.794168780911175,
+   "q_sqnr": 11.63007205593145,
    "role": "chained",
    "seq": 67,
    "status": "not_tried",
@@ -1907,7 +1949,7 @@
     "w": 1
    },
    "path": "blocks.*.*.se.conv_reduce",
-   "q_sqnr": 14.381703853431727,
+   "q_sqnr": 13.598717079458805,
    "role": "chained",
    "seq": 68,
    "status": "not_tried",
@@ -1929,7 +1971,7 @@
     "numel": 64
    },
    "path": "blocks.*.*.se.act1",
-   "q_sqnr": 14.446901624606124,
+   "q_sqnr": 13.302337638718855,
    "role": "folded_store",
    "seq": 69,
    "status": "not_tried",
@@ -1962,7 +2004,7 @@
     "w": 1
    },
    "path": "blocks.*.*.se.conv_expand",
-   "q_sqnr": 35.52228456506673,
+   "q_sqnr": 34.57752864515842,
    "role": "chained",
    "seq": 70,
    "status": "not_tried",
@@ -1984,7 +2026,7 @@
     "numel": 240
    },
    "path": "blocks.*.*.se.gate",
-   "q_sqnr": 32.54480389477338,
+   "q_sqnr": 31.63223633952246,
    "role": "folded_store",
    "seq": 71,
    "status": "not_tried",
@@ -2008,7 +2050,7 @@
     "numel": 47040
    },
    "path": "blocks.*.*.se",
-   "q_sqnr": 14.85293003836703,
+   "q_sqnr": 16.42209957160445,
    "role": "chained",
    "seq": 72,
    "status": "not_tried",
@@ -2041,7 +2083,7 @@
     "w": 14
    },
    "path": "blocks.*.*.conv_pwl",
-   "q_sqnr": 16.432877389381712,
+   "q_sqnr": 18.284041032460408,
    "role": "chained",
    "seq": 73,
    "status": "not_tried",
@@ -2064,7 +2106,7 @@
     "hw": 196
    },
    "path": "blocks.*.*.bn3",
-   "q_sqnr": 4.2179917903881945,
+   "q_sqnr": 7.091629149444322,
    "role": "folded_weights",
    "seq": 74,
    "status": "not_tried",
@@ -2088,7 +2130,7 @@
     "numel": 7840
    },
    "path": "blocks.*.*",
-   "q_sqnr": 8.86962408915487,
+   "q_sqnr": 9.492914386951115,
    "role": "chained",
    "seq": 75,
    "status": "not_tried",
@@ -2121,7 +2163,7 @@
     "w": 14
    },
    "path": "blocks.*.*.conv_pw",
-   "q_sqnr": 9.634472692695278,
+   "q_sqnr": 10.498400405682153,
    "role": "chained",
    "seq": 76,
    "status": "not_tried",
@@ -2144,7 +2186,7 @@
     "hw": 196
    },
    "path": "blocks.*.*.bn1",
-   "q_sqnr": 9.64493389290342,
+   "q_sqnr": 10.940319316436216,
    "role": "folded_weights",
    "seq": 77,
    "status": "not_tried",
@@ -2166,7 +2208,7 @@
     "numel": 23520
    },
    "path": "blocks.*.*.bn1",
-   "q_sqnr": 10.423928960681991,
+   "q_sqnr": 12.01841654870972,
    "role": "folded_store",
    "seq": 78,
    "status": "not_tried",
@@ -2199,7 +2241,7 @@
     "w": 14
    },
    "path": "blocks.*.*.conv_dw",
-   "q_sqnr": 10.785502023673248,
+   "q_sqnr": 11.893955882773932,
    "role": "chained",
    "seq": 79,
    "status": "not_tried",
@@ -2222,7 +2264,7 @@
     "hw": 196
    },
    "path": "blocks.*.*.bn2",
-   "q_sqnr": 11.018450352382633,
+   "q_sqnr": 11.527108361665332,
    "role": "folded_weights",
    "seq": 80,
    "status": "not_tried",
@@ -2244,7 +2286,7 @@
     "numel": 23520
    },
    "path": "blocks.*.*.bn2",
-   "q_sqnr": 10.598776040208747,
+   "q_sqnr": 11.105848527890661,
    "role": "folded_store",
    "seq": 81,
    "status": "not_tried",
@@ -2267,7 +2309,7 @@
     "out": 120
    },
    "path": "blocks.*.*.se",
-   "q_sqnr": 17.039879461871035,
+   "q_sqnr": 17.380553917963674,
    "role": "chained",
    "seq": 82,
    "status": "not_tried",
@@ -2300,7 +2342,7 @@
     "w": 1
    },
    "path": "blocks.*.*.se.conv_reduce",
-   "q_sqnr": 16.464258391735495,
+   "q_sqnr": 17.144913432774594,
    "role": "chained",
    "seq": 83,
    "status": "not_tried",
@@ -2322,7 +2364,7 @@
     "numel": 32
    },
    "path": "blocks.*.*.se.act1",
-   "q_sqnr": 16.453442409741278,
+   "q_sqnr": 17.1706589220249,
    "role": "folded_store",
    "seq": 84,
    "status": "not_tried",
@@ -2355,7 +2397,7 @@
     "w": 1
    },
    "path": "blocks.*.*.se.conv_expand",
-   "q_sqnr": 30.93800794436509,
+   "q_sqnr": 31.572794546102905,
    "role": "chained",
    "seq": 85,
    "status": "not_tried",
@@ -2377,7 +2419,7 @@
     "numel": 120
    },
    "path": "blocks.*.*.se.gate",
-   "q_sqnr": 36.550449478147996,
+   "q_sqnr": 37.07725088804384,
    "role": "folded_store",
    "seq": 86,
    "status": "not_tried",
@@ -2401,7 +2443,7 @@
     "numel": 23520
    },
    "path": "blocks.*.*.se",
-   "q_sqnr": 15.562020602381425,
+   "q_sqnr": 16.155023289836656,
    "role": "chained",
    "seq": 87,
    "status": "not_tried",
@@ -2434,7 +2476,7 @@
     "w": 14
    },
    "path": "blocks.*.*.conv_pwl",
-   "q_sqnr": 14.033220049583326,
+   "q_sqnr": 14.626771742051945,
    "role": "chained",
    "seq": 88,
    "status": "not_tried",
@@ -2457,7 +2499,7 @@
     "hw": 196
    },
    "path": "blocks.*.*.bn3",
-   "q_sqnr": 9.160492577916985,
+   "q_sqnr": 9.77580959031614,
    "role": "folded_weights",
    "seq": 89,
    "status": "not_tried",
@@ -2490,7 +2532,7 @@
     "w": 14
    },
    "path": "blocks.*.*.conv_pw",
-   "q_sqnr": 9.807802672857242,
+   "q_sqnr": 10.874680506216984,
    "role": "chained",
    "seq": 90,
    "status": "not_tried",
@@ -2513,7 +2555,7 @@
     "hw": 196
    },
    "path": "blocks.*.*.bn1",
-   "q_sqnr": 10.746939172054475,
+   "q_sqnr": 12.036320721466653,
    "role": "folded_weights",
    "seq": 91,
    "status": "not_tried",
@@ -2535,7 +2577,7 @@
     "numel": 28224
    },
    "path": "blocks.*.*.bn1",
-   "q_sqnr": 11.007894800887321,
+   "q_sqnr": 12.168032712672893,
    "role": "folded_store",
    "seq": 92,
    "status": "not_tried",
@@ -2568,7 +2610,7 @@
     "w": 14
    },
    "path": "blocks.*.*.conv_dw",
-   "q_sqnr": 11.453004104573079,
+   "q_sqnr": 12.741931226731126,
    "role": "chained",
    "seq": 93,
    "status": "not_tried",
@@ -2591,7 +2633,7 @@
     "hw": 196
    },
    "path": "blocks.*.*.bn2",
-   "q_sqnr": 10.381059658405228,
+   "q_sqnr": 11.078837485733338,
    "role": "folded_weights",
    "seq": 94,
    "status": "not_tried",
@@ -2613,7 +2655,7 @@
     "numel": 28224
    },
    "path": "blocks.*.*.bn2",
-   "q_sqnr": 8.356156746703839,
+   "q_sqnr": 9.126128608261965,
    "role": "folded_store",
    "seq": 95,
    "status": "not_tried",
@@ -2636,7 +2678,7 @@
     "out": 144
    },
    "path": "blocks.*.*.se",
-   "q_sqnr": 10.635090976830943,
+   "q_sqnr": 11.628432150751372,
    "role": "chained",
    "seq": 96,
    "status": "not_tried",
@@ -2669,7 +2711,7 @@
     "w": 1
    },
    "path": "blocks.*.*.se.conv_reduce",
-   "q_sqnr": 12.155269310269967,
+   "q_sqnr": 12.954751666669356,
    "role": "main",
    "seq": 97,
    "status": "not_tried",
@@ -2691,7 +2733,7 @@
     "numel": 40
    },
    "path": "blocks.*.*.se.act1",
-   "q_sqnr": 13.787716381675295,
+   "q_sqnr": 13.987121506006318,
    "role": "folded_store",
    "seq": 98,
    "status": "not_tried",
@@ -2724,7 +2766,7 @@
     "w": 1
    },
    "path": "blocks.*.*.se.conv_expand",
-   "q_sqnr": 40.05137672140361,
+   "q_sqnr": 39.09507922143716,
    "role": "chained",
    "seq": 99,
    "status": "not_tried",
@@ -2746,7 +2788,7 @@
     "numel": 144
    },
    "path": "blocks.*.*.se.gate",
-   "q_sqnr": 34.98951062610904,
+   "q_sqnr": 33.907358403399584,
    "role": "folded_store",
    "seq": 100,
    "status": "not_tried",
@@ -2770,7 +2812,7 @@
     "numel": 28224
    },
    "path": "blocks.*.*.se",
-   "q_sqnr": 18.114059578803417,
+   "q_sqnr": 19.2401844521657,
    "role": "chained",
    "seq": 101,
    "status": "not_tried",
@@ -2803,7 +2845,7 @@
     "w": 14
    },
    "path": "blocks.*.*.conv_pwl",
-   "q_sqnr": 20.154932982111248,
+   "q_sqnr": 21.38401355922591,
    "role": "chained",
    "seq": 102,
    "status": "not_tried",
@@ -2826,7 +2868,7 @@
     "hw": 196
    },
    "path": "blocks.*.*.bn3",
-   "q_sqnr": 6.213215960503197,
+   "q_sqnr": 7.764887651722261,
    "role": "folded_weights",
    "seq": 103,
    "status": "not_tried",
@@ -2850,7 +2892,7 @@
     "numel": 9408
    },
    "path": "blocks.*.*",
-   "q_sqnr": 9.179662861050401,
+   "q_sqnr": 9.642605091299933,
    "role": "chained",
    "seq": 104,
    "status": "not_tried",
@@ -2883,7 +2925,7 @@
     "w": 14
    },
    "path": "blocks.*.*.conv_pw",
-   "q_sqnr": 9.839088625107845,
+   "q_sqnr": 10.290409857507619,
    "role": "chained",
    "seq": 105,
    "status": "not_tried",
@@ -2906,7 +2948,7 @@
     "hw": 196
    },
    "path": "blocks.*.*.bn1",
-   "q_sqnr": 12.679296127640345,
+   "q_sqnr": 13.31986088040769,
    "role": "folded_weights",
    "seq": 106,
    "status": "not_tried",
@@ -2928,7 +2970,7 @@
     "numel": 56448
    },
    "path": "blocks.*.*.bn1",
-   "q_sqnr": 11.65785391820852,
+   "q_sqnr": 12.574192526835656,
    "role": "folded_store",
    "seq": 107,
    "status": "not_tried",
@@ -2961,7 +3003,7 @@
     "w": 14
    },
    "path": "blocks.*.*.conv_dw",
-   "q_sqnr": 15.906597044369658,
+   "q_sqnr": 16.088608334629853,
    "role": "chained",
    "seq": 108,
    "status": "not_tried",
@@ -2984,7 +3026,7 @@
     "hw": 49
    },
    "path": "blocks.*.*.bn2",
-   "q_sqnr": 11.5660850956907,
+   "q_sqnr": 11.89657038355578,
    "role": "folded_weights",
    "seq": 109,
    "status": "not_tried",
@@ -3006,7 +3048,7 @@
     "numel": 14112
    },
    "path": "blocks.*.*.bn2",
-   "q_sqnr": 11.222571989374039,
+   "q_sqnr": 11.639329302499055,
    "role": "folded_store",
    "seq": 110,
    "status": "not_tried",
@@ -3029,7 +3071,7 @@
     "out": 288
    },
    "path": "blocks.*.*.se",
-   "q_sqnr": 14.599335903857572,
+   "q_sqnr": 14.864352854754541,
    "role": "chained",
    "seq": 111,
    "status": "not_tried",
@@ -3062,7 +3104,7 @@
     "w": 1
    },
    "path": "blocks.*.*.se.conv_reduce",
-   "q_sqnr": 15.862998467977834,
+   "q_sqnr": 15.957095603973375,
    "role": "chained",
    "seq": 112,
    "status": "not_tried",
@@ -3084,7 +3126,7 @@
     "numel": 72
    },
    "path": "blocks.*.*.se.act1",
-   "q_sqnr": 17.913076642666997,
+   "q_sqnr": 18.079057844997294,
    "role": "folded_store",
    "seq": 113,
    "status": "not_tried",
@@ -3117,7 +3159,7 @@
     "w": 1
    },
    "path": "blocks.*.*.se.conv_expand",
-   "q_sqnr": 29.91409678668093,
+   "q_sqnr": 29.506320255834268,
    "role": "chained",
    "seq": 114,
    "status": "not_tried",
@@ -3139,7 +3181,7 @@
     "numel": 288
    },
    "path": "blocks.*.*.se.gate",
-   "q_sqnr": 30.971179575586238,
+   "q_sqnr": 30.55619620628373,
    "role": "folded_store",
    "seq": 115,
    "status": "not_tried",
@@ -3163,7 +3205,7 @@
     "numel": 14112
    },
    "path": "blocks.*.*.se",
-   "q_sqnr": 16.919136861203892,
+   "q_sqnr": 17.327823983395803,
    "role": "chained",
    "seq": 116,
    "status": "not_tried",
@@ -3196,7 +3238,7 @@
     "w": 7
    },
    "path": "blocks.*.*.conv_pwl",
-   "q_sqnr": 16.206374714688327,
+   "q_sqnr": 16.629059441874546,
    "role": "chained",
    "seq": 117,
    "status": "not_tried",
@@ -3219,7 +3261,7 @@
     "hw": 49
    },
    "path": "blocks.*.*.bn3",
-   "q_sqnr": 8.845987646341676,
+   "q_sqnr": 9.248104676610897,
    "role": "folded_weights",
    "seq": 118,
    "status": "not_tried",
@@ -3252,7 +3294,7 @@
     "w": 7
    },
    "path": "blocks.*.*.conv_pw",
-   "q_sqnr": 9.459150316627934,
+   "q_sqnr": 9.93926364714554,
    "role": "chained",
    "seq": 119,
    "status": "not_tried",
@@ -3275,7 +3317,7 @@
     "hw": 49
    },
    "path": "blocks.*.*.bn1",
-   "q_sqnr": 11.634057705863235,
+   "q_sqnr": 12.252223117699547,
    "role": "folded_weights",
    "seq": 120,
    "status": "not_tried",
@@ -3297,7 +3339,7 @@
     "numel": 28224
    },
    "path": "blocks.*.*.bn1",
-   "q_sqnr": 11.252667963879158,
+   "q_sqnr": 11.894008717196137,
    "role": "folded_store",
    "seq": 121,
    "status": "not_tried",
@@ -3330,7 +3372,7 @@
     "w": 7
    },
    "path": "blocks.*.*.conv_dw",
-   "q_sqnr": 12.574759243879285,
+   "q_sqnr": 13.163266510035086,
    "role": "chained",
    "seq": 122,
    "status": "not_tried",
@@ -3353,7 +3395,7 @@
     "hw": 49
    },
    "path": "blocks.*.*.bn2",
-   "q_sqnr": 10.023246754369481,
+   "q_sqnr": 10.380667254100294,
    "role": "folded_weights",
    "seq": 123,
    "status": "not_tried",
@@ -3375,7 +3417,7 @@
     "numel": 28224
    },
    "path": "blocks.*.*.bn2",
-   "q_sqnr": 8.624326224291462,
+   "q_sqnr": 8.947410455444423,
    "role": "folded_store",
    "seq": 124,
    "status": "not_tried",
@@ -3398,7 +3440,7 @@
     "out": 576
    },
    "path": "blocks.*.*.se",
-   "q_sqnr": 9.539675926073885,
+   "q_sqnr": 9.801097293533584,
    "role": "chained",
    "seq": 125,
    "status": "not_tried",
@@ -3431,7 +3473,7 @@
     "w": 1
    },
    "path": "blocks.*.*.se.conv_reduce",
-   "q_sqnr": 11.232191502470945,
+   "q_sqnr": 11.624613323809523,
    "role": "chained",
    "seq": 126,
    "status": "not_tried",
@@ -3453,7 +3495,7 @@
     "numel": 144
    },
    "path": "blocks.*.*.se.act1",
-   "q_sqnr": 13.892797585568669,
+   "q_sqnr": 14.457826250370116,
    "role": "folded_store",
    "seq": 127,
    "status": "not_tried",
@@ -3486,7 +3528,7 @@
     "w": 1
    },
    "path": "blocks.*.*.se.conv_expand",
-   "q_sqnr": 33.86727078075721,
+   "q_sqnr": 34.34658728506625,
    "role": "chained",
    "seq": 128,
    "status": "not_tried",
@@ -3508,7 +3550,7 @@
     "numel": 576
    },
    "path": "blocks.*.*.se.gate",
-   "q_sqnr": 23.52769944836409,
+   "q_sqnr": 23.819065176645566,
    "role": "folded_store",
    "seq": 129,
    "status": "not_tried",
@@ -3532,7 +3574,7 @@
     "numel": 28224
    },
    "path": "blocks.*.*.se",
-   "q_sqnr": 13.610555322459742,
+   "q_sqnr": 13.953503350247834,
    "role": "chained",
    "seq": 130,
    "status": "not_tried",
@@ -3565,7 +3607,7 @@
     "w": 7
    },
    "path": "blocks.*.*.conv_pwl",
-   "q_sqnr": 17.929766902434032,
+   "q_sqnr": 18.240450188985285,
    "role": "main",
    "seq": 131,
    "status": "not_tried",
@@ -3588,7 +3630,7 @@
     "hw": 49
    },
    "path": "blocks.*.*.bn3",
-   "q_sqnr": 7.397178241325274,
+   "q_sqnr": 7.756460848808793,
    "role": "folded_weights",
    "seq": 132,
    "status": "not_tried",
@@ -3612,7 +3654,7 @@
     "numel": 4704
    },
    "path": "blocks.*.*",
-   "q_sqnr": 8.564228456776938,
+   "q_sqnr": 8.986010769169654,
    "role": "chained",
    "seq": 133,
    "status": "not_tried",
@@ -3645,7 +3687,7 @@
     "w": 7
    },
    "path": "blocks.*.*.conv_pw",
-   "q_sqnr": 9.149548050133738,
+   "q_sqnr": 9.537105493874911,
    "role": "chained",
    "seq": 134,
    "status": "not_tried",
@@ -3668,7 +3710,7 @@
     "hw": 49
    },
    "path": "blocks.*.*.bn1",
-   "q_sqnr": 12.400225563935578,
+   "q_sqnr": 12.818530846930365,
    "role": "folded_weights",
    "seq": 135,
    "status": "not_tried",
@@ -3690,7 +3732,7 @@
     "numel": 28224
    },
    "path": "blocks.*.*.bn1",
-   "q_sqnr": 10.817554882181962,
+   "q_sqnr": 11.240737148406819,
    "role": "folded_store",
    "seq": 136,
    "status": "not_tried",
@@ -3723,7 +3765,7 @@
     "w": 7
    },
    "path": "blocks.*.*.conv_dw",
-   "q_sqnr": 12.47987808671856,
+   "q_sqnr": 13.021370826662281,
    "role": "chained",
    "seq": 137,
    "status": "not_tried",
@@ -3746,7 +3788,7 @@
     "hw": 49
    },
    "path": "blocks.*.*.bn2",
-   "q_sqnr": 9.92532351903048,
+   "q_sqnr": 10.244049088131836,
    "role": "folded_weights",
    "seq": 138,
    "status": "not_tried",
@@ -3768,7 +3810,7 @@
     "numel": 28224
    },
    "path": "blocks.*.*.bn2",
-   "q_sqnr": 8.403267232020399,
+   "q_sqnr": 8.698550394952854,
    "role": "folded_store",
    "seq": 139,
    "status": "not_tried",
@@ -3791,7 +3833,7 @@
     "out": 576
    },
    "path": "blocks.*.*.se",
-   "q_sqnr": 9.345304745145238,
+   "q_sqnr": 9.562345923480203,
    "role": "chained",
    "seq": 140,
    "status": "not_tried",
@@ -3824,7 +3866,7 @@
     "w": 1
    },
    "path": "blocks.*.*.se.conv_reduce",
-   "q_sqnr": 12.660578416018208,
+   "q_sqnr": 13.103564644116467,
    "role": "chained",
    "seq": 141,
    "status": "not_tried",
@@ -3846,7 +3888,7 @@
     "numel": 144
    },
    "path": "blocks.*.*.se.act1",
-   "q_sqnr": 15.468303881137738,
+   "q_sqnr": 15.98137332532092,
    "role": "folded_store",
    "seq": 142,
    "status": "not_tried",
@@ -3879,7 +3921,7 @@
     "w": 1
    },
    "path": "blocks.*.*.se.conv_expand",
-   "q_sqnr": 34.30723808415366,
+   "q_sqnr": 34.710108627177945,
    "role": "chained",
    "seq": 143,
    "status": "not_tried",
@@ -3901,7 +3943,7 @@
     "numel": 576
    },
    "path": "blocks.*.*.se.gate",
-   "q_sqnr": 18.554738162610928,
+   "q_sqnr": 19.0907504557713,
    "role": "folded_store",
    "seq": 144,
    "status": "not_tried",
@@ -3925,7 +3967,7 @@
     "numel": 28224
    },
    "path": "blocks.*.*.se",
-   "q_sqnr": 10.201018316763165,
+   "q_sqnr": 10.430075677788889,
    "role": "chained",
    "seq": 145,
    "status": "not_tried",
@@ -3958,7 +4000,7 @@
     "w": 7
    },
    "path": "blocks.*.*.conv_pwl",
-   "q_sqnr": 12.992977146658903,
+   "q_sqnr": 13.288597389717706,
    "role": "chained",
    "seq": 146,
    "status": "not_tried",
@@ -3981,7 +4023,7 @@
     "hw": 49
    },
    "path": "blocks.*.*.bn3",
-   "q_sqnr": 6.903572870591627,
+   "q_sqnr": 7.223017958397558,
    "role": "folded_weights",
    "seq": 147,
    "status": "not_tried",
@@ -4005,7 +4047,7 @@
     "numel": 4704
    },
    "path": "blocks.*.*",
-   "q_sqnr": 8.484893519298662,
+   "q_sqnr": 8.9456844719551,
    "role": "chained",
    "seq": 148,
    "status": "not_tried",
@@ -4038,7 +4080,7 @@
     "w": 7
    },
    "path": "blocks.*.*.conv",
-   "q_sqnr": 8.831246739883047,
+   "q_sqnr": 9.342967837655808,
    "role": "chained",
    "seq": 149,
    "status": "not_tried",
@@ -4061,7 +4103,7 @@
     "hw": 49
    },
    "path": "blocks.*.*.bn1",
-   "q_sqnr": 10.27642704168854,
+   "q_sqnr": 10.794243167982575,
    "role": "folded_weights",
    "seq": 150,
    "status": "not_tried",
@@ -4083,7 +4125,7 @@
     "numel": 28224
    },
    "path": "blocks.*.*.bn1",
-   "q_sqnr": 8.151977820391817,
+   "q_sqnr": 8.562378063582972,
    "role": "folded_store",
    "seq": 151,
    "status": "not_tried",
@@ -4108,7 +4150,7 @@
     "w": 7
    },
    "path": "global_pool.pool",
-   "q_sqnr": 9.69732850416095,
+   "q_sqnr": 10.246569978322007,
    "role": "chained",
    "seq": 152,
    "status": "not_tried",
@@ -4141,7 +4183,7 @@
     "w": 1
    },
    "path": "conv_head",
-   "q_sqnr": 8.421198987192719,
+   "q_sqnr": 8.937170095873835,
    "role": "chained",
    "seq": 153,
    "status": "not_tried",
@@ -4163,7 +4205,7 @@
     "numel": 1024
    },
    "path": "act2",
-   "q_sqnr": 5.443853352281933,
+   "q_sqnr": 5.8253455313315,
    "role": "folded_store",
    "seq": 154,
    "status": "not_tried",
@@ -4188,7 +4230,7 @@
     "n": 1000
    },
    "path": "classifier",
-   "q_sqnr": 8.37467524933115,
+   "q_sqnr": 9.665666084054136,
    "role": "chained",
    "seq": 155,
    "status": "not_tried",
@@ -4205,7 +4247,7 @@
   "blockers_replacement": 0,
   "cycles": null,
   "cycles_measured_share": null,
-  "final_fp_q_delta": 0.0,
+  "final_fp_q_delta": null,
   "links_failing": 0,
   "links_ok": 0,
   "links_unrun": 8,
@@ -4220,7 +4262,7 @@
   "nodes_on_chip": 0,
   "pct_calls": 0.0,
   "pct_macs": 0.0,
-  "plan_id": 7,
-  "status": "partial"
+  "plan_id": 65,
+  "status": "active"
  }
 }
