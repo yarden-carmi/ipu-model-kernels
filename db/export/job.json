@@ -22511,17 +22511,17 @@
   "created_at": 1794548909.3878376,
   "deps_hash": "fd193fae78590fce",
   "error": null,
-  "finished_at": null,
+  "finished_at": 1794548970.025555,
   "heartbeat": 1794548940.0355024,
   "id": 2635,
   "kind": "evaluate",
   "model_id": 4,
   "pid": 153532,
   "priority": 3.0,
-  "result": "{\"spark\": \"kernelgen-4-evaluate-263-48910\"}",
+  "result": "{\"spark\": \"kernelgen-4-evaluate-263-48910\", \"candidates\": 2, \"evaluated\": 2, \"chosen\": \"onehot_gemm_embed_1001x1152_p1\", \"why\": \"equivalent, passed its check\", \"without_sqnr_db\": 29.63325366462761, \"losses\": {\"onehot_gemm_embed_1001x1152_p1\": 0.0, \"masked_row_reduce_embed_1001x1152_p1\": 0.0}, \"retuned\": 0, \"failed\": {}}",
   "slot": "gpu",
   "started_at": 1794548910.0280523,
-  "status": "running",
+  "status": "done",
   "subject": "request:575"
  },
  {
@@ -24960,7 +24960,7 @@
   "deps_hash": "e32a5540cb5daad0",
   "error": "Traceback (most recent call last):\n  File \"/home/yardencarmi/ipu-kernelgen/ipu_kernelgen/agent/backends.py\", line 254, in attempt\n    resp = _request(\n           ^^^^^^^^^\n  File \"/home/yardencarmi/ipu-kernelgen/ipu_kernelgen/agent/backends.py\", line 195, in _request\n    raise TimeoutError(f\"the request passed its {limit:g} s limit\")\nTimeoutError: the request passed its 600 s limit\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/home/yardencarmi/ipu-kernelgen/ipu_kernelgen/scheduler.py\", line 425, in run_job\n    result = runner(job[\"kind\"])(ctx, job)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/yardencarmi/ipu-kernelgen/ipu_kernelgen/jobs/kernel.py\", line 264, in run\n    stats = session.attempt(prompts.SYSTEM_KERNEL, prompt, tools, Limits.of(s, tools.drafted()), transcript,\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/yardencarmi/ipu-kernelgen/ipu_kernelgen/agent/backends.py\", line 264, in attempt\n    raise EndpointError(f\"the LLM request failed: {type(e).__name__}: {e}\"[:error_chars(s)]) from e\nipu_kernelgen.agent.backends.EndpointError: the LLM request failed: TimeoutError: the request passed its 600 s limit\n",
   "finished_at": 1794547704.555772,
-  "heartbeat": 1794548940.0527065,
+  "heartbeat": 1794548970.0589335,
   "id": 2183,
   "kind": "kernel",
   "model_id": 726,
@@ -25045,7 +25045,7 @@
   "deps_hash": "4e3123ba3baafd96",
   "error": null,
   "finished_at": null,
-  "heartbeat": 1794548936.3288095,
+  "heartbeat": 1794548966.33971,
   "id": 2365,
   "kind": "kernel",
   "model_id": 266,
@@ -25062,7 +25062,7 @@
   "deps_hash": "291b2c889acaf8d5",
   "error": null,
   "finished_at": null,
-  "heartbeat": 1794548932.5885284,
+  "heartbeat": 1794548962.6001449,
   "id": 2490,
   "kind": "kernel",
   "model_id": 15,
@@ -26367,6 +26367,23 @@
   "subject": "model:4"
  },
  {
+  "created_at": 1794548950.3878849,
+  "deps_hash": "144448cb89910ee5",
+  "error": null,
+  "finished_at": 1794548951.035093,
+  "heartbeat": 1794548950.944529,
+  "id": 2639,
+  "kind": "plan",
+  "model_id": 4,
+  "pid": 155428,
+  "priority": 2.0,
+  "result": "{\"plan\": 94, \"version\": \"983b0679-fd273d6d1be188f4\", \"groups\": 57, \"requests\": 19, \"unplannable\": {\"171\": \"step 1 (fused_onehot_gemm): missing sizes tokens (its sizes: tokens, vocab, dim)\", \"215\": \"step 1 (fused_onehot_gemm): missing sizes tokens, vocab, dim; unknown parameters k, m, n (its sizes: tokens, vocab, dim)\", \"254\": \"step 1 (noisy_row_embed_1001): missing sizes tokens (its sizes: dim, tokens, vocab)\"}, \"failed_requests\": 0, \"links\": 290, \"layout_members\": 58, \"folded\": 201}",
+  "slot": "cpu",
+  "started_at": 1794548950.9445288,
+  "status": "done",
+  "subject": "model:4"
+ },
+ {
   "created_at": 1794547576.8858068,
   "deps_hash": "215dae129f2543db",
   "error": null,
@@ -26601,6 +26618,23 @@
   "result": "{\"plan\": 93, \"version\": \"983b0679-809f0e4af8e24273\", \"groups\": 57, \"requests\": 20, \"unplannable\": {\"171\": \"step 1 (fused_onehot_gemm): missing sizes tokens (its sizes: tokens, vocab, dim)\", \"215\": \"step 1 (fused_onehot_gemm): missing sizes tokens, vocab, dim; unknown parameters k, m, n (its sizes: tokens, vocab, dim)\", \"254\": \"step 1 (noisy_row_embed_1001): missing sizes tokens (its sizes: dim, tokens, vocab)\"}, \"failed_requests\": 0, \"links\": 289, \"layout_members\": 58, \"folded\": 201}",
   "slot": "cpu",
   "started_at": 1794548745.8399792,
+  "status": "done",
+  "subject": "model:4"
+ },
+ {
+  "created_at": 1794548970.9075186,
+  "deps_hash": "bb0726d4566ac705",
+  "error": null,
+  "finished_at": 1794548971.5426016,
+  "heartbeat": 1794548971.4619448,
+  "id": 2641,
+  "kind": "plan",
+  "model_id": 4,
+  "pid": 156116,
+  "priority": 2.0,
+  "result": "{\"plan\": 95, \"version\": \"983b0679-98c03af5aee54eb0\", \"groups\": 57, \"requests\": 18, \"unplannable\": {\"171\": \"step 1 (fused_onehot_gemm): missing sizes tokens (its sizes: tokens, vocab, dim)\", \"215\": \"step 1 (fused_onehot_gemm): missing sizes tokens, vocab, dim; unknown parameters k, m, n (its sizes: tokens, vocab, dim)\", \"254\": \"step 1 (noisy_row_embed_1001): missing sizes tokens (its sizes: dim, tokens, vocab)\"}, \"failed_requests\": 0, \"links\": 291, \"layout_members\": 58, \"folded\": 201}",
+  "slot": "cpu",
+  "started_at": 1794548971.4619443,
   "status": "done",
   "subject": "model:4"
  },
@@ -28581,7 +28615,7 @@
   "deps_hash": "7f780edcdbb3f3fb",
   "error": null,
   "finished_at": null,
-  "heartbeat": 1794548930.4408126,
+  "heartbeat": 1794548960.4575915,
   "id": 2637,
   "kind": "publish",
   "model_id": 210,
@@ -28597,17 +28631,17 @@
   "created_at": 1794548909.3888376,
   "deps_hash": "a178c10f8c03afa2",
   "error": null,
-  "finished_at": null,
+  "finished_at": 1794548948.3850448,
   "heartbeat": 1794548940.0221424,
   "id": 2636,
   "kind": "publish",
   "model_id": 36,
   "pid": 153533,
   "priority": -392.0,
-  "result": null,
+  "result": "{\"tables\": 39, \"commit\": \"d493807f8426262b1de1e7d7b717fecbd5fea9c2\", \"message\": \"visit Qwen/Qwen3-0.6B: partial, 0.0% of MACs on chip\", \"pushed\": true}",
   "slot": "cpu",
   "started_at": 1794548910.0155935,
-  "status": "running",
+  "status": "done",
   "subject": "visit:174"
  },
  {
@@ -39155,7 +39189,7 @@
   "deps_hash": "584852b3cccca569",
   "error": null,
   "finished_at": null,
-  "heartbeat": 1794548940.0150867,
+  "heartbeat": 1794548970.0310996,
   "id": 2612,
   "kind": "replacement",
   "model_id": 4,
@@ -39181,7 +39215,7 @@
   "result": null,
   "slot": "llm",
   "started_at": null,
-  "status": "queued",
+  "status": "stale",
   "subject": "request:577"
  },
  {
@@ -39198,7 +39232,7 @@
   "result": null,
   "slot": "llm",
   "started_at": null,
-  "status": "queued",
+  "status": "stale",
   "subject": "request:578"
  },
  {
@@ -39215,7 +39249,7 @@
   "result": null,
   "slot": "llm",
   "started_at": null,
-  "status": "queued",
+  "status": "stale",
   "subject": "request:579"
  },
  {
@@ -39249,7 +39283,7 @@
   "result": null,
   "slot": "llm",
   "started_at": null,
-  "status": "queued",
+  "status": "stale",
   "subject": "request:580"
  },
  {
@@ -39266,7 +39300,7 @@
   "result": null,
   "slot": "llm",
   "started_at": null,
-  "status": "queued",
+  "status": "stale",
   "subject": "request:581"
  },
  {
@@ -39283,7 +39317,7 @@
   "result": null,
   "slot": "llm",
   "started_at": null,
-  "status": "queued",
+  "status": "stale",
   "subject": "request:582"
  },
  {
@@ -39300,7 +39334,7 @@
   "result": null,
   "slot": "llm",
   "started_at": null,
-  "status": "queued",
+  "status": "stale",
   "subject": "request:583"
  },
  {
@@ -39317,7 +39351,7 @@
   "result": null,
   "slot": "llm",
   "started_at": null,
-  "status": "queued",
+  "status": "stale",
   "subject": "request:584"
  },
  {
@@ -39334,7 +39368,7 @@
   "result": null,
   "slot": "llm",
   "started_at": null,
-  "status": "queued",
+  "status": "stale",
   "subject": "request:585"
  },
  {
@@ -39351,7 +39385,7 @@
   "result": null,
   "slot": "llm",
   "started_at": null,
-  "status": "queued",
+  "status": "stale",
   "subject": "request:586"
  },
  {
@@ -39368,7 +39402,7 @@
   "result": null,
   "slot": "llm",
   "started_at": null,
-  "status": "queued",
+  "status": "stale",
   "subject": "request:587"
  },
  {
@@ -39385,7 +39419,7 @@
   "result": null,
   "slot": "llm",
   "started_at": null,
-  "status": "queued",
+  "status": "stale",
   "subject": "request:588"
  },
  {
@@ -39402,7 +39436,7 @@
   "result": null,
   "slot": "llm",
   "started_at": null,
-  "status": "queued",
+  "status": "stale",
   "subject": "request:589"
  },
  {
@@ -39436,7 +39470,7 @@
   "result": null,
   "slot": "llm",
   "started_at": null,
-  "status": "queued",
+  "status": "stale",
   "subject": "request:590"
  },
  {
@@ -39453,7 +39487,7 @@
   "result": null,
   "slot": "llm",
   "started_at": null,
-  "status": "queued",
+  "status": "stale",
   "subject": "request:591"
  },
  {
@@ -39470,7 +39504,7 @@
   "result": null,
   "slot": "llm",
   "started_at": null,
-  "status": "queued",
+  "status": "stale",
   "subject": "request:592"
  },
  {
@@ -39487,7 +39521,7 @@
   "result": null,
   "slot": "llm",
   "started_at": null,
-  "status": "queued",
+  "status": "stale",
   "subject": "request:593"
  },
  {
@@ -41429,6 +41463,23 @@
   "subject": "insights"
  },
  {
+  "created_at": 1794548950.3868916,
+  "deps_hash": "3eed23b02378ffee",
+  "error": null,
+  "finished_at": null,
+  "heartbeat": null,
+  "id": 2638,
+  "kind": "summarize",
+  "model_id": null,
+  "pid": null,
+  "priority": -100000.0,
+  "result": null,
+  "slot": "llm",
+  "started_at": null,
+  "status": "stale",
+  "subject": "insights"
+ },
+ {
   "created_at": 1794543308.9483151,
   "deps_hash": "3f308204cec4c6d1",
   "error": null,
@@ -41680,7 +41731,7 @@
   "result": null,
   "slot": "llm",
   "started_at": null,
-  "status": "queued",
+  "status": "stale",
   "subject": "insights"
  },
  {
@@ -44061,6 +44112,23 @@
   "slot": "llm",
   "started_at": 1794528866.3171914,
   "status": "done",
+  "subject": "insights"
+ },
+ {
+  "created_at": 1794548970.905954,
+  "deps_hash": "dc8c37e100637a0f",
+  "error": null,
+  "finished_at": null,
+  "heartbeat": null,
+  "id": 2640,
+  "kind": "summarize",
+  "model_id": null,
+  "pid": null,
+  "priority": -100000.0,
+  "result": null,
+  "slot": "llm",
+  "started_at": null,
+  "status": "queued",
   "subject": "insights"
  },
  {
