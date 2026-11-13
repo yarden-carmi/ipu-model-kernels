@@ -1,65 +1,57 @@
 [kernel]
-op = "binary_mul_scalar"
-formats = ["e3"]
+op = "binary_add"
+formats = ["e2"]
 
 [params.numel]
 type = "int"
-min = 1
+min = 128
 max = 4194304
-multiple_of = 1
-
-[params.const]
-type = "float"
-default = 1.0
-
-[params.op]
-type = "str"
-choices = ["mul"]
-default = "mul"
-
-[params.broadcast]
-type = "str"
-choices = ["scalar"]
-default = "scalar"
+multiple_of = 128
 
 [params.inner]
 type = "int"
 choices = [0]
 default = 0
 
-[inputs.a]
-shape = ["numel"]
+[params.op]
+type = "str"
+choices = ["add"]
+default = "add"
+
+[params.broadcast]
+type = "str"
+choices = ["none"]
+default = "none"
+
+[inputs.in0]
+shape = ["rows", 128]
 range = [-4, 4]
 
-[outputs.y]
-shape = ["numel"]
+[inputs.in1]
+shape = ["rows", 128]
+range = [-4, 4]
+
+[outputs.out0]
+shape = ["rows", 128]
 
 [derived]
-rows = "ceil(numel / 128)"
-rows_m1 = "ceil(numel / 128) - 1"
-rows_m2 = "ceil(numel / 128) - 2"
-last = "numel - 128 * (ceil(numel / 128) - 1)"
+rows = "numel // 128"
 qf = "case_qf"
 ds = "ds(128)"
-ds_last = "ds(last)"
 
 [abi]
-a = "CR2"
-y = "CR3"
-const = "CR4"
-qf = "CR5"
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+rows = "CR5"
+qf = "CR6"
 ds = "CR15"
-ds_last = "CR14"
-rows = "CR7"
-rows_m1 = "CR6"
-rows_m2 = "CR8"
 
 [golden]
-tolerance = { e3 = "EXACT" }
+tolerance = { e2 = "EXACT" }
 
 [cases.default]
-numel = 160
-const = 1.0
+numel = 512
 
 [cases.sizes]
-numel = [128, 129, 160, 256, 384, 1024]
+numel = [128, 1280]

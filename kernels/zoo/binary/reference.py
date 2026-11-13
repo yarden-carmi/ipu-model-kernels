@@ -1,5 +1,5 @@
 import torch
 
 
-def reference(a, const, **_):
-    return {"y": a * const}
+def reference(in0, in1, **_):
+    return {"out0": in0 + in1}

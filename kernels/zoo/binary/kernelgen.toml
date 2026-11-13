@@ -1,7 +1,6 @@
 chain = ["binary"]
-chain_in = "a"
-chain_out = "y"
-steps = 1
-notes = """One row per pass: load a's row, multiply it by the scalar const (a CR MULT constant) into the
-accumulator with ACC.ADD.FIRST, and store it with an identity activation. The tensor is numel elements over
-ceil(numel/128) rows; the last row, which may be partial, is stored with ds_last instead of the full-row ds."""
+chain_in = "in0"
+chain_out = "out0"
+notes = """One row per pass: load in0's row, multiply it by 1 (CR1) into the accumulator, load in1's row while it
+multiplies, add it, and store the sum with an identity activation. The parameters are the call's: numel (a multiple
+of 128) and the add's fixed options."""
