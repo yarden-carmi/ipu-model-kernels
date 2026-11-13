@@ -72,6 +72,30 @@
   "proposed_by": 11
  },
  {
+  "chain": "[{\"op\": \"gather_gemm_f\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "import torch\n\ndef forward(module, ids):\n    ids = ids.long()\n    W = module.table\n    vocab, dim = W.shape\n    X = torch.zeros(ids.shape[0], vocab, dtype=W.dtype, device=W.device)\n    X[torch.arange(ids.shape[0], device=W.device), ids] = 1.0\n    return X @ W",
+  "id": 76,
+  "kind": "equivalent",
+  "name": "emb_gather_gemm_f",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the embedding lookup with a single fused gather expressed as a gemm against the constant table. 1) gather_gemm_f: from the ids (tokens,), build the implicit one-hot X (tokens, vocab) with X[i, id_i] = 1 \\u2014 a pure elementwise construction, no data addressing \\u2014 then compute E = X @ W with W the embedding table (vocab, dim), a constant of the operation, giving (tokens, dim). Row i of the result is exactly table[id_i], identical to the lookup.\", \"rel_err\": 0.0}",
+  "proposed_by": 21
+ },
+ {
+  "chain": "[{\"op\": \"gather_gemm_f\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: gather_gemm_f {\"tokens\": 256, \"vocab\": 30522, \"dim\": 768}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
+  "check_ok": null,
+  "code": "def forward(module, ids):\n    W = module.table\n    X = torch.zeros(ids.shape[0], W.shape[0], dtype=W.dtype, device=W.device)\n    X[torch.arange(ids.shape[0], device=W.device), ids.long()] = 1.0\n    return X @ W",
+  "id": 80,
+  "kind": "equivalent",
+  "name": "emb_gather_gemm_f_v2",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the embedding lookup with a single fused primitive. 1) gather_gemm_f: from the ids (tokens,), build the implicit one-hot X (tokens, vocab) with X[i, id_i] = 1 \\u2014 a pure elementwise construction, no data addressing \\u2014 then compute E = X @ W with W the embedding table (vocab, dim), a constant of the operation, giving (tokens, dim). Row i of the result is exactly table[id_i], identical to the lookup.\", \"rel_err\": 0.0}",
+  "proposed_by": 22
+ },
+ {
   "chain": "[{\"op\": \"gather_gemm\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
   "check_detail": "chain: the path gives 1 elements, embedding gives 1152; code: relative difference 0 (within 0.0001)",
   "check_ok": 0,
@@ -94,6 +118,30 @@
   "op": "embedding",
   "proposal": "{\"description\": \"Replace the embedding lookup with a single fused primitive. 1) gather_gemm_f: from the ids (tokens,), build the implicit one-hot X (tokens, vocab) with X[i, id_i] = 1 \\u2014 a pure elementwise construction, no data addressing \\u2014 then compute E = X @ W with W the embedding table (vocab, dim), a constant of the operation, giving (tokens, dim). Row i of the result is exactly table[id_i], identical to the lookup. The table is passed to the reference as the constant of the operation.\", \"rel_err\": 0.0}",
   "proposed_by": 19
+ },
+ {
+  "chain": "[{\"op\": \"gather_gemm\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "import torch\n\ndef forward(module, *inputs):\n    ids = inputs[0]\n    W = module.table  # embedding table (vocab, dim), constant of the operation\n    tokens = ids.shape[0]\n    vocab, dim = W.shape\n    X = torch.zeros(tokens, vocab, dtype=W.dtype, device=W.device)\n    X[torch.arange(tokens, device=W.device), ids.long()] = 1.0\n    return X @ W",
+  "id": 71,
+  "kind": "equivalent",
+  "name": "emb_gather_gemm_fused3",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the embedding lookup with a fused gather expressed as a gemm against the constant table. 1) From the ids (tokens,), build the implicit one-hot X (tokens, vocab) with X[i, id_i] = 1 \\u2014 a pure elementwise construction, no data addressing. 2) Compute E = X @ W with W the embedding table (vocab, dim), a constant of the operation, giving (tokens, dim). Row i of the result is exactly table[id_i], identical to the lookup.\", \"rel_err\": 0.0}",
+  "proposed_by": 20
+ },
+ {
+  "chain": "[{\"op\": \"gather_gemm_ref\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "import torch\n\ndef forward(module, *inputs):\n    ids = inputs[0]\n    W = module.table if hasattr(module, \"table\") else module.weight\n    tokens = ids.shape[0]\n    vocab, dim = W.shape\n    X = torch.zeros(tokens, vocab, dtype=W.dtype, device=W.device)\n    X[torch.arange(tokens, device=W.device), ids.long()] = 1.0\n    return X @ W",
+  "id": 83,
+  "kind": "equivalent",
+  "name": "emb_gather_gemm_onehot",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the embedding lookup with a single fused gather expressed as a gemm against the constant table. 1) From the ids (tokens,), build the implicit one-hot X (tokens, vocab) with X[i, id_i] = 1 \\u2014 a pure elementwise construction, no data addressing. 2) Compute E = X @ W with W the embedding table (vocab, dim), a constant of the operation, giving (tokens, dim). Row i of the result is exactly table[id_i], identical to the lookup.\", \"rel_err\": 0.0}",
+  "proposed_by": 23
  },
  {
   "chain": "[{\"op\": \"gather_gemm_p\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
@@ -120,6 +168,30 @@
   "proposed_by": 17
  },
  {
+  "chain": "[{\"op\": \"gather_gemm\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: gather_gemm {\"tokens\": 256, \"vocab\": 30522, \"dim\": 768}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
+  "check_ok": null,
+  "code": "def forward(module, ids):\n    W = module.table\n    X = torch.zeros(ids.shape[0], W.shape[0], dtype=W.dtype, device=W.device)\n    X[torch.arange(ids.shape[0], device=W.device), ids.long()] = 1.0\n    return X @ W",
+  "id": 79,
+  "kind": "equivalent",
+  "name": "emb_gather_gemm_v2",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the embedding lookup with a fused gather expressed as a gemm against the constant table. 1) gather_gemm: from the ids (tokens,), build the implicit one-hot X (tokens, vocab) with X[i, id_i] = 1 \\u2014 a pure elementwise construction, no data addressing. 2) Compute E = X @ W with W the embedding table (vocab, dim), a constant of the operation, giving (tokens, dim). Row i of the result is exactly table[id_i], identical to the lookup.\", \"rel_err\": 0.0}",
+  "proposed_by": 22
+ },
+ {
+  "chain": "[{\"op\": \"gather_gemm_x\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}, \"reference\": \"def fn(ids, table, tokens, vocab, dim):\\n    X = torch.zeros(tokens, vocab, dtype=table.dtype)\\n    X[torch.arange(tokens), ids.long()] = 1.0\\n    return X @ table\"}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    W = module.table\n    X = torch.zeros(ids.shape[0], W.shape[0], dtype=W.dtype, device=W.device)\n    X[torch.arange(ids.shape[0], device=W.device), ids.long()] = 1.0\n    return X @ W",
+  "id": 82,
+  "kind": "equivalent",
+  "name": "emb_gather_gemm_x",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the embedding lookup with a single fused primitive. 1) gather_gemm_x: from the ids (tokens,), build the implicit one-hot X (tokens, vocab) with X[i, id_i] = 1 \\u2014 a pure elementwise construction, no data addressing \\u2014 then compute E = X @ W with W the embedding table (vocab, dim), a constant of the operation, giving (tokens, dim). Row i of the result is exactly table[id_i], identical to the lookup.\", \"rel_err\": 0.0}",
+  "proposed_by": 22
+ },
+ {
   "chain": "[{\"op\": \"one_hot_build\", \"params\": {\"classes\": \"vocab\"}}, {\"op\": \"bmm\", \"params\": {\"b\": 1, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
   "check_detail": "chain: one_hot_build {\"classes\": 1001}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
   "check_ok": null,
@@ -130,6 +202,90 @@
   "op": "embedding",
   "proposal": "{\"description\": \"Replace the embedding lookup with a one-hot build followed by a batched matmul against the constant table. 1) one_hot_build: from the ids (tokens,), build X (tokens, vocab) with X[i, id_i] = 1 (cast ids to long) \\u2014 a pure elementwise construction, no data addressing. 2) bmm: reshape X to (1, tokens, vocab) and the table W (vocab, dim) to (1, vocab, dim); compute E = bmm(X, W), giving (1, tokens, dim); squeeze the batch dim. Row i of the result is exactly table[id_i], identical to the lookup.\", \"rel_err\": 0.0}",
   "proposed_by": 17
+ },
+ {
+  "chain": "[{\"op\": \"one_hot\", \"params\": {\"classes\": \"vocab\"}}, {\"op\": \"bmm\", \"params\": {\"b\": 1, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "chain: one_hot {\"classes\": 30522}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
+  "check_ok": null,
+  "code": "def forward(module, ids):\n    W = module.table\n    X = torch.zeros(ids.shape[0], W.shape[0], dtype=W.dtype, device=W.device)\n    X[torch.arange(ids.shape[0], device=W.device), ids.long()] = 1.0\n    return torch.bmm(X.unsqueeze(0), W.unsqueeze(0)).squeeze(0)",
+  "id": 78,
+  "kind": "equivalent",
+  "name": "emb_onehot_bmm_v2",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the embedding lookup with a one-hot build followed by a batched matmul against the constant table. 1) one_hot: from the ids (tokens,), build X (tokens, vocab) with X[i, id_i] = 1 (cast ids to long) \\u2014 a pure elementwise construction, no data addressing. 2) bmm: reshape X to (1, tokens, vocab) and the table W (vocab, dim) to (1, vocab, dim); compute E = bmm(X, W), giving (1, tokens, dim); squeeze the batch dim. Row i of the result is exactly table[id_i], identical to the lookup.\", \"rel_err\": 0.0}",
+  "proposed_by": 22
+ },
+ {
+  "chain": "[{\"op\": \"one_hot_build\", \"params\": {\"classes\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "chain: gemm {\"bias\": false, \"k\": 1001, \"m\": 1, \"n\": 1152}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
+  "check_ok": null,
+  "code": "import torch\n\ndef forward(module, *inputs):\n    ids = inputs[0]\n    W = module.table  # embedding table (vocab, dim), constant of the operation\n    tokens = ids.shape[0]\n    vocab, dim = W.shape\n    X = torch.zeros(tokens, vocab, dtype=W.dtype, device=W.device)\n    X[torch.arange(tokens, device=W.device), ids.long()] = 1.0\n    return X @ W",
+  "id": 72,
+  "kind": "equivalent",
+  "name": "emb_onehot_gemm_final2",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the embedding lookup with a one-hot build followed by a gemm against the constant table. 1) one_hot_build: from the ids (tokens,), build X (tokens, vocab) with X[i, id_i] = 1 (cast ids to long) \\u2014 a pure elementwise construction, no data addressing. 2) gemm: E = X @ W with W the embedding table (vocab, dim), a constant of the operation, giving (tokens, dim). Row i of the result is exactly table[id_i], identical to the lookup.\", \"rel_err\": 0.0}",
+  "proposed_by": 20
+ },
+ {
+  "chain": "[{\"op\": \"one_hot_x\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}, \"reference\": \"def fn(ids, tokens, vocab, dim):\\n    X = torch.zeros(tokens, vocab)\\n    X[torch.arange(tokens), ids.long()] = 1.0\\n    return X\"}]",
+  "check_detail": "chain: the path gives 7813632 elements, embedding gives 196608; code: relative difference 0 (within 0.0001)",
+  "check_ok": 0,
+  "code": "def forward(module, ids):\n    W = module.table\n    X = torch.zeros(ids.shape[0], W.shape[0], dtype=W.dtype, device=W.device)\n    X[torch.arange(ids.shape[0], device=W.device), ids.long()] = 1.0\n    return X @ W",
+  "id": 81,
+  "kind": "equivalent",
+  "name": "emb_onehot_gemm_ref",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the embedding lookup with a one-hot build followed by a gemm against the constant table. 1) one_hot_x (primitive with reference): from the ids (tokens,), build X (tokens, vocab) with X[i, id_i] = 1 (cast ids to long) \\u2014 a pure elementwise construction, no data addressing. 2) gemm: E = X @ W with W the embedding table (vocab, dim), a constant of the operation, giving (tokens, dim). Row i of the result is exactly table[id_i], identical to the lookup.\", \"rel_err\": 0.0}",
+  "proposed_by": 22
+ },
+ {
+  "chain": "[{\"op\": \"one_hot_ref\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "chain: gemm {\"m\": 1, \"k\": 1001, \"n\": 1152, \"bias\": false}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
+  "check_ok": null,
+  "code": "import torch\n\ndef forward(module, *inputs):\n    ids = inputs[0]\n    W = module.table if hasattr(module, \"table\") else module.weight\n    tokens = ids.shape[0]\n    vocab, dim = W.shape\n    X = torch.zeros(tokens, vocab, dtype=W.dtype, device=W.device)\n    X[torch.arange(tokens, device=W.device), ids.long()] = 1.0\n    return X @ W",
+  "id": 84,
+  "kind": "equivalent",
+  "name": "emb_onehot_gemm_ref2",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the embedding lookup with a one-hot build followed by a gemm against the constant table. 1) one_hot_ref: from the ids (tokens,), build X (tokens, vocab) with X[i, id_i] = 1 (cast ids to long) \\u2014 a pure elementwise construction, no data addressing. 2) gemm: E = X @ W with W the embedding table (vocab, dim), a constant of the operation, giving (tokens, dim). Row i of the result is exactly table[id_i], identical to the lookup.\", \"rel_err\": 0.0}",
+  "proposed_by": 23
+ },
+ {
+  "chain": "[{\"op\": \"one_hot_ref\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm_table_ref\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "import torch\n\ndef forward(module, *inputs):\n    ids = inputs[0]\n    W = module.table if hasattr(module, \"table\") else module.weight\n    tokens = ids.shape[0]\n    vocab, dim = W.shape\n    X = torch.zeros(tokens, vocab, dtype=W.dtype, device=W.device)\n    X[torch.arange(tokens, device=W.device), ids.long()] = 1.0\n    return X @ W",
+  "id": 85,
+  "kind": "equivalent",
+  "name": "emb_onehot_gemm_ref3",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the embedding lookup with a one-hot build followed by a matmul against the constant table, both steps checkable. 1) one_hot_ref: from the ids (tokens,), build X (tokens, vocab) with X[i, id_i] = 1 (cast ids to long) \\u2014 a pure elementwise construction, no data addressing. 2) gemm_table_ref: E = X @ W with W the embedding table (vocab, dim), a constant of the operation, giving (tokens, dim). Row i of the result is exactly table[id_i], identical to the lookup.\", \"rel_err\": 0.0}",
+  "proposed_by": 23
+ },
+ {
+  "chain": "[{\"op\": \"one_hot_ref\", \"params\": {\"classes\": \"vocab\"}}, {\"op\": \"gemm_table_ref\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "import torch\n\ndef forward(module, *inputs):\n    ids = inputs[0]\n    W = module.table  # embedding table (vocab, dim), constant of the operation\n    tokens = ids.shape[0]\n    vocab, dim = W.shape\n    X = torch.zeros(tokens, vocab, dtype=W.dtype, device=W.device)\n    X[torch.arange(tokens, device=W.device), ids.long()] = 1.0\n    return X @ W",
+  "id": 73,
+  "kind": "equivalent",
+  "name": "emb_onehot_gemm_ref_full",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the embedding lookup with a one-hot build followed by a matmul against the constant table, both steps checkable. 1) one_hot_ref: from the ids (tokens,), build X (tokens, vocab) with X[i, id_i] = 1 (cast ids to long) \\u2014 a pure elementwise construction, no data addressing. 2) gemm_table_ref: E = X @ W with W the embedding table (vocab, dim), a constant of the operation, giving (tokens, dim). Row i of the result is exactly table[id_i], identical to the lookup.\", \"rel_err\": 0.0}",
+  "proposed_by": 20
+ },
+ {
+  "chain": "[{\"op\": \"one_hot\", \"params\": {\"classes\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "chain: one_hot {\"classes\": 30522}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
+  "check_ok": null,
+  "code": "def forward(module, ids):\n    W = module.table\n    X = torch.zeros(ids.shape[0], W.shape[0], dtype=W.dtype, device=W.device)\n    X[torch.arange(ids.shape[0], device=W.device), ids.long()] = 1.0\n    return X @ W",
+  "id": 77,
+  "kind": "equivalent",
+  "name": "emb_onehot_gemm_v2",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the embedding lookup with a one-hot build followed by a gemm against the constant table. 1) one_hot: from the ids (tokens,), build X (tokens, vocab) with X[i, id_i] = 1 (cast ids to long) \\u2014 a pure elementwise construction, no data addressing. 2) gemm: E = X @ W with W the embedding table (vocab, dim), a constant of the operation, giving (tokens, dim). Row i of the result is exactly table[id_i], identical to the lookup.\", \"rel_err\": 0.0}",
+  "proposed_by": 22
  },
  {
   "chain": "[{\"op\": \"one_hot_build\", \"params\": {\"classes\": \"vocab\"}}, {\"op\": \"matmul_table\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
@@ -336,6 +492,18 @@
   "proposed_by": 8
  },
  {
+  "chain": "[{\"op\": \"one_hot_build\", \"params\": {\"classes\": \"vocab\"}}, {\"op\": \"bmm\", \"params\": {\"b\": 1, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "chain: bmm {\"b\": 1, \"k\": 1001, \"m\": 1, \"n\": 1152}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
+  "check_ok": null,
+  "code": "import torch\n\ndef forward(module, ids):\n    ids = ids.long()\n    W = module.table\n    vocab, dim = W.shape\n    X = torch.zeros(ids.shape[0], vocab, dtype=W.dtype, device=W.device)\n    X[torch.arange(ids.shape[0], device=W.device), ids] = 1.0\n    return torch.bmm(X.unsqueeze(0), W.unsqueeze(0)).squeeze(0)",
+  "id": 75,
+  "kind": "equivalent",
+  "name": "onehot_bmm_emb",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the embedding lookup with a one-hot build followed by a batched matmul against the constant table. 1) one_hot_build: from the ids (tokens,), build X (tokens, vocab) with X[i, id_i] = 1 (cast ids to long) \\u2014 a pure elementwise construction, no data addressing. 2) bmm: reshape X to (1, tokens, vocab) and the table W (vocab, dim) to (1, vocab, dim); compute E = bmm(X, W), giving (1, tokens, dim); squeeze the batch dim. Row i of the result is exactly table[id_i], identical to the lookup.\", \"rel_err\": 0.0}",
+  "proposed_by": 21
+ },
+ {
   "chain": "[{\"op\": \"one_hot\", \"params\": {\"classes\": \"vocab\"}}, {\"op\": \"bmm\", \"params\": {\"b\": 1, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
   "check_detail": "chain: one_hot {\"classes\": 1001}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
   "check_ok": null,
@@ -538,6 +706,18 @@
   "op": "embedding",
   "proposal": "{\"description\": \"Replace the embedding lookup with a dense matmul against the constant table. 1) Build the one-hot matrix X of shape (tokens, vocab) from the ids: X[i, id_i] = 1 (cast ids to long for indexing) \\u2014 a pure elementwise construction, no data addressing. 2) Compute E = X @ W with W the embedding table (vocab, dim), a constant of the operation, giving output of shape (tokens, dim). Row i of the result is exactly table[id_i], identical to the lookup.\", \"rel_err\": 0.0}",
   "proposed_by": 8
+ },
+ {
+  "chain": "[{\"op\": \"one_hot_build\", \"params\": {\"classes\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "chain: gemm {\"bias\": false, \"k\": 1001, \"m\": 1, \"n\": 1152}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
+  "check_ok": null,
+  "code": "import torch\n\ndef forward(module, ids):\n    ids = ids.long()\n    W = module.table\n    vocab, dim = W.shape\n    X = torch.zeros(ids.shape[0], vocab, dtype=W.dtype, device=W.device)\n    X[torch.arange(ids.shape[0], device=W.device), ids] = 1.0\n    return X @ W",
+  "id": 74,
+  "kind": "equivalent",
+  "name": "onehot_gemm_emb",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the embedding lookup with a one-hot build followed by a gemm against the constant table. 1) one_hot_build: from the ids (tokens,), build X (tokens, vocab) with X[i, id_i] = 1 (cast ids to long) \\u2014 a pure elementwise construction, no data addressing. 2) gemm: E = X @ W with W the embedding table (vocab, dim), a constant of the operation, giving (tokens, dim). Row i of the result is exactly table[id_i], identical to the lookup.\", \"rel_err\": 0.0}",
+  "proposed_by": 21
  },
  {
   "chain": "[{\"op\": \"one_hot\", \"params\": {\"classes\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
