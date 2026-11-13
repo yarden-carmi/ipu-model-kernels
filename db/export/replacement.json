@@ -468,6 +468,42 @@
   "proposed_by": 24
  },
  {
+  "chain": "[{\"op\": \"bf16_row_select\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\"}}]",
+  "check_detail": "chain: the path does not compute embedding as called (): largest difference 0.0039 (relative 0.002) at element 345: -1.13281 where embedding gives -1.13671; code: relative difference 0.00196 (over 0.0001)",
+  "check_ok": 0,
+  "code": "def forward(module, ids):\n    table = module.table\n    row = table[ids.long().reshape(-1)]\n    return row.to(torch.bfloat16).to(torch.float32)",
+  "id": 180,
+  "kind": "approximate",
+  "name": "bf16_trunc_embedding",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Approximate the embedding numerically by storing/returning the selected row in bfloat16. Step 1: select the table row for the token id (ids cast to long). Step 2: round the row to bfloat16 and cast back to float32. This keeps the exact row selection but truncates the mantissa to 8 bits, an approximation of the full-precision embedding with relative error ~2^-9 per element.\", \"rel_err\": 0.0019570855337783894}",
+  "proposed_by": 83
+ },
+ {
+  "chain": "[{\"op\": \"hash_bucket_select\", \"params\": {\"buckets\": 256, \"dim\": \"dim\", \"tokens\": \"tokens\"}}]",
+  "check_detail": "chain: the path does not compute embedding as called (): largest difference 3.97 (relative 2) at element 461: 1.99934 where embedding gives -1.96705; code: relative difference 1.99 (over 0.0001)",
+  "check_ok": 0,
+  "code": "def forward(module, ids):\n    table = module.table\n    idx = (ids.long().reshape(-1) % 256)\n    return table[idx]",
+  "id": 178,
+  "kind": "approximate",
+  "name": "hash_bucket_embedding_256",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Approximate the embedding lookup by hash-bucketing the vocabulary. Step 1: take the token id and reduce it modulo buckets=256 (ids cast to long). Step 2: select row idx from a compressed table of shape 256 x dim=1152 (built once from the full 1001 x 1152 table by summing rows that collide into the same bucket, i.e. compressed[b] = sum of table rows with id % 256 == b). The output is the bucket row instead of the exact embedding row; ids colliding in a bucket share an embedding, so this is an approximation whose error is controlled by the number of buckets.\", \"rel_err\": 1.9903784803382774}",
+  "proposed_by": 83
+ },
+ {
+  "chain": "[{\"op\": \"one_hot\", \"params\": {\"num_classes\": \"vocab\"}}, {\"op\": \"lowrank_gemm\", \"params\": {\"dim\": \"dim\", \"rank\": 64, \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: one_hot {\"num_classes\": 1001}: no reference to check it with (a new primitive needs `reference`); code: relative difference 1.31 (over 0.0001)",
+  "check_ok": 0,
+  "code": "def forward(module, ids):\n    table = module.table\n    if not hasattr(module, \"_lr_cache\"):\n        U, S, Vh = torch.linalg.svd(table, full_matrices=False)\n        r = 64\n        module._lr_cache = (U[:, :r] * S[:r], Vh[:r, :])\n    A, B = module._lr_cache\n    oh = torch.zeros(1, table.shape[0], device=table.device, dtype=table.dtype)\n    oh[0, ids.long().reshape(-1)] = 1.0\n    return (oh @ A) @ B",
+  "id": 179,
+  "kind": "approximate",
+  "name": "lowrank_embedding_r64",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Approximate the embedding by a rank-64 low-rank factorization of the table. Step 1: build a one-hot row vector of length vocab=1001 from the token id. Step 2: multiply the one-hot by A (vocab x rank=64), the truncated-SVD left factor of the table scaled by singular values. Step 3: multiply the resulting (1 x 64) vector by B (rank=64 x dim=1152), the right factor. The result approximates the exact embedding row with rank-64 truncation error; A and B are precomputed constants from the table.\", \"rel_err\": 1.30579949001878}",
+  "proposed_by": 83
+ },
+ {
   "chain": "[{\"op\": \"eq_range\", \"params\": {\"vocab\": 1001}}, {\"op\": \"binary\", \"params\": {\"op\": \"mul\"}}, {\"op\": \"reduce_rows\", \"params\": {}}]",
   "check_detail": "chain: binary {\"op\": \"mul\"}: no reference to check it with (a new primitive needs `reference`); code: the code failed: AttributeError: 'types.SimpleNamespace' object has no attribute 'vocab'",
   "check_ok": 0,
@@ -550,6 +586,66 @@
   "op": "embedding",
   "proposal": "{\"description\": \"Replace the lookup with masked reduction. Step 1: eq_range \\u2014 compare the token id against arange(vocab) (vocab from the table's shape) to get a 0/1 mask of length 1001. Step 2: binary mul \\u2014 broadcast-multiply the mask (as a column) with the embedding table rows (vocab x 1152), zeroing all rows except the selected one. Step 3: reduce_rows \\u2014 sum over the vocab dimension, yielding exactly the selected row. Equivalent to embedding for a single token; the table is a constant passed alongside the ids.\", \"rel_err\": 0.0}",
   "proposed_by": 7
+ },
+ {
+  "chain": "[{\"op\": \"fused_masked_row_reduce\", \"params\": {\"dim\": \"dim\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: the path gives 1001 elements, embedding gives 1152; code: relative difference 0 (within 0.0001)",
+  "check_ok": 0,
+  "code": "def forward(module, ids):\n    table = module.table\n    ids = ids.long().reshape(-1, 1)\n    ar = torch.arange(table.shape[0], device=table.device)\n    mask = (ids == ar.unsqueeze(0)).to(table.dtype)\n    return (mask.unsqueeze(-1) * table.unsqueeze(0)).sum(dim=1)",
+  "id": 168,
+  "kind": "equivalent",
+  "name": "masked_row_reduce_embedding_1x1001x1152",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the runtime-index lookup with a fused masked row reduction. Step 1: flatten the id to a column (1 x 1) and compare against arange(vocab=1001) to get a 0/1 mask of shape 1 x 1001. Step 2: broadcast-multiply the mask (as a column per token) with the embedding table rows (1001 x 1152), zeroing all rows except the selected one. Step 3: sum over the vocab dimension, yielding exactly the selected row (1 x 1152). Mathematically identical to embedding for tokens=1; the table is a constant passed alongside the ids as input to the primitive.\", \"rel_err\": 0.0}",
+  "proposed_by": 82
+ },
+ {
+  "chain": "[{\"op\": \"fused_masked_row_reduce\", \"params\": {\"dim\": \"dim\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: the path does not compute embedding as called (): largest difference 4.84 (relative 2.4) at element 878: 2.84425 where embedding gives -1.99187; code: relative difference 0 (within 0.0001)",
+  "check_ok": 0,
+  "code": "def forward(module, ids):\n    table = module.table\n    ids = ids.long().reshape(-1, 1)\n    ar = torch.arange(table.shape[0], device=table.device)\n    mask = (ids == ar.unsqueeze(0)).to(table.dtype)\n    return (mask.unsqueeze(-1) * table.unsqueeze(0)).sum(dim=1)",
+  "id": 170,
+  "kind": "equivalent",
+  "name": "masked_row_reduce_embedding_1x1001x1152_v2",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the runtime-index lookup with a fused masked row reduction. Step 1: flatten the id to a column (1 x 1) and compare against arange(vocab=1001) to get a 0/1 mask of shape 1 x 1001. Step 2: broadcast-multiply the mask (as a column per token) with the embedding table rows (1001 x 1152), zeroing all rows except the selected one. Step 3: sum over the vocab dimension, yielding exactly the selected row (1 x 1152). Mathematically identical to embedding for tokens=1; the table is a constant passed alongside the ids as input to the primitive.\", \"rel_err\": 0.0}",
+  "proposed_by": 82
+ },
+ {
+  "chain": "[{\"op\": \"fused_masked_row_reduce\", \"params\": {\"dim\": \"dim\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    table = module.table\n    ids = ids.long().reshape(-1, 1)\n    ar = torch.arange(table.shape[0], device=table.device)\n    mask = (ids == ar.unsqueeze(0)).to(table.dtype)\n    return (mask.unsqueeze(-1) * table.unsqueeze(0)).sum(dim=1)",
+  "id": 172,
+  "kind": "equivalent",
+  "name": "masked_row_reduce_embedding_1x1001x1152_v3",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the runtime-index lookup with a fused masked row reduction. Step 1: flatten the id to a column (1 x 1) and compare against arange(vocab=1001) to get a 0/1 mask of shape 1 x 1001. Step 2: broadcast-multiply the mask (as a column per token) with the embedding table rows (1001 x 1152), zeroing all rows except the selected one. Step 3: sum over the vocab dimension, yielding exactly the selected row (1 x 1152). Mathematically identical to embedding for tokens=1; the table is a constant passed alongside the ids as input to the primitive.\", \"rel_err\": 0.0}",
+  "proposed_by": 82
+ },
+ {
+  "chain": "[{\"op\": \"eq_range\", \"params\": {\"vocab\": \"vocab\"}}, {\"op\": \"binary\", \"params\": {\"inner\": 0, \"numel\": \"vocab * dim\", \"op\": \"mul\"}}, {\"op\": \"reduce_rows\", \"params\": {\"kind\": \"sum\", \"n\": \"dim\", \"rows\": \"tokens\"}}]",
+  "check_detail": "chain: eq_range {\"vocab\": 1001}: no reference to check it with (a new primitive needs `reference`); code: the code failed: RuntimeError: The size of tensor a (1001) must match the size of tensor b (1152) at non-singleton dimension 1",
+  "check_ok": 0,
+  "code": "def forward(module, ids):\n    table = module.table\n    ids = ids.long().reshape(-1, 1)\n    mask = (ids == torch.arange(table.shape[0], device=table.device)).to(table.dtype)\n    return (mask * table).sum(dim=0, keepdim=True)",
+  "id": 176,
+  "kind": "equivalent",
+  "name": "masked_row_reduce_embedding_1x1001x1152_v4",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the lookup with a fused masked row reduction. Step 1: flatten the id to a column (1 x 1) and compare against arange(vocab=1001) to get a 0/1 mask of shape 1 x 1001. Step 2: broadcast-multiply the mask (as a column per token) with the embedding table rows (1001 x 1152), zeroing all rows except the selected one. Step 3: sum over the vocab dimension, yielding exactly the selected row (1 x 1152). Mathematically identical to embedding for tokens=1; the table is a constant passed alongside the ids as input to the primitive.\", \"rel_err\": null}",
+  "proposed_by": 83
+ },
+ {
+  "chain": "[{\"op\": \"eq_range\", \"params\": {\"vocab\": \"vocab\"}}, {\"op\": \"binary\", \"params\": {\"inner\": 0, \"numel\": \"vocab * dim\", \"op\": \"mul\"}}, {\"op\": \"reduce_rows\", \"params\": {\"kind\": \"sum\", \"n\": \"dim\", \"rows\": \"tokens\"}}]",
+  "check_detail": "chain: eq_range {\"vocab\": 1001}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
+  "check_ok": null,
+  "code": "def forward(module, ids):\n    table = module.table\n    ids = ids.long().reshape(-1, 1)\n    mask = (ids == torch.arange(table.shape[0], device=table.device)).to(table.dtype)  # tokens x vocab\n    return (mask.t() * table).sum(dim=0, keepdim=True)  # vocab x 1 * vocab x dim -> sum over vocab -> 1 x dim",
+  "id": 177,
+  "kind": "equivalent",
+  "name": "masked_row_reduce_embedding_1x1001x1152_v5",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the lookup with a fused masked row reduction. Step 1: flatten the id to a column (1 x 1) and compare against arange(vocab=1001) to get a 0/1 mask of shape 1 x 1001. Step 2: transpose the mask to a column (1001 x 1) and broadcast-multiply with the embedding table rows (1001 x 1152), zeroing all rows except the selected one. Step 3: sum over the vocab dimension, yielding exactly the selected row (1 x 1152). Mathematically identical to embedding for tokens=1; the table is a constant passed alongside the ids as input to the primitive.\", \"rel_err\": 0.0}",
+  "proposed_by": 83
  },
  {
   "chain": "[{\"name\": \"fused_masked_row_reduce\", \"op\": \"fused_masked_row_reduce\", \"params\": {\"n\": \"dim\", \"rows\": \"tokens\", \"vocab\": \"vocab\"}}]",
@@ -720,6 +816,18 @@
   "proposed_by": 22
  },
  {
+  "chain": "[{\"op\": \"noisy_row_select\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\"}}]",
+  "check_detail": "chain: the path does not compute embedding as called (): largest difference 0.0314 (relative 0.016) at element 1039: 0.302031 where embedding gives 0.333421; code: relative difference 0.0155 (over 0.0001)",
+  "check_ok": 0,
+  "code": "def forward(module, ids):\n    table = module.table\n    row = table[ids.long().reshape(-1)]\n    scale = row.abs().mean()\n    noise = torch.randn_like(row) * 0.01 * scale\n    return row + noise",
+  "id": 181,
+  "kind": "approximate",
+  "name": "noisy_row_embedding",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Approximate the embedding by adding relative Gaussian noise to the selected row. Step 1: select the table row for the token id (ids cast to long). Step 2: add zero-mean Gaussian noise with standard deviation 1% of the row's mean absolute value. This models a noisy/analog compute path; the result is an unbiased estimator of the exact embedding row.\", \"rel_err\": 0.015509525986418127}",
+  "proposed_by": 83
+ },
+ {
   "chain": "[{\"op\": \"one_hot\", \"params\": {\"vocab\": 1001}}, {\"op\": \"gemm\", \"params\": {\"trans_b\": false}}]",
   "check_detail": "chain: IndexError: tensors used as indices must be long, int, byte or bool tensors; code: the code failed: AttributeError: 'types.SimpleNamespace' object has no attribute 'vocab'",
   "check_ok": 0,
@@ -730,6 +838,54 @@
   "op": "embedding",
   "proposal": "{\"description\": \"Replace the runtime-index lookup with a dense matmul. Step 1: build a one-hot row vector of length vocab=1001 from the single token id (1 at position id, 0 elsewhere). Step 2: multiply the one-hot row by the embedding table (1001 x 1152) with a GEMM. The result row equals exactly the table row selected by the id, so this is mathematically identical to embedding for tokens=1.\", \"rel_err\": null}",
   "proposed_by": 5
+ },
+ {
+  "chain": "[{\"op\": \"fused_onehot_gemm\", \"params\": {\"dim\": \"dim\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: the path gives 1001 elements, embedding gives 1152; code: relative difference 0 (within 0.0001)",
+  "check_ok": 0,
+  "code": "def forward(module, ids):\n    table = module.table\n    ids = ids.long().reshape(-1)\n    onehot = torch.zeros(ids.shape[0], table.shape[0], dtype=table.dtype, device=table.device)\n    onehot[torch.arange(ids.shape[0]), ids] = 1\n    return onehot @ table",
+  "id": 167,
+  "kind": "equivalent",
+  "name": "onehot_gemm_embedding_1x1001x1152",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the runtime-index lookup with a fused one-hot GEMM. Step 1: build a one-hot row vector of length vocab=1001 from the single token id (1 at position id, 0 elsewhere; ids cast to long). Step 2: GEMM the one-hot row (1 x 1001) by the embedding table (1001 x 1152), no transposes. The result row equals exactly the table row selected by the id, so the result (1 x 1152) is mathematically identical to embedding for tokens=1. The table is a constant passed alongside the ids as input to the primitive.\", \"rel_err\": 0.0}",
+  "proposed_by": 82
+ },
+ {
+  "chain": "[{\"op\": \"fused_onehot_gemm\", \"params\": {\"dim\": \"dim\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: the path does not compute embedding as called (): largest difference 4.71 (relative 2.4) at element 1016: -3.29887 where embedding gives 1.41143; code: relative difference 0 (within 0.0001)",
+  "check_ok": 0,
+  "code": "def forward(module, ids):\n    table = module.table\n    ids = ids.long().reshape(-1)\n    onehot = torch.zeros(ids.shape[0], table.shape[0], dtype=table.dtype, device=table.device)\n    onehot[torch.arange(ids.shape[0]), ids] = 1\n    return onehot @ table",
+  "id": 169,
+  "kind": "equivalent",
+  "name": "onehot_gemm_embedding_1x1001x1152_v2",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the runtime-index lookup with a fused one-hot GEMM. Step 1: build a one-hot row vector of length vocab=1001 from the single token id (1 at position id, 0 elsewhere; ids cast to long). Step 2: GEMM the one-hot row (1 x 1001) by the embedding table (1001 x 1152), no transposes. The result row equals exactly the table row selected by the id, so the result (1 x 1152) is mathematically identical to embedding for tokens=1. The table is a constant passed alongside the ids as input to the primitive.\", \"rel_err\": 0.0}",
+  "proposed_by": 82
+ },
+ {
+  "chain": "[{\"op\": \"fused_onehot_gemm\", \"params\": {\"dim\": \"dim\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    table = module.table\n    ids = ids.long().reshape(-1)\n    onehot = torch.zeros(ids.shape[0], table.shape[0], dtype=table.dtype, device=table.device)\n    onehot[torch.arange(ids.shape[0]), ids] = 1\n    return onehot @ table",
+  "id": 171,
+  "kind": "equivalent",
+  "name": "onehot_gemm_embedding_1x1001x1152_v3",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the runtime-index lookup with a fused one-hot GEMM. Step 1: build a one-hot row vector of length vocab=1001 from the single token id (1 at position id, 0 elsewhere; ids cast to long). Step 2: GEMM the one-hot row (1 x 1001) by the embedding table (1001 x 1152), no transposes. The result row equals exactly the table row selected by the id, so the result (1 x 1152) is mathematically identical to embedding for tokens=1. The table is a constant passed alongside the ids as input to the primitive.\", \"rel_err\": 0.0}",
+  "proposed_by": 82
+ },
+ {
+  "chain": "[{\"op\": \"one_hot\", \"params\": {\"num_classes\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "chain: one_hot {\"num_classes\": 1001}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
+  "check_ok": null,
+  "code": "def forward(module, ids):\n    table = module.table\n    ids = ids.long().reshape(-1)\n    onehot = torch.zeros(ids.shape[0], table.shape[0], dtype=table.dtype, device=table.device)\n    onehot[torch.arange(ids.shape[0]), ids] = 1.0\n    return onehot @ table",
+  "id": 175,
+  "kind": "equivalent",
+  "name": "onehot_gemm_embedding_1x1001x1152_v4",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the runtime-index lookup with a fused one-hot GEMM. Step 1: build a one-hot row vector of length vocab=1001 from the single token id (1 at position id, 0 elsewhere; ids cast to long). Step 2: GEMM the one-hot row (1 x 1001) by the embedding table (1001 x 1152), no transposes. The result row equals exactly the table row selected by the id, so the result (1 x 1152) is mathematically identical to embedding for tokens=1. The table is a constant passed alongside the ids as input to the primitive.\", \"rel_err\": 0.0}",
+  "proposed_by": 83
  },
  {
   "chain": "[{\"name\": \"fused_onehot_gemm\", \"op\": \"fused_onehot_gemm\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
@@ -1728,6 +1884,18 @@
   "proposed_by": 48
  },
  {
+  "chain": "[{\"op\": \"bilinear_up8x\", \"params\": {\"h\": 7, \"out_h\": 56, \"out_w\": 56, \"w\": 7}}]",
+  "check_detail": "chain: matches upsample (FP32, relative 1e-07); code: the code gives 50176 elements, the operation 802816",
+  "check_ok": 0,
+  "code": "def forward(module, x):\n    # x: (channels, h, w); bilinear 2x upsample (align_corners=False) to (channels, 2h, 2w)\n    h, w = x.shape[-2], x.shape[-1]\n    out_h, out_w = 2 * h, 2 * w\n    sy = (torch.arange(out_h, dtype=x.dtype, device=x.device) + 0.5) * h / out_h - 0.5\n    sx = (torch.arange(out_w, dtype=x.dtype, device=x.device) + 0.5) * w / out_w - 0.5\n    iy = sy.floor().long(); ix = sx.floor().long()\n    wy = (sy - iy).view(1, out_h, 1); wx = (sx - ix).view(1, 1, out_w)\n    iy0 = iy.clamp(0, h - 1); iy1 = (iy + 1).clamp(0, h - 1)\n    ix0 = ix.clamp(0, w - 1); ix1 = (ix + 1).clamp(0, w - 1)\n    x00 = x[:, iy0][:, :, ix0]; x01 = x[:, iy0][:, :, ix1]\n    x10 = x[:, iy1][:, :, ix0]; x11 = x[:, iy1][:, :, ix1]\n    out = ((1 - wy) * (1 - wx) * x00 + (1 - wy) * wx * x01\n           + wy * (1 - wx) * x10 + wy * wx * x11)\n    return out",
+  "id": 183,
+  "kind": "equivalent",
+  "name": "bilinear_up2x_generic_final",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x 2D upsample of the (channels, h, w) CHW activation to (channels, 2h, 2w) = 802816 elements (at the model's image size 28x28 -> 56x56), align_corners=False. For each output pixel (oh, ow): source coords sy=(oh+0.5)*h/(2h)-0.5=(oh+0.5)/2-0.5, sx=(ow+0.5)/2-0.5 (half-pixel centers, align_corners=False); iy=floor(sy), ix=floor(sx); fractional weights wy=sy-iy, wx=sx-ix computed from the UNCLAMPED floor; indices iy, iy+1, ix, ix+1 clamped to [0, h-1]/[0, w-1] (border replication); output = (1-wy)(1-wx)*x[:,iy,ix] + (1-wy)wx*x[:,iy,ix+1] + wy(1-wx)*x[:,iy+1,ix] + wy*wx*x[:,iy+1,ix+1]. This is exactly torch's F.interpolate(scale_factor=2, mode='bilinear', align_corners=False, antialias=False).\", \"rel_err\": null}",
+  "proposed_by": 84
+ },
+ {
   "chain": "[{\"op\": \"bilinear_up2x_ref\", \"params\": {}}]",
   "check_detail": "chain: ValueError: not enough values to unpack (expected 3, got 2); code: the code gives 3211264 elements, the operation 802816",
   "check_ok": 0,
@@ -1788,6 +1956,30 @@
   "proposed_by": 38
  },
  {
+  "chain": "[{\"op\": \"bilinear_up4x_14to56\", \"params\": {\"channels\": 256, \"h\": 14, \"out_h\": 56, \"out_w\": 56, \"w\": 14}}]",
+  "check_detail": "chain: RuntimeError: The size of tensor a (56) must match the size of tensor b (256) at non-singleton dimension 0; code: the code failed: RuntimeError: The size of tensor a (56) must match the size of tensor b (256) at non-singleton dimension 0",
+  "check_ok": 0,
+  "code": "def forward(module, x):\n    x = x.reshape(256, 14, 14)\n    oh = torch.arange(56, dtype=torch.float32)\n    ow = torch.arange(56, dtype=torch.float32)\n    sy = (oh + 0.5) * 14 / 56 - 0.5\n    sx = (ow + 0.5) * 14 / 56 - 0.5\n    iy = torch.floor(sy).long()\n    ix = torch.floor(sx).long()\n    wy = sy - iy\n    wx = sx - ix\n    iy0 = iy.clamp(0, 13); iy1 = (iy + 1).clamp(0, 13)\n    ix0 = ix.clamp(0, 13); ix1 = (ix + 1).clamp(0, 13)\n    a = x[:, iy0[:, None], ix0[None, :]]\n    b = x[:, iy0[:, None], ix1[None, :]]\n    c = x[:, iy1[:, None], ix0[None, :]]\n    d = x[:, iy1[:, None], ix1[None, :]]\n    wy = wy[:, None, None]; wx = wx[None, :, None]\n    out = (1 - wy) * (1 - wx) * a + (1 - wy) * wx * b + wy * (1 - wx) * c + wy * wx * d\n    return out.reshape(802816)",
+  "id": 173,
+  "kind": "equivalent",
+  "name": "bilinear_up4x_14to56_final",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 4x 2D upsample of the (256, 14, 14) CHW activation (196 = 14*14 tokens from the linear) to (256, 56, 56) = 802816 elements, align_corners=False. For each output pixel (oh, ow) in 56x56: source coords sy=(oh+0.5)*14/56-0.5, sx=(ow+0.5)*14/56-0.5 (half-pixel centers, align_corners=False); iy=floor(sy), ix=floor(sx); fractional weights wy=sy-iy, wx=sx-ix computed from the UNCLAMPED floor; indices iy, iy+1, ix, ix+1 clamped to [0,13] (border replication); output = (1-wy)(1-wx)*x[:,iy,ix] + (1-wy)wx*x[:,iy,ix+1] + wy(1-wx)*x[:,iy+1,ix] + wy*wx*x[:,iy+1,ix+1]. Exactly torch's F.interpolate(size=(56,56), mode='bilinear', align_corners=False, antialias=False).\", \"rel_err\": null}",
+  "proposed_by": 81
+ },
+ {
+  "chain": "[{\"op\": \"bilinear_up4x_14to56\", \"params\": {\"channels\": 256, \"h\": 14, \"out_h\": 56, \"out_w\": 56, \"w\": 14}}]",
+  "check_detail": "chain: matches upsample (FP32, relative 1e-07); code: relative difference 1.19e-07 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, x):\n    x = x.reshape(256, 14, 14)\n    oh = torch.arange(56, dtype=torch.float32)\n    ow = torch.arange(56, dtype=torch.float32)\n    sy = (oh + 0.5) * 14 / 56 - 0.5\n    sx = (ow + 0.5) * 14 / 56 - 0.5\n    iy = torch.floor(sy).long()\n    ix = torch.floor(sx).long()\n    wy = sy - iy\n    wx = sx - ix\n    iy0 = iy.clamp(0, 13); iy1 = (iy + 1).clamp(0, 13)\n    ix0 = ix.clamp(0, 13); ix1 = (ix + 1).clamp(0, 13)\n    idx00 = (iy0[:, None] * 14 + ix0[None, :]).view(1, 56, 56)\n    idx01 = (iy0[:, None] * 14 + ix1[None, :]).view(1, 56, 56)\n    idx10 = (iy1[:, None] * 14 + ix0[None, :]).view(1, 56, 56)\n    idx11 = (iy1[:, None] * 14 + ix1[None, :]).view(1, 56, 56)\n    xf = x.reshape(256, 14 * 14)\n    a = xf.gather(1, idx00.expand(256, 56, 56).reshape(256, 56 * 56)).view(256, 56, 56)\n    b = xf.gather(1, idx01.expand(256, 56, 56).reshape(256, 56 * 56)).view(256, 56, 56)\n    c = xf.gather(1, idx10.expand(256, 56, 56).reshape(256, 56 * 56)).view(256, 56, 56)\n    d = xf.gather(1, idx11.expand(256, 56, 56).reshape(256, 56 * 56)).view(256, 56, 56)\n    wy = wy.view(1, 56, 1); wx = wx.view(1, 1, 56)\n    out = (1 - wy) * (1 - wx) * a + (1 - wy) * wx * b + wy * (1 - wx) * c + wy * wx * d\n    return out.reshape(802816)",
+  "id": 174,
+  "kind": "equivalent",
+  "name": "bilinear_up4x_14to56_final2",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 4x 2D upsample of the (256, 14, 14) CHW activation (196 = 14*14 tokens from the linear) to (256, 56, 56) = 802816 elements, align_corners=False. For each output pixel (oh, ow) in 56x56: source coords sy=(oh+0.5)*14/56-0.5, sx=(ow+0.5)*14/56-0.5 (half-pixel centers, align_corners=False); iy=floor(sy), ix=floor(sx); fractional weights wy=sy-iy, wx=sx-ix computed from the UNCLAMPED floor; indices iy, iy+1, ix, ix+1 clamped to [0,13] (border replication); output = (1-wy)(1-wx)*x[:,iy,ix] + (1-wy)wx*x[:,iy,ix+1] + wy(1-wx)*x[:,iy+1,ix] + wy*wx*x[:,iy+1,ix+1]. Exactly torch's F.interpolate(size=(56,56), mode='bilinear', align_corners=False, antialias=False).\", \"rel_err\": 1.193417396063489e-07}",
+  "proposed_by": 81
+ },
+ {
   "chain": "[{\"op\": \"bilinear_up8x\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"out_h\": \"8 * h\", \"out_w\": \"8 * w\", \"w\": \"w\"}}]",
   "check_detail": "chain: matches upsample (FP32, relative 1e-07); code: the code failed: AttributeError: 'types.SimpleNamespace' object has no attribute 'bilinear_up8x'",
   "check_ok": 0,
@@ -1810,6 +2002,30 @@
   "op": "upsample",
   "proposal": "{\"description\": \"Bilinear 8x2D upsample of the (768, 7, 7) CHW activation (49 = 7*7 tokens from the linear, k=512, n=768) to (768, 56, 56) = 2408448 elements, align_corners=False. For each output pixel (oh, ow) in 56x56: source coords sy=(oh+0.5)*h/out_h-0.5=(oh+0.5)/8-0.5, sx=(ow+0.5)*w/out_w-0.5 (half-pixel centers, align_corners=False); iy=floor(sy), ix=floor(sx); fractional weights wy=sy-iy, wx=sx-ix computed from the UNCLAMPED floor; indices iy, iy+1, ix, ix+1 clamped to [0, h-1] / [0, w-1] (border replication); output = (1-wy)(1-wx)*x[:,iy,ix] + (1-wy)wx*x[:,iy,ix+1] + wy(1-wx)*x[:,iy+1,ix] + wy*wx*x[:,iy+1,ix+1]. This is exactly torch's F.interpolate(size=(56,56), mode='bilinear', align_corners=False, antialias=False) on the (channels, h, w) input.\", \"rel_err\": 1.1922281981998307e-07}",
   "proposed_by": 57
+ },
+ {
+  "chain": "[{\"op\": \"bilinear_up8x\", \"params\": {\"h\": 7, \"out_h\": 56, \"out_w\": 56, \"w\": 7}}]",
+  "check_detail": "chain: matches upsample (FP32, relative 1e-07); code: the code gives 200704 elements, the operation 802816",
+  "check_ok": 0,
+  "code": "def forward(module, x):\n    # x: (channels, h, w) = (256, 7, 7); bilinear 8x upsample to (256, 56, 56)\n    h, w = x.shape[-2], x.shape[-1]\n    out_h, out_w = 4 * h, 4 * w\n    sy = (torch.arange(out_h, dtype=x.dtype, device=x.device) + 0.5) * h / out_h - 0.5\n    sx = (torch.arange(out_w, dtype=x.dtype, device=x.device) + 0.5) * w / out_w - 0.5\n    iy = sy.floor().long(); ix = sx.floor().long()\n    wy = (sy - iy).view(1, out_h, 1); wx = (sx - ix).view(1, 1, out_w)\n    iy0 = iy.clamp(0, h - 1); iy1 = (iy + 1).clamp(0, h - 1)\n    ix0 = ix.clamp(0, w - 1); ix1 = (ix + 1).clamp(0, w - 1)\n    x00 = x[:, iy0][:, :, ix0]; x01 = x[:, iy0][:, :, ix1]\n    x10 = x[:, iy1][:, :, ix0]; x11 = x[:, iy1][:, :, ix1]\n    out = ((1 - wy) * (1 - wx) * x00 + (1 - wy) * wx * x01\n           + wy * (1 - wx) * x10 + wy * wx * x11)\n    return out",
+  "id": 182,
+  "kind": "equivalent",
+  "name": "bilinear_up8x_7to56_v3",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 8x 2D upsample of the (256, 7, 7) CHW activation (49 = 7*7 tokens from the linear, k=256) to (256, 56, 56) = 802816 elements, align_corners=False. For each output pixel (oh, ow) in 56x56: source coords sy=(oh+0.5)*7/56-0.5=(oh+0.5)/8-0.5, sx=(ow+0.5)*7/56-0.5 (half-pixel centers, align_corners=False); iy=floor(sy), ix=floor(sx); fractional weights wy=sy-iy, wx=sx-ix computed from the UNCLAMPED floor; indices iy, iy+1, ix, ix+1 clamped to [0,6] (border replication); output = (1-wy)(1-wx)*x[:,iy,ix] + (1-wy)wx*x[:,iy,ix+1] + wy(1-wx)*x[:,iy+1,ix] + wy*wx*x[:,iy+1,ix+1]. This is exactly torch's F.interpolate(size=(56,56), mode='bilinear', align_corners=False, antialias=False) on the (channels, h, w) input.\", \"rel_err\": null}",
+  "proposed_by": 84
+ },
+ {
+  "chain": "[{\"op\": \"bilinear_up8x\", \"params\": {\"h\": 7, \"out_h\": 56, \"out_w\": 56, \"w\": 7}}]",
+  "check_detail": "chain: matches upsample (FP32, relative 1e-07); code: relative difference 1.19e-07 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, x):\n    # x: (channels, h, w); bilinear 8x upsample (align_corners=False) to (channels, 8h, 8w)\n    h, w = x.shape[-2], x.shape[-1]\n    out_h, out_w = 8 * h, 8 * w\n    sy = (torch.arange(out_h, dtype=x.dtype, device=x.device) + 0.5) * h / out_h - 0.5\n    sx = (torch.arange(out_w, dtype=x.dtype, device=x.device) + 0.5) * w / out_w - 0.5\n    iy = sy.floor().long(); ix = sx.floor().long()\n    wy = (sy - iy).view(1, out_h, 1); wx = (sx - ix).view(1, 1, out_w)\n    iy0 = iy.clamp(0, h - 1); iy1 = (iy + 1).clamp(0, h - 1)\n    ix0 = ix.clamp(0, w - 1); ix1 = (ix + 1).clamp(0, w - 1)\n    x00 = x[:, iy0][:, :, ix0]; x01 = x[:, iy0][:, :, ix1]\n    x10 = x[:, iy1][:, :, ix0]; x11 = x[:, iy1][:, :, ix1]\n    out = ((1 - wy) * (1 - wx) * x00 + (1 - wy) * wx * x01\n           + wy * (1 - wx) * x10 + wy * wx * x11)\n    return out",
+  "id": 184,
+  "kind": "equivalent",
+  "name": "bilinear_up8x_7to56_v4",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 8x 2D upsample of the (channels, h, w) = (256, 7, 7) CHW activation (49 = 7*7 tokens from the linear, k=256) to (256, 56, 56) = 802816 elements, align_corners=False. For each output pixel (oh, ow) in 56x56: source coords sy=(oh+0.5)*h/(8h)-0.5=(oh+0.5)/8-0.5, sx=(ow+0.5)*w/(8w)-0.5 (half-pixel centers, align_corners=False); iy=floor(sy), ix=floor(sx); fractional weights wy=sy-iy, wx=sx-ix computed from the UNCLAMPED floor; indices iy, iy+1, ix, ix+1 clamped to [0, h-1]/[0, w-1] (border replication); output = (1-wy)(1-wx)*x[:,iy,ix] + (1-wy)wx*x[:,iy,ix+1] + wy(1-wx)*x[:,iy+1,ix] + wy*wx*x[:,iy+1,ix+1]. This is exactly torch's F.interpolate(scale_factor=8, mode='bilinear', align_corners=False, antialias=False).\", \"rel_err\": 1.1922281981998307e-07}",
+  "proposed_by": 84
  },
  {
   "chain": "[{\"op\": \"reshape_nchw\", \"params\": {\"h\": 28, \"w\": 28}}, {\"op\": \"bilinear_resize2d\", \"params\": {\"out\": [56, 56]}}, {\"op\": \"reshape_tokens\", \"params\": {\"h\": 56, \"w\": 56}}]",

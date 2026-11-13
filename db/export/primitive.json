@@ -16,6 +16,14 @@
   "tensors": null
  },
  {
+  "doc": "Select the table row for the id and round it to bfloat16.",
+  "name": "bf16_row_select",
+  "origin": "agent",
+  "params": "[\"tokens\", \"dim\"]",
+  "reference": "def fn(ids, table):\n    return table[ids.long().reshape(-1)].to(torch.bfloat16).to(torch.float32)",
+  "tensors": null
+ },
+ {
   "doc": "Bilinear 2x upsample of a (C, H, W) map (H=W=28 -> 56), align_corners=False, half-pixel centers, border replication, no antialiasing.",
   "name": "bilin2x_256",
   "origin": "agent",
@@ -152,6 +160,14 @@
   "tensors": null
  },
  {
+  "doc": "Bilinear upsample (align_corners=False) of a (channels, h, w) CHW map to (channels, out_h, out_w) with half-pixel centers and border replication.",
+  "name": "bilinear_up4x_14to56",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\", \"out_h\", \"out_w\"]",
+  "reference": "def fn(x, channels, h, w, out_h, out_w):\n    x = x.reshape(channels, h, w)\n    oh = torch.arange(out_h, dtype=torch.float32)\n    ow = torch.arange(out_w, dtype=torch.float32)\n    sy = (oh + 0.5) * h / out_h - 0.5\n    sx = (ow + 0.5) * w / out_w - 0.5\n    iy = torch.floor(sy).long()\n    ix = torch.floor(sx).long()\n    wy = sy - iy\n    wx = sx - ix\n    iy0 = iy.clamp(0, h - 1); iy1 = (iy + 1).clamp(0, h - 1)\n    ix0 = ix.clamp(0, w - 1); ix1 = (ix + 1).clamp(0, w - 1)\n    xf = x.reshape(channels, h * w)\n    g = lambda a, b: xf.gather(1, (a[:, None] * w + b[None, :]).expand(channels, out_h, out_w).reshape(channels, out_h * out_w)).view(channels, out_h, out_w)\n    a_ = g(iy0, ix0); b_ = g(iy0, ix1); c_ = g(iy1, ix0); d_ = g(iy1, ix1)\n    wy = wy.view(1, out_h, 1); wx = wx.view(1, 1, out_w)\n    return (1 - wy) * (1 - wx) * a_ + (1 - wy) * wx * b_ + wy * (1 - wx) * c_ + wy * wx * d_",
+  "tensors": null
+ },
+ {
   "doc": "Bilinear resize of a (channels, h, w) CHW map to (channels, h, w) with align_corners=False; at unit scale this is the identity (each output pixel equals the input pixel at the same coordinates).",
   "name": "bilinear_up56_id256",
   "origin": "agent",
@@ -168,11 +184,11 @@
   "tensors": null
  },
  {
-  "doc": "Bilinear 2D upsample (align_corners=False, half-pixel centers, border replication) from (channels, h, w) to (channels, out_h, out_w).",
+  "doc": "Bilinear 8x upsample of a (C, h, w) CHW map to (C, 8h, 8w), align_corners=False (half-pixel centers, border replication, no antialiasing).",
   "name": "bilinear_up8x",
   "origin": "agent",
-  "params": "[\"channels\", \"h\", \"w\", \"out_h\", \"out_w\"]",
-  "reference": "def fn(x, channels, h, w, out_h, out_w):\n    sy = (torch.arange(out_h, dtype=torch.float32) + 0.5) * h / out_h - 0.5\n    sx = (torch.arange(out_w, dtype=torch.float32) + 0.5) * w / out_w - 0.5\n    iy = torch.floor(sy); ix = torch.floor(sx)\n    wy = sy - iy; wx = sx - ix\n    iy = iy.long(); ix = ix.long()\n    iy0 = iy.clamp(0, h - 1); iy1 = (iy + 1).clamp(0, h - 1)\n    ix0 = ix.clamp(0, w - 1); ix1 = (ix + 1).clamp(0, w - 1)\n    wy = wy.view(1, out_h, 1); wx = wx.view(1, 1, out_w)\n    x00 = x[:, iy0, :][:, :, ix0]\n    x01 = x[:, iy0, :][:, :, ix1]\n    x10 = x[:, iy1, :][:, :, ix0]\n    x11 = x[:, iy1, :][:, :, ix1]\n    w00 = (1 - wy) * (1 - wx); w01 = (1 - wy) * wx\n    w10 = wy * (1 - wx); w11 = wy * wx\n    return w00 * x00 + w01 * x01 + w10 * x10 + w11 * x11",
+  "params": "[\"h\", \"w\", \"out_h\", \"out_w\"]",
+  "reference": "def fn(x, h, w, out_h, out_w):\n    import torch\n    sy = (torch.arange(out_h, dtype=x.dtype) + 0.5) * h / out_h - 0.5\n    sx = (torch.arange(out_w, dtype=x.dtype) + 0.5) * w / out_w - 0.5\n    iy = sy.floor().long(); ix = sx.floor().long()\n    wy = (sy - iy).view(1, out_h, 1); wx = (sx - ix).view(1, 1, out_w)\n    iy0 = iy.clamp(0, h - 1); iy1 = (iy + 1).clamp(0, h - 1)\n    ix0 = ix.clamp(0, w - 1); ix1 = (ix + 1).clamp(0, w - 1)\n    x00 = x[:, iy0][:, :, ix0]; x01 = x[:, iy0][:, :, ix1]\n    x10 = x[:, iy1][:, :, ix0]; x11 = x[:, iy1][:, :, ix1]\n    return ((1 - wy) * (1 - wx) * x00 + (1 - wy) * wx * x01\n            + wy * (1 - wx) * x10 + wy * wx * x11)",
   "tensors": null
  },
  {
@@ -256,19 +272,19 @@
   "tensors": null
  },
  {
-  "doc": "Fused masked row reduce: builds a 0/1 mask (rows x vocab) from integer ids, multiplies it with a table (vocab x n) and sums over vocab, selecting one row per id.",
+  "doc": "Fused masked row reduction: compares each id against arange(vocab) to build a mask, multiplies the table rows by the mask, and sums over the vocab dimension, yielding exactly the selected rows.",
   "name": "fused_masked_row_reduce",
   "origin": "agent",
-  "params": "[\"rows\", \"vocab\", \"n\"]",
-  "reference": "def fn(ids, table, rows, vocab, n):\n    ids = ids.reshape(-1, 1).long()\n    mask = (ids == torch.arange(vocab, device=table.device)).to(table.dtype)\n    return mask @ table",
+  "params": "[\"vocab\", \"dim\"]",
+  "reference": "def fn(ids, table, vocab, dim):\n    ids = ids.long().reshape(-1, 1)\n    ar = torch.arange(vocab, device=ids.device)\n    mask = (ids == ar.unsqueeze(0)).to(table.dtype)\n    return (mask.unsqueeze(-1) * table.unsqueeze(0)).sum(dim=1)",
   "tensors": null
  },
  {
-  "doc": "Fused one-hot construction followed by GEMM: builds a one-hot matrix (m x k) from integer ids and multiplies it by a weight matrix (k x n).",
+  "doc": "Fused one-hot construction followed by GEMM with the constant table: builds a one-hot matrix of shape tokens x vocab from the ids and multiplies it by the table (vocab x dim), yielding exactly the selected rows.",
   "name": "fused_onehot_gemm",
   "origin": "agent",
-  "params": "[\"m\", \"k\", \"n\"]",
-  "reference": "def fn(ids, weight, m, k, n):\n    ids = ids.reshape(-1).long()\n    onehot = torch.zeros(m, k, dtype=weight.dtype, device=weight.device)\n    onehot.scatter_(1, ids.view(-1, 1), 1.0)\n    return onehot @ weight",
+  "params": "[\"vocab\", \"dim\"]",
+  "reference": "def fn(ids, table, vocab, dim):\n    ids = ids.long().reshape(-1)\n    onehot = torch.zeros(ids.shape[0], vocab, dtype=table.dtype, device=ids.device)\n    onehot[torch.arange(ids.shape[0]), ids] = 1\n    return onehot @ table",
   "tensors": null
  },
  {
@@ -277,6 +293,14 @@
   "origin": "builtin",
   "params": null,
   "reference": null,
+  "tensors": null
+ },
+ {
+  "doc": "Select table row (id mod buckets) from a compressed bucket table.",
+  "name": "hash_bucket_select",
+  "origin": "agent",
+  "params": "[\"tokens\", \"dim\", \"buckets\"]",
+  "reference": "def fn(ids, table, buckets):\n    idx = (ids.long().reshape(-1) % buckets)\n    return table[idx]",
   "tensors": null
  },
  {
@@ -293,6 +317,14 @@
   "origin": "agent",
   "params": "{\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}",
   "reference": "def fn(x, channels, h, w):\n    C, H, W = x.shape\n    oh = torch.arange(h); ow = torch.arange(w)\n    sy = (oh.float() + 0.5) * H / h - 0.5\n    sx = (ow.float() + 0.5) * W / w - 0.5\n    iy = sy.floor().long().clamp(0, H - 1)\n    ix = sx.floor().long().clamp(0, W - 1)\n    wy = (sy - sy.floor()).view(1, h, 1)\n    wx = (sx - sx.floor()).view(1, 1, w)\n    x = x[:, iy][:, :, ix]\n    return (1 - wy) * (1 - wx) * x[:, :, :, 0, 0] + (1 - wy) * wx * x[:, :, :, 0, 1] + wy * (1 - wx) * x[:, :, :, 1, 0] + wy * wx * x[:, :, :, 1, 1]",
+  "tensors": null
+ },
+ {
+  "doc": "GEMM the one-hot by the low-rank factors A (vocab x rank) and B (rank x dim).",
+  "name": "lowrank_gemm",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\", \"dim\", \"rank\"]",
+  "reference": "def fn(oh, A, B, rank):\n    return (oh @ A) @ B",
   "tensors": null
  },
  {
@@ -333,6 +365,14 @@
   "origin": "agent",
   "params": "{\"h_in\": \"input height\", \"w_in\": \"input width\"}",
   "reference": "def fn(x, h_in, w_in):\n    C = x.shape[0]\n    iy = (torch.arange(2*h_in)//2).clamp(max=h_in-1)\n    ix = (torch.arange(2*w_in)//2).clamp(max=w_in-1)\n    return x[:, iy][:, :, ix]",
+  "tensors": null
+ },
+ {
+  "doc": "Select the table row for the id and add 1% relative Gaussian noise.",
+  "name": "noisy_row_select",
+  "origin": "agent",
+  "params": "[\"tokens\", \"dim\"]",
+  "reference": "def fn(ids, table):\n    row = table[ids.long().reshape(-1)]\n    return row + torch.randn_like(row) * 0.01 * row.abs().mean()",
   "tensors": null
  },
  {
