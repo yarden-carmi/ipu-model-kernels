@@ -1,0 +1,66 @@
+[kernel]
+op = "binary_add"
+formats = ["e2"]
+
+[params.numel]
+type = "int"
+min = 128
+max = 33554432
+multiple_of = 128
+
+[params.inner]
+type = "int"
+choices = [0]
+default = 0
+
+[params.op]
+type = "str"
+choices = ["add"]
+default = "add"
+
+[params.broadcast]
+type = "str"
+choices = ["none"]
+default = "none"
+
+[params.const]
+type = "int"
+choices = [0, 1]
+default = 0
+
+[inputs.in0]
+shape = ["rows", 128]
+range = [-4, 4]
+
+[inputs.in1]
+shape = ["rows", 128]
+range = [-4, 4]
+
+[outputs.out0]
+shape = ["rows", 128]
+
+[derived]
+rows = "numel // 128"
+qf = "case_qf"
+ds = "ds(128)"
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+rows = "CR5"
+qf = "CR6"
+ds = "CR15"
+
+[golden]
+tolerance = { e2 = "EXACT" }
+
+[cases.default]
+numel = 512
+
+[cases.sizes]
+numel = [128, 1280]
+
+[cases.const]
+const = 1
+numel = 256
