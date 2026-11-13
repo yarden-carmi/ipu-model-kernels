@@ -19591,5 +19591,401 @@
   "parent_id": 2154,
   "path": "transformer_blocks.*.norm3",
   "repeat": 28
+ },
+ {
+  "capture_id": 50,
+  "class": null,
+  "first_seq": 0,
+  "id": 2179,
+  "parent_id": 2178,
+  "path": "(input)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 50,
+  "class": "T5ForConditionalGeneration",
+  "first_seq": 0,
+  "id": 2178,
+  "parent_id": null,
+  "path": "(top)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 50,
+  "class": "T5Stack",
+  "first_seq": 210,
+  "id": 2180,
+  "parent_id": 2178,
+  "path": "decoder",
+  "repeat": 1
+ },
+ {
+  "capture_id": 50,
+  "class": "ModuleList",
+  "first_seq": 214,
+  "id": 2183,
+  "parent_id": 2180,
+  "path": "decoder.block",
+  "repeat": 1
+ },
+ {
+  "capture_id": 50,
+  "class": "T5Block",
+  "first_seq": 214,
+  "id": 2189,
+  "parent_id": 2183,
+  "path": "decoder.block.*",
+  "repeat": 12
+ },
+ {
+  "capture_id": 50,
+  "class": "ModuleList",
+  "first_seq": 214,
+  "id": 2191,
+  "parent_id": 2189,
+  "path": "decoder.block.*.layer",
+  "repeat": 12
+ },
+ {
+  "capture_id": 50,
+  "class": "T5LayerSelfAttention",
+  "first_seq": 214,
+  "id": 2193,
+  "parent_id": 2191,
+  "path": "decoder.block.*.layer.*",
+  "repeat": 36
+ },
+ {
+  "capture_id": 50,
+  "class": "T5DenseActDense",
+  "first_seq": 255,
+  "id": 2195,
+  "parent_id": 2193,
+  "path": "decoder.block.*.layer.*.DenseReluDense",
+  "repeat": 12
+ },
+ {
+  "capture_id": 50,
+  "class": "ReLU",
+  "first_seq": 256,
+  "id": 2202,
+  "parent_id": 2195,
+  "path": "decoder.block.*.layer.*.DenseReluDense.act",
+  "repeat": 12
+ },
+ {
+  "capture_id": 50,
+  "class": "Linear",
+  "first_seq": 255,
+  "id": 2203,
+  "parent_id": 2195,
+  "path": "decoder.block.*.layer.*.DenseReluDense.wi",
+  "repeat": 12
+ },
+ {
+  "capture_id": 50,
+  "class": "Linear",
+  "first_seq": 257,
+  "id": 2204,
+  "parent_id": 2195,
+  "path": "decoder.block.*.layer.*.DenseReluDense.wo",
+  "repeat": 12
+ },
+ {
+  "capture_id": 50,
+  "class": "T5Attention",
+  "first_seq": 242,
+  "id": 2196,
+  "parent_id": 2193,
+  "path": "decoder.block.*.layer.*.EncDecAttention",
+  "repeat": 12
+ },
+ {
+  "capture_id": 50,
+  "class": "Linear",
+  "first_seq": 243,
+  "id": 2205,
+  "parent_id": 2196,
+  "path": "decoder.block.*.layer.*.EncDecAttention.k",
+  "repeat": 12
+ },
+ {
+  "capture_id": 50,
+  "class": "Linear",
+  "first_seq": 252,
+  "id": 2206,
+  "parent_id": 2196,
+  "path": "decoder.block.*.layer.*.EncDecAttention.o",
+  "repeat": 12
+ },
+ {
+  "capture_id": 50,
+  "class": "Linear",
+  "first_seq": 242,
+  "id": 2207,
+  "parent_id": 2196,
+  "path": "decoder.block.*.layer.*.EncDecAttention.q",
+  "repeat": 12
+ },
+ {
+  "capture_id": 50,
+  "class": "Linear",
+  "first_seq": 244,
+  "id": 2208,
+  "parent_id": 2196,
+  "path": "decoder.block.*.layer.*.EncDecAttention.v",
+  "repeat": 12
+ },
+ {
+  "capture_id": 50,
+  "class": "T5Attention",
+  "first_seq": 215,
+  "id": 2197,
+  "parent_id": 2193,
+  "path": "decoder.block.*.layer.*.SelfAttention",
+  "repeat": 12
+ },
+ {
+  "capture_id": 50,
+  "class": "Linear",
+  "first_seq": 216,
+  "id": 2209,
+  "parent_id": 2197,
+  "path": "decoder.block.*.layer.*.SelfAttention.k",
+  "repeat": 12
+ },
+ {
+  "capture_id": 50,
+  "class": "Linear",
+  "first_seq": 239,
+  "id": 2210,
+  "parent_id": 2197,
+  "path": "decoder.block.*.layer.*.SelfAttention.o",
+  "repeat": 12
+ },
+ {
+  "capture_id": 50,
+  "class": "Linear",
+  "first_seq": 215,
+  "id": 2211,
+  "parent_id": 2197,
+  "path": "decoder.block.*.layer.*.SelfAttention.q",
+  "repeat": 12
+ },
+ {
+  "capture_id": 50,
+  "class": "Embedding",
+  "first_seq": 232,
+  "id": 2212,
+  "parent_id": 2197,
+  "path": "decoder.block.*.layer.*.SelfAttention.relative_attention_bias",
+  "repeat": 1
+ },
+ {
+  "capture_id": 50,
+  "class": "Linear",
+  "first_seq": 217,
+  "id": 2213,
+  "parent_id": 2197,
+  "path": "decoder.block.*.layer.*.SelfAttention.v",
+  "repeat": 12
+ },
+ {
+  "capture_id": 50,
+  "class": "T5LayerNorm",
+  "first_seq": 214,
+  "id": 2198,
+  "parent_id": 2193,
+  "path": "decoder.block.*.layer.*.layer_norm",
+  "repeat": 36
+ },
+ {
+  "capture_id": 50,
+  "class": "Embedding",
+  "first_seq": 210,
+  "id": 2184,
+  "parent_id": 2180,
+  "path": "decoder.embed_tokens",
+  "repeat": 1
+ },
+ {
+  "capture_id": 50,
+  "class": "T5LayerNorm",
+  "first_seq": 611,
+  "id": 2185,
+  "parent_id": 2180,
+  "path": "decoder.final_layer_norm",
+  "repeat": 1
+ },
+ {
+  "capture_id": 50,
+  "class": "T5Stack",
+  "first_seq": 2,
+  "id": 2181,
+  "parent_id": 2178,
+  "path": "encoder",
+  "repeat": 1
+ },
+ {
+  "capture_id": 50,
+  "class": "ModuleList",
+  "first_seq": 3,
+  "id": 2186,
+  "parent_id": 2181,
+  "path": "encoder.block",
+  "repeat": 1
+ },
+ {
+  "capture_id": 50,
+  "class": "T5Block",
+  "first_seq": 3,
+  "id": 2190,
+  "parent_id": 2186,
+  "path": "encoder.block.*",
+  "repeat": 12
+ },
+ {
+  "capture_id": 50,
+  "class": "ModuleList",
+  "first_seq": 3,
+  "id": 2192,
+  "parent_id": 2190,
+  "path": "encoder.block.*.layer",
+  "repeat": 12
+ },
+ {
+  "capture_id": 50,
+  "class": "T5LayerSelfAttention",
+  "first_seq": 3,
+  "id": 2194,
+  "parent_id": 2192,
+  "path": "encoder.block.*.layer.*",
+  "repeat": 24
+ },
+ {
+  "capture_id": 50,
+  "class": "T5DenseActDense",
+  "first_seq": 29,
+  "id": 2199,
+  "parent_id": 2194,
+  "path": "encoder.block.*.layer.*.DenseReluDense",
+  "repeat": 12
+ },
+ {
+  "capture_id": 50,
+  "class": "ReLU",
+  "first_seq": 30,
+  "id": 2214,
+  "parent_id": 2199,
+  "path": "encoder.block.*.layer.*.DenseReluDense.act",
+  "repeat": 12
+ },
+ {
+  "capture_id": 50,
+  "class": "Linear",
+  "first_seq": 29,
+  "id": 2215,
+  "parent_id": 2199,
+  "path": "encoder.block.*.layer.*.DenseReluDense.wi",
+  "repeat": 12
+ },
+ {
+  "capture_id": 50,
+  "class": "Linear",
+  "first_seq": 31,
+  "id": 2216,
+  "parent_id": 2199,
+  "path": "encoder.block.*.layer.*.DenseReluDense.wo",
+  "repeat": 12
+ },
+ {
+  "capture_id": 50,
+  "class": "T5Attention",
+  "first_seq": 4,
+  "id": 2200,
+  "parent_id": 2194,
+  "path": "encoder.block.*.layer.*.SelfAttention",
+  "repeat": 12
+ },
+ {
+  "capture_id": 50,
+  "class": "Linear",
+  "first_seq": 5,
+  "id": 2217,
+  "parent_id": 2200,
+  "path": "encoder.block.*.layer.*.SelfAttention.k",
+  "repeat": 12
+ },
+ {
+  "capture_id": 50,
+  "class": "Linear",
+  "first_seq": 26,
+  "id": 2218,
+  "parent_id": 2200,
+  "path": "encoder.block.*.layer.*.SelfAttention.o",
+  "repeat": 12
+ },
+ {
+  "capture_id": 50,
+  "class": "Linear",
+  "first_seq": 4,
+  "id": 2219,
+  "parent_id": 2200,
+  "path": "encoder.block.*.layer.*.SelfAttention.q",
+  "repeat": 12
+ },
+ {
+  "capture_id": 50,
+  "class": "Embedding",
+  "first_seq": 20,
+  "id": 2220,
+  "parent_id": 2200,
+  "path": "encoder.block.*.layer.*.SelfAttention.relative_attention_bias",
+  "repeat": 1
+ },
+ {
+  "capture_id": 50,
+  "class": "Linear",
+  "first_seq": 6,
+  "id": 2221,
+  "parent_id": 2200,
+  "path": "encoder.block.*.layer.*.SelfAttention.v",
+  "repeat": 12
+ },
+ {
+  "capture_id": 50,
+  "class": "T5LayerNorm",
+  "first_seq": 3,
+  "id": 2201,
+  "parent_id": 2194,
+  "path": "encoder.block.*.layer.*.layer_norm",
+  "repeat": 24
+ },
+ {
+  "capture_id": 50,
+  "class": "Embedding",
+  "first_seq": 2,
+  "id": 2187,
+  "parent_id": 2181,
+  "path": "encoder.embed_tokens",
+  "repeat": 1
+ },
+ {
+  "capture_id": 50,
+  "class": "T5LayerNorm",
+  "first_seq": 209,
+  "id": 2188,
+  "parent_id": 2181,
+  "path": "encoder.final_layer_norm",
+  "repeat": 1
+ },
+ {
+  "capture_id": 50,
+  "class": "Linear",
+  "first_seq": 613,
+  "id": 2182,
+  "parent_id": 2178,
+  "path": "lm_head",
+  "repeat": 1
  }
 ]
