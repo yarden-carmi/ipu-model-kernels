@@ -1248,6 +1248,30 @@
   "proposed_by": 38
  },
  {
+  "chain": "[{\"op\": \"bilinear_up8x\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"out_h\": \"8 * h\", \"out_w\": \"8 * w\", \"w\": \"w\"}}]",
+  "check_detail": "chain: matches upsample (FP32, relative 1e-07); code: the code failed: AttributeError: 'types.SimpleNamespace' object has no attribute 'bilinear_up8x'",
+  "check_ok": 0,
+  "code": "def forward(module, x):\n    return module.bilinear_up8x(x)",
+  "id": 116,
+  "kind": "equivalent",
+  "name": "bilinear_up8x_7to56",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 8x2D upsample of the (768, 7, 7) CHW activation (49 = 7*7 tokens from the linear, k=512, n=768) to (768, 56, 56) = 2408448 elements, align_corners=False. For each output pixel (oh, ow) in 56x56: source coords sy=(oh+0.5)*h/out_h-0.5=(oh+0.5)/8-0.5, sx=(ow+0.5)*w/out_w-0.5 (half-pixel centers, align_corners=False); iy=floor(sy), ix=floor(sx); fractional weights wy=sy-iy, wx=sx-ix computed from the UNCLAMPED floor; indices iy, iy+1, ix, ix+1 clamped to [0, h-1] / [0, w-1] (border replication); output = (1-wy)(1-wx)*x[:,iy,ix] + (1-wy)wx*x[:,iy,ix+1] + wy(1-wx)*x[:,iy+1,ix] + wy*wx*x[:,iy+1,ix+1]. This is exactly torch's F.interpolate(size=(56,56), mode='bilinear', align_corners=False, antialias=False) on the (channels, h, w) input.\", \"rel_err\": null}",
+  "proposed_by": 57
+ },
+ {
+  "chain": "[{\"op\": \"bilinear_up8x\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"out_h\": \"8 * h\", \"out_w\": \"8 * w\", \"w\": \"w\"}}]",
+  "check_detail": "chain: matches upsample (FP32, relative 1e-07); code: relative difference 1.19e-07 (within 0.0001)",
+  "check_ok": 1,
+  "code": "import torch\n\ndef forward(module, x):\n    channels, h, w = x.shape\n    out_h, out_w = 8 * h, 8 * w\n    sy = (torch.arange(out_h, dtype=torch.float32) + 0.5) * h / out_h - 0.5\n    sx = (torch.arange(out_w, dtype=torch.float32) + 0.5) * w / out_w - 0.5\n    iy = torch.floor(sy); ix = torch.floor(sx)\n    wy = sy - iy; wx = sx - ix\n    iy = iy.long(); ix = ix.long()\n    iy0 = iy.clamp(0, h - 1); iy1 = (iy + 1).clamp(0, h - 1)\n    ix0 = ix.clamp(0, w - 1); ix1 = (ix + 1).clamp(0, w - 1)\n    wy = wy.view(1, out_h, 1); wx = wx.view(1, 1, out_w)\n    x00 = x[:, iy0, :][:, :, ix0]\n    x01 = x[:, iy0, :][:, :, ix1]\n    x10 = x[:, iy1, :][:, :, ix0]\n    x11 = x[:, iy1, :][:, :, ix1]\n    w00 = (1 - wy) * (1 - wx); w01 = (1 - wy) * wx\n    w10 = wy * (1 - wx); w11 = wy * wx\n    return w00 * x00 + w01 * x01 + w10 * x10 + w11 * x11",
+  "id": 117,
+  "kind": "equivalent",
+  "name": "bilinear_up8x_7to56_v2",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 8x2D upsample of the (768, 7, 7) CHW activation (49 = 7*7 tokens from the linear, k=512, n=768) to (768, 56, 56) = 2408448 elements, align_corners=False. For each output pixel (oh, ow) in 56x56: source coords sy=(oh+0.5)*h/out_h-0.5=(oh+0.5)/8-0.5, sx=(ow+0.5)*w/out_w-0.5 (half-pixel centers, align_corners=False); iy=floor(sy), ix=floor(sx); fractional weights wy=sy-iy, wx=sx-ix computed from the UNCLAMPED floor; indices iy, iy+1, ix, ix+1 clamped to [0, h-1] / [0, w-1] (border replication); output = (1-wy)(1-wx)*x[:,iy,ix] + (1-wy)wx*x[:,iy,ix+1] + wy(1-wx)*x[:,iy+1,ix] + wy*wx*x[:,iy+1,ix+1]. This is exactly torch's F.interpolate(size=(56,56), mode='bilinear', align_corners=False, antialias=False) on the (channels, h, w) input.\", \"rel_err\": 1.1922281981998307e-07}",
+  "proposed_by": 57
+ },
+ {
   "chain": "[{\"op\": \"reshape_nchw\", \"params\": {\"h\": 28, \"w\": 28}}, {\"op\": \"bilinear_resize2d\", \"params\": {\"out\": [56, 56]}}, {\"op\": \"reshape_tokens\", \"params\": {\"h\": 56, \"w\": 56}}]",
   "check_detail": "chain: RuntimeError: shape '[768, 28, 28, 28]' is invalid for input of size 602112; code: the code failed: RuntimeError: shape '[768, 28, 28, 768]' is invalid for input of size 602112",
   "check_ok": 0,

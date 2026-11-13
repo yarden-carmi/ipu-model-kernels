@@ -88,6 +88,14 @@
   "tensors": null
  },
  {
+  "doc": "Bilinear 2D upsample (align_corners=False, half-pixel centers, border replication) from (channels, h, w) to (channels, out_h, out_w).",
+  "name": "bilinear_up8x",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\", \"out_h\", \"out_w\"]",
+  "reference": "def fn(x, channels, h, w, out_h, out_w):\n    sy = (torch.arange(out_h, dtype=torch.float32) + 0.5) * h / out_h - 0.5\n    sx = (torch.arange(out_w, dtype=torch.float32) + 0.5) * w / out_w - 0.5\n    iy = torch.floor(sy); ix = torch.floor(sx)\n    wy = sy - iy; wx = sx - ix\n    iy = iy.long(); ix = ix.long()\n    iy0 = iy.clamp(0, h - 1); iy1 = (iy + 1).clamp(0, h - 1)\n    ix0 = ix.clamp(0, w - 1); ix1 = (ix + 1).clamp(0, w - 1)\n    wy = wy.view(1, out_h, 1); wx = wx.view(1, 1, out_w)\n    x00 = x[:, iy0, :][:, :, ix0]\n    x01 = x[:, iy0, :][:, :, ix1]\n    x10 = x[:, iy1, :][:, :, ix0]\n    x11 = x[:, iy1, :][:, :, ix1]\n    w00 = (1 - wy) * (1 - wx); w01 = (1 - wy) * wx\n    w10 = wy * (1 - wx); w11 = wy * wx\n    return w00 * x00 + w01 * x01 + w10 * x10 + w11 * x11",
+  "tensors": null
+ },
+ {
   "doc": "Bilinear 2x upsample of a (C,H,W) map to (C,2H,2W) with fractional weights quantized to multiples of 1/nsteps (align_corners=False, border replication).",
   "name": "bilinear_wq_up2x",
   "origin": "agent",
