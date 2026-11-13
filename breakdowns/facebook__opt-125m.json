@@ -83,6 +83,34 @@
    "sim_ppl": 140.91029357910156,
    "sim_top1": null,
    "sqnr_db": 9.847719804103848
+  },
+  {
+   "agreement": 1.0,
+   "at": 1794544920.743776,
+   "cosine": 0.999999999997952,
+   "mode": "full",
+   "nonfinite": 0,
+   "precision": "tf32",
+   "purpose": "final",
+   "ref_ppl": 47.45317077636719,
+   "ref_top1": null,
+   "sim_ppl": 47.45317077636719,
+   "sim_top1": null,
+   "sqnr_db": Infinity
+  },
+  {
+   "agreement": 0.1064453125,
+   "at": 1794544920.747001,
+   "cosine": 0.8830020818674178,
+   "mode": "quantized",
+   "nonfinite": 0,
+   "precision": "nx8",
+   "purpose": "final",
+   "ref_ppl": 47.45317077636719,
+   "ref_top1": null,
+   "sim_ppl": 1913.516357421875,
+   "sim_top1": null,
+   "sqnr_db": 6.409663847352329
   }
  ],
  "category": "text-generation",
@@ -107,7 +135,26 @@
    "lut": 0,
    "macs": 0,
    "op": "embedding",
-   "options": [],
+   "options": [
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "masked_row_reduce_embedding_256x50272",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "onehot_gemm_embedding_256x50272_v2",
+     "op_sqnr_db": null
+    }
+   ],
    "params": {
     "dim": 768,
     "in_order": false,
@@ -141,9 +188,9 @@
    "q_sqnr": null,
    "role": "folded_const",
    "seq": 2,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: binary__row_norm__gemm__gemm__gemm__bmm__binary__2c2f4a56.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -165,9 +212,9 @@
    "q_sqnr": null,
    "role": "folded_const",
    "seq": 3,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: binary__row_norm__gemm__gemm__gemm__bmm__binary__2c2f4a56.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -189,9 +236,9 @@
    "q_sqnr": null,
    "role": "folded_const",
    "seq": 4,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: binary__row_norm__gemm__gemm__gemm__bmm__binary__2c2f4a56.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -237,9 +284,9 @@
    "q_sqnr": null,
    "role": "folded_const",
    "seq": 6,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: binary__row_norm__gemm__gemm__gemm__bmm__binary__2c2f4a56.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -257,12 +304,12 @@
     "sel": 0
    },
    "path": "model.decoder",
-   "q_sqnr": 0.0,
+   "q_sqnr": Infinity,
    "role": "folded_const",
    "seq": 7,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: binary__row_norm__gemm__gemm__gemm__bmm__binary__2c2f4a56.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -284,9 +331,9 @@
    "q_sqnr": null,
    "role": "folded_const",
    "seq": 8,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: binary__row_norm__gemm__gemm__gemm__bmm__binary__2c2f4a56.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -309,9 +356,9 @@
    "q_sqnr": 33.4511297380635,
    "role": "folded_const",
    "seq": 9,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: binary__row_norm__gemm__gemm__gemm__bmm__binary__2c2f4a56.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -333,9 +380,9 @@
    "q_sqnr": 37.06310008170378,
    "role": "main",
    "seq": 10,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: binary__row_norm__gemm__gemm__gemm__bmm__binary__2c2f4a56.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -357,9 +404,9 @@
    "q_sqnr": 34.71494093804492,
    "role": "chained",
    "seq": 11,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: binary__row_norm__gemm__gemm__gemm__bmm__binary__2c2f4a56.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -379,12 +426,12 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 34.87300837628232,
+   "q_sqnr": 35.67993292590626,
    "role": "chained",
    "seq": 12,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: binary__row_norm__gemm__gemm__gemm__bmm__binary__2c2f4a56.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -406,9 +453,9 @@
    "q_sqnr": 34.87300837628232,
    "role": "folded_const",
    "seq": 13,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: binary__row_norm__gemm__gemm__gemm__bmm__binary__2c2f4a56.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -431,9 +478,9 @@
    "q_sqnr": 34.84982780223134,
    "role": "chained",
    "seq": 14,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: binary__row_norm__gemm__gemm__gemm__bmm__binary__2c2f4a56.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -456,9 +503,9 @@
    "q_sqnr": 33.62263541336871,
    "role": "chained",
    "seq": 15,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: binary__row_norm__gemm__gemm__gemm__bmm__binary__2c2f4a56.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -481,9 +528,9 @@
    "q_sqnr": 32.50566727347872,
    "role": "chained",
    "seq": 16,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: binary__row_norm__gemm__gemm__gemm__bmm__binary__2c2f4a56.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -505,9 +552,9 @@
    "q_sqnr": 32.50566727347872,
    "role": "chained",
    "seq": 17,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: binary__row_norm__gemm__gemm__gemm__bmm__binary__2c2f4a56.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -529,9 +576,9 @@
    "q_sqnr": 0.0,
    "role": "chained",
    "seq": 18,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: binary__row_norm__gemm__gemm__gemm__bmm__binary__2c2f4a56.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -550,12 +597,12 @@
     "rows": 3072
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 3.458540319506682,
+   "q_sqnr": 0.026370073284664817,
    "role": "chained",
    "seq": 19,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: binary__row_norm__gemm__gemm__gemm__bmm__binary__2c2f4a56.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -575,12 +622,12 @@
     "n": 64
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 5.470768394905754,
+   "q_sqnr": 2.1345400086246196,
    "role": "chained",
    "seq": 20,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: binary__row_norm__gemm__gemm__gemm__bmm__binary__2c2f4a56.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -600,12 +647,12 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.out_proj",
-   "q_sqnr": 4.101471986888554,
+   "q_sqnr": 2.2108158469310686,
    "role": "chained",
    "seq": 21,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: binary__row_norm__gemm__gemm__gemm__bmm__binary__2c2f4a56.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -624,12 +671,12 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": 12.102284886385668,
+   "q_sqnr": 10.206072734811787,
    "role": "chained",
    "seq": 22,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: binary__row_norm__gemm__gemm__gemm__bmm__binary__2c2f4a56.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -648,12 +695,12 @@
     "tokens": 256
    },
    "path": "model.decoder.layers.*.final_layer_norm",
-   "q_sqnr": 15.384729335479337,
+   "q_sqnr": 12.203320217455595,
    "role": "chained",
    "seq": 23,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: binary__row_norm__gemm__gemm__gemm__bmm__binary__2c2f4a56.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -673,12 +720,12 @@
     "n": 3072
    },
    "path": "model.decoder.layers.*.fc1",
-   "q_sqnr": 18.83825536998202,
+   "q_sqnr": 15.233906614062814,
    "role": "chained",
    "seq": 24,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: binary__row_norm__gemm__gemm__gemm__bmm__binary__2c2f4a56.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -695,12 +742,12 @@
     "numel": 786432
    },
    "path": "model.decoder.layers.*.activation_fn",
-   "q_sqnr": 14.337553045940245,
+   "q_sqnr": 11.537130294466916,
    "role": "folded_store",
    "seq": 25,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: binary__row_norm__gemm__gemm__gemm__bmm__binary__2c2f4a56.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -720,12 +767,12 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.fc2",
-   "q_sqnr": 25.61826930864455,
+   "q_sqnr": 23.334410565158045,
    "role": "chained",
    "seq": 26,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: binary__row_norm__gemm__gemm__gemm__bmm__binary__2c2f4a56.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -744,12 +791,12 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": 24.161023760700427,
+   "q_sqnr": 21.627075060205883,
    "role": "chained",
    "seq": 27,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: binary__row_norm__gemm__gemm__gemm__bmm__binary__2c2f4a56.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -768,12 +815,12 @@
     "tokens": 256
    },
    "path": "model.decoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 12.89162435900394,
+   "q_sqnr": 9.707524082317768,
    "role": "chained",
    "seq": 28,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: binary__row_norm__gemm__gemm__gemm__bmm__binary__2c2f4a56.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -793,12 +840,12 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 14.398692944861374,
+   "q_sqnr": 11.470866551706834,
    "role": "chained",
    "seq": 29,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: binary__row_norm__gemm__gemm__gemm__bmm__binary__2c2f4a56.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -817,12 +864,12 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 14.398692944861374,
+   "q_sqnr": 11.467736344604686,
    "role": "folded_const",
    "seq": 30,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: binary__row_norm__gemm__gemm__gemm__bmm__binary__2c2f4a56.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -842,12 +889,12 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 16.889973628332985,
+   "q_sqnr": 13.476600976467836,
    "role": "chained",
    "seq": 31,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: binary__row_norm__gemm__gemm__gemm__bmm__binary__2c2f4a56.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -867,12 +914,12 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 10.941793701859531,
+   "q_sqnr": 7.534643459576391,
    "role": "chained",
    "seq": 32,
-   "status": "building",
+   "status": "blocked",
    "version": null,
-   "why": null
+   "why": "3 attempts, best milestone 0: files missing: binary__row_norm__gemm__gemm__gemm__bmm__binary__2c2f4a56.asm, kernel.toml, reference.py"
   },
   {
    "calls": 1.0,
@@ -892,7 +939,7 @@
     "n": 256
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 16.148612274128674,
+   "q_sqnr": 13.587227127961214,
    "role": "main",
    "seq": 33,
    "status": "not_tried",
@@ -916,7 +963,7 @@
     "numel": 786432
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 16.148612274128674,
+   "q_sqnr": 13.587227127961214,
    "role": "chained",
    "seq": 34,
    "status": "not_tried",
@@ -964,7 +1011,7 @@
     "rows": 3072
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 2.0280031839514776,
+   "q_sqnr": 0.5913613702337996,
    "role": "chained",
    "seq": 36,
    "status": "not_tried",
@@ -989,7 +1036,7 @@
     "n": 64
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 0.5689071489878614,
+   "q_sqnr": -0.2973915356612045,
    "role": "chained",
    "seq": 37,
    "status": "not_tried",
@@ -1014,7 +1061,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.out_proj",
-   "q_sqnr": -3.134085096687074,
+   "q_sqnr": -4.530912057348623,
    "role": "chained",
    "seq": 38,
    "status": "not_tried",
@@ -1038,7 +1085,7 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": 19.13252325978768,
+   "q_sqnr": 17.067055017041003,
    "role": "chained",
    "seq": 39,
    "status": "not_tried",
@@ -1062,7 +1109,7 @@
     "tokens": 256
    },
    "path": "model.decoder.layers.*.final_layer_norm",
-   "q_sqnr": 12.939288066277683,
+   "q_sqnr": 8.518188869343351,
    "role": "chained",
    "seq": 40,
    "status": "not_tried",
@@ -1087,7 +1134,7 @@
     "n": 3072
    },
    "path": "model.decoder.layers.*.fc1",
-   "q_sqnr": 17.906337311678634,
+   "q_sqnr": 14.959699687799443,
    "role": "chained",
    "seq": 41,
    "status": "not_tried",
@@ -1109,7 +1156,7 @@
     "numel": 786432
    },
    "path": "model.decoder.layers.*.activation_fn",
-   "q_sqnr": 6.63114640297564,
+   "q_sqnr": 4.276197863887756,
    "role": "folded_store",
    "seq": 42,
    "status": "not_tried",
@@ -1134,7 +1181,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.fc2",
-   "q_sqnr": 17.83384671406624,
+   "q_sqnr": 15.264518627538076,
    "role": "chained",
    "seq": 43,
    "status": "not_tried",
@@ -1158,7 +1205,7 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": 22.155983986207154,
+   "q_sqnr": 20.587598686194063,
    "role": "chained",
    "seq": 44,
    "status": "not_tried",
@@ -1182,7 +1229,7 @@
     "tokens": 256
    },
    "path": "model.decoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 8.170042120404448,
+   "q_sqnr": 7.651867010245315,
    "role": "chained",
    "seq": 45,
    "status": "not_tried",
@@ -1207,7 +1254,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 8.934451780787143,
+   "q_sqnr": 8.039904608100862,
    "role": "chained",
    "seq": 46,
    "status": "not_tried",
@@ -1231,7 +1278,7 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 8.934451780787143,
+   "q_sqnr": 8.038644174004594,
    "role": "folded_const",
    "seq": 47,
    "status": "not_tried",
@@ -1256,7 +1303,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 10.445824328477936,
+   "q_sqnr": 9.601012856599267,
    "role": "chained",
    "seq": 48,
    "status": "not_tried",
@@ -1281,7 +1328,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 7.743784683338792,
+   "q_sqnr": 5.40114123107263,
    "role": "chained",
    "seq": 49,
    "status": "not_tried",
@@ -1306,7 +1353,7 @@
     "n": 256
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 10.065651702806186,
+   "q_sqnr": 11.154245564439286,
    "role": "chained",
    "seq": 50,
    "status": "not_tried",
@@ -1330,7 +1377,7 @@
     "numel": 786432
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 10.065651702806186,
+   "q_sqnr": 11.154245564439286,
    "role": "chained",
    "seq": 51,
    "status": "not_tried",
@@ -1378,7 +1425,7 @@
     "rows": 3072
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 2.960175773986639,
+   "q_sqnr": 0.5263377831465306,
    "role": "chained",
    "seq": 53,
    "status": "not_tried",
@@ -1403,7 +1450,7 @@
     "n": 64
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": -1.3800643798559873,
+   "q_sqnr": -3.122382288108627,
    "role": "chained",
    "seq": 54,
    "status": "not_tried",
@@ -1428,7 +1475,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.out_proj",
-   "q_sqnr": -3.816414826676251,
+   "q_sqnr": -5.367210305300139,
    "role": "main",
    "seq": 55,
    "status": "not_tried",
@@ -1452,7 +1499,7 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": 19.437389715485505,
+   "q_sqnr": 18.036648991398934,
    "role": "chained",
    "seq": 56,
    "status": "not_tried",
@@ -1476,7 +1523,7 @@
     "tokens": 256
    },
    "path": "model.decoder.layers.*.final_layer_norm",
-   "q_sqnr": 8.950955629333972,
+   "q_sqnr": 6.939781317381546,
    "role": "chained",
    "seq": 57,
    "status": "not_tried",
@@ -1501,7 +1548,7 @@
     "n": 3072
    },
    "path": "model.decoder.layers.*.fc1",
-   "q_sqnr": 13.037007271229772,
+   "q_sqnr": 9.632021098825906,
    "role": "chained",
    "seq": 58,
    "status": "not_tried",
@@ -1523,7 +1570,7 @@
     "numel": 786432
    },
    "path": "model.decoder.layers.*.activation_fn",
-   "q_sqnr": 8.010856568546288,
+   "q_sqnr": 6.803329214003164,
    "role": "folded_store",
    "seq": 59,
    "status": "not_tried",
@@ -1548,7 +1595,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.fc2",
-   "q_sqnr": 24.633438930686268,
+   "q_sqnr": 23.45526592967925,
    "role": "chained",
    "seq": 60,
    "status": "not_tried",
@@ -1572,7 +1619,7 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": 23.627337065647964,
+   "q_sqnr": 22.333397482466548,
    "role": "chained",
    "seq": 61,
    "status": "not_tried",
@@ -1596,7 +1643,7 @@
     "tokens": 256
    },
    "path": "model.decoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 5.559178548433548,
+   "q_sqnr": 5.2494132632177095,
    "role": "chained",
    "seq": 62,
    "status": "not_tried",
@@ -1621,7 +1668,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 5.133752574900177,
+   "q_sqnr": 4.924529246641253,
    "role": "chained",
    "seq": 63,
    "status": "not_tried",
@@ -1645,7 +1692,7 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 5.133752574900177,
+   "q_sqnr": 4.924298837336166,
    "role": "folded_const",
    "seq": 64,
    "status": "not_tried",
@@ -1670,7 +1717,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 6.701012878134954,
+   "q_sqnr": 6.515500513073933,
    "role": "chained",
    "seq": 65,
    "status": "not_tried",
@@ -1695,7 +1742,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 5.237294567984422,
+   "q_sqnr": 3.5086614058668153,
    "role": "chained",
    "seq": 66,
    "status": "not_tried",
@@ -1720,7 +1767,7 @@
     "n": 256
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 3.6277849040894323,
+   "q_sqnr": 6.738117254449506,
    "role": "chained",
    "seq": 67,
    "status": "not_tried",
@@ -1744,7 +1791,7 @@
     "numel": 786432
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 3.6277849040894323,
+   "q_sqnr": 6.738117254449506,
    "role": "chained",
    "seq": 68,
    "status": "not_tried",
@@ -1792,7 +1839,7 @@
     "rows": 3072
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 2.9690075588756963,
+   "q_sqnr": 0.1585067014884008,
    "role": "chained",
    "seq": 70,
    "status": "not_tried",
@@ -1817,7 +1864,7 @@
     "n": 64
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": -3.3253316154269674,
+   "q_sqnr": -6.373671183721693,
    "role": "chained",
    "seq": 71,
    "status": "not_tried",
@@ -1842,7 +1889,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.out_proj",
-   "q_sqnr": -5.303404611591375,
+   "q_sqnr": -8.861748064126102,
    "role": "chained",
    "seq": 72,
    "status": "not_tried",
@@ -1866,7 +1913,7 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": 22.156800444160115,
+   "q_sqnr": 20.404242229755024,
    "role": "chained",
    "seq": 73,
    "status": "not_tried",
@@ -1890,7 +1937,7 @@
     "tokens": 256
    },
    "path": "model.decoder.layers.*.final_layer_norm",
-   "q_sqnr": 5.850653944952747,
+   "q_sqnr": 3.902764238539864,
    "role": "chained",
    "seq": 74,
    "status": "not_tried",
@@ -1915,7 +1962,7 @@
     "n": 3072
    },
    "path": "model.decoder.layers.*.fc1",
-   "q_sqnr": 12.993080535053558,
+   "q_sqnr": 10.481042395489155,
    "role": "chained",
    "seq": 75,
    "status": "not_tried",
@@ -1937,7 +1984,7 @@
     "numel": 786432
    },
    "path": "model.decoder.layers.*.activation_fn",
-   "q_sqnr": 3.4535109616783033,
+   "q_sqnr": 1.627341865905108,
    "role": "folded_store",
    "seq": 76,
    "status": "not_tried",
@@ -1962,7 +2009,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.fc2",
-   "q_sqnr": 13.421219763273546,
+   "q_sqnr": 11.768440896561852,
    "role": "chained",
    "seq": 77,
    "status": "not_tried",
@@ -1986,7 +2033,7 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": 22.32792019875129,
+   "q_sqnr": 20.712947054909026,
    "role": "main",
    "seq": 78,
    "status": "not_tried",
@@ -2010,7 +2057,7 @@
     "tokens": 256
    },
    "path": "model.decoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 4.498236170705195,
+   "q_sqnr": 3.4793911725247777,
    "role": "chained",
    "seq": 79,
    "status": "not_tried",
@@ -2035,7 +2082,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 4.2664869046279446,
+   "q_sqnr": 3.416068786657818,
    "role": "chained",
    "seq": 80,
    "status": "not_tried",
@@ -2059,7 +2106,7 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 4.2664869046279446,
+   "q_sqnr": 3.4157256346704514,
    "role": "folded_const",
    "seq": 81,
    "status": "not_tried",
@@ -2084,7 +2131,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 4.757921467033573,
+   "q_sqnr": 4.037521355668756,
    "role": "chained",
    "seq": 82,
    "status": "not_tried",
@@ -2109,7 +2156,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 3.7490512161464684,
+   "q_sqnr": 1.5977989859769224,
    "role": "chained",
    "seq": 83,
    "status": "not_tried",
@@ -2134,7 +2181,7 @@
     "n": 256
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 1.1683270512488466,
+   "q_sqnr": 2.403594689781138,
    "role": "chained",
    "seq": 84,
    "status": "not_tried",
@@ -2158,7 +2205,7 @@
     "numel": 786432
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 1.1683270512488466,
+   "q_sqnr": 2.403594689781138,
    "role": "chained",
    "seq": 85,
    "status": "not_tried",
@@ -2206,7 +2253,7 @@
     "rows": 3072
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 3.800989370157029,
+   "q_sqnr": 1.414050686942149,
    "role": "chained",
    "seq": 87,
    "status": "not_tried",
@@ -2231,7 +2278,7 @@
     "n": 64
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": -4.735679762192597,
+   "q_sqnr": -8.72529286331967,
    "role": "chained",
    "seq": 88,
    "status": "not_tried",
@@ -2256,7 +2303,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.out_proj",
-   "q_sqnr": -5.761998247858365,
+   "q_sqnr": -9.988826937121505,
    "role": "chained",
    "seq": 89,
    "status": "not_tried",
@@ -2280,7 +2327,7 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": 20.76292069753974,
+   "q_sqnr": 18.801430557895358,
    "role": "chained",
    "seq": 90,
    "status": "not_tried",
@@ -2304,7 +2351,7 @@
     "tokens": 256
    },
    "path": "model.decoder.layers.*.final_layer_norm",
-   "q_sqnr": 4.684029328205384,
+   "q_sqnr": 2.7095591960751846,
    "role": "chained",
    "seq": 91,
    "status": "not_tried",
@@ -2329,7 +2376,7 @@
     "n": 3072
    },
    "path": "model.decoder.layers.*.fc1",
-   "q_sqnr": 11.648625025614312,
+   "q_sqnr": 9.082675304819315,
    "role": "chained",
    "seq": 92,
    "status": "not_tried",
@@ -2351,7 +2398,7 @@
     "numel": 786432
    },
    "path": "model.decoder.layers.*.activation_fn",
-   "q_sqnr": 2.562470565728416,
+   "q_sqnr": 1.0237837195209871,
    "role": "folded_store",
    "seq": 93,
    "status": "not_tried",
@@ -2376,7 +2423,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.fc2",
-   "q_sqnr": 9.81335128032634,
+   "q_sqnr": 7.82920332454863,
    "role": "chained",
    "seq": 94,
    "status": "not_tried",
@@ -2400,7 +2447,7 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": 21.07457032097283,
+   "q_sqnr": 19.07637310608015,
    "role": "chained",
    "seq": 95,
    "status": "not_tried",
@@ -2424,7 +2471,7 @@
     "tokens": 256
    },
    "path": "model.decoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 3.4524624589649062,
+   "q_sqnr": 2.194706517766653,
    "role": "chained",
    "seq": 96,
    "status": "not_tried",
@@ -2449,7 +2496,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 3.1635448539106807,
+   "q_sqnr": 2.172634208737544,
    "role": "chained",
    "seq": 97,
    "status": "not_tried",
@@ -2473,7 +2520,7 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 3.1635448539106807,
+   "q_sqnr": 2.1725578332064615,
    "role": "folded_const",
    "seq": 98,
    "status": "not_tried",
@@ -2498,7 +2545,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 4.256616848137906,
+   "q_sqnr": 3.3841022907863616,
    "role": "chained",
    "seq": 99,
    "status": "not_tried",
@@ -2523,7 +2570,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 2.0408961902149767,
+   "q_sqnr": 0.17847650542576937,
    "role": "chained",
    "seq": 100,
    "status": "not_tried",
@@ -2548,7 +2595,7 @@
     "n": 256
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 1.925831592670405,
+   "q_sqnr": 2.481097709878454,
    "role": "main",
    "seq": 101,
    "status": "not_tried",
@@ -2572,7 +2619,7 @@
     "numel": 786432
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 1.925831592670405,
+   "q_sqnr": 2.481097709878454,
    "role": "chained",
    "seq": 102,
    "status": "not_tried",
@@ -2620,7 +2667,7 @@
     "rows": 3072
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 3.602372274348978,
+   "q_sqnr": 1.072491347016859,
    "role": "chained",
    "seq": 104,
    "status": "not_tried",
@@ -2645,7 +2692,7 @@
     "n": 64
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": -3.2232008984781886,
+   "q_sqnr": -6.955195432393312,
    "role": "chained",
    "seq": 105,
    "status": "not_tried",
@@ -2670,7 +2717,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.out_proj",
-   "q_sqnr": -4.673368458377661,
+   "q_sqnr": -9.01645683848688,
    "role": "chained",
    "seq": 106,
    "status": "not_tried",
@@ -2694,7 +2741,7 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": 19.822018253969276,
+   "q_sqnr": 17.529386379261954,
    "role": "chained",
    "seq": 107,
    "status": "not_tried",
@@ -2718,7 +2765,7 @@
     "tokens": 256
    },
    "path": "model.decoder.layers.*.final_layer_norm",
-   "q_sqnr": 3.7989820766520896,
+   "q_sqnr": 1.8322111115938382,
    "role": "chained",
    "seq": 108,
    "status": "not_tried",
@@ -2743,7 +2790,7 @@
     "n": 3072
    },
    "path": "model.decoder.layers.*.fc1",
-   "q_sqnr": 10.349483782427761,
+   "q_sqnr": 8.007296956153576,
    "role": "chained",
    "seq": 109,
    "status": "not_tried",
@@ -2765,7 +2812,7 @@
     "numel": 786432
    },
    "path": "model.decoder.layers.*.activation_fn",
-   "q_sqnr": 1.9105047187393545,
+   "q_sqnr": 0.35808824525384303,
    "role": "folded_store",
    "seq": 110,
    "status": "not_tried",
@@ -2790,7 +2837,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.fc2",
-   "q_sqnr": 0.0595943664422503,
+   "q_sqnr": -1.2509727082979736,
    "role": "chained",
    "seq": 111,
    "status": "not_tried",
@@ -2814,7 +2861,7 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": 19.55689071973133,
+   "q_sqnr": 17.370821830672917,
    "role": "chained",
    "seq": 112,
    "status": "not_tried",
@@ -2838,7 +2885,7 @@
     "tokens": 256
    },
    "path": "model.decoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 2.668844826798717,
+   "q_sqnr": 1.2476618105370831,
    "role": "chained",
    "seq": 113,
    "status": "not_tried",
@@ -2863,7 +2910,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 2.223976062577747,
+   "q_sqnr": 1.1946294238886084,
    "role": "chained",
    "seq": 114,
    "status": "not_tried",
@@ -2887,7 +2934,7 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 2.223976062577747,
+   "q_sqnr": 1.1944415278799334,
    "role": "folded_const",
    "seq": 115,
    "status": "not_tried",
@@ -2912,7 +2959,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 3.2670401494473307,
+   "q_sqnr": 2.4584490910709764,
    "role": "chained",
    "seq": 116,
    "status": "not_tried",
@@ -2937,7 +2984,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 1.8942327599899353,
+   "q_sqnr": -0.25121160452327684,
    "role": "chained",
    "seq": 117,
    "status": "not_tried",
@@ -2962,7 +3009,7 @@
     "n": 256
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": -0.6503172960239763,
+   "q_sqnr": -0.285731923081571,
    "role": "chained",
    "seq": 118,
    "status": "not_tried",
@@ -2986,7 +3033,7 @@
     "numel": 786432
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": -0.6503172960239763,
+   "q_sqnr": -0.285731923081571,
    "role": "chained",
    "seq": 119,
    "status": "not_tried",
@@ -3034,7 +3081,7 @@
     "rows": 3072
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 3.9102629597106113,
+   "q_sqnr": 1.564294061948345,
    "role": "chained",
    "seq": 121,
    "status": "not_tried",
@@ -3059,7 +3106,7 @@
     "n": 64
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": -3.4933457970773016,
+   "q_sqnr": -8.249476133881512,
    "role": "chained",
    "seq": 122,
    "status": "not_tried",
@@ -3084,7 +3131,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.out_proj",
-   "q_sqnr": -4.377997853237177,
+   "q_sqnr": -8.954083863336862,
    "role": "main",
    "seq": 123,
    "status": "not_tried",
@@ -3108,7 +3155,7 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": 17.958867557349244,
+   "q_sqnr": 15.14796966588856,
    "role": "chained",
    "seq": 124,
    "status": "not_tried",
@@ -3132,7 +3179,7 @@
     "tokens": 256
    },
    "path": "model.decoder.layers.*.final_layer_norm",
-   "q_sqnr": 3.178146250910263,
+   "q_sqnr": 1.1218570983903327,
    "role": "chained",
    "seq": 125,
    "status": "not_tried",
@@ -3157,7 +3204,7 @@
     "n": 3072
    },
    "path": "model.decoder.layers.*.fc1",
-   "q_sqnr": 8.894119386879108,
+   "q_sqnr": 6.583459306021071,
    "role": "chained",
    "seq": 126,
    "status": "not_tried",
@@ -3179,7 +3226,7 @@
     "numel": 786432
    },
    "path": "model.decoder.layers.*.activation_fn",
-   "q_sqnr": 1.5119348709561327,
+   "q_sqnr": -0.8306480857232973,
    "role": "folded_store",
    "seq": 127,
    "status": "not_tried",
@@ -3204,7 +3251,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.fc2",
-   "q_sqnr": -0.6276797582406208,
+   "q_sqnr": -2.8770338874726615,
    "role": "chained",
    "seq": 128,
    "status": "not_tried",
@@ -3228,7 +3275,7 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": 17.67312313943713,
+   "q_sqnr": 15.039680790686385,
    "role": "chained",
    "seq": 129,
    "status": "not_tried",
@@ -3252,7 +3299,7 @@
     "tokens": 256
    },
    "path": "model.decoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 2.081141833128028,
+   "q_sqnr": 0.3941812895453899,
    "role": "chained",
    "seq": 130,
    "status": "not_tried",
@@ -3277,7 +3324,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 2.231020886902879,
+   "q_sqnr": 0.6759079513715899,
    "role": "chained",
    "seq": 131,
    "status": "not_tried",
@@ -3301,7 +3348,7 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 2.231020886902879,
+   "q_sqnr": 0.6757874790859923,
    "role": "folded_const",
    "seq": 132,
    "status": "not_tried",
@@ -3326,7 +3373,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 2.7755134940716104,
+   "q_sqnr": 1.718720768080497,
    "role": "chained",
    "seq": 133,
    "status": "not_tried",
@@ -3351,7 +3398,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 0.9424387759574772,
+   "q_sqnr": -0.9093330832981052,
    "role": "chained",
    "seq": 134,
    "status": "not_tried",
@@ -3376,7 +3423,7 @@
     "n": 256
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": -1.4857982912482093,
+   "q_sqnr": -1.266714103475062,
    "role": "chained",
    "seq": 135,
    "status": "not_tried",
@@ -3400,7 +3447,7 @@
     "numel": 786432
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": -1.4857982912482093,
+   "q_sqnr": -1.266714103475062,
    "role": "chained",
    "seq": 136,
    "status": "not_tried",
@@ -3448,7 +3495,7 @@
     "rows": 3072
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 3.980180212522149,
+   "q_sqnr": 1.2532307338236914,
    "role": "chained",
    "seq": 138,
    "status": "not_tried",
@@ -3473,7 +3520,7 @@
     "n": 64
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": -3.7315625486537036,
+   "q_sqnr": -7.852091937957065,
    "role": "chained",
    "seq": 139,
    "status": "not_tried",
@@ -3498,7 +3545,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.out_proj",
-   "q_sqnr": -3.6864587789783116,
+   "q_sqnr": -7.98234519387689,
    "role": "chained",
    "seq": 140,
    "status": "not_tried",
@@ -3522,7 +3569,7 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": 16.854866311449456,
+   "q_sqnr": 13.728289996898305,
    "role": "chained",
    "seq": 141,
    "status": "not_tried",
@@ -3546,7 +3593,7 @@
     "tokens": 256
    },
    "path": "model.decoder.layers.*.final_layer_norm",
-   "q_sqnr": 2.507214487427381,
+   "q_sqnr": 0.4225157340677468,
    "role": "chained",
    "seq": 142,
    "status": "not_tried",
@@ -3571,7 +3618,7 @@
     "n": 3072
    },
    "path": "model.decoder.layers.*.fc1",
-   "q_sqnr": 8.83445572187832,
+   "q_sqnr": 6.067474028763727,
    "role": "chained",
    "seq": 143,
    "status": "not_tried",
@@ -3593,7 +3640,7 @@
     "numel": 786432
    },
    "path": "model.decoder.layers.*.activation_fn",
-   "q_sqnr": 1.3735776491453766,
+   "q_sqnr": -0.26029306821161696,
    "role": "folded_store",
    "seq": 144,
    "status": "not_tried",
@@ -3618,7 +3665,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.fc2",
-   "q_sqnr": -0.03810226200579438,
+   "q_sqnr": -1.3073929378078708,
    "role": "chained",
    "seq": 145,
    "status": "not_tried",
@@ -3642,7 +3689,7 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": 16.536941489301125,
+   "q_sqnr": 13.636537874741151,
    "role": "main",
    "seq": 146,
    "status": "not_tried",
@@ -3666,7 +3713,7 @@
     "tokens": 256
    },
    "path": "model.decoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 1.78390808332678,
+   "q_sqnr": -0.1117689736955582,
    "role": "chained",
    "seq": 147,
    "status": "not_tried",
@@ -3691,7 +3738,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 2.282352117619229,
+   "q_sqnr": 0.017877032777518863,
    "role": "chained",
    "seq": 148,
    "status": "not_tried",
@@ -3715,7 +3762,7 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 2.282352117619229,
+   "q_sqnr": 0.017875724549991,
    "role": "folded_const",
    "seq": 149,
    "status": "not_tried",
@@ -3740,7 +3787,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 2.191406328816445,
+   "q_sqnr": 0.9370220147745736,
    "role": "chained",
    "seq": 150,
    "status": "not_tried",
@@ -3765,7 +3812,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 1.426592781719689,
+   "q_sqnr": -0.43403672891013484,
    "role": "chained",
    "seq": 151,
    "status": "not_tried",
@@ -3790,7 +3837,7 @@
     "n": 256
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": -1.1454223696612695,
+   "q_sqnr": -1.8524591822986702,
    "role": "chained",
    "seq": 152,
    "status": "not_tried",
@@ -3814,7 +3861,7 @@
     "numel": 786432
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": -1.1454223696612695,
+   "q_sqnr": -1.8524591822986702,
    "role": "chained",
    "seq": 153,
    "status": "not_tried",
@@ -3862,7 +3909,7 @@
     "rows": 3072
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 4.321502149179045,
+   "q_sqnr": 1.5623460464403518,
    "role": "chained",
    "seq": 155,
    "status": "not_tried",
@@ -3887,7 +3934,7 @@
     "n": 64
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": -3.441087203098274,
+   "q_sqnr": -7.221454827174281,
    "role": "chained",
    "seq": 156,
    "status": "not_tried",
@@ -3912,7 +3959,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.out_proj",
-   "q_sqnr": -4.155797611212021,
+   "q_sqnr": -7.657848345004606,
    "role": "chained",
    "seq": 157,
    "status": "not_tried",
@@ -3936,7 +3983,7 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": 14.98929015397975,
+   "q_sqnr": 11.917302619572068,
    "role": "chained",
    "seq": 158,
    "status": "not_tried",
@@ -3960,7 +4007,7 @@
     "tokens": 256
    },
    "path": "model.decoder.layers.*.final_layer_norm",
-   "q_sqnr": 1.6726415886855415,
+   "q_sqnr": -0.2794278338831769,
    "role": "chained",
    "seq": 159,
    "status": "not_tried",
@@ -3985,7 +4032,7 @@
     "n": 3072
    },
    "path": "model.decoder.layers.*.fc1",
-   "q_sqnr": 8.600143571265798,
+   "q_sqnr": 6.320298771712367,
    "role": "chained",
    "seq": 160,
    "status": "not_tried",
@@ -4007,7 +4054,7 @@
     "numel": 786432
    },
    "path": "model.decoder.layers.*.activation_fn",
-   "q_sqnr": 1.0220403550801866,
+   "q_sqnr": -0.318107905567944,
    "role": "folded_store",
    "seq": 161,
    "status": "not_tried",
@@ -4032,7 +4079,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.fc2",
-   "q_sqnr": -0.221302474120462,
+   "q_sqnr": -1.0710353045021734,
    "role": "chained",
    "seq": 162,
    "status": "not_tried",
@@ -4056,7 +4103,7 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": 14.454148773202181,
+   "q_sqnr": 11.68758891433801,
    "role": "chained",
    "seq": 163,
    "status": "not_tried",
@@ -4080,7 +4127,7 @@
     "tokens": 256
    },
    "path": "model.decoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 1.1182856724624934,
+   "q_sqnr": -0.8150470801271015,
    "role": "chained",
    "seq": 164,
    "status": "not_tried",
@@ -4105,7 +4152,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 0.6749372038287003,
+   "q_sqnr": -1.5428522767966255,
    "role": "chained",
    "seq": 165,
    "status": "not_tried",
@@ -4129,7 +4176,7 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 0.6749372038287003,
+   "q_sqnr": -1.5426124132312344,
    "role": "folded_const",
    "seq": 166,
    "status": "not_tried",
@@ -4154,7 +4201,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 2.448947823194287,
+   "q_sqnr": 0.6941344906138759,
    "role": "chained",
    "seq": 167,
    "status": "not_tried",
@@ -4179,7 +4226,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 2.4441803054799,
+   "q_sqnr": 0.4661392942766004,
    "role": "chained",
    "seq": 168,
    "status": "not_tried",
@@ -4204,7 +4251,7 @@
     "n": 256
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": -1.147190497605763,
+   "q_sqnr": -3.9471945071902335,
    "role": "main",
    "seq": 169,
    "status": "not_tried",
@@ -4228,7 +4275,7 @@
     "numel": 786432
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": -1.147190497605763,
+   "q_sqnr": -3.9471945071902335,
    "role": "chained",
    "seq": 170,
    "status": "not_tried",
@@ -4276,7 +4323,7 @@
     "rows": 3072
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 2.6410571493133843,
+   "q_sqnr": 1.0304963610716307,
    "role": "chained",
    "seq": 172,
    "status": "not_tried",
@@ -4301,7 +4348,7 @@
     "n": 64
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": -3.1968202811790802,
+   "q_sqnr": -6.107754610579814,
    "role": "chained",
    "seq": 173,
    "status": "not_tried",
@@ -4326,7 +4373,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.out_proj",
-   "q_sqnr": -3.241976691626137,
+   "q_sqnr": -5.6676469837409105,
    "role": "chained",
    "seq": 174,
    "status": "not_tried",
@@ -4350,7 +4397,7 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": 13.041949099332468,
+   "q_sqnr": 10.306043387105762,
    "role": "chained",
    "seq": 175,
    "status": "not_tried",
@@ -4374,7 +4421,7 @@
     "tokens": 256
    },
    "path": "model.decoder.layers.*.final_layer_norm",
-   "q_sqnr": 1.227392303806654,
+   "q_sqnr": -0.8523699098702519,
    "role": "chained",
    "seq": 176,
    "status": "not_tried",
@@ -4399,7 +4446,7 @@
     "n": 3072
    },
    "path": "model.decoder.layers.*.fc1",
-   "q_sqnr": 8.2637003120191,
+   "q_sqnr": 6.142125971944847,
    "role": "chained",
    "seq": 177,
    "status": "not_tried",
@@ -4421,7 +4468,7 @@
     "numel": 786432
    },
    "path": "model.decoder.layers.*.activation_fn",
-   "q_sqnr": 1.4422092203580286,
+   "q_sqnr": 0.2469126795969409,
    "role": "folded_store",
    "seq": 178,
    "status": "not_tried",
@@ -4446,7 +4493,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.fc2",
-   "q_sqnr": 0.045368622920877635,
+   "q_sqnr": -0.7498299043282287,
    "role": "chained",
    "seq": 179,
    "status": "not_tried",
@@ -4470,7 +4517,7 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": 12.414229197854166,
+   "q_sqnr": 9.897028035258671,
    "role": "chained",
    "seq": 180,
    "status": "not_tried",
@@ -4494,7 +4541,7 @@
     "tokens": 256
    },
    "path": "model.decoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 0.7691553708311962,
+   "q_sqnr": -1.3502772194995183,
    "role": "chained",
    "seq": 181,
    "status": "not_tried",
@@ -4519,7 +4566,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 1.188438647965911,
+   "q_sqnr": -1.2083465003571343,
    "role": "chained",
    "seq": 182,
    "status": "not_tried",
@@ -4543,7 +4590,7 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 1.188438647965911,
+   "q_sqnr": -1.2082973299977138,
    "role": "folded_const",
    "seq": 183,
    "status": "not_tried",
@@ -4568,7 +4615,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 3.3891567181932096,
+   "q_sqnr": 1.5929064199773113,
    "role": "chained",
    "seq": 184,
    "status": "not_tried",
@@ -4593,7 +4640,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 1.8648198359797943,
+   "q_sqnr": -0.3798948442087118,
    "role": "chained",
    "seq": 185,
    "status": "not_tried",
@@ -4618,7 +4665,7 @@
     "n": 256
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 1.2726161591558611,
+   "q_sqnr": -0.18726119394861726,
    "role": "chained",
    "seq": 186,
    "status": "not_tried",
@@ -4642,7 +4689,7 @@
     "numel": 786432
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 1.2726161591558611,
+   "q_sqnr": -0.18726119394861726,
    "role": "chained",
    "seq": 187,
    "status": "not_tried",
@@ -4690,7 +4737,7 @@
     "rows": 3072
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 6.335491967642853,
+   "q_sqnr": 1.4296273474181476,
    "role": "chained",
    "seq": 189,
    "status": "not_tried",
@@ -4715,7 +4762,7 @@
     "n": 64
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": -1.9481143315348413,
+   "q_sqnr": -6.815621635383514,
    "role": "chained",
    "seq": 190,
    "status": "not_tried",
@@ -4740,7 +4787,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.out_proj",
-   "q_sqnr": -2.26237796243943,
+   "q_sqnr": -6.5621173068621195,
    "role": "main",
    "seq": 191,
    "status": "not_tried",
@@ -4764,7 +4811,7 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": 11.139580387074815,
+   "q_sqnr": 8.27878050527855,
    "role": "chained",
    "seq": 192,
    "status": "not_tried",
@@ -4788,7 +4835,7 @@
     "tokens": 256
    },
    "path": "model.decoder.layers.*.final_layer_norm",
-   "q_sqnr": 1.0618883808380783,
+   "q_sqnr": -1.2682931657301295,
    "role": "chained",
    "seq": 193,
    "status": "not_tried",
@@ -4813,7 +4860,7 @@
     "n": 3072
    },
    "path": "model.decoder.layers.*.fc1",
-   "q_sqnr": 7.803820699644042,
+   "q_sqnr": 5.366723296260219,
    "role": "chained",
    "seq": 194,
    "status": "not_tried",
@@ -4835,7 +4882,7 @@
     "numel": 786432
    },
    "path": "model.decoder.layers.*.activation_fn",
-   "q_sqnr": 1.4744915968881547,
+   "q_sqnr": -0.015008363606585109,
    "role": "folded_store",
    "seq": 195,
    "status": "not_tried",
@@ -4860,7 +4907,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.fc2",
-   "q_sqnr": -0.1752003287656662,
+   "q_sqnr": -1.20954483782673,
    "role": "chained",
    "seq": 196,
    "status": "not_tried",
@@ -4884,7 +4931,7 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": 10.45136808410147,
+   "q_sqnr": 7.9513716747871,
    "role": "chained",
    "seq": 197,
    "status": "not_tried",
@@ -4908,7 +4955,7 @@
     "tokens": 256
    },
    "path": "model.decoder.layers.*.self_attn_layer_norm",
-   "q_sqnr": 0.7050733388649543,
+   "q_sqnr": -1.6721740774411677,
    "role": "chained",
    "seq": 198,
    "status": "not_tried",
@@ -4933,7 +4980,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.q_proj",
-   "q_sqnr": 0.9571183254482336,
+   "q_sqnr": -2.210721604937967,
    "role": "chained",
    "seq": 199,
    "status": "not_tried",
@@ -4957,7 +5004,7 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 0.9571183254482336,
+   "q_sqnr": -2.2105839925727166,
    "role": "folded_const",
    "seq": 200,
    "status": "not_tried",
@@ -4982,7 +5029,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.k_proj",
-   "q_sqnr": 4.645768016790951,
+   "q_sqnr": 2.326611693189954,
    "role": "chained",
    "seq": 201,
    "status": "not_tried",
@@ -5007,7 +5054,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.v_proj",
-   "q_sqnr": 1.949721342685996,
+   "q_sqnr": -0.5489784754404801,
    "role": "chained",
    "seq": 202,
    "status": "not_tried",
@@ -5032,7 +5079,7 @@
     "n": 256
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 5.725159905892728,
+   "q_sqnr": 1.4886542378082244,
    "role": "chained",
    "seq": 203,
    "status": "not_tried",
@@ -5056,7 +5103,7 @@
     "numel": 786432
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 5.725159905892728,
+   "q_sqnr": 1.4886542378082244,
    "role": "chained",
    "seq": 204,
    "status": "not_tried",
@@ -5104,7 +5151,7 @@
     "rows": 3072
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": 4.859317839842491,
+   "q_sqnr": 1.2874630131945473,
    "role": "chained",
    "seq": 206,
    "status": "not_tried",
@@ -5129,7 +5176,7 @@
     "n": 64
    },
    "path": "model.decoder.layers.*.self_attn",
-   "q_sqnr": -2.8882932384491697,
+   "q_sqnr": -6.807854504939258,
    "role": "chained",
    "seq": 207,
    "status": "not_tried",
@@ -5154,7 +5201,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.self_attn.out_proj",
-   "q_sqnr": -3.568245595070273,
+   "q_sqnr": -5.166374877095801,
    "role": "chained",
    "seq": 208,
    "status": "not_tried",
@@ -5178,7 +5225,7 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": 8.489967187836278,
+   "q_sqnr": 5.9933521421023705,
    "role": "chained",
    "seq": 209,
    "status": "not_tried",
@@ -5202,7 +5249,7 @@
     "tokens": 256
    },
    "path": "model.decoder.layers.*.final_layer_norm",
-   "q_sqnr": 1.5419165154124346,
+   "q_sqnr": -1.2473293142399018,
    "role": "chained",
    "seq": 210,
    "status": "not_tried",
@@ -5227,7 +5274,7 @@
     "n": 3072
    },
    "path": "model.decoder.layers.*.fc1",
-   "q_sqnr": 7.708228818060062,
+   "q_sqnr": 5.361198701495331,
    "role": "chained",
    "seq": 211,
    "status": "not_tried",
@@ -5249,7 +5296,7 @@
     "numel": 786432
    },
    "path": "model.decoder.layers.*.activation_fn",
-   "q_sqnr": 2.6162209084826844,
+   "q_sqnr": 1.3532484041710306,
    "role": "folded_store",
    "seq": 212,
    "status": "not_tried",
@@ -5274,7 +5321,7 @@
     "n": 768
    },
    "path": "model.decoder.layers.*.fc2",
-   "q_sqnr": 17.82398398937547,
+   "q_sqnr": 16.891592306038522,
    "role": "chained",
    "seq": 213,
    "status": "not_tried",
@@ -5298,7 +5345,7 @@
     "numel": 196608
    },
    "path": "model.decoder.layers.*",
-   "q_sqnr": -0.39374085792275837,
+   "q_sqnr": -2.6608302772947146,
    "role": "main",
    "seq": 214,
    "status": "not_tried",
@@ -5322,7 +5369,7 @@
     "tokens": 256
    },
    "path": "model.decoder.final_layer_norm",
-   "q_sqnr": 1.0214184141023612,
+   "q_sqnr": -1.7255494842162862,
    "role": "chained",
    "seq": 215,
    "status": "not_tried",
@@ -5347,7 +5394,7 @@
     "n": 50272
    },
    "path": "lm_head",
-   "q_sqnr": 9.847719804103848,
+   "q_sqnr": 6.409663847352328,
    "role": "chained",
    "seq": 216,
    "status": "not_tried",
@@ -5364,7 +5411,7 @@
   "blockers_replacement": 1,
   "cycles": null,
   "cycles_measured_share": null,
-  "final_fp_q_delta": null,
+  "final_fp_q_delta": 1866.0631866455078,
   "links_failing": 0,
   "links_ok": 0,
   "links_unrun": 24,
@@ -5380,6 +5427,6 @@
   "pct_calls": 0.0,
   "pct_macs": 0.0,
   "plan_id": 76,
-  "status": "active"
+  "status": "partial"
  }
 }

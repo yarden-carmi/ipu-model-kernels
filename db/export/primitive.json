@@ -288,19 +288,19 @@
   "tensors": null
  },
  {
-  "doc": "Fused masked row reduce: mask ids against arange(vocab), multiply with table rows, sum over vocab.",
+  "doc": "Mask table rows by comparing ids to arange(vocab), then sum over the vocab dimension to select the rows.",
   "name": "fused_masked_row_reduce",
   "origin": "agent",
   "params": "[\"tokens\", \"vocab\", \"dim\"]",
-  "reference": "def fn(ids, table, tokens, vocab, dim):\n    ids = ids.long().reshape(-1, 1)\n    mask = (ids == torch.arange(vocab, device=ids.device)).to(table.dtype)\n    return (mask.reshape(-1, vocab, 1) * table.reshape(1, vocab, dim)).sum(dim=1)",
+  "reference": "def fn(ids, table, tokens, vocab, dim):\n    ids = ids.reshape(-1, 1).long()\n    ar = torch.arange(vocab, device=table.device)\n    mask = (ids == ar).to(table.dtype)\n    return (mask.view(-1, vocab, 1) * table.view(1, vocab, -1)).sum(dim=1)",
   "tensors": null
  },
  {
-  "doc": "Fused one-hot GEMM: build a (tokens x vocab) one-hot matrix from ids, then multiply by the (vocab x dim) table.",
+  "doc": "Build a one-hot matrix (tokens x vocab) from the ids and multiply it by the embedding table (vocab x dim).",
   "name": "fused_onehot_gemm",
   "origin": "agent",
   "params": "[\"tokens\", \"vocab\", \"dim\"]",
-  "reference": "def fn(ids, table, tokens, vocab, dim):\n    ids = ids.long().reshape(-1)\n    onehot = torch.zeros(ids.shape[0], vocab, dtype=table.dtype, device=table.device)\n    onehot[torch.arange(ids.shape[0]), ids] = 1.0\n    return onehot @ table",
+  "reference": "def fn(ids, table, tokens, vocab, dim):\n    ids = ids.reshape(-1).long()\n    onehot = torch.zeros(ids.shape[0], vocab, device=table.device, dtype=table.dtype)\n    onehot[torch.arange(ids.shape[0]), ids] = 1.0\n    return onehot @ table",
   "tensors": null
  },
  {
