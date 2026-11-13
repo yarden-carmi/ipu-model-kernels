@@ -320,19 +320,19 @@
   "tensors": null
  },
  {
-  "doc": "Mask the table rows by the ids and reduce over vocab.",
+  "doc": "Mask the embedding table rows by a 0/1 mask built from ids vs arange(vocab), then sum over the vocab dimension to select exactly the row for each id.",
   "name": "fused_mask_reduce_embed",
   "origin": "agent",
   "params": "[\"tokens\", \"vocab\", \"dim\"]",
-  "reference": "def fn(ids, table, tokens, vocab, dim):\n    idx = ids.long().reshape(-1)\n    mask = (torch.arange(vocab, device=table.device)[None, :] == idx[:, None]).to(table.dtype)\n    return (mask[:, :, None] * table[None, :, :]).sum(dim=1)",
+  "reference": "def fn(ids, table, tokens, vocab, dim):\n    idx = ids.long().reshape(-1, 1)\n    mask = (idx == torch.arange(vocab, device=table.device)).to(table.dtype)\n    return (mask.reshape(tokens, vocab, 1) * table.reshape(1, vocab, dim)).sum(dim=1)",
   "tensors": null
  },
  {
-  "doc": "Fused masked row reduce: mask ids against arange(vocab), multiply table rows, sum over vocab.",
+  "doc": "Masked row reduce: eq-range mask times table, summed over vocab.",
   "name": "fused_masked_row_reduce",
   "origin": "agent",
   "params": "[\"tokens\", \"vocab\", \"dim\"]",
-  "reference": "def fn(ids, table, tokens, vocab, dim):\n    ids = ids.long().reshape(-1, 1)\n    mask = (ids == torch.arange(vocab, device=table.device)).to(table.dtype)\n    masked = mask.reshape(-1, vocab, 1) * table.reshape(1, vocab, -1)\n    return masked.sum(dim=1)",
+  "reference": "def fn(ids, table, tokens, vocab, dim):\n    idx = ids.reshape(-1, 1).long()\n    mask = (idx == torch.arange(vocab, device=idx.device)).to(table.dtype)\n    return (mask.unsqueeze(-1) * table.unsqueeze(0)).sum(1)",
   "tensors": null
  },
  {
@@ -360,6 +360,14 @@
   "tensors": null
  },
  {
+  "doc": "Mask the table rows by the ids and sum over the vocab dimension.",
+  "name": "fused_masked_row_reduce_embed_final",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\", \"dim\"]",
+  "reference": "def fn(ids, table, tokens, vocab, dim):\n    ids = ids.long().reshape(-1)\n    mask = (ids.reshape(tokens, 1) == torch.arange(vocab, device=ids.device)).to(table.dtype)\n    return (mask.reshape(tokens, vocab, 1) * table.reshape(1, vocab, dim)).sum(dim=1)",
+  "tensors": null
+ },
+ {
   "doc": "Mask the table rows by ids == arange(vocab) and sum over vocab, returning exactly the selected rows (tokens x dim).",
   "name": "fused_masked_row_reduce_embed_ref",
   "origin": "agent",
@@ -384,19 +392,19 @@
   "tensors": null
  },
  {
-  "doc": "Build a tokens x vocab one-hot from the ids and GEMM it by the vocab x dim table.",
+  "doc": "Build a one-hot matrix (tokens x vocab) from ids and multiply by the table (vocab x dim).",
   "name": "fused_oh_gemm_embed",
   "origin": "agent",
   "params": "[\"tokens\", \"vocab\", \"dim\"]",
-  "reference": "def fn(ids, table, tokens, vocab, dim):\n    idx = ids.long().reshape(-1)\n    onehot = torch.zeros(tokens, vocab, dtype=table.dtype, device=table.device)\n    onehot[torch.arange(tokens, device=table.device), idx] = 1.0\n    return onehot @ table",
+  "reference": "def fn(ids, table, tokens, vocab, dim):\n    ids = ids.long().reshape(-1)\n    onehot = torch.zeros(tokens, vocab, dtype=table.dtype, device=table.device)\n    onehot[torch.arange(tokens, device=table.device), ids] = 1.0\n    return onehot @ table",
   "tensors": null
  },
  {
-  "doc": "Fused one-hot GEMM: build one-hot (tokens x vocab) from ids, multiply by table (vocab x dim).",
+  "doc": "One-hot GEMM: builds one-hot (tokens x vocab) from ids and multiplies by table (vocab x dim).",
   "name": "fused_onehot_gemm",
   "origin": "agent",
   "params": "[\"tokens\", \"vocab\", \"dim\"]",
-  "reference": "def fn(ids, table, tokens, vocab, dim):\n    ids = ids.long().reshape(-1)\n    onehot = torch.zeros(ids.shape[0], vocab, dtype=table.dtype, device=table.device)\n    onehot[torch.arange(ids.shape[0], device=table.device), ids] = 1.0\n    return onehot @ table",
+  "reference": "def fn(ids, table, tokens, vocab, dim):\n    idx = ids.reshape(-1).long()\n    oh = torch.zeros(tokens, vocab, dtype=table.dtype, device=table.device)\n    oh[torch.arange(tokens), idx] = 1.0\n    return oh @ table",
   "tensors": null
  },
  {
