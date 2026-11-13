@@ -649,6 +649,30 @@
  },
  {
   "chain": "[{\"op\": \"fused_masked_row_reduce_embed\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: the code failed: NameError: name 'vocab' is not defined",
+  "check_ok": 0,
+  "code": "def forward(module, ids):\n    table = module.weight if hasattr(module, \"weight\") else module.table\n    ids = ids.long().reshape(-1, 1)\n    mask = (ids == torch.arange(table.shape[0], device=table.device)).to(table.dtype)  # tokens x vocab\n    return (mask.view(-1, vocab, 1) * table.view(1, vocab, dim)).sum(1)",
+  "id": 397,
+  "kind": "equivalent",
+  "name": "fused_masked_row_reduce_embed_1001x1152_def",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Fused masked row reduction embedding. Step 1: flatten the id to a column (1 x 1) and compare against arange(vocab=1001) to get a 0/1 mask of shape 1 x 1001. Step 2: broadcast-multiply the mask (tokens x vocab x 1) with the table rows (1 x vocab x dim), zeroing all rows except the selected one. Step 3: sum over the vocab dimension, yielding exactly the selected row (1 x 1152). Mathematically identical to embedding for tokens=1; the table is passed alongside the ids as a constant input to the fused primitive.\", \"rel_err\": null}",
+  "proposed_by": 181
+ },
+ {
+  "chain": "[{\"op\": \"fused_masked_row_reduce_embed\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    table = module.weight if hasattr(module, \"weight\") else module.table\n    vocab, dim = table.shape\n    ids = ids.long().reshape(-1, 1)\n    mask = (ids == torch.arange(vocab, device=table.device)).to(table.dtype)  # tokens x vocab\n    return (mask.view(-1, vocab, 1) * table.view(1, vocab, dim)).sum(1)",
+  "id": 398,
+  "kind": "equivalent",
+  "name": "fused_masked_row_reduce_embed_1001x1152_def2",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Fused masked row reduction embedding. Step 1: flatten the id to a column (1 x 1) and compare against arange(vocab=1001) to get a 0/1 mask of shape 1 x 1001. Step 2: broadcast-multiply the mask (tokens x vocab x 1) with the table rows (1 x vocab x dim), zeroing all rows except the selected one. Step 3: sum over the vocab dimension, yielding exactly the selected row (1 x 1152). Mathematically identical to embedding for tokens=1; the table is passed alongside the ids as a constant input to the fused primitive.\", \"rel_err\": 0.0}",
+  "proposed_by": 181
+ },
+ {
+  "chain": "[{\"op\": \"fused_masked_row_reduce_embed\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
   "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
   "check_ok": 1,
   "code": "def forward(module, ids, table=None):\n    if table is None:\n        table = getattr(module, \"table\", None)\n        if table is None:\n            table = getattr(module, \"weight\")\n    ids = ids.long().reshape(-1, 1)\n    mask = (ids == torch.arange(table.shape[0], device=ids.device)).to(table.dtype)\n    return (mask.unsqueeze(-1) * table.unsqueeze(0)).sum(dim=1)",
@@ -718,6 +742,18 @@
   "op": "embedding",
   "proposal": "{\"description\": \"Fused one-hot GEMM embedding. Step 1: build a one-hot matrix of shape tokens=1 x vocab=1001 from the single token id (row 0 has 1 at column ids[0], 0 elsewhere; ids cast to long). Step 2: GEMM the one-hot matrix (1 x 1001) by the embedding table (1001 x 1152), no transposes. The result row equals exactly the table row selected by the id, so the result (1 x 1152) is mathematically identical to embedding for tokens=1. The table is a constant attribute of the module.\", \"rel_err\": null}",
   "proposed_by": 171
+ },
+ {
+  "chain": "[{\"op\": \"fused_onehot_gemm_embed\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    table = module.weight if hasattr(module, \"weight\") else module.table\n    ids = ids.long().reshape(-1)\n    onehot = torch.zeros(ids.shape[0], table.shape[0], dtype=table.dtype, device=table.device)\n    onehot.scatter_(1, ids.view(-1, 1), 1.0)\n    return onehot @ table",
+  "id": 396,
+  "kind": "equivalent",
+  "name": "fused_onehot_gemm_embed_1001x1152_def",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Fused one-hot GEMM embedding. Step 1: build a one-hot matrix of shape tokens=1 x vocab=1001 from the single token id (row 0 has 1 at column ids[0], 0 elsewhere; ids cast to long). Step 2: GEMM the one-hot matrix (1 x 1001) by the embedding table (1001 x 1152), no transposes. The result row equals exactly the table row selected by the id, so the result (1 x 1152) is mathematically identical to embedding for tokens=1. The table is passed alongside the ids as a constant input to the fused primitive.\", \"rel_err\": 0.0}",
+  "proposed_by": 181
  },
  {
   "chain": "[{\"op\": \"fused_onehot_gemm_embed\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
@@ -1200,6 +1236,18 @@
   "proposed_by": 7
  },
  {
+  "chain": "[{\"op\": \"fused_masked_row_reduce_embed2\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    table = module.weight if hasattr(module, \"weight\") else module.table\n    idx = ids.reshape(-1).long()\n    mask = (torch.arange(table.shape[0], device=table.device).view(1, -1) == idx.view(-1, 1)).to(table.dtype)\n    return (mask.view(-1, table.shape[0], 1) * table.view(1, table.shape[0], -1)).sum(1)",
+  "id": 394,
+  "kind": "equivalent",
+  "name": "masked_row_reduce_embed2_1001x1152_ref",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Fused masked row reduction embedding. Step 1: flatten the ids to a column (tokens x 1) and compare against arange(vocab=1001) to get a 0/1 mask of shape tokens x vocab. Step 2: broadcast-multiply the mask (tokens x vocab x 1) with the table rows (1 x vocab x dim), zeroing all rows except the selected one per token. Step 3: sum over the vocab dimension, yielding exactly the selected rows (1 x 1152). Mathematically identical to embedding for tokens=1; the table is the module's constant (module.weight / module.table).\", \"rel_err\": 0.0}",
+  "proposed_by": 180
+ },
+ {
   "chain": "[{\"op\": \"fused_masked_row_reduce_embed_ref\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
   "check_detail": "chain: matches embedding (FP32, relative 0); code: the code failed: NameError: name 'tokens' is not defined",
   "check_ok": 0,
@@ -1284,6 +1332,18 @@
   "proposed_by": 160
  },
  {
+  "chain": "[{\"op\": \"fused_masked_row_reduce_embed2\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    table = module.weight if hasattr(module, \"weight\") else module.table\n    idx = ids.reshape(-1, 1).long()\n    mask = (idx == torch.arange(table.shape[0], device=table.device)).to(table.dtype)\n    return (mask.unsqueeze(-1) * table.unsqueeze(0)).sum(dim=1)",
+  "id": 393,
+  "kind": "equivalent",
+  "name": "masked_row_reduce_embed_1001x1152_final_A2",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Fused masked row reduction embedding. Step 1: flatten the id to a column (1 x 1) and compare against arange(vocab=1001) to get a 0/1 mask of shape 1 x 1001. Step 2: broadcast-multiply the mask (tokens x vocab x 1) with the table rows (1 x vocab x dim), zeroing all rows except the selected one. Step 3: sum over the vocab dimension, yielding exactly the selected row (1 x 1152). Mathematically identical to embedding for tokens=1. The table is the module's constant (module.weight / module.table).\", \"rel_err\": 0.0}",
+  "proposed_by": 179
+ },
+ {
   "chain": "[{\"op\": \"fused_masked_row_reduce_embed2\", \"params\": {\"dim\": 1152, \"tokens\": 1, \"vocab\": 1001}}]",
   "check_detail": "chain: fused_masked_row_reduce_embed2 {\"dim\": 1152, \"tokens\": 1, \"vocab\": 1001}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
   "check_ok": null,
@@ -1344,6 +1404,18 @@
   "proposed_by": 172
  },
  {
+  "chain": "[{\"op\": \"fused_masked_row_reduce_embed2\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    table = module.weight if hasattr(module, \"weight\") else module.table\n    ids = ids.long().reshape(-1, 1)\n    vocab = table.shape[0]\n    mask = (ids == torch.arange(vocab, device=ids.device)).to(table.dtype)\n    return (mask.view(-1, vocab, 1) * table.view(1, vocab, -1)).sum(dim=1)",
+  "id": 402,
+  "kind": "equivalent",
+  "name": "masked_row_reduce_embed_1001x1152_prop_final",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Fused masked row reduction embedding. Step 1: flatten the id to a column (tokens x 1) and compare against arange(vocab=1001) to get a 0/1 mask of shape tokens x vocab. Step 2: broadcast-multiply the mask (tokens x vocab x 1) with the table rows (1 x vocab x dim), zeroing all rows except the selected one. Step 3: sum over the vocab dimension, yielding exactly the selected row (1 x 1152). Mathematically identical to embedding for tokens=1. The table is the module's constant (module.weight / module.table).\", \"rel_err\": 0.0}",
+  "proposed_by": 183
+ },
+ {
   "chain": "[{\"op\": \"masked_row_reduce_embed\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
   "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
   "check_ok": 1,
@@ -1368,6 +1440,18 @@
   "proposed_by": 168
  },
  {
+  "chain": "[{\"op\": \"masked_row_reduce_embed2\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    table = module.weight if hasattr(module, \"weight\") else module.table\n    ids = ids.long().reshape(-1, 1)\n    mask = (ids == torch.arange(table.shape[0], device=ids.device)).to(table.dtype)\n    return (mask.unsqueeze(-1) * table.unsqueeze(0)).sum(1)",
+  "id": 389,
+  "kind": "equivalent",
+  "name": "masked_row_reduce_embed_1001x1152_v9",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Fused masked row reduction embedding. Step 1: flatten the ids to a column (tokens x 1) and compare against arange(vocab=1001) to get a 0/1 mask of shape tokens x vocab. Step 2: broadcast-multiply the mask (tokens x vocab x 1) with the table rows (1 x vocab x dim), zeroing all rows except the selected one per token. Step 3: sum over the vocab dimension, yielding exactly the selected rows (1 x 1152). Mathematically identical to embedding for tokens=1; the table is the module's constant (module.weight / module.table).\", \"rel_err\": 0.0}",
+  "proposed_by": 177
+ },
+ {
   "chain": "[{\"op\": \"masked_row_reduce_embed\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
   "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
   "check_ok": 1,
@@ -1390,6 +1474,66 @@
   "op": "embedding",
   "proposal": "{\"description\": \"Fused masked row reduction embedding. Step 1: flatten the id to a column (1 x 1) and compare against arange(vocab=1001) to get a 0/1 mask of shape 1 x 1001. Step 2: broadcast-multiply the mask (tokens x vocab x 1) with the table rows (1 x vocab x dim), zeroing all rows except the selected one. Step 3: sum over the vocab dimension, yielding exactly the selected row (1 x 1152). Mathematically identical to embedding for tokens=1; the table is a constant passed alongside the ids as input to the primitive.\", \"rel_err\": 0.0}",
   "proposed_by": 158
+ },
+ {
+  "chain": "[{\"op\": \"fused_masked_row_reduce_embed2\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    table = getattr(module, \"table\", None)\n    if table is None:\n        table = module.weight\n    idx = ids.long().reshape(-1)\n    tokens, vocab, dim = idx.numel(), table.shape[0], table.shape[1]\n    mask = (idx.reshape(tokens, 1) == torch.arange(vocab, device=idx.device)).to(table.dtype)\n    return (mask.reshape(tokens, vocab, 1) * table.reshape(1, vocab, dim)).sum(dim=1)",
+  "id": 391,
+  "kind": "equivalent",
+  "name": "masked_row_reduce_embed_1x1001x1152_A3",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Fused masked row reduction embedding. Step 1: flatten the id to a column (1 x 1) and compare against arange(vocab=1001) to get a 0/1 mask of shape 1 x 1001. Step 2: broadcast-multiply the mask (tokens x vocab x 1) with the table rows (1 x vocab x dim), zeroing all rows except the selected one. Step 3: sum over the vocab dimension, yielding exactly the selected row (1 x 1152). Mathematically identical to embedding for tokens=1; the table is the module's constant (module.weight / module.table).\", \"rel_err\": 0.0}",
+  "proposed_by": 178
+ },
+ {
+  "chain": "[{\"op\": \"fused_masked_row_reduce_embed2\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: fused_masked_row_reduce_embed2 {\"dim\": 1152, \"tokens\": 1, \"vocab\": 1001}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
+  "check_ok": null,
+  "code": "def forward(module, ids):\n    table = module.weight\n    ids = ids.long().reshape(-1, 1)\n    mask = (ids == torch.arange(table.shape[0], device=table.device)).to(table.dtype)\n    return (mask.unsqueeze(-1) * table.unsqueeze(0)).sum(dim=1)",
+  "id": 404,
+  "kind": "equivalent",
+  "name": "masked_row_reduce_embed_1x1001x1152_A4",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Fused masked row reduction embedding. Step 1: flatten the id to a column (tokens x 1) and compare against arange(vocab=1001) to get a 0/1 mask of shape tokens x vocab. Step 2: broadcast-multiply the mask (tokens x vocab x 1) with the table rows (1 x vocab x dim), zeroing all rows except the selected one. Step 3: sum over the vocab dimension, yielding exactly the selected row (1 x 1152). Mathematically identical to embedding for tokens=1. The table is the module's constant (module.weight).\", \"rel_err\": 0.0}",
+  "proposed_by": 184
+ },
+ {
+  "chain": "[{\"op\": \"fused_masked_row_reduce_embed_ref\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: fused_masked_row_reduce_embed_ref {\"dim\": 1152, \"tokens\": 1, \"vocab\": 1001}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
+  "check_ok": null,
+  "code": "def forward(module, ids):\n    table = module.weight\n    ids = ids.long().reshape(-1, 1)\n    mask = (ids == torch.arange(table.shape[0], device=table.device)).to(table.dtype)\n    return (mask.unsqueeze(-1) * table.unsqueeze(0)).sum(dim=1)",
+  "id": 407,
+  "kind": "equivalent",
+  "name": "masked_row_reduce_embed_1x1001x1152_D",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Fused masked row reduction embedding. Step 1: flatten the id to a column (tokens x 1) and compare against arange(vocab=1001) to get a 0/1 mask of shape tokens x vocab. Step 2: broadcast-multiply the mask (tokens x vocab x 1) with the table rows (1 x vocab x dim), zeroing all rows except the selected one. Step 3: sum over the vocab dimension, yielding exactly the selected row (1 x 1152). Mathematically identical to embedding for tokens=1; the table is the layer's constant.\", \"rel_err\": 0.0}",
+  "proposed_by": 184
+ },
+ {
+  "chain": "[{\"name\": \"fused_mask_reduce\", \"op\": \"fused_mask_reduce\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: ValueError: not enough values to unpack (expected 2, got 1); code: relative difference 0 (within 0.0001)",
+  "check_ok": 0,
+  "code": "def forward(module, ids):\n    table = module.weight\n    ids = ids.long().reshape(-1, 1)\n    mask = (ids == torch.arange(table.shape[0], device=table.device)).to(table.dtype)\n    return (mask.unsqueeze(-1) * table.unsqueeze(0)).sum(dim=1)",
+  "id": 409,
+  "kind": "equivalent",
+  "name": "masked_row_reduce_embed_1x1001x1152_F",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Fused masked row reduction embedding. Step 1 (fused_mask_reduce): flatten the id to a column (tokens x 1), compare against arange(vocab=1001) to get a 0/1 mask of shape tokens x vocab, broadcast-multiply the mask (tokens x vocab x 1) with the table rows (1 x vocab x dim, table passed alongside the ids), zeroing all rows except the selected one, then sum over the vocab dimension, yielding exactly the selected row (1 x 1152). Mathematically identical to embedding for tokens=1.\", \"rel_err\": 0.0}",
+  "proposed_by": 184
+ },
+ {
+  "chain": "[{\"name\": \"fused_mask_reduce\", \"op\": \"fused_mask_reduce\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    table = module.weight\n    ids = ids.long().reshape(-1, 1)\n    mask = (ids == torch.arange(table.shape[0], device=table.device)).to(table.dtype)\n    return (mask.unsqueeze(-1) * table.unsqueeze(0)).sum(dim=1)",
+  "id": 411,
+  "kind": "equivalent",
+  "name": "masked_row_reduce_embed_1x1001x1152_G",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Fused masked row reduction embedding. Step 1 (fused_mask_reduce): flatten the id to a column (tokens x 1), compare against arange(vocab=1001) to get a 0/1 mask of shape tokens x vocab, broadcast-multiply the mask (tokens x vocab x 1) with the table rows (1 x vocab x dim, the layer's constant), zeroing all rows except the selected one, then sum over the vocab dimension, yielding exactly the selected row (1 x 1152). Mathematically identical to embedding for tokens=1.\", \"rel_err\": 0.0}",
+  "proposed_by": 184
  },
  {
   "chain": "[{\"op\": \"fused_masked_row_reduce_embed\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
@@ -1474,6 +1618,18 @@
   "op": "embedding",
   "proposal": "{\"description\": \"Fused masked row reduction embedding. Step 1: flatten the id to a column (tokens x 1) and compare against arange(vocab=1001) to get a 0/1 mask of shape tokens x vocab. Step 2: broadcast-multiply the mask (tokens x vocab x 1) with the table rows (1 x vocab x dim), zeroing all rows except the selected one. Step 3: sum over the vocab dimension, yielding exactly the selected row (1 x 1152). Mathematically identical to embedding for tokens=1; the table is a constant passed alongside the ids as input to the primitive.\", \"rel_err\": 0.0}",
   "proposed_by": 152
+ },
+ {
+  "chain": "[{\"op\": \"fused_masked_row_reduce_embed_1001x1152_ok\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    table = module.weight if hasattr(module, \"weight\") else module.table\n    ids = ids.long().reshape(-1, 1)\n    tokens = ids.shape[0]\n    vocab, dim = table.shape\n    mask = (ids == torch.arange(vocab, device=ids.device).view(1, -1)).to(table.dtype)\n    return (mask.view(tokens, vocab, 1) * table.view(1, vocab, dim)).sum(dim=1)",
+  "id": 400,
+  "kind": "equivalent",
+  "name": "masked_row_reduce_embed_1x1001x1152_ok_final",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Fused masked row reduction embedding. Step 1: flatten the id to a column (tokens x 1) and compare against arange(vocab=1001) to get a 0/1 mask of shape tokens x vocab. Step 2: broadcast-multiply the mask (tokens x vocab x 1) with the table rows (1 x vocab x dim), zeroing all rows except the selected one. Step 3: sum over the vocab dimension, yielding exactly the selected row (1 x 1152). Mathematically identical to embedding for tokens=1; the table is a constant passed alongside the ids as input to the fused primitive.\", \"rel_err\": 0.0}",
+  "proposed_by": 182
  },
  {
   "chain": "[{\"op\": \"fused_masked_row_reduce\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
@@ -2484,6 +2640,18 @@
   "proposed_by": 94
  },
  {
+  "chain": "[{\"op\": \"fused_onehot_gemm_embed2\", \"params\": {\"dim\": \"dim\", \"num_classes\": \"vocab\", \"tokens\": \"tokens\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    table = module.weight if hasattr(module, \"weight\") else module.table\n    idx = ids.reshape(-1).long()\n    onehot = torch.zeros(idx.numel(), table.shape[0], device=table.device, dtype=table.dtype)\n    onehot.scatter_(1, idx.view(-1, 1), 1.0)\n    return onehot @ table",
+  "id": 395,
+  "kind": "equivalent",
+  "name": "onehot_gemm_embed2_1001x1152_ref",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Fused one-hot GEMM embedding. Step 1: build a one-hot matrix of shape tokens x vocab from the token ids (row i has 1 at column ids[i], 0 elsewhere; ids cast to long). Step 2: GEMM the one-hot matrix (tokens x vocab=1001) by the embedding table (1001 x dim=1152), no transposes. Each output row equals exactly the table row selected by the corresponding id, so the result (1 x 1152) is mathematically identical to embedding for tokens=1. The table is the module's constant (module.weight / module.table).\", \"rel_err\": 0.0}",
+  "proposed_by": 180
+ },
+ {
   "chain": "[{\"op\": \"one_hot\", \"params\": {\"num_classes\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
   "check_detail": "chain: one_hot {\"num_classes\": 1001}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
   "check_ok": null,
@@ -2568,6 +2736,18 @@
   "proposed_by": 160
  },
  {
+  "chain": "[{\"op\": \"fused_onehot_gemm_embed2\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    table = module.weight if hasattr(module, \"weight\") else module.table\n    idx = ids.reshape(-1).long()\n    onehot = torch.zeros(idx.numel(), table.shape[0], dtype=table.dtype, device=table.device)\n    onehot[torch.arange(idx.numel(), device=table.device), idx] = 1.0\n    return onehot @ table",
+  "id": 392,
+  "kind": "equivalent",
+  "name": "onehot_gemm_embed_1001x1152_final_A2",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Fused one-hot GEMM embedding. Step 1: build a one-hot matrix of shape tokens=1 x vocab=1001 from the single token id (row 0 has 1 at column ids[0], 0 elsewhere; ids cast to long). Step 2: GEMM the one-hot matrix (1 x 1001) by the embedding table (1001 x 1152), no transposes. The result row equals exactly the table row selected by the id, so the result (1 x 1152) is mathematically identical to embedding for tokens=1. The table is the module's constant (module.weight / module.table).\", \"rel_err\": 0.0}",
+  "proposed_by": 179
+ },
+ {
   "chain": "[{\"op\": \"fused_onehot_gemm_embed2\", \"params\": {\"dim\": 1152, \"tokens\": 1, \"vocab\": 1001}}]",
   "check_detail": "chain: fused_onehot_gemm_embed2 {\"dim\": 1152, \"tokens\": 1, \"vocab\": 1001}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
   "check_ok": null,
@@ -2628,6 +2808,18 @@
   "proposed_by": 172
  },
  {
+  "chain": "[{\"op\": \"fused_onehot_gemm_embed2\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    table = module.weight if hasattr(module, \"weight\") else module.table\n    ids = ids.long().reshape(-1)\n    vocab = table.shape[0]\n    onehot = torch.zeros(ids.shape[0], vocab, dtype=table.dtype, device=table.device)\n    onehot[torch.arange(ids.shape[0]), ids] = 1.0\n    return onehot @ table",
+  "id": 401,
+  "kind": "equivalent",
+  "name": "onehot_gemm_embed_1001x1152_prop_final",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Fused one-hot GEMM embedding. Step 1: build a one-hot matrix of shape tokens=1 x vocab=1001 from the single token id (row 0 has 1 at column ids[0], 0 elsewhere; ids cast to long). Step 2: GEMM the one-hot matrix (1 x 1001) by the embedding table (1001 x 1152), no transposes. The result row equals exactly the table row selected by the id, so the result (1 x 1152) is mathematically identical to embedding for tokens=1. The table is the module's constant (module.weight / module.table).\", \"rel_err\": 0.0}",
+  "proposed_by": 183
+ },
+ {
   "chain": "[{\"op\": \"onehot_gemm_embed\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
   "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
   "check_ok": 1,
@@ -2652,6 +2844,18 @@
   "proposed_by": 168
  },
  {
+  "chain": "[{\"op\": \"onehot_gemm_embed2\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    table = module.weight if hasattr(module, \"weight\") else module.table\n    ids = ids.long().reshape(-1)\n    onehot = torch.zeros(ids.shape[0], table.shape[0], dtype=table.dtype, device=table.device)\n    onehot[torch.arange(ids.shape[0]), ids] = 1.0\n    return onehot @ table",
+  "id": 388,
+  "kind": "equivalent",
+  "name": "onehot_gemm_embed_1001x1152_v9",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Fused one-hot GEMM embedding. Step 1: build a one-hot matrix of shape tokens x vocab from the token ids (row i has 1 at column ids[i], 0 elsewhere; ids cast to long). Step 2: GEMM the one-hot matrix (tokens x vocab=1001) by the embedding table (1001 x dim=1152), no transposes. Each output row equals exactly the table row selected by the corresponding id, so the result (1 x 1152) is mathematically identical to embedding for tokens=1. The table is the module's constant (module.weight / module.table).\", \"rel_err\": 0.0}",
+  "proposed_by": 177
+ },
+ {
   "chain": "[{\"op\": \"onehot_gemm_embed\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
   "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
   "check_ok": 1,
@@ -2674,6 +2878,78 @@
   "op": "embedding",
   "proposal": "{\"description\": \"Fused one-hot GEMM embedding. Step 1: build a one-hot matrix of shape tokens=1 x vocab=1001 from the single token id (row 0 has 1 at column ids[0], 0 elsewhere; ids cast to long). Step 2: GEMM the one-hot matrix (1 x 1001) by the embedding table (1001 x 1152), no transposes. The result row equals exactly the table row selected by the id, so the result (1 x 1152) is mathematically identical to embedding for tokens=1. The table is a constant passed alongside the ids as input to the primitive.\", \"rel_err\": 0.0}",
   "proposed_by": 158
+ },
+ {
+  "chain": "[{\"op\": \"fused_onehot_gemm_embed2\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    table = getattr(module, \"table\", None)\n    if table is None:\n        table = module.weight\n    idx = ids.long().reshape(-1)\n    tokens, vocab, dim = table.shape[0] and idx.numel(), table.shape[0], table.shape[1]\n    tokens = idx.numel()\n    onehot = torch.zeros(tokens, vocab, dtype=table.dtype, device=table.device)\n    onehot[torch.arange(tokens, device=idx.device), idx] = 1.0\n    return onehot @ table",
+  "id": 390,
+  "kind": "equivalent",
+  "name": "onehot_gemm_embed_1x1001x1152_A3",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Fused one-hot GEMM embedding. Step 1: build a one-hot matrix of shape tokens=1 x vocab=1001 from the single token id (row 0 has 1 at column ids[0], 0 elsewhere; ids cast to long). Step 2: GEMM the one-hot matrix (1 x 1001) by the embedding table (1001 x 1152), no transposes. The result row equals exactly the table row selected by the id, so the result (1 x 1152) is mathematically identical to embedding for tokens=1. The table is the module's constant (module.weight / module.table).\", \"rel_err\": 0.0}",
+  "proposed_by": 178
+ },
+ {
+  "chain": "[{\"op\": \"fused_onehot_gemm_embed2\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: fused_onehot_gemm_embed2 {\"dim\": 1152, \"tokens\": 1, \"vocab\": 1001}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
+  "check_ok": null,
+  "code": "def forward(module, ids):\n    table = module.weight\n    ids = ids.long().reshape(-1)\n    n = ids.shape[0]\n    onehot = torch.zeros(n, table.shape[0], dtype=table.dtype, device=table.device)\n    onehot[torch.arange(n, device=table.device), ids] = 1\n    return onehot @ table",
+  "id": 403,
+  "kind": "equivalent",
+  "name": "onehot_gemm_embed_1x1001x1152_A4",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Fused one-hot GEMM embedding. Step 1: build a one-hot matrix of shape tokens=1 x vocab=1001 from the single token id (row 0 has 1 at column ids[0], 0 elsewhere; ids cast to long). Step 2: GEMM the one-hot matrix (1 x 1001) by the embedding table (1001 x 1152), no transposes. The result row equals exactly the table row selected by the id, so the result (1 x 1152) is mathematically identical to embedding for tokens=1. The table is the module's constant (module.weight).\", \"rel_err\": 0.0}",
+  "proposed_by": 184
+ },
+ {
+  "chain": "[{\"op\": \"one_hot\", \"params\": {\"num_classes\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "chain: one_hot {\"num_classes\": 1001}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
+  "check_ok": null,
+  "code": "def forward(module, ids):\n    table = module.weight\n    ids = ids.long().reshape(-1)\n    n = ids.shape[0]\n    onehot = torch.zeros(n, table.shape[0], dtype=table.dtype, device=table.device)\n    onehot[torch.arange(n, device=table.device), ids] = 1\n    return onehot @ table",
+  "id": 405,
+  "kind": "equivalent",
+  "name": "onehot_gemm_embed_1x1001x1152_B",
+  "op": "embedding",
+  "proposal": "{\"description\": \"One-hot GEMM embedding. Step 1: build a one-hot matrix of shape tokens=1 x vocab=1001 from the single token id (row 0 has 1 at column ids[0], 0 elsewhere; ids cast to long). Step 2: GEMM the one-hot matrix (1 x 1001) by the embedding table (1001 x 1152, the layer's constant used as the second activation), no transposes. The result row equals exactly the table row selected by the id, so the result (1 x 1152) is mathematically identical to embedding for tokens=1.\", \"rel_err\": 0.0}",
+  "proposed_by": 184
+ },
+ {
+  "chain": "[{\"op\": \"fused_onehot_gemm_embed_ref\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: fused_onehot_gemm_embed_ref {\"dim\": 1152, \"tokens\": 1, \"vocab\": 1001}: no reference to check it with (a new primitive needs `reference`); code: relative difference 0 (within 0.0001)",
+  "check_ok": null,
+  "code": "def forward(module, ids):\n    table = module.weight\n    ids = ids.long().reshape(-1)\n    n = ids.shape[0]\n    onehot = torch.zeros(n, table.shape[0], dtype=table.dtype, device=table.device)\n    onehot[torch.arange(n, device=table.device), ids] = 1\n    return onehot @ table",
+  "id": 406,
+  "kind": "equivalent",
+  "name": "onehot_gemm_embed_1x1001x1152_D",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Fused one-hot GEMM embedding. Step 1: build a one-hot matrix of shape tokens=1 x vocab=1001 from the single token id (row 0 has 1 at column ids[0], 0 elsewhere; ids cast to long). Step 2: GEMM the one-hot matrix (1 x 1001) by the embedding table (1001 x 1152), no transposes. The result row equals exactly the table row selected by the id, so the result (1 x 1152) is mathematically identical to embedding for tokens=1. The table is the layer's constant.\", \"rel_err\": 0.0}",
+  "proposed_by": 184
+ },
+ {
+  "chain": "[{\"name\": \"fused_oh_gemm\", \"op\": \"fused_oh_gemm\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: ValueError: not enough values to unpack (expected 2, got 1); code: relative difference 0 (within 0.0001)",
+  "check_ok": 0,
+  "code": "def forward(module, ids):\n    table = module.weight\n    ids = ids.long().reshape(-1)\n    n = ids.shape[0]\n    onehot = torch.zeros(n, table.shape[0], dtype=table.dtype, device=table.device)\n    onehot[torch.arange(n, device=table.device), ids] = 1\n    return onehot @ table",
+  "id": 408,
+  "kind": "equivalent",
+  "name": "onehot_gemm_embed_1x1001x1152_F",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Fused one-hot GEMM embedding. Step 1 (fused_oh_gemm): build a one-hot matrix of shape tokens=1 x vocab=1001 from the single token id (row 0 has 1 at column ids[0], 0 elsewhere; ids cast to long), then GEMM it (1 x 1001) by the embedding table (1001 x 1152, passed alongside the ids), no transposes. The result row equals exactly the table row selected by the id, so the result (1 x 1152) is mathematically identical to embedding for tokens=1.\", \"rel_err\": 0.0}",
+  "proposed_by": 184
+ },
+ {
+  "chain": "[{\"name\": \"fused_oh_gemm\", \"op\": \"fused_oh_gemm\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    table = module.weight\n    ids = ids.long().reshape(-1)\n    n = ids.shape[0]\n    onehot = torch.zeros(n, table.shape[0], dtype=table.dtype, device=table.device)\n    onehot[torch.arange(n, device=table.device), ids] = 1\n    return onehot @ table",
+  "id": 410,
+  "kind": "equivalent",
+  "name": "onehot_gemm_embed_1x1001x1152_G",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Fused one-hot GEMM embedding. Step 1 (fused_oh_gemm): build a one-hot matrix of shape tokens=1 x vocab=1001 from the single token id (row 0 has 1 at column ids[0], 0 elsewhere; ids cast to long), then GEMM it (1 x 1001) by the embedding table (1001 x 1152, the layer's constant), no transposes. The result row equals exactly the table row selected by the id, so the result (1 x 1152) is mathematically identical to embedding for tokens=1.\", \"rel_err\": 0.0}",
+  "proposed_by": 184
  },
  {
   "chain": "[{\"op\": \"fused_onehot_gemm_embed\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
@@ -2758,6 +3034,18 @@
   "op": "embedding",
   "proposal": "{\"description\": \"Fused one-hot GEMM embedding. Step 1: build a one-hot matrix of shape tokens x vocab from the token ids (row i has 1 at column ids[i], 0 elsewhere; ids cast to long). Step 2: GEMM the one-hot matrix (tokens x 1001) by the embedding table (1001 x 1152), no transposes. Each output row equals exactly the table row selected by the corresponding id, so the result (1 x 1152) is mathematically identical to embedding for tokens=1. The table is a constant passed alongside the ids as input to the primitive.\", \"rel_err\": 0.0}",
   "proposed_by": 152
+ },
+ {
+  "chain": "[{\"op\": \"fused_onehot_gemm_embed_1001x1152_ok\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "chain: matches embedding (FP32, relative 0); code: relative difference 0 (within 0.0001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    table = module.weight if hasattr(module, \"weight\") else module.table\n    ids = ids.long().reshape(-1)\n    tokens = ids.shape[0]\n    vocab, dim = table.shape\n    onehot = torch.zeros(tokens, vocab, dtype=table.dtype, device=table.device)\n    onehot[torch.arange(tokens, device=ids.device), ids] = 1.0\n    return onehot @ table",
+  "id": 399,
+  "kind": "equivalent",
+  "name": "onehot_gemm_embed_1x1001x1152_ok_final",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Fused one-hot GEMM embedding. Step 1: build a one-hot matrix of shape tokens x vocab from the token ids (row i has 1 at column ids[i], 0 elsewhere; ids cast to long). Step 2: GEMM the one-hot matrix (tokens x 1001) by the embedding table (1001 x 1152), no transposes. Each output row equals exactly the table row selected by the corresponding id, so the result (1 x 1152) is mathematically identical to embedding for tokens=1. The table is a constant passed alongside the ids as input to the fused primitive.\", \"rel_err\": 0.0}",
+  "proposed_by": 182
  },
  {
   "chain": "[{\"op\": \"fused_onehot_gemm\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
