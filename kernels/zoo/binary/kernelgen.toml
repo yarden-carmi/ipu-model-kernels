@@ -1,6 +1,9 @@
 chain = ["binary"]
 chain_in = "in0"
 chain_out = "out0"
-notes = """One row per pass: load in0's row, multiply it by 1 (CR1) into the accumulator, load in1's row while it
-multiplies, add it, and store the sum with an identity activation. The parameters are the call's: numel (a multiple
-of 128) and the add's fixed options."""
+notes = """One memory row of 128 per pass. The operand is selected by `broadcast`: in1's row (none),
+the constant `const` or its reciprocal (scalar, via a MULT constant CR), a row vector of `inner`
+elements repeated with a nested loop (row), or one element per `inner`-element row (col, element
+r of the column vector broadcast with a ones row in R_CYCLIC; for inner=320 the straddling row is
+fixed with a zeros row in slot 1, the second scalar in slot 2 and a window read at 192). The last
+partial row of a numel not divisible by 128 is stored with the ds half `dst`."""
