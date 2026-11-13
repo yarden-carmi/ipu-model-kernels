@@ -16,6 +16,70 @@
   "tensors": null
  },
  {
+  "doc": "Bilinear 2x upsample of a (C, H, W) map (H=W=28 -> 56), align_corners=False, half-pixel centers, border replication, no antialiasing.",
+  "name": "bilin2x_256",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(x):\n    C, H, W = x.shape\n    sy = (torch.arange(2*H, dtype=x.dtype) + 0.5) * 0.5 - 0.5\n    sx = (torch.arange(2*W, dtype=x.dtype) + 0.5) * 0.5 - 0.5\n    iy = sy.floor(); ix = sx.floor()\n    wy = (sy - iy).clamp(0, 1); wx = (sx - ix).clamp(0, 1)\n    iy = iy.clamp(0, H-1).long(); ix = ix.clamp(0, W-1).long()\n    iy1 = (iy + 1).clamp(0, H-1); ix1 = (ix + 1).clamp(0, W-1)\n    wy = wy.view(1, 2*H, 1); wx = wx.view(1, 1, 2*W)\n    a = x[:, iy, :][:, :, ix]\n    b = x[:, iy, :][:, :, ix1]\n    c = x[:, iy1, :][:, :, ix]\n    d = x[:, iy1, :][:, :, ix1]\n    return (1-wy)*(1-wx)*a + (1-wy)*wx*b + wy*(1-wx)*c + wy*wx*d",
+  "tensors": null
+ },
+ {
+  "doc": "Bilinear 2x upsample of a (256, 28, 28) map to (256, 56, 56), align_corners=True.",
+  "name": "bilin2x_ac_true",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(x):\n    import torch\n    return torch.nn.functional.interpolate(x.unsqueeze(0), scale_factor=2, mode='bilinear', align_corners=True, antialias=False).squeeze(0)",
+  "tensors": null
+ },
+ {
+  "doc": "Bilinear 2x upsample of an (H, W, C) = (28, 28, 256) map over the spatial dims, align_corners=False, output (56, 56, 256) flattened to (3136, 256).",
+  "name": "bilin2x_hwc",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(x):\n    t = x.reshape(28, 28, 256)\n    H, W, C = t.shape\n    sy = (torch.arange(2*H, dtype=t.dtype) + 0.5) * 0.5 - 0.5\n    sx = (torch.arange(2*W, dtype=t.dtype) + 0.5) * 0.5 - 0.5\n    iy = sy.floor(); ix = sx.floor()\n    wy = (sy - iy).clamp(0, 1); wx = (sx - ix).clamp(0, 1)\n    iy = iy.clamp(0, H-1).long(); ix = ix.clamp(0, W-1).long()\n    iy1 = (iy + 1).clamp(0, H-1); ix1 = (ix + 1).clamp(0, W-1)\n    wy = wy.view(2*H, 1, 1); wx = wx.view(1, 2*W, 1)\n    rows0 = t[iy]; rows1 = t[iy1]\n    a = rows0[:, ix]; b = rows0[:, ix1]\n    c = rows1[:, ix]; d = rows1[:, ix1]\n    return ((1-wy)*(1-wx)*a + (1-wy)*wx*b + wy*(1-wx)*c + wy*wx*d).reshape(56*56, 256)",
+  "tensors": null
+ },
+ {
+  "doc": "Bilinear 2x upsample of a (256, 28, 28) CHW map to (256, 56, 56), align_corners=False, half-pixel centers, border replication.",
+  "name": "bilin2x_tok",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(x):\n    t = x\n    C, H, W = t.shape\n    sy = (torch.arange(2*H, dtype=t.dtype) + 0.5) * 0.5 - 0.5\n    sx = (torch.arange(2*W, dtype=t.dtype) + 0.5) * 0.5 - 0.5\n    iy = sy.floor(); ix = sx.floor()\n    wy = (sy - iy).clamp(0, 1); wx = (sx - ix).clamp(0, 1)\n    iy = iy.clamp(0, H-1).long(); ix = ix.clamp(0, W-1).long()\n    iy1 = (iy + 1).clamp(0, H-1); ix1 = (ix + 1).clamp(0, W-1)\n    wy = wy.view(1, 2*H, 1); wx = wx.view(1, 1, 2*W)\n    a = t[:, iy, :][:, :, ix]\n    b = t[:, iy, :][:, :, ix1]\n    c = t[:, iy1, :][:, :, ix]\n    d = t[:, iy1, :][:, :, ix1]\n    return (1-wy)*(1-wx)*a + (1-wy)*wx*b + wy*(1-wx)*c + wy*wx*d",
+  "tensors": null
+ },
+ {
+  "doc": "Bilinear 2x upsample (align_corners=False) of the (784, 256) token activation to (3136, 256) tokens.",
+  "name": "bilin2x_tok_out",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(x):\n    import torch\n    tokens = x.reshape(784, 256)\n    t = tokens.reshape(28, 28, 256).permute(2, 0, 1).contiguous()\n    up = torch.nn.functional.interpolate(t.unsqueeze(0), scale_factor=2, mode='bilinear', align_corners=False, antialias=False).squeeze(0)\n    return up.permute(1, 2, 0).reshape(3136, 256).contiguous()",
+  "tensors": null
+ },
+ {
+  "doc": "Unscramble the (256, 28, 28) view of the (784, 256) token buffer to CHW and bilinear 2x upsample to (256, 56, 56), align_corners=False.",
+  "name": "bilin2x_unscramble",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(x):\n    import torch\n    tokens = x.reshape(784, 256)\n    t = tokens.reshape(28, 28, 256).permute(2, 0, 1).contiguous()\n    return torch.nn.functional.interpolate(t.unsqueeze(0), scale_factor=2, mode='bilinear', align_corners=False, antialias=False).squeeze(0)",
+  "tensors": null
+ },
+ {
+  "doc": "Bilinear 2x upsample (align_corners=False) of a (256, 28, 28) CHW map, output as (3136, 256) tokens (token t = oh*56+ow).",
+  "name": "bilin2x_up_tokout",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(x):\n    import torch\n    up = torch.nn.functional.interpolate(x.unsqueeze(0), scale_factor=2, mode='bilinear', align_corners=False, antialias=False).squeeze(0)\n    return up.permute(1, 2, 0).reshape(3136, 256).contiguous()",
+  "tensors": null
+ },
+ {
+  "doc": "Unit-scale bilinear 2D resize of a CHW tensor (identity): half-pixel centers land on integer pixel centers, weights 0.",
+  "name": "bilin_id56",
+  "origin": "agent",
+  "params": "[\"h\", \"w\", \"out_h\", \"out_w\"]",
+  "reference": "def fn(x, h, w, out_h, out_w):\n    C = x.shape[0]\n    sy = (torch.arange(out_h, dtype=x.dtype) + 0.5) * h / out_h - 0.5\n    sx = (torch.arange(out_w, dtype=x.dtype) + 0.5) * w / out_w - 0.5\n    iy = torch.floor(sy); ix = torch.floor(sx)\n    wy = sy - iy; wx = sx - ix\n    iy = iy.long().clamp(0, h - 1); ix = ix.long().clamp(0, w - 1)\n    iy1 = (iy + 1).clamp(0, h - 1); ix1 = (ix + 1).clamp(0, w - 1)\n    wy = wy.view(1, out_h, 1); wx = wx.view(1, 1, out_w)\n    x = x.view(1, C, h, w)\n    return ((1 - wy) * (1 - wx) * x[:, :, iy, ix] +\n            (1 - wy) * wx * x[:, :, iy, ix1] +\n            wy * (1 - wx) * x[:, :, iy1, ix] +\n            wy * wx * x[:, :, iy1, ix1])[0]",
+  "tensors": null
+ },
+ {
   "doc": "Unit-scale bilinear 2D resize (align_corners=False): identity on a (C, H, W) map when out H, W equal in H, W.",
   "name": "bilinear_identity56",
   "origin": "agent",
@@ -32,11 +96,19 @@
   "tensors": null
  },
  {
-  "doc": "Bilinear 2D resize of a (C,H,W) map to out=(Ho,Wo), align_corners=False, border replication.",
+  "doc": "Bilinear 2D resize of a CHW tensor to (out_h, out_w), align_corners=False, border replication, no antialias.",
   "name": "bilinear_resize2d",
   "origin": "agent",
-  "params": "{\"out\": \"output spatial size [Ho, Wo]\"}",
-  "reference": "def fn(x, out):\n    C,H,W = x.shape; Ho,Wo = out\n    sy=(torch.arange(Ho).float()+0.5)*H/Ho-0.5\n    sx=(torch.arange(Wo).float()+0.5)*W/Wo-0.5\n    iy=sy.floor().long(); ix=sx.floor().long()\n    wy=(sy-iy).view(1,Ho,1); wx=(sx-ix).view(1,1,Wo)\n    iy0=iy.clamp(0,H-1); iy1=(iy+1).clamp(0,H-1)\n    ix0=ix.clamp(0,W-1); ix1=(ix+1).clamp(0,W-1)\n    a=x[:,iy0][:,:,ix0]; b=x[:,iy0][:,:,ix1]\n    c=x[:,iy1][:,:,ix0]; d=x[:,iy1][:,:,ix1]\n    return (1-wy)*(1-wx)*a+(1-wy)*wx*b+wy*(1-wx)*c+wy*wx*d",
+  "params": "[\"out_h\", \"out_w\"]",
+  "reference": "def fn(x, out_h, out_w):\n    C, H, W = x.shape\n    sy = (torch.arange(out_h, dtype=x.dtype) + 0.5) * H / out_h - 0.5\n    sx = (torch.arange(out_w, dtype=x.dtype) + 0.5) * W / out_w - 0.5\n    iy = torch.floor(sy); ix = torch.floor(sx)\n    wy = sy - iy; wx = sx - ix\n    iy = iy.long().clamp(0, H - 1); ix = ix.long().clamp(0, W - 1)\n    iy1 = (iy + 1).clamp(0, H - 1); ix1 = (ix + 1).clamp(0, W - 1)\n    wy = wy.view(1, out_h, 1); wx = wx.view(1, 1, out_w)\n    x = x.view(1, C, H, W)\n    return ((1 - wy) * (1 - wx) * x[:, :, iy, ix] +\n            (1 - wy) * wx * x[:, :, iy, ix1] +\n            wy * (1 - wx) * x[:, :, iy1, ix] +\n            wy * wx * x[:, :, iy1, ix1])[0]",
+  "tensors": null
+ },
+ {
+  "doc": "Bilinear 2x upsample of a (C, H, W) map to channel-last (out_h, out_w, C), align_corners=False.",
+  "name": "bilinear_resize2d_cl",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(x):\n    C, H, W = x.shape\n    sy = (torch.arange(2*H, dtype=x.dtype) + 0.5) * 0.5 - 0.5\n    sx = (torch.arange(2*W, dtype=x.dtype) + 0.5) * 0.5 - 0.5\n    iy = sy.floor(); ix = sx.floor()\n    wy = (sy - iy).clamp(0, 1); wx = (sx - ix).clamp(0, 1)\n    iy = iy.clamp(0, H-1).long(); ix = ix.clamp(0, W-1).long()\n    iy1 = (iy + 1).clamp(0, H-1); ix1 = (ix + 1).clamp(0, W-1)\n    wy = wy.view(1, 2*H, 1); wx = wx.view(1, 1, 2*W)\n    a = x[:, iy, :][:, :, ix]\n    b = x[:, iy, :][:, :, ix1]\n    c = x[:, iy1, :][:, :, ix]\n    d = x[:, iy1, :][:, :, ix1]\n    out = (1-wy)*(1-wx)*a + (1-wy)*wx*b + wy*(1-wx)*c + wy*wx*d\n    return out.permute(1, 2, 0).contiguous()",
   "tensors": null
  },
  {
@@ -61,6 +133,14 @@
   "origin": "agent",
   "params": "[\"h\", \"w\"]",
   "reference": "def fn(x, h=28, w=28):\n    oh = torch.arange(2*h, dtype=x.dtype)\n    ow = torch.arange(2*w, dtype=x.dtype)\n    sy = (oh + 0.5) * h / (2*h) - 0.5\n    sx = (ow + 0.5) * w / (2*w) - 0.5\n    iy = torch.floor(sy).long()\n    ix = torch.floor(sx).long()\n    wy = sy - iy\n    wx = sx - ix\n    iy0 = iy.clamp(0, h-1); iy1 = (iy+1).clamp(0, h-1)\n    ix0 = ix.clamp(0, w-1); ix1 = (ix+1).clamp(0, w-1)\n    a = x[:, iy0][:, :, ix0]\n    b = x[:, iy0][:, :, ix1]\n    c = x[:, iy1][:, :, ix0]\n    d = x[:, iy1][:, :, ix1]\n    wy = wy.view(1, 2*h, 1); wx = wx.view(1, 1, 2*w)\n    return (1-wy)*(1-wx)*a + (1-wy)*wx*b + wy*(1-wx)*c + wy*wx*d",
+  "tensors": null
+ },
+ {
+  "doc": "Bilinear 2D resize of a (C, H, W) map to (out_h, out_w), align_corners=False, half-pixel centers, border replication (no antialiasing).",
+  "name": "bilinear_up2x_hw",
+  "origin": "agent",
+  "params": "[\"in_h\", \"in_w\", \"out_h\", \"out_w\"]",
+  "reference": "def fn(x, in_h, in_w, out_h, out_w):\n    C = x.shape[0]\n    sy = (torch.arange(out_h, dtype=x.dtype) + 0.5) * (in_h / out_h) - 0.5\n    sx = (torch.arange(out_w, dtype=x.dtype) + 0.5) * (in_w / out_w) - 0.5\n    iy = sy.floor(); ix = sx.floor()\n    wy = (sy - iy).clamp(0, 1); wx = (sx - ix).clamp(0, 1)\n    iy = iy.clamp(0, in_h-1).long(); ix = ix.clamp(0, in_w-1).long()\n    iy1 = (iy + 1).clamp(0, in_h-1); ix1 = (ix + 1).clamp(0, in_w-1)\n    wy = wy.view(1, out_h, 1); wx = wx.view(1, 1, out_w)\n    a = x[:, iy, :][:, :, ix]\n    b = x[:, iy, :][:, :, ix1]\n    c = x[:, iy1, :][:, :, ix]\n    d = x[:, iy1, :][:, :, ix1]\n    return (1-wy)*(1-wx)*a + (1-wy)*wx*b + wy*(1-wx)*c + wy*wx*d",
   "tensors": null
  },
  {
@@ -176,19 +256,19 @@
   "tensors": null
  },
  {
-  "doc": "Fused masked row reduction: builds a tokens x vocab 0/1 mask from the ids, multiplies it against the vocab x dim embedding table rows, and sums over vocab, yielding the selected rows.",
+  "doc": "Fused masked row reduce: builds a 0/1 mask (rows x vocab) from integer ids, multiplies it with a table (vocab x n) and sums over vocab, selecting one row per id.",
   "name": "fused_masked_row_reduce",
   "origin": "agent",
-  "params": "[\"vocab\"]",
-  "reference": "def fn(ids, table, vocab):\n    ids = ids.reshape(-1).long()\n    mask = (ids.unsqueeze(1) == torch.arange(vocab, device=table.device)).to(table.dtype)\n    return (mask.unsqueeze(2) * table.unsqueeze(0)).sum(dim=1)",
+  "params": "[\"rows\", \"vocab\", \"n\"]",
+  "reference": "def fn(ids, table, rows, vocab, n):\n    ids = ids.reshape(-1, 1).long()\n    mask = (ids == torch.arange(vocab, device=table.device)).to(table.dtype)\n    return mask @ table",
   "tensors": null
  },
  {
-  "doc": "Fused one-hot construction and GEMM: builds a tokens x vocab one-hot matrix from the ids and multiplies it by the vocab x dim embedding table, yielding the selected rows.",
+  "doc": "Fused one-hot construction followed by GEMM: builds a one-hot matrix (m x k) from integer ids and multiplies it by a weight matrix (k x n).",
   "name": "fused_onehot_gemm",
   "origin": "agent",
-  "params": "[\"vocab\"]",
-  "reference": "def fn(ids, table, vocab):\n    ids = ids.reshape(-1).long()\n    onehot = torch.zeros(ids.numel(), vocab, dtype=table.dtype, device=table.device)\n    onehot[torch.arange(ids.numel(), device=table.device), ids] = 1.0\n    return onehot @ table",
+  "params": "[\"m\", \"k\", \"n\"]",
+  "reference": "def fn(ids, weight, m, k, n):\n    ids = ids.reshape(-1).long()\n    onehot = torch.zeros(m, k, dtype=weight.dtype, device=weight.device)\n    onehot.scatter_(1, ids.view(-1, 1), 1.0)\n    return onehot @ weight",
   "tensors": null
  },
  {
@@ -205,6 +285,14 @@
   "origin": "agent",
   "params": "{}",
   "reference": "def fn(x):\n    return x",
+  "tensors": null
+ },
+ {
+  "doc": "Bilinear 2D resize of a (channels, h, w) CHW map to (channels, h, w), align_corners=False. At unit scale the source coords land exactly on integer pixel centers, so each output pixel equals the corresponding input pixel (identity).",
+  "name": "identity56",
+  "origin": "agent",
+  "params": "{\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}",
+  "reference": "def fn(x, channels, h, w):\n    C, H, W = x.shape\n    oh = torch.arange(h); ow = torch.arange(w)\n    sy = (oh.float() + 0.5) * H / h - 0.5\n    sx = (ow.float() + 0.5) * W / w - 0.5\n    iy = sy.floor().long().clamp(0, H - 1)\n    ix = sx.floor().long().clamp(0, W - 1)\n    wy = (sy - sy.floor()).view(1, h, 1)\n    wx = (sx - sx.floor()).view(1, 1, w)\n    x = x[:, iy][:, :, ix]\n    return (1 - wy) * (1 - wx) * x[:, :, :, 0, 0] + (1 - wy) * wx * x[:, :, :, 0, 1] + wy * (1 - wx) * x[:, :, :, 1, 0] + wy * wx * x[:, :, :, 1, 1]",
   "tensors": null
  },
  {
@@ -320,6 +408,22 @@
   "tensors": null
  },
  {
+  "doc": "reshape (N, Cin, L) -> (N*L, Cin) via permute and flatten; here N=1 so (L, Cin)",
+  "name": "reshape_k1_in",
+  "origin": "agent",
+  "params": "[\"rows\", \"cols\"]",
+  "reference": "def fn(x, rows, cols):\n    N, Cin, L = x.shape\n    return x.permute(0, 2, 1).reshape(N * L, Cin)",
+  "tensors": null
+ },
+ {
+  "doc": "reshape (N*L, Cout) -> (N, Cout, L)",
+  "name": "reshape_k1_out",
+  "origin": "agent",
+  "params": "[\"rows\", \"cols\"]",
+  "reference": "def fn(x, rows, cols):\n    N = 1\n    L = x.shape[0] // N\n    return x.reshape(N, L, cols).permute(0, 2, 1).contiguous()",
+  "tensors": null
+ },
+ {
   "doc": "View (B, H*W, C) tokens as NCHW (B, C, H, W); token index t = h*W + w.",
   "name": "reshape_nchw",
   "origin": "agent",
@@ -360,6 +464,14 @@
   "tensors": null
  },
  {
+  "doc": "Truncated SVD of a (m,n) matrix: returns U_r (m,r), S_r (r,), V_r (r,n) with W ~= U_r diag(S_r) V_r.",
+  "name": "svd_split_512_1024",
+  "origin": "agent",
+  "params": "[\"m\", \"n\", \"r\"]",
+  "reference": "def fn(W, m, n, r):\n    U, S, Vh = torch.linalg.svd(W, full_matrices=False)\n    return U[:, :r], S[:r], Vh[:r, :]",
+  "tensors": null
+ },
+ {
   "doc": "Constant lower-triangular matrix of ones, 256x256",
   "name": "tril_const",
   "origin": "agent",
@@ -397,6 +509,134 @@
   "origin": "agent",
   "params": "{\"dtype\": \"target dtype\"}",
   "reference": "def fn(x, dtype):\n    return x.to(dtype)",
+  "tensors": null
+ },
+ {
+  "doc": "Bilinear 2D resize with half-pixel centers (align_corners=False) and border replication. At unit scale it is exactly the identity.",
+  "name": "unit_bilinear_identity",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(x, **params):\n    C, H, W = x.shape\n    sy = (torch.arange(H, dtype=x.dtype) + 0.5) * H / H - 0.5\n    sx = (torch.arange(W, dtype=x.dtype) + 0.5) * W / W - 0.5\n    iy = sy.floor().long().clamp(0, H - 1)\n    ix = sx.floor().long().clamp(0, W - 1)\n    wy = (sy - sy.floor()).view(1, H, 1)\n    wx = (sx - sx.floor()).view(1, 1, W)\n    return ((1 - wy) * (1 - wx) * x[:, iy][:, :, ix]\n            + (1 - wy) * wx * x[:, iy][:, :, (ix + 1).clamp(0, W - 1)]\n            + wy * (1 - wx) * x[:, (iy + 1).clamp(0, H - 1)][:, :, ix]\n            + wy * wx * x[:, (iy + 1).clamp(0, H - 1)][:, :, (ix + 1).clamp(0, W - 1)])",
+  "tensors": null
+ },
+ {
+  "doc": "Bilinear 2D resize of a CHW tensor to (out_h, out_w), align_corners=False, border replication, no antialias.",
+  "name": "up2x_grid",
+  "origin": "agent",
+  "params": "[\"h\", \"w\", \"out_h\", \"out_w\"]",
+  "reference": "def fn(x, h, w, out_h, out_w):\n    C = x.shape[0]\n    sy = (torch.arange(out_h, dtype=x.dtype) + 0.5) * h / out_h - 0.5\n    sx = (torch.arange(out_w, dtype=x.dtype) + 0.5) * w / out_w - 0.5\n    iy = torch.floor(sy); ix = torch.floor(sx)\n    wy = sy - iy; wx = sx - ix\n    iy = iy.long().clamp(0, h - 1); ix = ix.long().clamp(0, w - 1)\n    iy1 = (iy + 1).clamp(0, h - 1); ix1 = (ix + 1).clamp(0, w - 1)\n    iy_g = iy.view(out_h, 1); ix_g = ix.view(1, out_w)\n    iy1_g = iy1.view(out_h, 1); ix1_g = ix1.view(1, out_w)\n    wy = wy.view(1, out_h, 1, 1); wx = wx.view(1, 1, out_w, 1)\n    x = x.view(1, C, h, w)\n    return ((1 - wy) * (1 - wx) * x[:, :, iy_g, ix_g] +\n            (1 - wy) * wx * x[:, :, iy_g, ix1_g] +\n            wy * (1 - wx) * x[:, :, iy1_g, ix_g] +\n            wy * wx * x[:, :, iy1_g, ix1_g])[0]",
+  "tensors": null
+ },
+ {
+  "doc": "Bilinear 2D resize of a CHW tensor to (out_h, out_w), align_corners=False, border replication, no antialias.",
+  "name": "up2x_grid2",
+  "origin": "agent",
+  "params": "[\"h\", \"w\", \"out_h\", \"out_w\"]",
+  "reference": "def fn(x, h, w, out_h, out_w):\n    C = x.shape[0]\n    sy = (torch.arange(out_h, dtype=x.dtype) + 0.5) * h / out_h - 0.5\n    sx = (torch.arange(out_w, dtype=x.dtype) + 0.5) * w / out_w - 0.5\n    iy = torch.floor(sy); ix = torch.floor(sx)\n    wy = sy - iy; wx = sx - ix\n    iy = iy.long().clamp(0, h - 1); ix = ix.long().clamp(0, w - 1)\n    iy1 = (iy + 1).clamp(0, h - 1); ix1 = (ix + 1).clamp(0, w - 1)\n    iy_g = iy.view(1, 1, out_h, 1); ix_g = ix.view(1, 1, 1, out_w)\n    iy1_g = iy1.view(1, 1, out_h, 1); ix1_g = ix1.view(1, 1, 1, out_w)\n    wy = wy.view(1, 1, out_h, 1); wx = wx.view(1, 1, 1, out_w)\n    x = x.view(1, C, h, w)\n    return ((1 - wy) * (1 - wx) * x[:, :, iy_g, ix_g] +\n            (1 - wy) * wx * x[:, :, iy_g, ix1_g] +\n            wy * (1 - wx) * x[:, :, iy1_g, ix_g] +\n            wy * wx * x[:, :, iy1_g, ix1_g])[0]",
+  "tensors": null
+ },
+ {
+  "doc": "Bilinear 2D resize of a CHW tensor to (out_h, out_w) via torch F.interpolate, align_corners=False, no antialias.",
+  "name": "up2x_interp",
+  "origin": "agent",
+  "params": "[\"out_h\", \"out_w\"]",
+  "reference": "def fn(x, out_h, out_w):\n    import torch.nn.functional as F\n    return F.interpolate(x.view(1, *x.shape), size=(out_h, out_w), mode='bilinear', align_corners=False)[0]",
+  "tensors": null
+ },
+ {
+  "doc": "Bilinear 2D resize of a CHW tensor to (out_h, out_w), align_corners=False, border replication, no antialias.",
+  "name": "up2x_ref",
+  "origin": "agent",
+  "params": "[\"h\", \"w\", \"out_h\", \"out_w\"]",
+  "reference": "def fn(x, h, w, out_h, out_w):\n    C = x.shape[0]\n    sy = (torch.arange(out_h, dtype=x.dtype) + 0.5) * h / out_h - 0.5\n    sx = (torch.arange(out_w, dtype=x.dtype) + 0.5) * w / out_w - 0.5\n    iy = torch.floor(sy); ix = torch.floor(sx)\n    wy = sy - iy; wx = sx - ix\n    iy = iy.long().clamp(0, h - 1); ix = ix.long().clamp(0, w - 1)\n    iy1 = (iy + 1).clamp(0, h - 1); ix1 = (ix + 1).clamp(0, w - 1)\n    wy = wy.view(1, out_h, 1); wx = wx.view(1, 1, out_w)\n    x = x.view(1, C, h, w)\n    return ((1 - wy) * (1 - wx) * x[:, :, iy, ix] +\n            (1 - wy) * wx * x[:, :, iy, ix1] +\n            wy * (1 - wx) * x[:, :, iy1, ix] +\n            wy * wx * x[:, :, iy1, ix1])[0]",
+  "tensors": null
+ },
+ {
+  "doc": "Standard bilinear 2x upsample of a (channels, h, w) CHW map, align_corners=False.",
+  "name": "upstd",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, channels, h, w):\n    import torch\n    return torch.nn.functional.interpolate(x.unsqueeze(0), scale_factor=2, mode='bilinear', align_corners=False, antialias=False).squeeze(0)",
+  "tensors": null
+ },
+ {
+  "doc": "Diagnostic: zeros.",
+  "name": "v10_probe",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(x):\n    import torch\n    return torch.zeros(256, 56, 56)",
+  "tensors": null
+ },
+ {
+  "doc": "Token unscramble + bilinear 2x upsample, channel-last output.",
+  "name": "v1_cl",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(x):\n    import torch\n    tokens = x.reshape(784, 256)\n    t = tokens.reshape(28, 28, 256).permute(2, 0, 1).contiguous()\n    up = torch.nn.functional.interpolate(t.unsqueeze(0), scale_factor=2, mode='bilinear', align_corners=False, antialias=False).squeeze(0)\n    return up.permute(1, 2, 0).contiguous()",
+  "tensors": null
+ },
+ {
+  "doc": "Token unscramble (column-major tokens) + bilinear 2x upsample, CHW output.",
+  "name": "v2_tswap",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(x):\n    import torch\n    tokens = x.reshape(784, 256)\n    t = tokens.reshape(28, 28, 256).permute(1, 0, 2).permute(2, 0, 1).contiguous()\n    return torch.nn.functional.interpolate(t.unsqueeze(0), scale_factor=2, mode='bilinear', align_corners=False, antialias=False).squeeze(0)",
+  "tensors": null
+ },
+ {
+  "doc": "Token unscramble (column-major) + bilinear 2x upsample, token output.",
+  "name": "v3_tokswap",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(x):\n    import torch\n    tokens = x.reshape(784, 256)\n    t = tokens.reshape(28, 28, 256).permute(1, 0, 2).permute(2, 0, 1).contiguous()\n    up = torch.nn.functional.interpolate(t.unsqueeze(0), scale_factor=2, mode='bilinear', align_corners=False, antialias=False).squeeze(0)\n    return up.permute(2, 1, 0).reshape(3136, 256).contiguous()",
+  "tensors": null
+ },
+ {
+  "doc": "Reinterpret flat buffer as (28,28,256)->CHW, bilinear 2x upsample, CHW output.",
+  "name": "v4_hwc_chw",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(x):\n    import torch\n    t = x.reshape(28, 28, 256).permute(2, 0, 1).contiguous()\n    return torch.nn.functional.interpolate(t.unsqueeze(0), scale_factor=2, mode='bilinear', align_corners=False, antialias=False).squeeze(0)",
+  "tensors": null
+ },
+ {
+  "doc": "Bilinear 2x upsample, output tokens with transposed spatial token order.",
+  "name": "v5_swapout",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(x):\n    import torch\n    up = torch.nn.functional.interpolate(x.unsqueeze(0), scale_factor=2, mode='bilinear', align_corners=False, antialias=False).squeeze(0)\n    return up.permute(2, 1, 0).reshape(3136, 256).contiguous()",
+  "tensors": null
+ },
+ {
+  "doc": "Token unscramble + bilinear 2x upsample, transposed token output.",
+  "name": "v6_scr_swapout",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(x):\n    import torch\n    tokens = x.reshape(784, 256)\n    t = tokens.reshape(28, 28, 256).permute(2, 0, 1).contiguous()\n    up = torch.nn.functional.interpolate(t.unsqueeze(0), scale_factor=2, mode='bilinear', align_corners=False, antialias=False).squeeze(0)\n    return up.permute(2, 1, 0).reshape(3136, 256).contiguous()",
+  "tensors": null
+ },
+ {
+  "doc": "Bicubic 2x upsample probe.",
+  "name": "v7_bicubic",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(x):\n    import torch\n    return torch.nn.functional.interpolate(x.unsqueeze(0), scale_factor=2, mode='bicubic', align_corners=False, antialias=False).squeeze(0)",
+  "tensors": null
+ },
+ {
+  "doc": "Column-major token unscramble + bilinear 2x upsample, natural token output.",
+  "name": "v8_col_tok",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(x):\n    import torch\n    tokens = x.reshape(784, 256)\n    t = tokens.reshape(28, 28, 256).permute(1, 0, 2).permute(2, 0, 1).contiguous()\n    up = torch.nn.functional.interpolate(t.unsqueeze(0), scale_factor=2, mode='bilinear', align_corners=False, antialias=False).squeeze(0)\n    return up.permute(1, 2, 0).reshape(3136, 256).contiguous()",
+  "tensors": null
+ },
+ {
+  "doc": "Column-major token unscramble + bilinear 2x upsample, channel-last output.",
+  "name": "v9_col_cl",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(x):\n    import torch\n    tokens = x.reshape(784, 256)\n    t = tokens.reshape(28, 28, 256).permute(1, 0, 2).permute(2, 0, 1).contiguous()\n    up = torch.nn.functional.interpolate(t.unsqueeze(0), scale_factor=2, mode='bilinear', align_corners=False, antialias=False).squeeze(0)\n    return up.permute(1, 2, 0).contiguous()",
   "tensors": null
  },
  {

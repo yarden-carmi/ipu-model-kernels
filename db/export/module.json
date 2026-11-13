@@ -19303,5 +19303,293 @@
   "parent_id": 2074,
   "path": "quant_conv",
   "repeat": 1
+ },
+ {
+  "capture_id": 49,
+  "class": null,
+  "first_seq": 0,
+  "id": 2147,
+  "parent_id": 2146,
+  "path": "(input)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 49,
+  "class": "DiTTransformer2DModel",
+  "first_seq": 0,
+  "id": 2146,
+  "parent_id": null,
+  "path": "(top)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 49,
+  "class": "LayerNorm",
+  "first_seq": 1085,
+  "id": 2148,
+  "parent_id": 2146,
+  "path": "norm_out",
+  "repeat": 1
+ },
+ {
+  "capture_id": 49,
+  "class": "PatchEmbed",
+  "first_seq": 3,
+  "id": 2149,
+  "parent_id": 2146,
+  "path": "pos_embed",
+  "repeat": 1
+ },
+ {
+  "capture_id": 49,
+  "class": "Conv2d",
+  "first_seq": 3,
+  "id": 2153,
+  "parent_id": 2149,
+  "path": "pos_embed.proj",
+  "repeat": 1
+ },
+ {
+  "capture_id": 49,
+  "class": "Linear",
+  "first_seq": 1084,
+  "id": 2150,
+  "parent_id": 2146,
+  "path": "proj_out_1",
+  "repeat": 1
+ },
+ {
+  "capture_id": 49,
+  "class": "Linear",
+  "first_seq": 1089,
+  "id": 2151,
+  "parent_id": 2146,
+  "path": "proj_out_2",
+  "repeat": 1
+ },
+ {
+  "capture_id": 49,
+  "class": "ModuleList",
+  "first_seq": 5,
+  "id": 2152,
+  "parent_id": 2146,
+  "path": "transformer_blocks",
+  "repeat": 1
+ },
+ {
+  "capture_id": 49,
+  "class": "BasicTransformerBlock",
+  "first_seq": 5,
+  "id": 2154,
+  "parent_id": 2152,
+  "path": "transformer_blocks.*",
+  "repeat": 28
+ },
+ {
+  "capture_id": 49,
+  "class": "Attention",
+  "first_seq": 25,
+  "id": 2155,
+  "parent_id": 2154,
+  "path": "transformer_blocks.*.attn1",
+  "repeat": 28
+ },
+ {
+  "capture_id": 49,
+  "class": "Linear",
+  "first_seq": 26,
+  "id": 2159,
+  "parent_id": 2155,
+  "path": "transformer_blocks.*.attn1.to_k",
+  "repeat": 28
+ },
+ {
+  "capture_id": 49,
+  "class": "ModuleList",
+  "first_seq": 29,
+  "id": 2160,
+  "parent_id": 2155,
+  "path": "transformer_blocks.*.attn1.to_out",
+  "repeat": 28
+ },
+ {
+  "capture_id": 49,
+  "class": "Linear",
+  "first_seq": 29,
+  "id": 2168,
+  "parent_id": 2160,
+  "path": "transformer_blocks.*.attn1.to_out.*",
+  "repeat": 56
+ },
+ {
+  "capture_id": 49,
+  "class": "Linear",
+  "first_seq": 25,
+  "id": 2161,
+  "parent_id": 2155,
+  "path": "transformer_blocks.*.attn1.to_q",
+  "repeat": 28
+ },
+ {
+  "capture_id": 49,
+  "class": "Linear",
+  "first_seq": 27,
+  "id": 2162,
+  "parent_id": 2155,
+  "path": "transformer_blocks.*.attn1.to_v",
+  "repeat": 28
+ },
+ {
+  "capture_id": 49,
+  "class": "FeedForward",
+  "first_seq": 37,
+  "id": 2156,
+  "parent_id": 2154,
+  "path": "transformer_blocks.*.ff",
+  "repeat": 28
+ },
+ {
+  "capture_id": 49,
+  "class": "ModuleList",
+  "first_seq": 37,
+  "id": 2163,
+  "parent_id": 2156,
+  "path": "transformer_blocks.*.ff.net",
+  "repeat": 28
+ },
+ {
+  "capture_id": 49,
+  "class": "GELU",
+  "first_seq": 37,
+  "id": 2169,
+  "parent_id": 2163,
+  "path": "transformer_blocks.*.ff.net.*",
+  "repeat": 84
+ },
+ {
+  "capture_id": 49,
+  "class": "Linear",
+  "first_seq": 37,
+  "id": 2173,
+  "parent_id": 2169,
+  "path": "transformer_blocks.*.ff.net.*.proj",
+  "repeat": 28
+ },
+ {
+  "capture_id": 49,
+  "class": "AdaLayerNormZero",
+  "first_seq": 5,
+  "id": 2157,
+  "parent_id": 2154,
+  "path": "transformer_blocks.*.norm1",
+  "repeat": 28
+ },
+ {
+  "capture_id": 49,
+  "class": "CombinedTimestepLabelEmbeddings",
+  "first_seq": 5,
+  "id": 2164,
+  "parent_id": 2157,
+  "path": "transformer_blocks.*.norm1.emb",
+  "repeat": 28
+ },
+ {
+  "capture_id": 49,
+  "class": "LabelEmbedding",
+  "first_seq": 17,
+  "id": 2170,
+  "parent_id": 2164,
+  "path": "transformer_blocks.*.norm1.emb.class_embedder",
+  "repeat": 28
+ },
+ {
+  "capture_id": 49,
+  "class": "Embedding",
+  "first_seq": 17,
+  "id": 2174,
+  "parent_id": 2170,
+  "path": "transformer_blocks.*.norm1.emb.class_embedder.embedding_table",
+  "repeat": 28
+ },
+ {
+  "capture_id": 49,
+  "class": "Timesteps",
+  "first_seq": 5,
+  "id": 2171,
+  "parent_id": 2164,
+  "path": "transformer_blocks.*.norm1.emb.time_proj",
+  "repeat": 28
+ },
+ {
+  "capture_id": 49,
+  "class": "TimestepEmbedding",
+  "first_seq": 14,
+  "id": 2172,
+  "parent_id": 2164,
+  "path": "transformer_blocks.*.norm1.emb.timestep_embedder",
+  "repeat": 28
+ },
+ {
+  "capture_id": 49,
+  "class": "SiLU",
+  "first_seq": 15,
+  "id": 2175,
+  "parent_id": 2172,
+  "path": "transformer_blocks.*.norm1.emb.timestep_embedder.act",
+  "repeat": 28
+ },
+ {
+  "capture_id": 49,
+  "class": "Linear",
+  "first_seq": 14,
+  "id": 2176,
+  "parent_id": 2172,
+  "path": "transformer_blocks.*.norm1.emb.timestep_embedder.linear_1",
+  "repeat": 28
+ },
+ {
+  "capture_id": 49,
+  "class": "Linear",
+  "first_seq": 16,
+  "id": 2177,
+  "parent_id": 2172,
+  "path": "transformer_blocks.*.norm1.emb.timestep_embedder.linear_2",
+  "repeat": 28
+ },
+ {
+  "capture_id": 49,
+  "class": "Linear",
+  "first_seq": 20,
+  "id": 2165,
+  "parent_id": 2157,
+  "path": "transformer_blocks.*.norm1.linear",
+  "repeat": 28
+ },
+ {
+  "capture_id": 49,
+  "class": "LayerNorm",
+  "first_seq": 21,
+  "id": 2166,
+  "parent_id": 2157,
+  "path": "transformer_blocks.*.norm1.norm",
+  "repeat": 28
+ },
+ {
+  "capture_id": 49,
+  "class": "SiLU",
+  "first_seq": 19,
+  "id": 2167,
+  "parent_id": 2157,
+  "path": "transformer_blocks.*.norm1.silu",
+  "repeat": 28
+ },
+ {
+  "capture_id": 49,
+  "class": "LayerNorm",
+  "first_seq": 33,
+  "id": 2158,
+  "parent_id": 2154,
+  "path": "transformer_blocks.*.norm3",
+  "repeat": 28
  }
 ]

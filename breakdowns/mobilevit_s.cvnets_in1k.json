@@ -209,6 +209,48 @@
    "sim_ppl": null,
    "sim_top1": 0.875,
    "sqnr_db": 18.556402091332703
+  },
+  {
+   "agreement": null,
+   "at": 1794532283.933481,
+   "cosine": null,
+   "mode": "full",
+   "nonfinite": null,
+   "precision": "tf32",
+   "purpose": "baseline",
+   "ref_ppl": null,
+   "ref_top1": 0.875,
+   "sim_ppl": null,
+   "sim_top1": 0.875,
+   "sqnr_db": null
+  },
+  {
+   "agreement": 1.0,
+   "at": 1794532283.9358754,
+   "cosine": 0.9761386382251241,
+   "mode": "quantized",
+   "nonfinite": 0,
+   "precision": "nx8",
+   "purpose": "baseline",
+   "ref_ppl": null,
+   "ref_top1": 0.875,
+   "sim_ppl": null,
+   "sim_top1": 0.875,
+   "sqnr_db": 13.251286704221387
+  },
+  {
+   "agreement": 1.0,
+   "at": 1794532347.7459688,
+   "cosine": 0.9888499807043089,
+   "mode": "quantized",
+   "nonfinite": 0,
+   "precision": "nx8",
+   "purpose": "formats",
+   "ref_ppl": null,
+   "ref_top1": 0.875,
+   "sim_ppl": null,
+   "sim_top1": 0.875,
+   "sqnr_db": 15.774446804411903
   }
  ],
  "category": "image-classification",
@@ -246,12 +288,12 @@
     "w": 256
    },
    "path": "stem.conv",
-   "q_sqnr": 43.019163871175024,
+   "q_sqnr": 41.08230911645219,
    "role": "main",
    "seq": 1,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "1 attempts, best milestone 0: files missing: conv2d_silu__gemm_silu__conv2d_silu__gemm__gemm__11339ac8.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -269,12 +311,12 @@
     "hw": 16384
    },
    "path": "stem.bn",
-   "q_sqnr": 35.872261326811156,
+   "q_sqnr": 33.917189959027745,
    "role": "folded_weights",
    "seq": 2,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "1 attempts, best milestone 0: files missing: conv2d_silu__gemm_silu__conv2d_silu__gemm__gemm__11339ac8.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -291,12 +333,12 @@
     "numel": 262144
    },
    "path": "stem.bn",
-   "q_sqnr": 33.27618567957226,
+   "q_sqnr": 31.62969096900723,
    "role": "folded_store",
    "seq": 3,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "1 attempts, best milestone 0: files missing: conv2d_silu__gemm_silu__conv2d_silu__gemm__gemm__11339ac8.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -324,12 +366,12 @@
     "w": 128
    },
    "path": "stages.*.*.conv1_1x1.conv",
-   "q_sqnr": 31.181853265671286,
+   "q_sqnr": 29.447027504476715,
    "role": "chained",
    "seq": 4,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "1 attempts, best milestone 0: files missing: conv2d_silu__gemm_silu__conv2d_silu__gemm__gemm__11339ac8.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -347,12 +389,12 @@
     "hw": 16384
    },
    "path": "stages.*.*.conv1_1x1.bn",
-   "q_sqnr": 27.083254603174677,
+   "q_sqnr": 25.05211059515848,
    "role": "folded_weights",
    "seq": 5,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "1 attempts, best milestone 0: files missing: conv2d_silu__gemm_silu__conv2d_silu__gemm__gemm__11339ac8.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -369,12 +411,12 @@
     "numel": 1048576
    },
    "path": "stages.*.*.conv1_1x1.bn",
-   "q_sqnr": 26.52270516713367,
+   "q_sqnr": 24.55896918533437,
    "role": "folded_store",
    "seq": 6,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "1 attempts, best milestone 0: files missing: conv2d_silu__gemm_silu__conv2d_silu__gemm__gemm__11339ac8.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -402,12 +444,12 @@
     "w": 128
    },
    "path": "stages.*.*.conv2_kxk.conv",
-   "q_sqnr": 26.682317755966185,
+   "q_sqnr": 24.60071570320956,
    "role": "chained",
    "seq": 7,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "1 attempts, best milestone 0: files missing: conv2d_silu__gemm_silu__conv2d_silu__gemm__gemm__11339ac8.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -425,12 +467,12 @@
     "hw": 16384
    },
    "path": "stages.*.*.conv2_kxk.bn",
-   "q_sqnr": 26.433255402529806,
+   "q_sqnr": 23.94997817003624,
    "role": "folded_weights",
    "seq": 8,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "1 attempts, best milestone 0: files missing: conv2d_silu__gemm_silu__conv2d_silu__gemm__gemm__11339ac8.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -447,12 +489,12 @@
     "numel": 1048576
    },
    "path": "stages.*.*.conv2_kxk.bn",
-   "q_sqnr": 27.00480925741706,
+   "q_sqnr": 24.373940552145022,
    "role": "folded_store",
    "seq": 9,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "1 attempts, best milestone 0: files missing: conv2d_silu__gemm_silu__conv2d_silu__gemm__gemm__11339ac8.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -480,12 +522,12 @@
     "w": 128
    },
    "path": "stages.*.*.conv3_1x1.conv",
-   "q_sqnr": 25.62544849094071,
+   "q_sqnr": 22.95562739050812,
    "role": "chained",
    "seq": 10,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "1 attempts, best milestone 0: files missing: conv2d_silu__gemm_silu__conv2d_silu__gemm__gemm__11339ac8.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -503,12 +545,12 @@
     "hw": 16384
    },
    "path": "stages.*.*.conv3_1x1.bn",
-   "q_sqnr": 24.344307418105405,
+   "q_sqnr": 21.758873944873784,
    "role": "folded_weights",
    "seq": 11,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "1 attempts, best milestone 0: files missing: conv2d_silu__gemm_silu__conv2d_silu__gemm__gemm__11339ac8.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -536,12 +578,12 @@
     "w": 128
    },
    "path": "stages.*.*.conv1_1x1.conv",
-   "q_sqnr": 24.513846923331045,
+   "q_sqnr": 22.04617265655095,
    "role": "chained",
    "seq": 12,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "1 attempts, best milestone 0: files missing: conv2d_silu__gemm_silu__conv2d_silu__gemm__gemm__11339ac8.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -559,12 +601,12 @@
     "hw": 16384
    },
    "path": "stages.*.*.conv1_1x1.bn",
-   "q_sqnr": 22.779691905470294,
+   "q_sqnr": 20.208619832802647,
    "role": "folded_weights",
    "seq": 13,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "1 attempts, best milestone 0: files missing: conv2d_silu__gemm_silu__conv2d_silu__gemm__gemm__11339ac8.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -581,12 +623,12 @@
     "numel": 2097152
    },
    "path": "stages.*.*.conv1_1x1.bn",
-   "q_sqnr": 21.65011002902048,
+   "q_sqnr": 19.218749071065822,
    "role": "folded_store",
    "seq": 14,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "1 attempts, best milestone 0: files missing: conv2d_silu__gemm_silu__conv2d_silu__gemm__gemm__11339ac8.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -614,12 +656,12 @@
     "w": 128
    },
    "path": "stages.*.*.conv2_kxk.conv",
-   "q_sqnr": 21.681060922289078,
+   "q_sqnr": 20.35237600928093,
    "role": "chained",
    "seq": 15,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "1 attempts, best milestone 0: files missing: conv2d_silu__gemm_silu__conv2d_silu__gemm__gemm__11339ac8.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -637,12 +679,12 @@
     "hw": 4096
    },
    "path": "stages.*.*.conv2_kxk.bn",
-   "q_sqnr": 27.86334109138061,
+   "q_sqnr": 26.4569642640774,
    "role": "folded_weights",
    "seq": 16,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "1 attempts, best milestone 0: files missing: conv2d_silu__gemm_silu__conv2d_silu__gemm__gemm__11339ac8.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -659,12 +701,12 @@
     "numel": 524288
    },
    "path": "stages.*.*.conv2_kxk.bn",
-   "q_sqnr": 31.67324440010777,
+   "q_sqnr": 30.465269543093765,
    "role": "folded_store",
    "seq": 17,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "1 attempts, best milestone 0: files missing: conv2d_silu__gemm_silu__conv2d_silu__gemm__gemm__11339ac8.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -692,12 +734,12 @@
     "w": 64
    },
    "path": "stages.*.*.conv3_1x1.conv",
-   "q_sqnr": 31.675572387329737,
+   "q_sqnr": 30.35336399951239,
    "role": "chained",
    "seq": 18,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "1 attempts, best milestone 0: files missing: conv2d_silu__gemm_silu__conv2d_silu__gemm__gemm__11339ac8.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -715,12 +757,12 @@
     "hw": 4096
    },
    "path": "stages.*.*.conv3_1x1.bn",
-   "q_sqnr": 20.489662264561975,
+   "q_sqnr": 19.195615975745486,
    "role": "folded_weights",
    "seq": 19,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "1 attempts, best milestone 0: files missing: conv2d_silu__gemm_silu__conv2d_silu__gemm__gemm__11339ac8.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -748,12 +790,12 @@
     "w": 64
    },
    "path": "stages.*.*.conv1_1x1.conv",
-   "q_sqnr": 19.719022105644388,
+   "q_sqnr": 18.569998100188407,
    "role": "chained",
    "seq": 20,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "1 attempts, best milestone 0: files missing: conv2d_silu__gemm_silu__conv2d_silu__gemm__gemm__11339ac8.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -771,12 +813,12 @@
     "hw": 4096
    },
    "path": "stages.*.*.conv1_1x1.bn",
-   "q_sqnr": 16.119494865906205,
+   "q_sqnr": 15.190771556218916,
    "role": "folded_weights",
    "seq": 21,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "1 attempts, best milestone 0: files missing: conv2d_silu__gemm_silu__conv2d_silu__gemm__gemm__11339ac8.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -793,12 +835,12 @@
     "numel": 1048576
    },
    "path": "stages.*.*.conv1_1x1.bn",
-   "q_sqnr": 15.161400351282953,
+   "q_sqnr": 13.955924696320167,
    "role": "folded_store",
    "seq": 22,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "1 attempts, best milestone 0: files missing: conv2d_silu__gemm_silu__conv2d_silu__gemm__gemm__11339ac8.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -826,12 +868,12 @@
     "w": 64
    },
    "path": "stages.*.*.conv2_kxk.conv",
-   "q_sqnr": 13.847396733714367,
+   "q_sqnr": 12.729679943586031,
    "role": "chained",
    "seq": 23,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "1 attempts, best milestone 0: files missing: conv2d_silu__gemm_silu__conv2d_silu__gemm__gemm__11339ac8.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -849,12 +891,12 @@
     "hw": 4096
    },
    "path": "stages.*.*.conv2_kxk.bn",
-   "q_sqnr": 16.78991506827155,
+   "q_sqnr": 15.426984114851317,
    "role": "folded_weights",
    "seq": 24,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "1 attempts, best milestone 0: files missing: conv2d_silu__gemm_silu__conv2d_silu__gemm__gemm__11339ac8.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -871,12 +913,12 @@
     "numel": 1048576
    },
    "path": "stages.*.*.conv2_kxk.bn",
-   "q_sqnr": 16.835638821040234,
+   "q_sqnr": 15.39095274768865,
    "role": "folded_store",
    "seq": 25,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "1 attempts, best milestone 0: files missing: conv2d_silu__gemm_silu__conv2d_silu__gemm__gemm__11339ac8.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -904,12 +946,12 @@
     "w": 64
    },
    "path": "stages.*.*.conv3_1x1.conv",
-   "q_sqnr": 18.673143652655796,
+   "q_sqnr": 16.89478097826841,
    "role": "chained",
    "seq": 26,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "1 attempts, best milestone 0: files missing: conv2d_silu__gemm_silu__conv2d_silu__gemm__gemm__11339ac8.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -927,12 +969,12 @@
     "hw": 4096
    },
    "path": "stages.*.*.conv3_1x1.bn",
-   "q_sqnr": 18.604211792811245,
+   "q_sqnr": 16.88341759906723,
    "role": "folded_weights",
    "seq": 27,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "1 attempts, best milestone 0: files missing: conv2d_silu__gemm_silu__conv2d_silu__gemm__gemm__11339ac8.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -951,12 +993,12 @@
     "numel": 262144
    },
    "path": "stages.*.*",
-   "q_sqnr": 20.025565316425386,
+   "q_sqnr": 18.497028872087412,
    "role": "chained",
    "seq": 28,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "1 attempts, best milestone 0: files missing: conv2d_silu__gemm_silu__conv2d_silu__gemm__gemm__11339ac8.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -984,12 +1026,12 @@
     "w": 64
    },
    "path": "stages.*.*.conv1_1x1.conv",
-   "q_sqnr": 19.874785610013724,
+   "q_sqnr": 18.520809047074334,
    "role": "chained",
    "seq": 29,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "1 attempts, best milestone 0: files missing: conv2d_silu__gemm_silu__conv2d_silu__gemm__gemm__11339ac8.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -1007,12 +1049,12 @@
     "hw": 4096
    },
    "path": "stages.*.*.conv1_1x1.bn",
-   "q_sqnr": 17.268585292460536,
+   "q_sqnr": 15.994756506237067,
    "role": "folded_weights",
    "seq": 30,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "1 attempts, best milestone 0: files missing: conv2d_silu__gemm_silu__conv2d_silu__gemm__gemm__11339ac8.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -1029,12 +1071,12 @@
     "numel": 1048576
    },
    "path": "stages.*.*.conv1_1x1.bn",
-   "q_sqnr": 15.794095754241742,
+   "q_sqnr": 14.527664415935915,
    "role": "folded_store",
    "seq": 31,
-   "status": "blocked",
+   "status": "not_tried",
    "version": null,
-   "why": "1 attempts, best milestone 0: files missing: conv2d_silu__gemm_silu__conv2d_silu__gemm__gemm__11339ac8.asm, kernel.toml, reference.py"
+   "why": null
   },
   {
    "calls": 1.0,
@@ -1062,7 +1104,7 @@
     "w": 64
    },
    "path": "stages.*.*.conv2_kxk.conv",
-   "q_sqnr": 16.556255078148617,
+   "q_sqnr": 15.037072419682211,
    "role": "main",
    "seq": 32,
    "status": "not_tried",
@@ -1085,7 +1127,7 @@
     "hw": 4096
    },
    "path": "stages.*.*.conv2_kxk.bn",
-   "q_sqnr": 17.462285243767084,
+   "q_sqnr": 15.765304790527509,
    "role": "folded_weights",
    "seq": 33,
    "status": "not_tried",
@@ -1107,7 +1149,7 @@
     "numel": 1048576
    },
    "path": "stages.*.*.conv2_kxk.bn",
-   "q_sqnr": 18.083523032223642,
+   "q_sqnr": 16.422822688243155,
    "role": "folded_store",
    "seq": 34,
    "status": "not_tried",
@@ -1140,7 +1182,7 @@
     "w": 64
    },
    "path": "stages.*.*.conv3_1x1.conv",
-   "q_sqnr": 19.560745275046855,
+   "q_sqnr": 17.767134491909225,
    "role": "chained",
    "seq": 35,
    "status": "not_tried",
@@ -1163,7 +1205,7 @@
     "hw": 4096
    },
    "path": "stages.*.*.conv3_1x1.bn",
-   "q_sqnr": 16.027839681644302,
+   "q_sqnr": 14.257681943721092,
    "role": "folded_weights",
    "seq": 36,
    "status": "not_tried",
@@ -1187,7 +1229,7 @@
     "numel": 262144
    },
    "path": "stages.*.*",
-   "q_sqnr": 18.347088173298495,
+   "q_sqnr": 16.69340559197174,
    "role": "chained",
    "seq": 37,
    "status": "not_tried",
@@ -1220,7 +1262,7 @@
     "w": 64
    },
    "path": "stages.*.*.conv1_1x1.conv",
-   "q_sqnr": 18.44938766604233,
+   "q_sqnr": 16.75147872448803,
    "role": "chained",
    "seq": 38,
    "status": "not_tried",
@@ -1243,7 +1285,7 @@
     "hw": 4096
    },
    "path": "stages.*.*.conv1_1x1.bn",
-   "q_sqnr": 16.823154122401114,
+   "q_sqnr": 15.119616181225242,
    "role": "folded_weights",
    "seq": 39,
    "status": "not_tried",
@@ -1265,7 +1307,7 @@
     "numel": 1048576
    },
    "path": "stages.*.*.conv1_1x1.bn",
-   "q_sqnr": 14.494020667651366,
+   "q_sqnr": 12.682505535373018,
    "role": "folded_store",
    "seq": 40,
    "status": "not_tried",
@@ -1298,7 +1340,7 @@
     "w": 64
    },
    "path": "stages.*.*.conv2_kxk.conv",
-   "q_sqnr": 15.571183380900726,
+   "q_sqnr": 14.290057464629701,
    "role": "chained",
    "seq": 41,
    "status": "not_tried",
@@ -1321,7 +1363,7 @@
     "hw": 1024
    },
    "path": "stages.*.*.conv2_kxk.bn",
-   "q_sqnr": 20.11200127077708,
+   "q_sqnr": 18.97039871441353,
    "role": "folded_weights",
    "seq": 42,
    "status": "not_tried",
@@ -1343,7 +1385,7 @@
     "numel": 262144
    },
    "path": "stages.*.*.conv2_kxk.bn",
-   "q_sqnr": 23.311104827926698,
+   "q_sqnr": 22.200912471551106,
    "role": "folded_store",
    "seq": 43,
    "status": "not_tried",
@@ -1376,7 +1418,7 @@
     "w": 32
    },
    "path": "stages.*.*.conv3_1x1.conv",
-   "q_sqnr": 22.36296016017629,
+   "q_sqnr": 21.218689682730435,
    "role": "chained",
    "seq": 44,
    "status": "not_tried",
@@ -1399,7 +1441,7 @@
     "hw": 1024
    },
    "path": "stages.*.*.conv3_1x1.bn",
-   "q_sqnr": 15.160303385230673,
+   "q_sqnr": 14.023133087260916,
    "role": "folded_weights",
    "seq": 45,
    "status": "not_tried",
@@ -1432,7 +1474,7 @@
     "w": 32
    },
    "path": "stages.*.*.conv_kxk.conv",
-   "q_sqnr": 18.043428774709398,
+   "q_sqnr": 16.829045126911716,
    "role": "chained",
    "seq": 46,
    "status": "not_tried",
@@ -1455,7 +1497,7 @@
     "hw": 1024
    },
    "path": "stages.*.*.conv_kxk.bn",
-   "q_sqnr": 16.944403923202554,
+   "q_sqnr": 15.723968443390623,
    "role": "folded_weights",
    "seq": 47,
    "status": "not_tried",
@@ -1477,7 +1519,7 @@
     "numel": 98304
    },
    "path": "stages.*.*.conv_kxk.bn",
-   "q_sqnr": 16.66007864916753,
+   "q_sqnr": 15.38659567870794,
    "role": "folded_store",
    "seq": 48,
    "status": "not_tried",
@@ -1510,7 +1552,7 @@
     "w": 32
    },
    "path": "stages.*.*.conv_1x1",
-   "q_sqnr": 16.286036545051186,
+   "q_sqnr": 14.950268602952423,
    "role": "chained",
    "seq": 49,
    "status": "not_tried",
@@ -1534,7 +1576,7 @@
     "tokens": 1024
    },
    "path": "stages.*.*.transformer.*.norm1",
-   "q_sqnr": 13.920542164506164,
+   "q_sqnr": 12.559844700397342,
    "role": "chained",
    "seq": 50,
    "status": "not_tried",
@@ -1559,7 +1601,7 @@
     "n": 432
    },
    "path": "stages.*.*.transformer.*.attn.qkv",
-   "q_sqnr": 16.547977389874212,
+   "q_sqnr": 15.230825748390053,
    "role": "chained",
    "seq": 51,
    "status": "not_tried",
@@ -1585,7 +1627,7 @@
     "q": 256
    },
    "path": "stages.*.*.transformer.*.attn",
-   "q_sqnr": 12.084451270971524,
+   "q_sqnr": 11.097768986353332,
    "role": "main",
    "seq": 52,
    "status": "not_tried",
@@ -1610,7 +1652,7 @@
     "n": 144
    },
    "path": "stages.*.*.transformer.*.attn.proj",
-   "q_sqnr": 12.618720499147509,
+   "q_sqnr": 11.612670076233858,
    "role": "chained",
    "seq": 53,
    "status": "not_tried",
@@ -1634,7 +1676,7 @@
     "numel": 147456
    },
    "path": "stages.*.*.transformer.*",
-   "q_sqnr": 15.076447513577788,
+   "q_sqnr": 13.876046544845844,
    "role": "chained",
    "seq": 54,
    "status": "not_tried",
@@ -1658,7 +1700,7 @@
     "tokens": 1024
    },
    "path": "stages.*.*.transformer.*.norm2",
-   "q_sqnr": 14.351829584135915,
+   "q_sqnr": 13.063895130303669,
    "role": "chained",
    "seq": 55,
    "status": "not_tried",
@@ -1683,7 +1725,7 @@
     "n": 288
    },
    "path": "stages.*.*.transformer.*.mlp.fc1",
-   "q_sqnr": 18.67319072038827,
+   "q_sqnr": 17.257358276956825,
    "role": "chained",
    "seq": 56,
    "status": "not_tried",
@@ -1705,7 +1747,7 @@
     "numel": 294912
    },
    "path": "stages.*.*.transformer.*.mlp.act",
-   "q_sqnr": 11.742527162369639,
+   "q_sqnr": 10.540431361246988,
    "role": "folded_store",
    "seq": 57,
    "status": "not_tried",
@@ -1730,7 +1772,7 @@
     "n": 144
    },
    "path": "stages.*.*.transformer.*.mlp.fc2",
-   "q_sqnr": 10.415631695561153,
+   "q_sqnr": 9.157675644467684,
    "role": "chained",
    "seq": 58,
    "status": "not_tried",
@@ -1754,7 +1796,7 @@
     "numel": 147456
    },
    "path": "stages.*.*.transformer.*",
-   "q_sqnr": 14.148008294180606,
+   "q_sqnr": 12.897867639310913,
    "role": "chained",
    "seq": 59,
    "status": "not_tried",
@@ -1778,7 +1820,7 @@
     "tokens": 1024
    },
    "path": "stages.*.*.transformer.*.norm1",
-   "q_sqnr": 12.90922810567653,
+   "q_sqnr": 11.545745304255526,
    "role": "chained",
    "seq": 60,
    "status": "not_tried",
@@ -1803,7 +1845,7 @@
     "n": 432
    },
    "path": "stages.*.*.transformer.*.attn.qkv",
-   "q_sqnr": 14.788839452166227,
+   "q_sqnr": 13.334431772572897,
    "role": "chained",
    "seq": 61,
    "status": "not_tried",
@@ -1829,7 +1871,7 @@
     "q": 256
    },
    "path": "stages.*.*.transformer.*.attn",
-   "q_sqnr": 12.999178764751617,
+   "q_sqnr": 11.695384814119434,
    "role": "main",
    "seq": 62,
    "status": "not_tried",
@@ -1854,7 +1896,7 @@
     "n": 144
    },
    "path": "stages.*.*.transformer.*.attn.proj",
-   "q_sqnr": 12.901826910103047,
+   "q_sqnr": 11.545832005620012,
    "role": "chained",
    "seq": 63,
    "status": "not_tried",
@@ -1878,7 +1920,7 @@
     "numel": 147456
    },
    "path": "stages.*.*.transformer.*",
-   "q_sqnr": 14.049369114027744,
+   "q_sqnr": 12.784049338178287,
    "role": "chained",
    "seq": 64,
    "status": "not_tried",
@@ -1902,7 +1944,7 @@
     "tokens": 1024
    },
    "path": "stages.*.*.transformer.*.norm2",
-   "q_sqnr": 14.012696430153305,
+   "q_sqnr": 12.657113248682535,
    "role": "chained",
    "seq": 65,
    "status": "not_tried",
@@ -1927,7 +1969,7 @@
     "n": 288
    },
    "path": "stages.*.*.transformer.*.mlp.fc1",
-   "q_sqnr": 18.326083883818093,
+   "q_sqnr": 16.922934310409666,
    "role": "chained",
    "seq": 66,
    "status": "not_tried",
@@ -1949,7 +1991,7 @@
     "numel": 294912
    },
    "path": "stages.*.*.transformer.*.mlp.act",
-   "q_sqnr": 12.759408991575201,
+   "q_sqnr": 11.551337673991512,
    "role": "folded_store",
    "seq": 67,
    "status": "not_tried",
@@ -1974,7 +2016,7 @@
     "n": 144
    },
    "path": "stages.*.*.transformer.*.mlp.fc2",
-   "q_sqnr": 13.242043671772015,
+   "q_sqnr": 12.056450366265427,
    "role": "chained",
    "seq": 68,
    "status": "not_tried",
@@ -1998,7 +2040,7 @@
     "numel": 147456
    },
    "path": "stages.*.*.transformer.*",
-   "q_sqnr": 14.803633038629522,
+   "q_sqnr": 13.572610807181109,
    "role": "chained",
    "seq": 69,
    "status": "not_tried",
@@ -2022,7 +2064,7 @@
     "tokens": 1024
    },
    "path": "stages.*.*.norm",
-   "q_sqnr": 17.495603975420654,
+   "q_sqnr": 16.171034845994747,
    "role": "chained",
    "seq": 70,
    "status": "not_tried",
@@ -2055,7 +2097,7 @@
     "w": 32
    },
    "path": "stages.*.*.conv_proj.conv",
-   "q_sqnr": 18.446521342055277,
+   "q_sqnr": 17.03498163299689,
    "role": "main",
    "seq": 71,
    "status": "not_tried",
@@ -2078,7 +2120,7 @@
     "hw": 1024
    },
    "path": "stages.*.*.conv_proj.bn",
-   "q_sqnr": 15.230701439083612,
+   "q_sqnr": 13.80298485702487,
    "role": "folded_weights",
    "seq": 72,
    "status": "not_tried",
@@ -2100,7 +2142,7 @@
     "numel": 98304
    },
    "path": "stages.*.*.conv_proj.bn",
-   "q_sqnr": 14.116318565432113,
+   "q_sqnr": 12.716088110227485,
    "role": "folded_store",
    "seq": 73,
    "status": "not_tried",
@@ -2122,7 +2164,7 @@
     "numel": 196608
    },
    "path": "stages.*.*",
-   "q_sqnr": 14.698732582017012,
+   "q_sqnr": 13.435511114313305,
    "role": "layout",
    "seq": 74,
    "status": "not_tried",
@@ -2155,7 +2197,7 @@
     "w": 32
    },
    "path": "stages.*.*.conv_fusion.conv",
-   "q_sqnr": 17.040007240259882,
+   "q_sqnr": 15.988046413012746,
    "role": "chained",
    "seq": 75,
    "status": "not_tried",
@@ -2178,7 +2220,7 @@
     "hw": 1024
    },
    "path": "stages.*.*.conv_fusion.bn",
-   "q_sqnr": 18.46672727701427,
+   "q_sqnr": 17.318350074912384,
    "role": "folded_weights",
    "seq": 76,
    "status": "not_tried",
@@ -2200,7 +2242,7 @@
     "numel": 98304
    },
    "path": "stages.*.*.conv_fusion.bn",
-   "q_sqnr": 18.025501070644033,
+   "q_sqnr": 16.860312405827234,
    "role": "folded_store",
    "seq": 77,
    "status": "not_tried",
@@ -2233,7 +2275,7 @@
     "w": 32
    },
    "path": "stages.*.*.conv1_1x1.conv",
-   "q_sqnr": 18.350973603467594,
+   "q_sqnr": 17.124817316061993,
    "role": "chained",
    "seq": 78,
    "status": "not_tried",
@@ -2256,7 +2298,7 @@
     "hw": 1024
    },
    "path": "stages.*.*.conv1_1x1.bn",
-   "q_sqnr": 19.765729614566624,
+   "q_sqnr": 18.51060462650902,
    "role": "folded_weights",
    "seq": 79,
    "status": "not_tried",
@@ -2278,7 +2320,7 @@
     "numel": 393216
    },
    "path": "stages.*.*.conv1_1x1.bn",
-   "q_sqnr": 17.97858727079678,
+   "q_sqnr": 16.7754461488165,
    "role": "folded_store",
    "seq": 80,
    "status": "not_tried",
@@ -2311,7 +2353,7 @@
     "w": 32
    },
    "path": "stages.*.*.conv2_kxk.conv",
-   "q_sqnr": 19.4269504851368,
+   "q_sqnr": 18.402451504187894,
    "role": "chained",
    "seq": 81,
    "status": "not_tried",
@@ -2334,7 +2376,7 @@
     "hw": 256
    },
    "path": "stages.*.*.conv2_kxk.bn",
-   "q_sqnr": 24.234302279494884,
+   "q_sqnr": 23.003847887177535,
    "role": "folded_weights",
    "seq": 82,
    "status": "not_tried",
@@ -2356,7 +2398,7 @@
     "numel": 98304
    },
    "path": "stages.*.*.conv2_kxk.bn",
-   "q_sqnr": 27.37863808437522,
+   "q_sqnr": 26.19364818062381,
    "role": "folded_store",
    "seq": 83,
    "status": "not_tried",
@@ -2389,7 +2431,7 @@
     "w": 16
    },
    "path": "stages.*.*.conv3_1x1.conv",
-   "q_sqnr": 24.513935718908805,
+   "q_sqnr": 23.371024762248943,
    "role": "chained",
    "seq": 84,
    "status": "not_tried",
@@ -2412,7 +2454,7 @@
     "hw": 256
    },
    "path": "stages.*.*.conv3_1x1.bn",
-   "q_sqnr": 16.29667894812262,
+   "q_sqnr": 15.150463532561663,
    "role": "folded_weights",
    "seq": 85,
    "status": "not_tried",
@@ -2445,7 +2487,7 @@
     "w": 16
    },
    "path": "stages.*.*.conv_kxk.conv",
-   "q_sqnr": 18.024527241521263,
+   "q_sqnr": 16.999246326655545,
    "role": "chained",
    "seq": 86,
    "status": "not_tried",
@@ -2468,7 +2510,7 @@
     "hw": 256
    },
    "path": "stages.*.*.conv_kxk.bn",
-   "q_sqnr": 18.197873050115653,
+   "q_sqnr": 17.16065330528708,
    "role": "folded_weights",
    "seq": 87,
    "status": "not_tried",
@@ -2490,7 +2532,7 @@
     "numel": 32768
    },
    "path": "stages.*.*.conv_kxk.bn",
-   "q_sqnr": 18.40035646530199,
+   "q_sqnr": 17.340532946156873,
    "role": "folded_store",
    "seq": 88,
    "status": "not_tried",
@@ -2523,7 +2565,7 @@
     "w": 16
    },
    "path": "stages.*.*.conv_1x1",
-   "q_sqnr": 17.44260077493199,
+   "q_sqnr": 16.393385871793626,
    "role": "chained",
    "seq": 89,
    "status": "not_tried",
@@ -2547,7 +2589,7 @@
     "tokens": 256
    },
    "path": "stages.*.*.transformer.*.norm1",
-   "q_sqnr": 14.92334602427386,
+   "q_sqnr": 13.86236562173969,
    "role": "chained",
    "seq": 90,
    "status": "not_tried",
@@ -2572,7 +2614,7 @@
     "n": 576
    },
    "path": "stages.*.*.transformer.*.attn.qkv",
-   "q_sqnr": 16.684940286808217,
+   "q_sqnr": 15.618132039301882,
    "role": "chained",
    "seq": 91,
    "status": "not_tried",
@@ -2598,7 +2640,7 @@
     "q": 64
    },
    "path": "stages.*.*.transformer.*.attn",
-   "q_sqnr": 13.230640406315807,
+   "q_sqnr": 12.370395496526704,
    "role": "main",
    "seq": 92,
    "status": "not_tried",
@@ -2623,7 +2665,7 @@
     "n": 192
    },
    "path": "stages.*.*.transformer.*.attn.proj",
-   "q_sqnr": 14.551316735860274,
+   "q_sqnr": 13.621839487121505,
    "role": "chained",
    "seq": 93,
    "status": "not_tried",
@@ -2647,7 +2689,7 @@
     "numel": 49152
    },
    "path": "stages.*.*.transformer.*",
-   "q_sqnr": 17.219499668861886,
+   "q_sqnr": 16.18197421606451,
    "role": "chained",
    "seq": 94,
    "status": "not_tried",
@@ -2671,7 +2713,7 @@
     "tokens": 256
    },
    "path": "stages.*.*.transformer.*.norm2",
-   "q_sqnr": 16.238299977523717,
+   "q_sqnr": 15.184793385942188,
    "role": "chained",
    "seq": 95,
    "status": "not_tried",
@@ -2696,7 +2738,7 @@
     "n": 384
    },
    "path": "stages.*.*.transformer.*.mlp.fc1",
-   "q_sqnr": 22.379434873816564,
+   "q_sqnr": 21.265696906450163,
    "role": "chained",
    "seq": 96,
    "status": "not_tried",
@@ -2718,7 +2760,7 @@
     "numel": 98304
    },
    "path": "stages.*.*.transformer.*.mlp.act",
-   "q_sqnr": 14.76302734353554,
+   "q_sqnr": 13.708142630636742,
    "role": "folded_store",
    "seq": 97,
    "status": "not_tried",
@@ -2743,7 +2785,7 @@
     "n": 192
    },
    "path": "stages.*.*.transformer.*.mlp.fc2",
-   "q_sqnr": 13.828080293229878,
+   "q_sqnr": 12.804518040303607,
    "role": "chained",
    "seq": 98,
    "status": "not_tried",
@@ -2767,7 +2809,7 @@
     "numel": 49152
    },
    "path": "stages.*.*.transformer.*",
-   "q_sqnr": 16.33738243234202,
+   "q_sqnr": 15.318202854152826,
    "role": "chained",
    "seq": 99,
    "status": "not_tried",
@@ -2791,7 +2833,7 @@
     "tokens": 256
    },
    "path": "stages.*.*.transformer.*.norm1",
-   "q_sqnr": 14.91902664524452,
+   "q_sqnr": 13.810701972530923,
    "role": "chained",
    "seq": 100,
    "status": "not_tried",
@@ -2816,7 +2858,7 @@
     "n": 576
    },
    "path": "stages.*.*.transformer.*.attn.qkv",
-   "q_sqnr": 16.288965905356253,
+   "q_sqnr": 15.14235751571118,
    "role": "chained",
    "seq": 101,
    "status": "not_tried",
@@ -2842,7 +2884,7 @@
     "q": 64
    },
    "path": "stages.*.*.transformer.*.attn",
-   "q_sqnr": 14.266716917978627,
+   "q_sqnr": 13.276608572758713,
    "role": "main",
    "seq": 102,
    "status": "not_tried",
@@ -2867,7 +2909,7 @@
     "n": 192
    },
    "path": "stages.*.*.transformer.*.attn.proj",
-   "q_sqnr": 15.072983064849819,
+   "q_sqnr": 14.018977279221073,
    "role": "chained",
    "seq": 103,
    "status": "not_tried",
@@ -2891,7 +2933,7 @@
     "numel": 49152
    },
    "path": "stages.*.*.transformer.*",
-   "q_sqnr": 16.188113857159777,
+   "q_sqnr": 15.182989133176964,
    "role": "chained",
    "seq": 104,
    "status": "not_tried",
@@ -2915,7 +2957,7 @@
     "tokens": 256
    },
    "path": "stages.*.*.transformer.*.norm2",
-   "q_sqnr": 16.223885644654132,
+   "q_sqnr": 15.141215514141539,
    "role": "chained",
    "seq": 105,
    "status": "not_tried",
@@ -2940,7 +2982,7 @@
     "n": 384
    },
    "path": "stages.*.*.transformer.*.mlp.fc1",
-   "q_sqnr": 22.584589232185653,
+   "q_sqnr": 21.492966862207936,
    "role": "chained",
    "seq": 106,
    "status": "not_tried",
@@ -2962,7 +3004,7 @@
     "numel": 98304
    },
    "path": "stages.*.*.transformer.*.mlp.act",
-   "q_sqnr": 14.413626153479855,
+   "q_sqnr": 13.280981250857396,
    "role": "folded_store",
    "seq": 107,
    "status": "not_tried",
@@ -2987,7 +3029,7 @@
     "n": 192
    },
    "path": "stages.*.*.transformer.*.mlp.fc2",
-   "q_sqnr": 14.100444687215221,
+   "q_sqnr": 12.963775854140966,
    "role": "chained",
    "seq": 108,
    "status": "not_tried",
@@ -3011,7 +3053,7 @@
     "numel": 49152
    },
    "path": "stages.*.*.transformer.*",
-   "q_sqnr": 16.078340263419882,
+   "q_sqnr": 15.021239008099814,
    "role": "chained",
    "seq": 109,
    "status": "not_tried",
@@ -3035,7 +3077,7 @@
     "tokens": 256
    },
    "path": "stages.*.*.transformer.*.norm1",
-   "q_sqnr": 14.821200513679997,
+   "q_sqnr": 13.763060182414195,
    "role": "chained",
    "seq": 110,
    "status": "not_tried",
@@ -3060,7 +3102,7 @@
     "n": 576
    },
    "path": "stages.*.*.transformer.*.attn.qkv",
-   "q_sqnr": 15.86301024845108,
+   "q_sqnr": 14.809207000233641,
    "role": "chained",
    "seq": 111,
    "status": "not_tried",
@@ -3086,7 +3128,7 @@
     "q": 64
    },
    "path": "stages.*.*.transformer.*.attn",
-   "q_sqnr": 14.210669622321683,
+   "q_sqnr": 13.329415772976398,
    "role": "main",
    "seq": 112,
    "status": "not_tried",
@@ -3111,7 +3153,7 @@
     "n": 192
    },
    "path": "stages.*.*.transformer.*.attn.proj",
-   "q_sqnr": 14.884610687978245,
+   "q_sqnr": 14.024181876796685,
    "role": "chained",
    "seq": 113,
    "status": "not_tried",
@@ -3135,7 +3177,7 @@
     "numel": 49152
    },
    "path": "stages.*.*.transformer.*",
-   "q_sqnr": 16.24256640116739,
+   "q_sqnr": 15.19695132138008,
    "role": "chained",
    "seq": 114,
    "status": "not_tried",
@@ -3159,7 +3201,7 @@
     "tokens": 256
    },
    "path": "stages.*.*.transformer.*.norm2",
-   "q_sqnr": 15.996771118185592,
+   "q_sqnr": 14.93135889301472,
    "role": "chained",
    "seq": 115,
    "status": "not_tried",
@@ -3184,7 +3226,7 @@
     "n": 384
    },
    "path": "stages.*.*.transformer.*.mlp.fc1",
-   "q_sqnr": 21.789734438382354,
+   "q_sqnr": 20.699140360058674,
    "role": "chained",
    "seq": 116,
    "status": "not_tried",
@@ -3206,7 +3248,7 @@
     "numel": 98304
    },
    "path": "stages.*.*.transformer.*.mlp.act",
-   "q_sqnr": 14.332662583249853,
+   "q_sqnr": 13.279895517904947,
    "role": "folded_store",
    "seq": 117,
    "status": "not_tried",
@@ -3231,7 +3273,7 @@
     "n": 192
    },
    "path": "stages.*.*.transformer.*.mlp.fc2",
-   "q_sqnr": 14.11156882992942,
+   "q_sqnr": 13.096016109105124,
    "role": "chained",
    "seq": 118,
    "status": "not_tried",
@@ -3255,7 +3297,7 @@
     "numel": 49152
    },
    "path": "stages.*.*.transformer.*",
-   "q_sqnr": 16.235610666317243,
+   "q_sqnr": 15.225325455628607,
    "role": "chained",
    "seq": 119,
    "status": "not_tried",
@@ -3279,7 +3321,7 @@
     "tokens": 256
    },
    "path": "stages.*.*.transformer.*.norm1",
-   "q_sqnr": 14.663322813690833,
+   "q_sqnr": 13.615322052555221,
    "role": "chained",
    "seq": 120,
    "status": "not_tried",
@@ -3304,7 +3346,7 @@
     "n": 576
    },
    "path": "stages.*.*.transformer.*.attn.qkv",
-   "q_sqnr": 15.615360245523933,
+   "q_sqnr": 14.562019001456413,
    "role": "chained",
    "seq": 121,
    "status": "not_tried",
@@ -3330,7 +3372,7 @@
     "q": 64
    },
    "path": "stages.*.*.transformer.*.attn",
-   "q_sqnr": 14.271234530638399,
+   "q_sqnr": 13.31353483965431,
    "role": "main",
    "seq": 122,
    "status": "not_tried",
@@ -3355,7 +3397,7 @@
     "n": 192
    },
    "path": "stages.*.*.transformer.*.attn.proj",
-   "q_sqnr": 15.042004659434586,
+   "q_sqnr": 14.052947129728437,
    "role": "chained",
    "seq": 123,
    "status": "not_tried",
@@ -3379,7 +3421,7 @@
     "numel": 49152
    },
    "path": "stages.*.*.transformer.*",
-   "q_sqnr": 16.58906078469578,
+   "q_sqnr": 15.591988998921467,
    "role": "chained",
    "seq": 124,
    "status": "not_tried",
@@ -3403,7 +3445,7 @@
     "tokens": 256
    },
    "path": "stages.*.*.transformer.*.norm2",
-   "q_sqnr": 15.889992614953247,
+   "q_sqnr": 14.847062004944709,
    "role": "chained",
    "seq": 125,
    "status": "not_tried",
@@ -3428,7 +3470,7 @@
     "n": 384
    },
    "path": "stages.*.*.transformer.*.mlp.fc1",
-   "q_sqnr": 20.757875074018806,
+   "q_sqnr": 19.698734598903645,
    "role": "chained",
    "seq": 126,
    "status": "not_tried",
@@ -3450,7 +3492,7 @@
     "numel": 98304
    },
    "path": "stages.*.*.transformer.*.mlp.act",
-   "q_sqnr": 15.345229040119309,
+   "q_sqnr": 14.317395785305917,
    "role": "folded_store",
    "seq": 127,
    "status": "not_tried",
@@ -3475,7 +3517,7 @@
     "n": 192
    },
    "path": "stages.*.*.transformer.*.mlp.fc2",
-   "q_sqnr": 19.57933082495592,
+   "q_sqnr": 18.522030709813958,
    "role": "chained",
    "seq": 128,
    "status": "not_tried",
@@ -3499,7 +3541,7 @@
     "numel": 49152
    },
    "path": "stages.*.*.transformer.*",
-   "q_sqnr": 19.254076350773342,
+   "q_sqnr": 18.27405644196235,
    "role": "chained",
    "seq": 129,
    "status": "not_tried",
@@ -3523,7 +3565,7 @@
     "tokens": 256
    },
    "path": "stages.*.*.norm",
-   "q_sqnr": 20.89300524778762,
+   "q_sqnr": 19.78581104923045,
    "role": "chained",
    "seq": 130,
    "status": "not_tried",
@@ -3556,7 +3598,7 @@
     "w": 16
    },
    "path": "stages.*.*.conv_proj.conv",
-   "q_sqnr": 22.172671208693057,
+   "q_sqnr": 21.072840523148205,
    "role": "main",
    "seq": 131,
    "status": "not_tried",
@@ -3579,7 +3621,7 @@
     "hw": 256
    },
    "path": "stages.*.*.conv_proj.bn",
-   "q_sqnr": 16.64674748485596,
+   "q_sqnr": 15.539000042262977,
    "role": "folded_weights",
    "seq": 132,
    "status": "not_tried",
@@ -3601,7 +3643,7 @@
     "numel": 32768
    },
    "path": "stages.*.*.conv_proj.bn",
-   "q_sqnr": 15.431212152685628,
+   "q_sqnr": 14.349646720402319,
    "role": "folded_store",
    "seq": 133,
    "status": "not_tried",
@@ -3623,7 +3665,7 @@
     "numel": 65536
    },
    "path": "stages.*.*",
-   "q_sqnr": 15.882412213657144,
+   "q_sqnr": 14.768238988746173,
    "role": "layout",
    "seq": 134,
    "status": "not_tried",
@@ -3656,7 +3698,7 @@
     "w": 16
    },
    "path": "stages.*.*.conv_fusion.conv",
-   "q_sqnr": 18.467398751268288,
+   "q_sqnr": 17.387922974990534,
    "role": "chained",
    "seq": 135,
    "status": "not_tried",
@@ -3679,7 +3721,7 @@
     "hw": 256
    },
    "path": "stages.*.*.conv_fusion.bn",
-   "q_sqnr": 17.88935534836659,
+   "q_sqnr": 16.805357240572615,
    "role": "folded_weights",
    "seq": 136,
    "status": "not_tried",
@@ -3701,7 +3743,7 @@
     "numel": 32768
    },
    "path": "stages.*.*.conv_fusion.bn",
-   "q_sqnr": 17.00446923366619,
+   "q_sqnr": 15.901065767309843,
    "role": "folded_store",
    "seq": 137,
    "status": "not_tried",
@@ -3734,7 +3776,7 @@
     "w": 16
    },
    "path": "stages.*.*.conv1_1x1.conv",
-   "q_sqnr": 18.40087136509971,
+   "q_sqnr": 17.238883747998813,
    "role": "chained",
    "seq": 138,
    "status": "not_tried",
@@ -3757,7 +3799,7 @@
     "hw": 256
    },
    "path": "stages.*.*.conv1_1x1.bn",
-   "q_sqnr": 22.05346337272504,
+   "q_sqnr": 20.879762126612608,
    "role": "folded_weights",
    "seq": 139,
    "status": "not_tried",
@@ -3779,7 +3821,7 @@
     "numel": 131072
    },
    "path": "stages.*.*.conv1_1x1.bn",
-   "q_sqnr": 18.74501346399295,
+   "q_sqnr": 17.589465904074324,
    "role": "folded_store",
    "seq": 140,
    "status": "not_tried",
@@ -3812,7 +3854,7 @@
     "w": 16
    },
    "path": "stages.*.*.conv2_kxk.conv",
-   "q_sqnr": 20.485124374272765,
+   "q_sqnr": 19.416237687028392,
    "role": "chained",
    "seq": 141,
    "status": "not_tried",
@@ -3835,7 +3877,7 @@
     "hw": 64
    },
    "path": "stages.*.*.conv2_kxk.bn",
-   "q_sqnr": 22.405231665124376,
+   "q_sqnr": 21.346771079977124,
    "role": "folded_weights",
    "seq": 142,
    "status": "not_tried",
@@ -3857,7 +3899,7 @@
     "numel": 32768
    },
    "path": "stages.*.*.conv2_kxk.bn",
-   "q_sqnr": 25.112647512798787,
+   "q_sqnr": 24.08554806018644,
    "role": "folded_store",
    "seq": 143,
    "status": "not_tried",
@@ -3890,7 +3932,7 @@
     "w": 8
    },
    "path": "stages.*.*.conv3_1x1.conv",
-   "q_sqnr": 21.061843783521596,
+   "q_sqnr": 20.06691479654721,
    "role": "chained",
    "seq": 144,
    "status": "not_tried",
@@ -3913,7 +3955,7 @@
     "hw": 64
    },
    "path": "stages.*.*.conv3_1x1.bn",
-   "q_sqnr": 16.72357390319936,
+   "q_sqnr": 15.732469946465484,
    "role": "folded_weights",
    "seq": 145,
    "status": "not_tried",
@@ -3946,7 +3988,7 @@
     "w": 8
    },
    "path": "stages.*.*.conv_kxk.conv",
-   "q_sqnr": 18.181154517181263,
+   "q_sqnr": 17.29208633457248,
    "role": "chained",
    "seq": 146,
    "status": "not_tried",
@@ -3969,7 +4011,7 @@
     "hw": 64
    },
    "path": "stages.*.*.conv_kxk.bn",
-   "q_sqnr": 17.682864404893618,
+   "q_sqnr": 16.784056336777915,
    "role": "folded_weights",
    "seq": 147,
    "status": "not_tried",
@@ -3991,7 +4033,7 @@
     "numel": 10240
    },
    "path": "stages.*.*.conv_kxk.bn",
-   "q_sqnr": 17.874391741392262,
+   "q_sqnr": 16.932854733417958,
    "role": "folded_store",
    "seq": 148,
    "status": "not_tried",
@@ -4024,7 +4066,7 @@
     "w": 8
    },
    "path": "stages.*.*.conv_1x1",
-   "q_sqnr": 18.598768725255997,
+   "q_sqnr": 17.690761747945967,
    "role": "chained",
    "seq": 149,
    "status": "not_tried",
@@ -4048,7 +4090,7 @@
     "tokens": 64
    },
    "path": "stages.*.*.transformer.*.norm1",
-   "q_sqnr": 16.10730326058636,
+   "q_sqnr": 15.20877975159306,
    "role": "chained",
    "seq": 150,
    "status": "not_tried",
@@ -4073,7 +4115,7 @@
     "n": 720
    },
    "path": "stages.*.*.transformer.*.attn.qkv",
-   "q_sqnr": 17.951330254036776,
+   "q_sqnr": 16.982519600330452,
    "role": "chained",
    "seq": 151,
    "status": "not_tried",
@@ -4099,7 +4141,7 @@
     "q": 16
    },
    "path": "stages.*.*.transformer.*.attn",
-   "q_sqnr": 15.948942309075509,
+   "q_sqnr": 15.100092592857148,
    "role": "main",
    "seq": 152,
    "status": "not_tried",
@@ -4124,7 +4166,7 @@
     "n": 240
    },
    "path": "stages.*.*.transformer.*.attn.proj",
-   "q_sqnr": 16.71550702245818,
+   "q_sqnr": 15.916690410487606,
    "role": "chained",
    "seq": 153,
    "status": "not_tried",
@@ -4148,7 +4190,7 @@
     "numel": 15360
    },
    "path": "stages.*.*.transformer.*",
-   "q_sqnr": 18.036308167706224,
+   "q_sqnr": 17.161545313874573,
    "role": "chained",
    "seq": 154,
    "status": "not_tried",
@@ -4172,7 +4214,7 @@
     "tokens": 64
    },
    "path": "stages.*.*.transformer.*.norm2",
-   "q_sqnr": 17.05918272817123,
+   "q_sqnr": 16.19690996423595,
    "role": "chained",
    "seq": 155,
    "status": "not_tried",
@@ -4197,7 +4239,7 @@
     "n": 480
    },
    "path": "stages.*.*.transformer.*.mlp.fc1",
-   "q_sqnr": 23.771576038150727,
+   "q_sqnr": 22.813317611358556,
    "role": "chained",
    "seq": 156,
    "status": "not_tried",
@@ -4219,7 +4261,7 @@
     "numel": 30720
    },
    "path": "stages.*.*.transformer.*.mlp.act",
-   "q_sqnr": 16.74234628081209,
+   "q_sqnr": 15.771949218392137,
    "role": "folded_store",
    "seq": 157,
    "status": "not_tried",
@@ -4244,7 +4286,7 @@
     "n": 240
    },
    "path": "stages.*.*.transformer.*.mlp.fc2",
-   "q_sqnr": 15.761022845300214,
+   "q_sqnr": 14.763549005934289,
    "role": "chained",
    "seq": 158,
    "status": "not_tried",
@@ -4268,7 +4310,7 @@
     "numel": 15360
    },
    "path": "stages.*.*.transformer.*",
-   "q_sqnr": 17.62682977746,
+   "q_sqnr": 16.666419672713758,
    "role": "chained",
    "seq": 159,
    "status": "not_tried",
@@ -4292,7 +4334,7 @@
     "tokens": 64
    },
    "path": "stages.*.*.transformer.*.norm1",
-   "q_sqnr": 15.798073217177869,
+   "q_sqnr": 14.900240898891004,
    "role": "chained",
    "seq": 160,
    "status": "not_tried",
@@ -4317,7 +4359,7 @@
     "n": 720
    },
    "path": "stages.*.*.transformer.*.attn.qkv",
-   "q_sqnr": 16.9155315291155,
+   "q_sqnr": 15.972565402568694,
    "role": "chained",
    "seq": 161,
    "status": "not_tried",
@@ -4343,7 +4385,7 @@
     "q": 16
    },
    "path": "stages.*.*.transformer.*.attn",
-   "q_sqnr": 15.877476827973723,
+   "q_sqnr": 15.101844366985944,
    "role": "main",
    "seq": 162,
    "status": "not_tried",
@@ -4368,7 +4410,7 @@
     "n": 240
    },
    "path": "stages.*.*.transformer.*.attn.proj",
-   "q_sqnr": 16.14361442195092,
+   "q_sqnr": 15.35627112211383,
    "role": "chained",
    "seq": 163,
    "status": "not_tried",
@@ -4392,7 +4434,7 @@
     "numel": 15360
    },
    "path": "stages.*.*.transformer.*",
-   "q_sqnr": 17.402105395938186,
+   "q_sqnr": 16.493177247916407,
    "role": "chained",
    "seq": 164,
    "status": "not_tried",
@@ -4416,7 +4458,7 @@
     "tokens": 64
    },
    "path": "stages.*.*.transformer.*.norm2",
-   "q_sqnr": 17.196628968458693,
+   "q_sqnr": 16.330699726187333,
    "role": "chained",
    "seq": 165,
    "status": "not_tried",
@@ -4441,7 +4483,7 @@
     "n": 480
    },
    "path": "stages.*.*.transformer.*.mlp.fc1",
-   "q_sqnr": 25.884794955945104,
+   "q_sqnr": 24.96662576613254,
    "role": "chained",
    "seq": 166,
    "status": "not_tried",
@@ -4463,7 +4505,7 @@
     "numel": 30720
    },
    "path": "stages.*.*.transformer.*.mlp.act",
-   "q_sqnr": 16.777232143955292,
+   "q_sqnr": 15.83480735715846,
    "role": "folded_store",
    "seq": 167,
    "status": "not_tried",
@@ -4488,7 +4530,7 @@
     "n": 240
    },
    "path": "stages.*.*.transformer.*.mlp.fc2",
-   "q_sqnr": 17.88757202013454,
+   "q_sqnr": 17.00725844505771,
    "role": "chained",
    "seq": 168,
    "status": "not_tried",
@@ -4512,7 +4554,7 @@
     "numel": 15360
    },
    "path": "stages.*.*.transformer.*",
-   "q_sqnr": 18.49805883573823,
+   "q_sqnr": 17.576163178714566,
    "role": "chained",
    "seq": 169,
    "status": "not_tried",
@@ -4536,7 +4578,7 @@
     "tokens": 64
    },
    "path": "stages.*.*.transformer.*.norm1",
-   "q_sqnr": 16.65926596995018,
+   "q_sqnr": 15.665699938362083,
    "role": "chained",
    "seq": 170,
    "status": "not_tried",
@@ -4561,7 +4603,7 @@
     "n": 720
    },
    "path": "stages.*.*.transformer.*.attn.qkv",
-   "q_sqnr": 17.450621989638012,
+   "q_sqnr": 16.448416750514582,
    "role": "chained",
    "seq": 171,
    "status": "not_tried",
@@ -4587,7 +4629,7 @@
     "q": 16
    },
    "path": "stages.*.*.transformer.*.attn",
-   "q_sqnr": 17.752056974378547,
+   "q_sqnr": 16.810660838293142,
    "role": "main",
    "seq": 172,
    "status": "not_tried",
@@ -4612,7 +4654,7 @@
     "n": 240
    },
    "path": "stages.*.*.transformer.*.attn.proj",
-   "q_sqnr": 18.33378380326994,
+   "q_sqnr": 17.3711303423354,
    "role": "chained",
    "seq": 173,
    "status": "not_tried",
@@ -4636,7 +4678,7 @@
     "numel": 15360
    },
    "path": "stages.*.*.transformer.*",
-   "q_sqnr": 18.790430929549142,
+   "q_sqnr": 17.88943622461343,
    "role": "chained",
    "seq": 174,
    "status": "not_tried",
@@ -4660,7 +4702,7 @@
     "tokens": 64
    },
    "path": "stages.*.*.transformer.*.norm2",
-   "q_sqnr": 18.00927594330197,
+   "q_sqnr": 17.02121857725692,
    "role": "chained",
    "seq": 175,
    "status": "not_tried",
@@ -4685,7 +4727,7 @@
     "n": 480
    },
    "path": "stages.*.*.transformer.*.mlp.fc1",
-   "q_sqnr": 24.451298345476843,
+   "q_sqnr": 23.448362679779457,
    "role": "chained",
    "seq": 176,
    "status": "not_tried",
@@ -4707,7 +4749,7 @@
     "numel": 30720
    },
    "path": "stages.*.*.transformer.*.mlp.act",
-   "q_sqnr": 18.673345754747196,
+   "q_sqnr": 17.73993933935696,
    "role": "folded_store",
    "seq": 177,
    "status": "not_tried",
@@ -4732,7 +4774,7 @@
     "n": 240
    },
    "path": "stages.*.*.transformer.*.mlp.fc2",
-   "q_sqnr": 22.191647057880544,
+   "q_sqnr": 21.41084862351316,
    "role": "chained",
    "seq": 178,
    "status": "not_tried",
@@ -4756,7 +4798,7 @@
     "numel": 15360
    },
    "path": "stages.*.*.transformer.*",
-   "q_sqnr": 22.542710557835157,
+   "q_sqnr": 21.801368665950314,
    "role": "chained",
    "seq": 179,
    "status": "not_tried",
@@ -4780,7 +4822,7 @@
     "tokens": 64
    },
    "path": "stages.*.*.norm",
-   "q_sqnr": 23.926650844404357,
+   "q_sqnr": 22.818354182684217,
    "role": "chained",
    "seq": 180,
    "status": "not_tried",
@@ -4813,7 +4855,7 @@
     "w": 8
    },
    "path": "stages.*.*.conv_proj.conv",
-   "q_sqnr": 24.365312751442968,
+   "q_sqnr": 23.137415995033773,
    "role": "main",
    "seq": 181,
    "status": "not_tried",
@@ -4836,7 +4878,7 @@
     "hw": 64
    },
    "path": "stages.*.*.conv_proj.bn",
-   "q_sqnr": 20.96929373912051,
+   "q_sqnr": 19.72115932143382,
    "role": "folded_weights",
    "seq": 182,
    "status": "not_tried",
@@ -4858,7 +4900,7 @@
     "numel": 10240
    },
    "path": "stages.*.*.conv_proj.bn",
-   "q_sqnr": 21.93030738718097,
+   "q_sqnr": 20.555361940876775,
    "role": "folded_store",
    "seq": 183,
    "status": "not_tried",
@@ -4880,7 +4922,7 @@
     "numel": 20480
    },
    "path": "stages.*.*",
-   "q_sqnr": 19.520857972227756,
+   "q_sqnr": 18.379848663152288,
    "role": "layout",
    "seq": 184,
    "status": "not_tried",
@@ -4913,7 +4955,7 @@
     "w": 8
    },
    "path": "stages.*.*.conv_fusion.conv",
-   "q_sqnr": 21.89391957907043,
+   "q_sqnr": 20.692208750291655,
    "role": "chained",
    "seq": 185,
    "status": "not_tried",
@@ -4936,7 +4978,7 @@
     "hw": 64
    },
    "path": "stages.*.*.conv_fusion.bn",
-   "q_sqnr": 22.236110651998317,
+   "q_sqnr": 21.023646148887046,
    "role": "folded_weights",
    "seq": 186,
    "status": "not_tried",
@@ -4958,7 +5000,7 @@
     "numel": 10240
    },
    "path": "stages.*.*.conv_fusion.bn",
-   "q_sqnr": 19.608203345409958,
+   "q_sqnr": 18.46204804575325,
    "role": "folded_store",
    "seq": 187,
    "status": "not_tried",
@@ -4991,7 +5033,7 @@
     "w": 8
    },
    "path": "final_conv.conv",
-   "q_sqnr": 24.405885137931126,
+   "q_sqnr": 23.259628831946504,
    "role": "chained",
    "seq": 188,
    "status": "not_tried",
@@ -5014,7 +5056,7 @@
     "hw": 64
    },
    "path": "final_conv.bn",
-   "q_sqnr": 19.679239746502294,
+   "q_sqnr": 18.5251244129023,
    "role": "folded_weights",
    "seq": 189,
    "status": "not_tried",
@@ -5036,7 +5078,7 @@
     "numel": 40960
    },
    "path": "final_conv.bn",
-   "q_sqnr": 18.639110147114863,
+   "q_sqnr": 17.078824463033424,
    "role": "folded_store",
    "seq": 190,
    "status": "not_tried",
@@ -5061,7 +5103,7 @@
     "w": 8
    },
    "path": "head.global_pool.pool",
-   "q_sqnr": 15.975242624365835,
+   "q_sqnr": 15.12723167460729,
    "role": "chained",
    "seq": 191,
    "status": "not_tried",
@@ -5086,7 +5128,7 @@
     "n": 1000
    },
    "path": "head.fc",
-   "q_sqnr": 18.556402091332703,
+   "q_sqnr": 15.774446804411903,
    "role": "chained",
    "seq": 192,
    "status": "not_tried",
@@ -5103,7 +5145,7 @@
   "blockers_replacement": 0,
   "cycles": null,
   "cycles_measured_share": null,
-  "final_fp_q_delta": 0.0,
+  "final_fp_q_delta": null,
   "links_failing": 0,
   "links_ok": 0,
   "links_unrun": 44,
@@ -5118,7 +5160,7 @@
   "nodes_on_chip": 0,
   "pct_calls": 0.0,
   "pct_macs": 0.0,
-  "plan_id": 29,
-  "status": "partial"
+  "plan_id": 50,
+  "status": "active"
  }
 }

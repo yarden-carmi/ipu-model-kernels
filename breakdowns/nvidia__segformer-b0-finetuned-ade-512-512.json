@@ -125,10 +125,180 @@
    "sim_ppl": null,
    "sim_top1": null,
    "sqnr_db": 35.81293290563415
+  },
+  {
+   "agreement": null,
+   "at": 1794531707.6899588,
+   "cosine": null,
+   "mode": "full",
+   "nonfinite": null,
+   "precision": "tf32",
+   "purpose": "baseline",
+   "ref_ppl": null,
+   "ref_top1": null,
+   "sim_ppl": null,
+   "sim_top1": null,
+   "sqnr_db": null
+  },
+  {
+   "agreement": 0.9818572998046875,
+   "at": 1794531707.692987,
+   "cosine": 0.9997447892118492,
+   "mode": "quantized",
+   "nonfinite": 0,
+   "precision": "nx8",
+   "purpose": "baseline",
+   "ref_ppl": null,
+   "ref_top1": null,
+   "sim_ppl": null,
+   "sim_top1": null,
+   "sqnr_db": 32.84460899598646
+  },
+  {
+   "agreement": 0.982086181640625,
+   "at": 1794531828.4129324,
+   "cosine": 0.9998742059462259,
+   "mode": "quantized",
+   "nonfinite": 0,
+   "precision": "nx8",
+   "purpose": "formats",
+   "ref_ppl": null,
+   "ref_top1": null,
+   "sim_ppl": null,
+   "sim_top1": null,
+   "sqnr_db": 35.81293290563415
+  },
+  {
+   "agreement": null,
+   "at": 1794533126.4427543,
+   "cosine": null,
+   "mode": "full",
+   "nonfinite": null,
+   "precision": "tf32",
+   "purpose": "candidate",
+   "ref_ppl": null,
+   "ref_top1": null,
+   "sim_ppl": null,
+   "sim_top1": null,
+   "sqnr_db": null
+  },
+  {
+   "agreement": null,
+   "at": 1794533126.444941,
+   "cosine": null,
+   "mode": "quantized",
+   "nonfinite": null,
+   "precision": "nx8",
+   "purpose": "candidate",
+   "ref_ppl": null,
+   "ref_top1": null,
+   "sim_ppl": null,
+   "sim_top1": null,
+   "sqnr_db": null
   }
  ],
  "category": "image-segmentation",
- "failed": [],
+ "failed": [
+  {
+   "calls": 1.0,
+   "class": "failed",
+   "cycles": null,
+   "fp_sqnr": null,
+   "group_seq": null,
+   "kernel": null,
+   "lut": 0,
+   "macs": 0,
+   "op": "upsample",
+   "options": [
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "bilinear_identity56_256ch_v2",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "approximate",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "approx_bf16_identity56",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "approximate",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "approx_blur3x3_identity56",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "approximate",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "approx_int8_qdq_identity56",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": null,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "identity56_bilinear",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": null,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "upstd_identity56",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": "full",
+     "model_sqnr_db": null,
+     "name": "unit_scale_bilinear_identity_256ch",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": "quantized",
+     "model_sqnr_db": null,
+     "name": "unit_scale_bilinear_identity_256ch",
+     "op_sqnr_db": null
+    }
+   ],
+   "params": {
+    "channels": 256,
+    "h": 56,
+    "mode": "bilinear2d",
+    "out_elements": 802816,
+    "w": 56
+   },
+   "path": "decode_head",
+   "q_sqnr": 25.828190653676973,
+   "role": null,
+   "seq": 154,
+   "status": "failed",
+   "version": null,
+   "why": "no replacement passed (\u00a74.6)"
+  }
+ ],
  "formats": {
   "fp8_e1m6": 76,
   "fp8_e2m5": 271,
@@ -4024,7 +4194,7 @@
   },
   {
    "calls": 1.0,
-   "class": null,
+   "class": "failed",
    "cycles": null,
    "fp_sqnr": null,
    "group_seq": null,
@@ -4041,6 +4211,69 @@
      "model_sqnr_db": null,
      "name": "bilinear_identity56_256ch_v2",
      "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "approximate",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "approx_bf16_identity56",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "approximate",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "approx_blur3x3_identity56",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "approximate",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "approx_int8_qdq_identity56",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": null,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "identity56_bilinear",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": null,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "upstd_identity56",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": "full",
+     "model_sqnr_db": null,
+     "name": "unit_scale_bilinear_identity_256ch",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": "quantized",
+     "model_sqnr_db": null,
+     "name": "unit_scale_bilinear_identity_256ch",
+     "op_sqnr_db": null
     }
    ],
    "params": {
@@ -4054,9 +4287,9 @@
    "q_sqnr": 25.828190653676973,
    "role": null,
    "seq": 154,
-   "status": "in_replacement",
+   "status": "failed",
    "version": null,
-   "why": "no chip operation for upsample"
+   "why": "no replacement passed (\u00a74.6)"
   },
   {
    "calls": 1.0,
@@ -4093,7 +4326,278 @@
    "lut": 0,
    "macs": 0,
    "op": "upsample",
-   "options": [],
+   "options": [
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "bilin2x_28to56_256ch_v2",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "bilin2x_28to56_actrue",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "bilin2x_28to56_channellast",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "bilin2x_hwc_28to56",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "bilin2x_tok_28to56",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "bilin2x_tokout_28to56",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "bilin2x_unscramble_28to56",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "bilin2x_uptok_28to56",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "bilin2x_v10_probe_zeros",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "bilin2x_v1_channellast",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "bilin2x_v2_colmajor",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "bilin2x_v3_colmajor_tok",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "bilin2x_v4_hwc_chw",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "bilin2x_v5_swapout",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "bilin2x_v6_scr_swapout",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "bilin2x_v7_bicubic",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "bilin2x_v8_col_tok",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "bilin2x_v9_col_cl",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "bilinear_resize2d_2x_256ch",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "bilinear_to56_28to56_256ch",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "bilinear_up2x_28to56_256ch",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "bilinear_up2x_chip_256ch",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "upstd_28to56",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "bilin_id56_256ch_final",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "bilinear_up2x_28_chip",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "bilinear_up2x_28to56_final3",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "bilinear_up2x_28to56_grid",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "bilinear_up2x_28to56_grid2",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "bilinear_up2x_28to56_interp",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "bilinear_up2x_28to56_ref4",
+     "op_sqnr_db": null
+    }
+   ],
    "params": {
     "channels": 256,
     "h": 28,
@@ -4348,10 +4852,10 @@
  "params": 3752694,
  "summary": {
   "base_fp_q_delta": -0.0181427001953125,
-  "blockers_failed": 0,
+  "blockers_failed": 1,
   "blockers_kernel": 161,
   "blockers_layout": 0,
-  "blockers_replacement": 4,
+  "blockers_replacement": 3,
   "cycles": null,
   "cycles_measured_share": null,
   "final_fp_q_delta": null,
@@ -4364,12 +4868,12 @@
   "n_1to1": 160,
   "n_approximate": 0,
   "n_equivalent": 1,
-  "n_failed": 0,
+  "n_failed": 1,
   "nodes": 165,
   "nodes_on_chip": 0,
   "pct_calls": 0.0,
   "pct_macs": 0.0,
-  "plan_id": 27,
+  "plan_id": 45,
   "status": "active"
  }
 }
