@@ -32,11 +32,11 @@
   "tensors": null
  },
  {
-  "doc": "Select exact table rows, then round to bfloat16 and back to float32.",
+  "doc": "Select the table row for each id, round it to bfloat16 and cast back to float32 (8-bit mantissa truncation, ~2^-9 relative error).",
   "name": "bf16_trunc_row_1001",
   "origin": "agent",
-  "params": "[\"vocab\", \"dim\"]",
-  "reference": "def fn(ids, table):\n    return table[ids.long().reshape(-1)].to(torch.bfloat16).to(torch.float32)",
+  "params": "[\"dim\", \"tokens\", \"vocab\"]",
+  "reference": "def fn(ids, table, dim, tokens, vocab):\n    return table[ids.long().reshape(-1)].to(torch.bfloat16).to(torch.float32)",
   "tensors": null
  },
  {
@@ -328,11 +328,11 @@
   "tensors": null
  },
  {
-  "doc": "Select the row id % buckets from a compressed table (bucket b = sum of table rows with row index % buckets == b).",
+  "doc": "Select row (id % buckets) from a precomputed bucket-compressed table (buckets x dim) built by summing colliding rows of the full table.",
   "name": "hash_bucket_embed_1001",
   "origin": "agent",
-  "params": "[\"vocab\", \"dim\", \"buckets\"]",
-  "reference": "def fn(ids, table, buckets):\n    idx = (ids.long().reshape(-1)) % buckets\n    compressed = torch.zeros(buckets, table.shape[1], dtype=table.dtype, device=table.device)\n    compressed.index_add_(0, torch.arange(table.shape[0], device=table.device) % buckets, table)\n    return compressed[idx]",
+  "params": "[\"buckets\", \"dim\", \"tokens\", \"vocab\"]",
+  "reference": "def fn(ids, table, buckets, dim, tokens, vocab):\n    idx = ids.long().reshape(-1) % buckets\n    comp = torch.zeros(buckets, dim)\n    comp.index_add_(0, torch.arange(vocab) % buckets, table)\n    return comp[idx]",
   "tensors": null
  },
  {
@@ -368,11 +368,11 @@
   "tensors": null
  },
  {
-  "doc": "Low-rank embedding: row of A (vocab x rank) for each id, times B (rank x dim).",
+  "doc": "Row-select into the truncated-SVD left factor A (vocab x rank), then multiply by B (rank x dim): approximates the exact embedding rows with rank-truncation error.",
   "name": "lowrank_embed_1001",
   "origin": "agent",
-  "params": "[\"vocab\", \"dim\", \"rank\"]",
-  "reference": "def fn(ids, A, B):\n    return A[ids.long().reshape(-1)] @ B",
+  "params": "[\"dim\", \"rank\", \"tokens\", \"vocab\"]",
+  "reference": "def fn(ids, A, B, dim, rank, tokens, vocab):\n    return A[ids.long().reshape(-1)] @ B",
   "tensors": null
  },
  {
@@ -472,11 +472,11 @@
   "tensors": null
  },
  {
-  "doc": "Select exact table rows, then add 1%-of-mean-abs Gaussian noise.",
+  "doc": "Select the table row for each id and add zero-mean Gaussian noise with std 1% of the row's mean absolute value (noisy/analog read model).",
   "name": "noisy_row_embed_1001",
   "origin": "agent",
-  "params": "[\"vocab\", \"dim\"]",
-  "reference": "def fn(ids, table):\n    rows = table[ids.long().reshape(-1)]\n    sigma = 0.01 * rows.abs().mean()\n    return rows + sigma * torch.randn_like(rows)",
+  "params": "[\"dim\", \"tokens\", \"vocab\"]",
+  "reference": "def fn(ids, table, dim, tokens, vocab):\n    rows = table[ids.long().reshape(-1)]\n    return rows + torch.randn_like(rows) * 0.01 * rows.abs().mean()",
   "tensors": null
  },
  {
