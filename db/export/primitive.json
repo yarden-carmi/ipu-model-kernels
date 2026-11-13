@@ -280,11 +280,11 @@
   "tensors": null
  },
  {
-  "doc": "Fused one-hot construction followed by GEMM with the constant table: builds a one-hot matrix of shape tokens x vocab from the ids and multiplies it by the table (vocab x dim), yielding exactly the selected rows.",
+  "doc": "Fused one-hot construction followed by GEMM with a constant matrix: builds a one-hot matrix (tokens x num_classes) from ids, then multiplies it by the table (num_classes x dim), yielding exactly the selected rows.",
   "name": "fused_onehot_gemm",
   "origin": "agent",
-  "params": "[\"vocab\", \"dim\"]",
-  "reference": "def fn(ids, table, vocab, dim):\n    ids = ids.long().reshape(-1)\n    onehot = torch.zeros(ids.shape[0], vocab, dtype=table.dtype, device=ids.device)\n    onehot[torch.arange(ids.shape[0]), ids] = 1\n    return onehot @ table",
+  "params": "[\"num_classes\"]",
+  "reference": "def fn(ids, table, num_classes):\n    ids = ids.long().reshape(-1)\n    n = ids.shape[0]\n    onehot = torch.zeros(n, num_classes, dtype=table.dtype, device=table.device)\n    onehot[torch.arange(n, device=table.device), ids] = 1.0\n    return onehot @ table",
   "tensors": null
  },
  {
@@ -344,11 +344,11 @@
   "tensors": null
  },
  {
-  "doc": "Select rows of a constant table via masked reduction: compare ids against arange(vocab), broadcast-multiply the mask with the table rows, and sum over the vocab dimension.",
+  "doc": "Fused masked row select: compares ids (tokens x 1) against arange(vocab) to form a mask, multiplies the table rows by the mask, and sums over the vocab dimension, yielding exactly the selected rows.",
   "name": "masked_row_reduce",
   "origin": "agent",
-  "params": "{\"dim\": \"embedding dimension (table cols)\", \"vocab\": \"vocabulary size (table rows)\"}",
-  "reference": "def fn(ids, vocab=30522, dim=768):\n    import torch\n    table = torch.randn(vocab, dim)\n    ids = ids.reshape(-1).long()\n    mask = (ids.unsqueeze(1) == torch.arange(vocab)).float()\n    return (mask.unsqueeze(-1) * table.unsqueeze(0)).sum(dim=1)",
+  "params": "[\"vocab\"]",
+  "reference": "def fn(ids, table, vocab):\n    ids = ids.long().reshape(-1, 1)\n    mask = (ids == torch.arange(vocab, device=table.device).view(1, -1)).to(table.dtype)\n    return (mask.view(-1, vocab, 1) * table.unsqueeze(0)).sum(dim=1)",
   "tensors": null
  },
  {
