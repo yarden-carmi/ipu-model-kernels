@@ -312,6 +312,14 @@
   "tensors": null
  },
  {
+  "doc": "Build a 0/1 mask by comparing ids against arange(vocab), broadcast-multiply with the table rows and sum over vocab, selecting exactly the row for each id.",
+  "name": "fused_mask_reduce_1001",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\", \"dim\"]",
+  "reference": "def fn(ids, table, tokens, vocab, dim):\n    ids = ids.long().reshape(-1, 1)\n    mask = (ids == torch.arange(vocab, device=ids.device).view(1, -1)).to(table.dtype)\n    return (mask.view(ids.shape[0], vocab, 1) * table.view(1, vocab, dim)).sum(dim=1)",
+  "tensors": null
+ },
+ {
   "doc": "Fused masked row reduce: mask ids against arange(vocab), multiply table rows, sum over vocab.",
   "name": "fused_masked_row_reduce",
   "origin": "agent",
@@ -357,6 +365,14 @@
   "origin": "agent",
   "params": "[\"tokens\", \"vocab\", \"dim\"]",
   "reference": "def fn(ids, table, **params):\n    ids = ids.long().reshape(-1)\n    oh = torch.zeros(ids.shape[0], table.shape[0], device=ids.device)\n    oh[torch.arange(ids.shape[0], device=ids.device), ids] = 1.0\n    return oh @ table",
+  "tensors": null
+ },
+ {
+  "doc": "Build a one-hot matrix (tokens x vocab) from ids and GEMM it by the table (vocab x dim), selecting exactly the row for each id.",
+  "name": "fused_oh_gemm_1001",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\", \"dim\"]",
+  "reference": "def fn(ids, table, tokens, vocab, dim):\n    ids = ids.long().reshape(-1)\n    oh = torch.zeros(ids.shape[0], vocab, dtype=table.dtype, device=table.device)\n    oh[torch.arange(ids.shape[0]), ids] = 1.0\n    return oh @ table",
   "tensors": null
  },
  {
