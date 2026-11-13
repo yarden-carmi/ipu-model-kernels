@@ -18412,5 +18412,248 @@
   "parent_id": 2019,
   "path": "wav2vec2.feature_projection.projection",
   "repeat": 1
+ },
+ {
+  "capture_id": 47,
+  "class": null,
+  "first_seq": 0,
+  "id": 2048,
+  "parent_id": 2047,
+  "path": "(input)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 47,
+  "class": "BertModel",
+  "first_seq": 0,
+  "id": 2047,
+  "parent_id": null,
+  "path": "(top)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 47,
+  "class": "BertEmbeddings",
+  "first_seq": 1,
+  "id": 2049,
+  "parent_id": 2047,
+  "path": "embeddings",
+  "repeat": 1
+ },
+ {
+  "capture_id": 47,
+  "class": "LayerNorm",
+  "first_seq": 7,
+  "id": 2052,
+  "parent_id": 2049,
+  "path": "embeddings.LayerNorm",
+  "repeat": 1
+ },
+ {
+  "capture_id": 47,
+  "class": "Embedding",
+  "first_seq": 5,
+  "id": 2053,
+  "parent_id": 2049,
+  "path": "embeddings.position_embeddings",
+  "repeat": 1
+ },
+ {
+  "capture_id": 47,
+  "class": "Embedding",
+  "first_seq": 3,
+  "id": 2054,
+  "parent_id": 2049,
+  "path": "embeddings.token_type_embeddings",
+  "repeat": 1
+ },
+ {
+  "capture_id": 47,
+  "class": "Embedding",
+  "first_seq": 2,
+  "id": 2055,
+  "parent_id": 2049,
+  "path": "embeddings.word_embeddings",
+  "repeat": 1
+ },
+ {
+  "capture_id": 47,
+  "class": "BertEncoder",
+  "first_seq": 8,
+  "id": 2050,
+  "parent_id": 2047,
+  "path": "encoder",
+  "repeat": 1
+ },
+ {
+  "capture_id": 47,
+  "class": "ModuleList",
+  "first_seq": 8,
+  "id": 2056,
+  "parent_id": 2050,
+  "path": "encoder.layer",
+  "repeat": 1
+ },
+ {
+  "capture_id": 47,
+  "class": "BertLayer",
+  "first_seq": 8,
+  "id": 2059,
+  "parent_id": 2056,
+  "path": "encoder.layer.*",
+  "repeat": 4
+ },
+ {
+  "capture_id": 47,
+  "class": "BertAttention",
+  "first_seq": 8,
+  "id": 2060,
+  "parent_id": 2059,
+  "path": "encoder.layer.*.attention",
+  "repeat": 4
+ },
+ {
+  "capture_id": 47,
+  "class": "BertSelfOutput",
+  "first_seq": 15,
+  "id": 2063,
+  "parent_id": 2060,
+  "path": "encoder.layer.*.attention.output",
+  "repeat": 4
+ },
+ {
+  "capture_id": 47,
+  "class": "LayerNorm",
+  "first_seq": 17,
+  "id": 2069,
+  "parent_id": 2063,
+  "path": "encoder.layer.*.attention.output.LayerNorm",
+  "repeat": 4
+ },
+ {
+  "capture_id": 47,
+  "class": "Linear",
+  "first_seq": 15,
+  "id": 2070,
+  "parent_id": 2063,
+  "path": "encoder.layer.*.attention.output.dense",
+  "repeat": 4
+ },
+ {
+  "capture_id": 47,
+  "class": "BertSelfAttention",
+  "first_seq": 8,
+  "id": 2064,
+  "parent_id": 2060,
+  "path": "encoder.layer.*.attention.self",
+  "repeat": 4
+ },
+ {
+  "capture_id": 47,
+  "class": "Linear",
+  "first_seq": 9,
+  "id": 2071,
+  "parent_id": 2064,
+  "path": "encoder.layer.*.attention.self.key",
+  "repeat": 4
+ },
+ {
+  "capture_id": 47,
+  "class": "Linear",
+  "first_seq": 8,
+  "id": 2072,
+  "parent_id": 2064,
+  "path": "encoder.layer.*.attention.self.query",
+  "repeat": 4
+ },
+ {
+  "capture_id": 47,
+  "class": "Linear",
+  "first_seq": 10,
+  "id": 2073,
+  "parent_id": 2064,
+  "path": "encoder.layer.*.attention.self.value",
+  "repeat": 4
+ },
+ {
+  "capture_id": 47,
+  "class": "BertIntermediate",
+  "first_seq": 18,
+  "id": 2061,
+  "parent_id": 2059,
+  "path": "encoder.layer.*.intermediate",
+  "repeat": 4
+ },
+ {
+  "capture_id": 47,
+  "class": "Linear",
+  "first_seq": 18,
+  "id": 2065,
+  "parent_id": 2061,
+  "path": "encoder.layer.*.intermediate.dense",
+  "repeat": 4
+ },
+ {
+  "capture_id": 47,
+  "class": "GELUActivation",
+  "first_seq": 19,
+  "id": 2066,
+  "parent_id": 2061,
+  "path": "encoder.layer.*.intermediate.intermediate_act_fn",
+  "repeat": 4
+ },
+ {
+  "capture_id": 47,
+  "class": "BertOutput",
+  "first_seq": 20,
+  "id": 2062,
+  "parent_id": 2059,
+  "path": "encoder.layer.*.output",
+  "repeat": 4
+ },
+ {
+  "capture_id": 47,
+  "class": "LayerNorm",
+  "first_seq": 22,
+  "id": 2067,
+  "parent_id": 2062,
+  "path": "encoder.layer.*.output.LayerNorm",
+  "repeat": 4
+ },
+ {
+  "capture_id": 47,
+  "class": "Linear",
+  "first_seq": 20,
+  "id": 2068,
+  "parent_id": 2062,
+  "path": "encoder.layer.*.output.dense",
+  "repeat": 4
+ },
+ {
+  "capture_id": 47,
+  "class": "BertPooler",
+  "first_seq": 68,
+  "id": 2051,
+  "parent_id": 2047,
+  "path": "pooler",
+  "repeat": 1
+ },
+ {
+  "capture_id": 47,
+  "class": "Tanh",
+  "first_seq": 69,
+  "id": 2057,
+  "parent_id": 2051,
+  "path": "pooler.activation",
+  "repeat": 1
+ },
+ {
+  "capture_id": 47,
+  "class": "Linear",
+  "first_seq": 68,
+  "id": 2058,
+  "parent_id": 2051,
+  "path": "pooler.dense",
+  "repeat": 1
  }
 ]
