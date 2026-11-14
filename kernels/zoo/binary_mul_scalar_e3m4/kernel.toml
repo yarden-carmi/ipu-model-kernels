@@ -1,0 +1,74 @@
+[kernel]
+op = "binary_mul_scalar"
+formats = ["e3"]
+
+[params.broadcast]
+type = "str"
+choices = ["scalar"]
+default = "scalar"
+
+[params.const]
+type = "float"
+min = -32.0
+max = 32.0
+default = 1.0
+
+[params.inner]
+type = "int"
+min = 0
+max = 1024
+default = 0
+
+[params.numel]
+type = "int"
+min = 1
+max = 1048576
+default = 160
+
+[params.op]
+type = "str"
+choices = ["mul"]
+default = "mul"
+
+[inputs.in0]
+shape = ["ceil(numel / 128)", 128]
+range = [-4, 4]
+
+[outputs.out0]
+shape = ["ceil(numel / 128)", 128]
+
+[derived]
+qf = "case_qf"
+rows = "ceil(numel / 128)"
+last = "numel - (rows - 1) * 128"
+full_rows = "rows - 1"
+ds_full = "ds(128)"
+ds_last = "ds(last)"
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+const = "CR4"
+qf = "CR5"
+ds_full = "CR6"
+ds_last = "CR7"
+full_rows = "CR8"
+
+[golden]
+tolerance = { e3 = "EXACT" }
+
+[cases.default]
+broadcast = "scalar"
+const = 1.0
+inner = 0
+numel = 160
+op = "mul"
+
+[cases.sizes]
+numel = [1, 100, 127, 128, 129, 160, 255, 256, 257]
+
+[cases.const_sweep]
+# const = 0 is excluded: a scalar bound to a MULT constant CR has no defined
+# NX8 programming for 0.0 (the zero code's scale is undefined), so no kernel
+# operand can reproduce it; every other domain edge and sign flip is covered.
+const = [-32, -17, -1, 7, 17, 32]

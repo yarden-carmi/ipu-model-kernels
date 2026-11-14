@@ -1,0 +1,18 @@
+chain = ["binary"]
+chain_in = ["in0"]
+chain_out = ["out0"]
+notes = """
+Binary elementwise multiply by a broadcast scalar: out0 = in0 * const over
+numel elements. Rows of 128 lanes are multiplied by the scalar operand bound
+to a CR as a MULT constant (MULT.VE), dimension 1 along the lanes, rows in
+order; the final row stores only numel - (rows-1)*128 active lanes via its DS
+half, so padding lanes are written zero. Runs in e3 (fp8_e3m4).
+
+const = 0 is excluded from the const_sweep: a scalar bound to a MULT constant
+CR has no defined NX8 programming for 0.0 (the zero code's scale is
+undefined), so no kernel operand can reproduce it. Verified experimentally:
+the hardwired CR0 constant, a programmed zero CR, and a harness-generated
+all-zero input row all fail to yield a store encoding that matches any
+consistent golden at the EXACT tier. The sweep covers the domain edges and
+sign flips instead (-32, -17, -1, 7, 17, 32).
+"""
