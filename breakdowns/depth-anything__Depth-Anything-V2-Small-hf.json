@@ -1119,6 +1119,34 @@
    "sim_ppl": null,
    "sim_top1": null,
    "sqnr_db": null
+  },
+  {
+   "agreement": null,
+   "at": 1794683099.3900752,
+   "cosine": null,
+   "mode": "full",
+   "nonfinite": null,
+   "precision": "tf32",
+   "purpose": "candidate",
+   "ref_ppl": null,
+   "ref_top1": null,
+   "sim_ppl": null,
+   "sim_top1": null,
+   "sqnr_db": null
+  },
+  {
+   "agreement": null,
+   "at": 1794683099.3959737,
+   "cosine": null,
+   "mode": "quantized",
+   "nonfinite": null,
+   "precision": "nx8",
+   "purpose": "candidate",
+   "ref_ppl": null,
+   "ref_top1": null,
+   "sim_ppl": null,
+   "sim_top1": null,
+   "sqnr_db": null
   }
  ],
  "category": "depth-estimation",
@@ -1253,6 +1281,70 @@
    "q_sqnr": 18.209503173154506,
    "role": null,
    "seq": 217,
+   "status": "failed",
+   "version": null,
+   "why": "no replacement passed (\u00a74.6)"
+  },
+  {
+   "calls": 1.0,
+   "class": "failed",
+   "cycles": null,
+   "fp_sqnr": null,
+   "group_seq": null,
+   "kernel": null,
+   "lut": 0,
+   "macs": 0,
+   "op": "upsample",
+   "options": [
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "cols_then_rows_reuse",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": null,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "gather4_direct_reuse",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": "full",
+     "model_sqnr_db": null,
+     "name": "gather4_reference_new",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": "quantized",
+     "model_sqnr_db": null,
+     "name": "gather4_reference_new",
+     "op_sqnr_db": null
+    }
+   ],
+   "params": {
+    "channels": 64,
+    "h": 8,
+    "mode": "bilinear2d",
+    "out_elements": 16384,
+    "w": 8
+   },
+   "path": "neck.fusion_stage.layers.*",
+   "q_forced": 0,
+   "q_sqnr": 24.44933775762536,
+   "role": null,
+   "seq": 230,
    "status": "failed",
    "version": null,
    "why": "no replacement passed (\u00a74.6)"
@@ -7358,7 +7450,7 @@
   },
   {
    "calls": 1.0,
-   "class": null,
+   "class": "failed",
    "cycles": null,
    "fp_sqnr": null,
    "group_seq": null,
@@ -7389,7 +7481,16 @@
      "check_ok": 1,
      "kind": "equivalent",
      "loss_db": null,
-     "mode": null,
+     "mode": "full",
+     "model_sqnr_db": null,
+     "name": "gather4_reference_new",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": "quantized",
      "model_sqnr_db": null,
      "name": "gather4_reference_new",
      "op_sqnr_db": null
@@ -7407,9 +7508,9 @@
    "q_sqnr": 24.44933775762536,
    "role": null,
    "seq": 230,
-   "status": "in_replacement",
+   "status": "failed",
    "version": null,
-   "why": "no chip operation for upsample"
+   "why": "no replacement passed (\u00a74.6)"
   },
   {
    "calls": 1.0,
@@ -7758,7 +7859,17 @@
    "lut": 0,
    "macs": 0,
    "op": "upsample",
-   "options": [],
+   "options": [
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "half_pixel_phase_select",
+     "op_sqnr_db": null
+    }
+   ],
    "params": {
     "channels": 64,
     "h": 16,
@@ -8741,10 +8852,10 @@
  "params": 24785089,
  "summary": {
   "base_fp_q_delta": null,
-  "blockers_failed": 1,
+  "blockers_failed": 2,
   "blockers_kernel": 270,
   "blockers_layout": 0,
-  "blockers_replacement": 6,
+  "blockers_replacement": 5,
   "cycles": null,
   "cycles_measured_share": null,
   "final_fp_q_delta": null,
@@ -8758,7 +8869,7 @@
   "n_1to1": 269,
   "n_approximate": 0,
   "n_equivalent": 1,
-  "n_failed": 1,
+  "n_failed": 2,
   "nodes": 277,
   "nodes_on_chip": 0,
   "nodes_ops_on_chip": 0,
