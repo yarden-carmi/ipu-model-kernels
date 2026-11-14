@@ -41,10 +41,130 @@
    "sim_ppl": null,
    "sim_top1": null,
    "sqnr_db": 17.945245089694005
+  },
+  {
+   "agreement": null,
+   "at": 1794660837.2584655,
+   "cosine": null,
+   "mode": "full",
+   "nonfinite": null,
+   "precision": "tf32",
+   "purpose": "candidate",
+   "ref_ppl": null,
+   "ref_top1": null,
+   "sim_ppl": null,
+   "sim_top1": null,
+   "sqnr_db": null
+  },
+  {
+   "agreement": null,
+   "at": 1794660837.2638593,
+   "cosine": null,
+   "mode": "quantized",
+   "nonfinite": null,
+   "precision": "nx8",
+   "purpose": "candidate",
+   "ref_ppl": null,
+   "ref_top1": null,
+   "sim_ppl": null,
+   "sim_top1": null,
+   "sqnr_db": null
+  },
+  {
+   "agreement": null,
+   "at": 1794660837.2682886,
+   "cosine": null,
+   "mode": "full",
+   "nonfinite": null,
+   "precision": "tf32",
+   "purpose": "candidate",
+   "ref_ppl": null,
+   "ref_top1": null,
+   "sim_ppl": null,
+   "sim_top1": null,
+   "sqnr_db": null
+  },
+  {
+   "agreement": null,
+   "at": 1794660837.2721498,
+   "cosine": null,
+   "mode": "quantized",
+   "nonfinite": null,
+   "precision": "nx8",
+   "purpose": "candidate",
+   "ref_ppl": null,
+   "ref_top1": null,
+   "sim_ppl": null,
+   "sim_top1": null,
+   "sqnr_db": null
   }
  ],
  "category": "feature-extraction",
- "failed": [],
+ "failed": [
+  {
+   "calls": 1.0,
+   "class": "failed",
+   "cycles": null,
+   "fp_sqnr": null,
+   "group_seq": null,
+   "kernel": null,
+   "lut": 0,
+   "macs": 0,
+   "op": "embedding",
+   "options": [
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": "full",
+     "model_sqnr_db": null,
+     "name": "onehot_bmm_nt",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": "quantized",
+     "model_sqnr_db": null,
+     "name": "onehot_bmm_nt",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": "full",
+     "model_sqnr_db": null,
+     "name": "onehot_gemm_f32",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": "quantized",
+     "model_sqnr_db": null,
+     "name": "onehot_gemm_f32",
+     "op_sqnr_db": null
+    }
+   ],
+   "params": {
+    "dim": 384,
+    "in_order": false,
+    "tokens": 256,
+    "vocab": 30522
+   },
+   "path": "embeddings.word_embeddings",
+   "q_forced": 0,
+   "q_sqnr": 32.07334752031048,
+   "role": null,
+   "seq": 2,
+   "status": "failed",
+   "version": null,
+   "why": "no replacement passed (\u00a74.6)"
+  }
+ ],
  "formats": {
   "fp8_e1m6": 61,
   "fp8_e2m5": 273,
@@ -78,7 +198,7 @@
   },
   {
    "calls": 1.0,
-   "class": null,
+   "class": "failed",
    "cycles": null,
    "fp_sqnr": null,
    "group_seq": null,
@@ -86,7 +206,44 @@
    "lut": 0,
    "macs": 0,
    "op": "embedding",
-   "options": [],
+   "options": [
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": "full",
+     "model_sqnr_db": null,
+     "name": "onehot_bmm_nt",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": "quantized",
+     "model_sqnr_db": null,
+     "name": "onehot_bmm_nt",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": "full",
+     "model_sqnr_db": null,
+     "name": "onehot_gemm_f32",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": "quantized",
+     "model_sqnr_db": null,
+     "name": "onehot_gemm_f32",
+     "op_sqnr_db": null
+    }
+   ],
    "params": {
     "dim": 384,
     "in_order": false,
@@ -98,9 +255,9 @@
    "q_sqnr": 32.07334752031048,
    "role": null,
    "seq": 2,
-   "status": "in_replacement",
+   "status": "failed",
    "version": null,
-   "why": "data addressing (a lookup or a choice by a runtime value)"
+   "why": "no replacement passed (\u00a74.6)"
   },
   {
    "calls": 1.0,
@@ -4854,10 +5011,10 @@
  "params": 33360000,
  "summary": {
   "base_fp_q_delta": null,
-  "blockers_failed": 0,
+  "blockers_failed": 1,
   "blockers_kernel": 188,
   "blockers_layout": 0,
-  "blockers_replacement": 1,
+  "blockers_replacement": 0,
   "cycles": null,
   "cycles_measured_share": null,
   "final_fp_q_delta": null,
@@ -4871,7 +5028,7 @@
   "n_1to1": 188,
   "n_approximate": 0,
   "n_equivalent": 0,
-  "n_failed": 0,
+  "n_failed": 1,
   "nodes": 189,
   "nodes_on_chip": 0,
   "nodes_ops_on_chip": 0,

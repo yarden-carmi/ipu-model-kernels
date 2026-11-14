@@ -48,6 +48,42 @@
   "proposed_by": 13
  },
  {
+  "chain": "[{\"op\": \"one_hot\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"bmm_nt\", \"params\": {\"b\": \"1\", \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "import torch\nimport torch.nn.functional as F\n\ndef forward(module, ids):\n    table = getattr(module, 'table', None)\n    if table is None:\n        table = module.weight\n    tokens = ids.shape[0]\n    vocab = table.shape[0]\n    # step 1: one_hot -> (tokens, vocab)\n    oh = F.one_hot(ids.long(), vocab).to(table.dtype)\n    # step 2: bmm_nt: A (1, tokens, vocab) @ B^T where B = table^T (1, dim, vocab)\n    bt = table.t().contiguous().unsqueeze(0)\n    out = torch.bmm(oh.unsqueeze(0), bt.transpose(1, 2)).squeeze(0)\n    return out\n",
+  "id": 7,
+  "kind": "equivalent",
+  "name": "onehot_bmm_nt",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the embedding lookup with a transposed-operand batched matmul. Step 1: build a one-hot matrix O of shape (tokens x vocab) where O[t, i] = 1 if ids[t] == i else 0 (primitive 'one_hot'). Step 2: bmm_nt with b = 1, m = tokens, k = vocab, n = dim. bmm_nt computes A @ B^T, so pass B = table^T of shape (1 x dim x vocab); then A @ B^T = O @ table, shape (1 x tokens x dim). Row t of the result is table[ids[t]], exactly the embedding output (squeeze the batch dim). The table arrives as module.table (also module.weight); ids is the runtime input.\", \"rel_err\": 0.0}",
+  "proposed_by": 18
+ },
+ {
+  "chain": "[{\"op\": \"one_hot\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"bmm\", \"params\": {\"b\": \"1\", \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, *inputs):\n    ids = inputs[0]\n    table = module.table\n    flat = ids.reshape(-1).long()\n    n = int(flat.numel())\n    v = int(table.shape[0])\n    d = int(table.shape[1])\n    oh = torch.zeros(n, v, dtype=table.dtype, device=table.device)\n    oh[torch.arange(n, device=table.device), flat] = 1.0\n    out = torch.bmm(oh.view(1, n, v), table.view(1, v, d).to(table.dtype))\n    return out.view(*tuple(ids.shape), d)\n",
+  "id": 11,
+  "kind": "equivalent",
+  "name": "onehot_bmm_ref",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the embedding lookup with a batched matmul. Step 1: build a one-hot matrix O of shape (tokens x vocab) where O[t, i] = 1 if ids[t] == i else 0 (primitive 'one_hot', defined with a runnable reference). Step 2: reshape O to (1, tokens, vocab) and the table to (1, vocab, dim); bmm with b = 1, m = tokens, k = vocab, n = dim computes O @ table. Row t of the result is table[ids[t]], exactly the embedding output. The table arrives as module.table (also module.weight); ids is the runtime input.\", \"rel_err\": 0.0}",
+  "proposed_by": 16
+ },
+ {
+  "chain": "[{\"op\": \"one_hot\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "not checked: step 1 (one_hot) has no reference I can run \u2014 define it in `primitives` with a `reference` (the code matches the operation (largest relative difference 0, within 0.001))",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    ids = inputs[0]\n    table = module.table\n    flat = ids.reshape(-1).long()\n    n = int(flat.numel())\n    v = int(table.shape[0])\n    oh = torch.zeros(n, v, dtype=table.dtype, device=table.device)\n    oh[torch.arange(n, device=table.device), flat] = 1.0\n    out = oh @ table\n    return out.view(*tuple(ids.shape), int(table.shape[1]))\n",
+  "id": 9,
+  "kind": "equivalent",
+  "name": "onehot_dense_gemm",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the embedding lookup with a dense matmul. Step 1: build a one-hot matrix O of shape (tokens x vocab) where O[t, i] = 1 if ids[t] == i else 0 (primitive 'one_hot'). Step 2: gemm with m = tokens, k = vocab, n = dim computing O @ table, where table is the embedding weight of shape (vocab x dim). Row t of the result is table[ids[t]], exactly the embedding output. The table arrives as module.table (also module.weight); ids is the runtime input.\", \"rel_err\": 0.0}",
+  "proposed_by": 16
+ },
+ {
   "chain": "[{\"op\": \"one_hot\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
   "check_detail": "the chain could not run: step 2 (gemm) raised RuntimeError: [enforce fail at alloc_cpu.cpp:127] err == 0. DefaultCPUAllocator: can't allocate memory: you tried to allocate 5172768868352 bytes. Error code 12 (Cannot allocate memory) \u2014 check the step's sizes against the operation's",
   "check_ok": 0,
@@ -70,5 +106,29 @@
   "op": "embedding",
   "proposal": "{\"description\": \"One-hot (tokens x vocab) times table via gemm; one-hot kept in float32.\", \"rel_err\": 0.0}",
   "proposed_by": 13
+ },
+ {
+  "chain": "[{\"op\": \"one_hot\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "import torch\nimport torch.nn.functional as F\n\ndef forward(module, ids):\n    table = getattr(module, 'table', None)\n    if table is None:\n        table = module.weight\n    vocab = table.shape[0]\n    # step 1: one_hot (tokens, vocab) in float32\n    oh = F.one_hot(ids.long(), vocab).to(torch.float32)\n    # step 2: gemm O @ table -> (tokens, dim)\n    out = torch.mm(oh, table.to(torch.float32))\n    return out.to(table.dtype)\n",
+  "id": 8,
+  "kind": "equivalent",
+  "name": "onehot_gemm_f32",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the embedding lookup with a dense matmul, with the one-hot operand explicitly pinned to float32 so the gemm runs in single precision regardless of the ids dtype. Step 1: build a one-hot matrix O of shape (tokens x vocab) where O[t, i] = 1 if ids[t] == i else 0 (primitive 'one_hot'), cast to float32. Step 2: gemm with m = tokens, k = vocab, n = dim computing O @ table, where table is the embedding weight of shape (vocab x dim). Row t of the result is table[ids[t]], exactly the embedding output, cast back to the table's dtype. The table arrives as module.table (also module.weight); ids is the runtime input.\", \"rel_err\": 0.0}",
+  "proposed_by": 18
+ },
+ {
+  "chain": "[{\"op\": \"one_hot\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, *inputs):\n    ids = inputs[0]\n    table = module.table\n    flat = ids.reshape(-1).long()\n    n = int(flat.numel())\n    v = int(table.shape[0])\n    oh = torch.zeros(n, v, dtype=table.dtype, device=table.device)\n    oh[torch.arange(n, device=table.device), flat] = 1.0\n    out = oh @ table\n    return out.view(*tuple(ids.shape), int(table.shape[1]))\n",
+  "id": 10,
+  "kind": "equivalent",
+  "name": "onehot_gemm_ref",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the embedding lookup with a dense matmul. Step 1: build a one-hot matrix O of shape (tokens x vocab) where O[t, i] = 1 if ids[t] == i else 0 (primitive 'one_hot', defined with a runnable reference). Step 2: gemm with m = tokens, k = vocab, n = dim computing O @ table, where table is the embedding weight of shape (vocab x dim). Row t of the result is table[ids[t]], exactly the embedding output. The table arrives as module.table (also module.weight); ids is the runtime input.\", \"rel_err\": 0.0}",
+  "proposed_by": 16
  }
 ]

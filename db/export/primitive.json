@@ -40,11 +40,11 @@
   "tensors": null
  },
  {
-  "doc": "one-hot matrix (tokens, vocab) from ids, float32",
+  "doc": "Build a one-hot matrix O of shape (tokens x vocab): O[t, i] = 1 if ids[t] == i else 0. x is the flat ids tensor of `tokens` integer indices in [0, vocab).",
   "name": "one_hot",
   "origin": "agent",
   "params": "[\"tokens\", \"vocab\"]",
-  "reference": "def fn(x, tokens, vocab):\n    import torch\n    ids = x.reshape(-1).long()\n    return torch.nn.functional.one_hot(ids, vocab).to(torch.float32)\n",
+  "reference": "def fn(x, tokens, vocab):\n    flat = x.reshape(-1).long()\n    oh = torch.zeros(tokens, vocab, dtype=torch.float32, device=x.device)\n    oh[torch.arange(tokens, device=x.device), flat] = 1.0\n    return oh\n",
   "tensors": null
  },
  {
