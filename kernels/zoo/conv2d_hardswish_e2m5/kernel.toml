@@ -1,0 +1,153 @@
+[kernel]
+op = "conv2d_hardswish"
+formats = ["e2"]
+
+[params.bias]
+type = "bool"
+default = true
+
+[params.cin]
+type = "int"
+min = 1
+max = 256
+default = 3
+
+[params.cout]
+type = "int"
+min = 1
+max = 256
+default = 16
+
+[params.groups]
+type = "int"
+min = 1
+max = 256
+default = 1
+
+[params.h]
+type = "int"
+min = 1
+max = 1024
+default = 224
+
+[params.w]
+type = "int"
+min = 1
+max = 1024
+default = 224
+
+[params.kh]
+type = "int"
+min = 1
+max = 7
+default = 3
+
+[params.kw]
+type = "int"
+min = 1
+max = 7
+default = 3
+
+[params.padding]
+type = "int"
+min = 0
+max = 3
+default = 1
+
+[params.stride]
+type = "int"
+min = 1
+max = 2
+default = 2
+
+[derived]
+qf = "case_qf"
+nbi = "ceil(cin / 128)"
+nbo = "ceil(cout / 128)"
+cing = "cin // groups"
+wp = "w + 2 * padding"
+wpr = "wp * nbi"
+ho = "(h + 2 * padding - kh) // stride + 1"
+wo = "(w + 2 * padding - kw) // stride + 1"
+wrows = "kh * kw * cing * nbo"
+pad_rows = "(h + 2 * padding) * wp * nbi"
+out_rows = "ho * wo * nbo"
+dsout0 = "ds(min(cout, 128))"
+dsout1 = "ds(max(cout - 128, 1))"
+
+[inputs.in0]
+shape = ["h * w * nbi", 128]
+range = [-2.0, 2.0]
+
+[inputs.weights]
+shape = ["wrows", 128]
+range = [-1.0, 1.0]
+
+[inputs.bias_vec]
+shape = ["nbo", 128]
+range = [-1.0, 1.0]
+
+[inputs.lut]
+shape = [5, 128]
+range = [0.0, 1.0]
+
+[scratch.pad]
+shape = ["pad_rows", 128]
+
+[outputs.out0]
+shape = ["out_rows", 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+weights = "CR4"
+bias_vec = "CR5"
+lut = "CR6"
+qf = "CR7"
+pad = "CR8"
+h = "CR9"
+w = "CR10"
+ho = "CR11"
+wo = "CR12"
+wpr = "CR13"
+dsout1 = "CR14"
+dsout0 = "CR15"
+
+[golden]
+tolerance = { e2 = "NX8_STEP" }
+
+[cases.default]
+bias = true
+cin = 3
+cout = 16
+groups = 1
+h = 224
+w = 224
+kh = 3
+kw = 3
+padding = 1
+stride = 2
+
+[cases.dw1]
+bias = true
+cin = 240
+cout = 240
+groups = 240
+h = 14
+w = 14
+kh = 5
+kw = 5
+padding = 2
+stride = 1
+
+[cases.dw2]
+bias = true
+cin = 144
+cout = 144
+groups = 144
+h = 14
+w = 14
+kh = 5
+kw = 5
+padding = 2
+stride = 1

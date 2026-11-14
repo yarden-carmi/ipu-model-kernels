@@ -1,0 +1,5 @@
+chain = ["conv2d", "hardswish"]
+chain_in = ["in0"]
+chain_out = ["out0"]
+generic = "hardswish"
+notes = "conv2d (NCHW, channels on lanes; one row per pixel and 128-channel block) followed by hardswish, stored as fp8_e2m5 through the AaQ generic LUT. Input is first copied into a zero-padded scratch; dense (groups=1) uses scalar-broadcast MULT.RC.VE, depthwise uses MULT.RC.VV. Weights are a folded constant (lanes = output channel)."
