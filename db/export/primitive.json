@@ -112,11 +112,11 @@
   "tensors": null
  },
  {
-  "doc": "Half-pixel 2x interpolation in width only, with edge clamping.",
+  "doc": "Half-pixel 2x linear interpolation along width, with edge replication.",
   "name": "bilinear_cols_first",
   "origin": "agent",
   "params": "[\"channels\", \"h\", \"w\"]",
-  "reference": "def fn(x, **params):\n    import torch.nn.functional as F\n    h,w = x.shape[-2:]\n    return F.interpolate(x.reshape(-1,1,h,w), size=(h,2*w), mode='bilinear', align_corners=False).reshape(*x.shape[:-2], h, 2*w)\n",
+  "reference": "def fn(x, **params):\n    import torch\n    prev = torch.cat((x[..., :1], x[..., :-1]), dim=-1)\n    nxt = torch.cat((x[..., 1:], x[..., -1:]), dim=-1)\n    return torch.stack((0.75*x + 0.25*prev, 0.75*x + 0.25*nxt), dim=-1).flatten(-2)\n",
   "tensors": null
  },
  {
@@ -160,11 +160,11 @@
   "tensors": null
  },
  {
-  "doc": "Half-pixel 2x interpolation in height only, with edge clamping.",
+  "doc": "Half-pixel 2x linear interpolation along height, with edge replication.",
   "name": "bilinear_rows",
   "origin": "agent",
   "params": "[\"channels\", \"h\", \"w\"]",
-  "reference": "def fn(x, **params):\n    import torch.nn.functional as F\n    h,w = x.shape[-2:]\n    return F.interpolate(x.reshape(-1,1,h,w), size=(2*h,w), mode='bilinear', align_corners=False).reshape(*x.shape[:-2], 2*h, w)\n",
+  "reference": "def fn(x, **params):\n    import torch\n    prev = torch.cat((x[..., :1, :], x[..., :-1, :]), dim=-2)\n    nxt = torch.cat((x[..., 1:, :], x[..., -1:, :]), dim=-2)\n    return torch.stack((0.75*x + 0.25*prev, 0.75*x + 0.25*nxt), dim=-2).flatten(-3, -2)\n",
   "tensors": null
  },
  {

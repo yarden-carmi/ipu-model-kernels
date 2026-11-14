@@ -1147,6 +1147,34 @@
    "sim_ppl": null,
    "sim_top1": null,
    "sqnr_db": null
+  },
+  {
+   "agreement": null,
+   "at": 1794683202.8161094,
+   "cosine": 0.9997218201488848,
+   "mode": "full",
+   "nonfinite": 0,
+   "precision": "tf32",
+   "purpose": "candidate",
+   "ref_ppl": null,
+   "ref_top1": null,
+   "sim_ppl": null,
+   "sim_top1": null,
+   "sqnr_db": 31.515557301337545
+  },
+  {
+   "agreement": null,
+   "at": 1794683202.8279495,
+   "cosine": 0.9989893172394356,
+   "mode": "quantized",
+   "nonfinite": 0,
+   "precision": "nx8",
+   "purpose": "candidate",
+   "ref_ppl": null,
+   "ref_top1": null,
+   "sim_ppl": null,
+   "sim_top1": null,
+   "sqnr_db": 24.186678149723825
   }
  ],
  "category": "depth-estimation",
@@ -7900,10 +7928,19 @@
      "check_ok": 1,
      "kind": "equivalent",
      "loss_db": null,
-     "mode": null,
-     "model_sqnr_db": null,
+     "mode": "full",
+     "model_sqnr_db": 31.515557301337545,
      "name": "half_pixel_phase_select",
-     "op_sqnr_db": null
+     "op_sqnr_db": 22.965057343884215
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": 2.2231714641620073,
+     "mode": "quantized",
+     "model_sqnr_db": 24.186678149723825,
+     "name": "half_pixel_phase_select",
+     "op_sqnr_db": 23.26661602436318
     }
    ],
    "params": {
@@ -8269,7 +8306,26 @@
    "lut": 0,
    "macs": 0,
    "op": "upsample",
-   "options": [],
+   "options": [
+    {
+     "check_ok": null,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "phase_width_height",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "phase_width_height_ref",
+     "op_sqnr_db": null
+    }
+   ],
    "params": {
     "channels": 64,
     "h": 32,
