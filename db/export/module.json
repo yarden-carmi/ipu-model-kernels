@@ -8197,5 +8197,383 @@
   "parent_id": 889,
   "path": "pooler.dense",
   "repeat": 1
+ },
+ {
+  "capture_id": 24,
+  "class": null,
+  "first_seq": 0,
+  "id": 913,
+  "parent_id": 912,
+  "path": "(input)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 24,
+  "class": "BartForConditionalGeneration",
+  "first_seq": 0,
+  "id": 912,
+  "parent_id": null,
+  "path": "(top)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 559,
+  "id": 914,
+  "parent_id": 912,
+  "path": "lm_head",
+  "repeat": 1
+ },
+ {
+  "capture_id": 24,
+  "class": "BartModel",
+  "first_seq": 2,
+  "id": 915,
+  "parent_id": 912,
+  "path": "model",
+  "repeat": 1
+ },
+ {
+  "capture_id": 24,
+  "class": "BartDecoder",
+  "first_seq": 188,
+  "id": 916,
+  "parent_id": 915,
+  "path": "model.decoder",
+  "repeat": 1
+ },
+ {
+  "capture_id": 24,
+  "class": "BartLearnedPositionalEmbedding",
+  "first_seq": 195,
+  "id": 918,
+  "parent_id": 916,
+  "path": "model.decoder.embed_positions",
+  "repeat": 1
+ },
+ {
+  "capture_id": 24,
+  "class": "BartScaledWordEmbedding",
+  "first_seq": 188,
+  "id": 919,
+  "parent_id": 916,
+  "path": "model.decoder.embed_tokens",
+  "repeat": 1
+ },
+ {
+  "capture_id": 24,
+  "class": "LayerNorm",
+  "first_seq": 198,
+  "id": 920,
+  "parent_id": 916,
+  "path": "model.decoder.layernorm_embedding",
+  "repeat": 1
+ },
+ {
+  "capture_id": 24,
+  "class": "ModuleList",
+  "first_seq": 199,
+  "id": 921,
+  "parent_id": 916,
+  "path": "model.decoder.layers",
+  "repeat": 1
+ },
+ {
+  "capture_id": 24,
+  "class": "BartDecoderLayer",
+  "first_seq": 199,
+  "id": 926,
+  "parent_id": 921,
+  "path": "model.decoder.layers.*",
+  "repeat": 12
+ },
+ {
+  "capture_id": 24,
+  "class": "GELUActivation",
+  "first_seq": 225,
+  "id": 928,
+  "parent_id": 926,
+  "path": "model.decoder.layers.*.activation_fn",
+  "repeat": 12
+ },
+ {
+  "capture_id": 24,
+  "class": "BartAttention",
+  "first_seq": 212,
+  "id": 929,
+  "parent_id": 926,
+  "path": "model.decoder.layers.*.encoder_attn",
+  "repeat": 12
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 213,
+  "id": 942,
+  "parent_id": 929,
+  "path": "model.decoder.layers.*.encoder_attn.k_proj",
+  "repeat": 12
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 221,
+  "id": 943,
+  "parent_id": 929,
+  "path": "model.decoder.layers.*.encoder_attn.out_proj",
+  "repeat": 12
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 212,
+  "id": 944,
+  "parent_id": 929,
+  "path": "model.decoder.layers.*.encoder_attn.q_proj",
+  "repeat": 12
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 214,
+  "id": 945,
+  "parent_id": 929,
+  "path": "model.decoder.layers.*.encoder_attn.v_proj",
+  "repeat": 12
+ },
+ {
+  "capture_id": 24,
+  "class": "LayerNorm",
+  "first_seq": 223,
+  "id": 930,
+  "parent_id": 926,
+  "path": "model.decoder.layers.*.encoder_attn_layer_norm",
+  "repeat": 12
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 224,
+  "id": 931,
+  "parent_id": 926,
+  "path": "model.decoder.layers.*.fc1",
+  "repeat": 12
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 226,
+  "id": 932,
+  "parent_id": 926,
+  "path": "model.decoder.layers.*.fc2",
+  "repeat": 12
+ },
+ {
+  "capture_id": 24,
+  "class": "LayerNorm",
+  "first_seq": 228,
+  "id": 933,
+  "parent_id": 926,
+  "path": "model.decoder.layers.*.final_layer_norm",
+  "repeat": 12
+ },
+ {
+  "capture_id": 24,
+  "class": "BartAttention",
+  "first_seq": 199,
+  "id": 934,
+  "parent_id": 926,
+  "path": "model.decoder.layers.*.self_attn",
+  "repeat": 12
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 200,
+  "id": 946,
+  "parent_id": 934,
+  "path": "model.decoder.layers.*.self_attn.k_proj",
+  "repeat": 12
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 209,
+  "id": 947,
+  "parent_id": 934,
+  "path": "model.decoder.layers.*.self_attn.out_proj",
+  "repeat": 12
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 199,
+  "id": 948,
+  "parent_id": 934,
+  "path": "model.decoder.layers.*.self_attn.q_proj",
+  "repeat": 12
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 201,
+  "id": 949,
+  "parent_id": 934,
+  "path": "model.decoder.layers.*.self_attn.v_proj",
+  "repeat": 12
+ },
+ {
+  "capture_id": 24,
+  "class": "LayerNorm",
+  "first_seq": 211,
+  "id": 935,
+  "parent_id": 926,
+  "path": "model.decoder.layers.*.self_attn_layer_norm",
+  "repeat": 12
+ },
+ {
+  "capture_id": 24,
+  "class": "BartEncoder",
+  "first_seq": 2,
+  "id": 917,
+  "parent_id": 915,
+  "path": "model.encoder",
+  "repeat": 1
+ },
+ {
+  "capture_id": 24,
+  "class": "BartLearnedPositionalEmbedding",
+  "first_seq": 4,
+  "id": 922,
+  "parent_id": 917,
+  "path": "model.encoder.embed_positions",
+  "repeat": 1
+ },
+ {
+  "capture_id": 24,
+  "class": "BartScaledWordEmbedding",
+  "first_seq": 2,
+  "id": 923,
+  "parent_id": 917,
+  "path": "model.encoder.embed_tokens",
+  "repeat": 1
+ },
+ {
+  "capture_id": 24,
+  "class": "LayerNorm",
+  "first_seq": 7,
+  "id": 924,
+  "parent_id": 917,
+  "path": "model.encoder.layernorm_embedding",
+  "repeat": 1
+ },
+ {
+  "capture_id": 24,
+  "class": "ModuleList",
+  "first_seq": 8,
+  "id": 925,
+  "parent_id": 917,
+  "path": "model.encoder.layers",
+  "repeat": 1
+ },
+ {
+  "capture_id": 24,
+  "class": "BartEncoderLayer",
+  "first_seq": 8,
+  "id": 927,
+  "parent_id": 925,
+  "path": "model.encoder.layers.*",
+  "repeat": 12
+ },
+ {
+  "capture_id": 24,
+  "class": "GELUActivation",
+  "first_seq": 19,
+  "id": 936,
+  "parent_id": 927,
+  "path": "model.encoder.layers.*.activation_fn",
+  "repeat": 12
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 18,
+  "id": 937,
+  "parent_id": 927,
+  "path": "model.encoder.layers.*.fc1",
+  "repeat": 12
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 20,
+  "id": 938,
+  "parent_id": 927,
+  "path": "model.encoder.layers.*.fc2",
+  "repeat": 12
+ },
+ {
+  "capture_id": 24,
+  "class": "LayerNorm",
+  "first_seq": 22,
+  "id": 939,
+  "parent_id": 927,
+  "path": "model.encoder.layers.*.final_layer_norm",
+  "repeat": 12
+ },
+ {
+  "capture_id": 24,
+  "class": "BartAttention",
+  "first_seq": 8,
+  "id": 940,
+  "parent_id": 927,
+  "path": "model.encoder.layers.*.self_attn",
+  "repeat": 12
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 9,
+  "id": 950,
+  "parent_id": 940,
+  "path": "model.encoder.layers.*.self_attn.k_proj",
+  "repeat": 12
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 15,
+  "id": 951,
+  "parent_id": 940,
+  "path": "model.encoder.layers.*.self_attn.out_proj",
+  "repeat": 12
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 8,
+  "id": 952,
+  "parent_id": 940,
+  "path": "model.encoder.layers.*.self_attn.q_proj",
+  "repeat": 12
+ },
+ {
+  "capture_id": 24,
+  "class": "Linear",
+  "first_seq": 10,
+  "id": 953,
+  "parent_id": 940,
+  "path": "model.encoder.layers.*.self_attn.v_proj",
+  "repeat": 12
+ },
+ {
+  "capture_id": 24,
+  "class": "LayerNorm",
+  "first_seq": 17,
+  "id": 941,
+  "parent_id": 927,
+  "path": "model.encoder.layers.*.self_attn_layer_norm",
+  "repeat": 12
  }
 ]
