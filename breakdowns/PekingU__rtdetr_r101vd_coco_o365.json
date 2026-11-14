@@ -265,6 +265,34 @@
    "sim_ppl": null,
    "sim_top1": null,
    "sqnr_db": 20.80151326665429
+  },
+  {
+   "agreement": 1.0,
+   "at": 1794683500.3593953,
+   "cosine": 0.9999999999999925,
+   "mode": "full",
+   "nonfinite": 0,
+   "precision": "tf32",
+   "purpose": "candidate",
+   "ref_ppl": null,
+   "ref_top1": null,
+   "sim_ppl": null,
+   "sim_top1": null,
+   "sqnr_db": Infinity
+  },
+  {
+   "agreement": 0.6533333333333333,
+   "at": 1794683500.4184134,
+   "cosine": 0.9964630621766877,
+   "mode": "quantized",
+   "nonfinite": 0,
+   "precision": "nx8",
+   "purpose": "candidate",
+   "ref_ppl": null,
+   "ref_top1": null,
+   "sim_ppl": null,
+   "sim_top1": null,
+   "sqnr_db": 20.899749670974693
   }
  ],
  "category": "object-detection",
@@ -10765,7 +10793,7 @@
   },
   {
    "calls": 1.0,
-   "class": "approximate",
+   "class": "equivalent",
    "cycles": null,
    "fp_sqnr": Infinity,
    "group_seq": 210,
@@ -10774,6 +10802,24 @@
    "macs": 0,
    "op": "aten",
    "options": [
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": "full",
+     "model_sqnr_db": Infinity,
+     "name": "channel_pair_strided_copy",
+     "op_sqnr_db": Infinity
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": 0.0,
+     "mode": "quantized",
+     "model_sqnr_db": 20.899749670974693,
+     "name": "channel_pair_strided_copy",
+     "op_sqnr_db": Infinity
+    },
     {
      "check_ok": 0,
      "kind": "equivalent",
@@ -23543,15 +23589,15 @@
   "macs_total": 18106566400.0,
   "model_id": 75,
   "n_1to1": 845,
-  "n_approximate": 1,
-  "n_equivalent": 14,
+  "n_approximate": 0,
+  "n_equivalent": 15,
   "n_failed": 0,
   "nodes": 887,
   "nodes_on_chip": 6,
   "nodes_ops_on_chip": 0,
   "pct_calls": 0.6764374295377678,
   "pct_macs": 0.0,
-  "plan_id": 254,
+  "plan_id": 268,
   "status": "active"
  }
 }

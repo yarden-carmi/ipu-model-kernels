@@ -516,6 +516,18 @@
   "proposed_by": 195
  },
  {
+  "chain": "[{\"op\": \"strided_channel_pair_copy_exact\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, x0, x1):\n    import torch\n    n, c0, h, w = x0.shape\n    n1, c1, h1, w1 = x1.shape\n    assert (n, h, w) == (n1, h1, w1)\n    assert x0.dtype == x1.dtype and x0.device == x1.device\n    out = torch.empty((n, c0 + c1, h, w), dtype=x0.dtype, device=x0.device)\n    out[:, :c0, :, :].copy_(x0)\n    out[:, c0:, :, :].copy_(x1)\n    return out\n",
+  "id": 326,
+  "kind": "equivalent",
+  "name": "channel_pair_strided_copy",
+  "op": "aten",
+  "proposal": "{\"description\": \"Use one data-movement primitive, not arithmetic or a concat instruction. Read N,C0,H,W from x0 and C1 from x1; allocate a contiguous output of shape [N,C0+C1,H,W] on the same device with the same dtype. Copy x0 into output[:,0:C0,:,:] and x1 into output[:,C0:C0+C1,:,:]. A kernel computes each source address from its actual tensor strides and each destination address from the contiguous output strides. These destination regions are disjoint, so no initialization or reduction is needed. Copy the float32 payload bits without conversion, preserving signed zero and nonfinite values. For the stated node each source contains 75264 elements; the output contains 150528 elements and the second block begins at element 75264 (byte 301056). For N>1 perform the two placements separately within each batch, not by flattening both complete inputs into adjacent blocks. Runtime shape derivation also handles the other channel-concat nodes sharing this replacement.\", \"rel_err\": 0.0}",
+  "proposed_by": 200
+ },
+ {
   "chain": "[{\"op\": \"concat_14_blocks\", \"params\": {\"numel\": \"numel\"}}]",
   "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
   "check_ok": 1,
@@ -1380,6 +1392,18 @@
   "proposed_by": 76
  },
  {
+  "chain": "[{\"op\": \"exact_phase_rows\", \"params\": {\"cin\": \"cin\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"exact_phase_weights\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"kh\": \"kh\", \"kw\": \"kw\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"cin\", \"m\": \"h*w\", \"n\": \"cout*kh*kw\"}}, {\"op\": \"exact_phase_fold\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"w\": \"w\"}}, {\"op\": \"binary\", \"params\": {\"broadcast\": \"channel\", \"inner\": \"h*w*kh*kw\", \"numel\": \"out_elements\", \"op\": \"add\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    import torch\n    x = inputs[0]\n    weight = getattr(module, 'weight', None)\n    if weight is None:\n        weight = inputs[1]\n    bias = getattr(module, 'bias', None)\n    if bias is None and len(inputs) > 2 and isinstance(inputs[2], torch.Tensor):\n        bias = inputs[2]\n    unbatched = x.dim() == 3\n    if unbatched:\n        x = x.unsqueeze(0)\n    n, ci, h, w = x.shape\n    _, co, kh, kw = weight.shape\n    rows = x.permute(0, 2, 3, 1).reshape(n * h * w, ci)\n    matrix = weight.reshape(ci, co * kh * kw)\n    product = rows @ matrix\n    y = product.reshape(n, h, w, co, kh, kw).permute(0, 3, 1, 4, 2, 5).reshape(n, co, h * kh, w * kw)\n    if bias is not None:\n        y = y + bias.reshape(1, co, 1, 1)\n    return y.squeeze(0) if unbatched else y",
+  "id": 327,
+  "kind": "equivalent",
+  "name": "exact_phase4_gemm",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"For groups=1, stride=kh=kw=4, padding=0, dilation=1 and output_padding=0, output (4i+a,4j+b) has exactly one contributing input position (i,j). Convert input to spatial rows X[(i*w+j),ci], flatten weight to M[ci,co*kh*kw+a*kw+b], compute X @ M, and permute [h,w,cout,kh,kw] to [cout,h,kh,w,kw] followed by reshape to [cout,4h,4w]. Broadcast-add the bias once per output channel. The layout conversion is a bijection, so no overlapping writes or accumulation are needed. Apply independently to each batch element if batched. This is mathematically exact, subject only to floating-point reduction order.\", \"rel_err\": null}",
+  "proposed_by": 196
+ },
+ {
   "chain": "[{\"op\": \"mean_kernel_primitive\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"stride\": \"stride\", \"w\": \"w\"}}]",
   "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
   "check_ok": null,
@@ -1486,6 +1510,42 @@
   "op": "conv_transpose2d",
   "proposal": "{\"description\": \"Approximate conv_transpose2d by averaging the 4x4 kernel over the horizontal tap index tw only, keeping the vertical tap structure. Step 1: spatial_rows lays the input [cin,h,w] out spatial-major as rows [h*w, cin]. Step 2: weight_mean_tw averages the weight [cin,cout,kh,kw] over tw, giving Wm[cin,cout,kh] flattened to [cin, cout*kh] (column co*kh+th). Step 3: gemm rows @ Wm2 -> [h*w, cout*kh]; entry (i*w+j, co*kh+th) = sum_ci x[ci,i,j]*mean_tw W[ci,co,th,tw], the tw-averaged transposed-conv contribution of pixel (i,j) to channel co at vertical tap th. Step 4: tile_fold_mean_tw folds each row into its disjoint stride-by-stride output tile at [co, i*kh+th, j*kw+tw], repeating each value across the kw horizontal taps (which now share one averaged weight), producing [cout, h*kh, w*kw] = [cout, 64, 64]. Step 5: add_bias adds the per-output-channel bias, broadcast over the spatial dims. Exact channel mixing and exact vertical tap variation; horizontal tap variation replaced by its mean.\", \"rel_err\": null}",
   "proposed_by": 158
+ },
+ {
+  "chain": "[{\"op\": \"phase4_input_rows_custom\", \"params\": {\"cin\": \"cin\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"phase4_mean_2x2_weight\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"kh\": \"kh\", \"kw\": \"kw\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"cin\", \"m\": \"h*w\", \"n\": \"cout*kh*kw//4\"}}, {\"op\": \"phase4_half_fold_repeat\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"w\": \"w\"}}, {\"op\": \"add_bias_map\", \"params\": {\"cout\": \"cout\", \"oh\": \"h*stride\", \"ow\": \"w*stride\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    x=inputs[0]; weight=module.weight; bias=module.bias\n    c,h,w=x.shape[-3:]; o,kh,kw=weight.shape[1:]; lead=x.shape[:-3]; n=len(lead)\n    rows=x.movedim(-3,-1).reshape(*lead,h*w,c)\n    mat=weight.reshape(c,o,kh//2,2,kw//2,2).mean((3,5)).reshape(c,o*kh*kw//4)\n    z=rows @ mat\n    y=z.reshape(*lead,h,w,o,kh//2,kw//2).permute(*range(n),n+2,n,n+3,n+1,n+4).reshape(*lead,o,h*kh//2,w*kw//2)\n    y=y.repeat_interleave(2,-2).repeat_interleave(2,-1)\n    return y+bias.reshape(*([1]*n),o,1,1)",
+  "id": 329,
+  "kind": "approximate",
+  "name": "phase4_block2_mean",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"Average each 2x2 block of the 4x4 taps independently for each input/output channel, producing four phase weights. Pack the input into 256 rows of 48 and GEMM with the 48 by 192 reduced weight. Fold each row's [cout,2,2] values into a [cout,32,32] intermediate, repeat each spatial value twice in each direction, and add channel bias. This replaces each 2x2 block inside each original 4x4 tile by its average, but retains variation across four blocks. No writes overlap. Requires stride=kh=kw=4, padding=output_padding=0, dilation=1, groups=1.\", \"rel_err\": null}",
+  "proposed_by": 196
+ },
+ {
+  "chain": "[{\"op\": \"pair_sum_rows_4\", \"params\": {\"cin\": \"cin\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"pair_mean_weight_4\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"kh\": \"kh\", \"kw\": \"kw\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"cin//2\", \"m\": \"h*w\", \"n\": \"cout*kh*kw\"}}, {\"op\": \"phase4_output_layout\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"w\": \"w\"}}, {\"op\": \"add_bias_map\", \"params\": {\"cout\": \"cout\", \"oh\": \"h*stride\", \"ow\": \"w*stride\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    x=inputs[0]\n    weight=module.weight\n    bias=module.bias\n    c,h,w=x.shape[-3:]\n    o,kh,kw=weight.shape[1:]\n    lead=x.shape[:-3]\n    rows=x.reshape(*lead,c//2,2,h,w).sum(-3).movedim(-3,-1).reshape(*lead,h*w,c//2)\n    mat=weight.reshape(c//2,2,o,kh,kw).mean(1).reshape(c//2,o*kh*kw)\n    z=rows @ mat\n    n=len(lead)\n    y=z.reshape(*lead,h,w,o,kh,kw).permute(*range(n),n+2,n,n+3,n+1,n+4).reshape(*lead,o,h*kh,w*kw)\n    return y+bias.reshape(*([1]*n),o,1,1)",
+  "id": 328,
+  "kind": "approximate",
+  "name": "phase4_channel_group2",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"For each adjacent pair of input channels, replace their two weights by their mean and sum the corresponding input channels. Pack the pair sums as 256 rows by 24 columns and the averaged weights as 24 by 768; multiply by GEMM. Reshape each result row to [48,4,4] and permute the input-position and tap axes into [48,64,64], then add output-channel bias. This is exact when the two weight slices in every pair agree. Batch dimensions are handled independently. No overlapping output writes occur. Requires even cin, stride=kh=kw=4, zero padding and output padding, unit dilation and groups=1.\", \"rel_err\": null}",
+  "proposed_by": 196
+ },
+ {
+  "chain": "[{\"op\": \"phase4_input_rows_custom\", \"params\": {\"cin\": \"cin\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"phase4_rank12_weights\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"kh\": \"kh\", \"kw\": \"kw\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"cin\", \"m\": \"h*w\", \"n\": 12}}, {\"op\": \"gemm\", \"params\": {\"k\": 12, \"m\": \"h*w\", \"n\": \"cout*kh*kw\"}}, {\"op\": \"phase4_output_layout\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"w\": \"w\"}}, {\"op\": \"add_bias_map\", \"params\": {\"cout\": \"cout\", \"oh\": \"h*stride\", \"ow\": \"w*stride\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    import torch\n    x=inputs[0]; weight=module.weight; bias=module.bias\n    c,h,w=x.shape[-3:]; o,kh,kw=weight.shape[1:]; lead=x.shape[:-3]; n=len(lead)\n    rows=x.movedim(-3,-1).reshape(*lead,h*w,c)\n    u,s,vh=torch.linalg.svd(weight.reshape(c,o*kh*kw),full_matrices=False)\n    a=u[:,:12]*s[:12]; b=vh[:12,:]\n    z=(rows @ a) @ b\n    y=z.reshape(*lead,h,w,o,kh,kw).permute(*range(n),n+2,n,n+3,n+1,n+4).reshape(*lead,o,h*kh,w*kw)\n    return y+bias.reshape(*([1]*n),o,1,1)",
+  "id": 330,
+  "kind": "approximate",
+  "name": "phase4_rank12_factored",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"Offline flatten weight to M[48,768], compute its truncated rank-12 SVD U S Vh, and store A=U[:,:12]*S[:12] and B=Vh[:12,:]. Pack input into [256,48] rows, compute (X @ A) @ B using two GEMMs, reshape to [h,w,cout,4,4], permute to [cout,h,4,w,4], and add channel bias. The rank approximation retains all spatial phases, with 256*(48*12+12*768) multiply-accumulates rather than 256*48*768, excluding offline preprocessing and layout. Tiles do not overlap. Requires stride=kh=kw=4, padding=output_padding=0, dilation=1, groups=1; rank 12 requires min(cin,cout*kh*kw)>=12.\", \"rel_err\": null}",
+  "proposed_by": 196
  },
  {
   "chain": "[{\"op\": \"phase_input_rows\", \"params\": {\"cin\": \"cin\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"phase_weight_matrix\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"kh\": \"kh\", \"kw\": \"kw\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"cin\", \"m\": \"h*w\", \"n\": \"cout*kh*kw\"}}, {\"op\": \"phase_fold\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"w\": \"w\"}}, {\"op\": \"phase_bias\", \"params\": {\"cout\": \"cout\", \"h\": \"h*kh\", \"w\": \"w*kw\"}}]",
