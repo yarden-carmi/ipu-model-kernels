@@ -2833,5 +2833,311 @@
   "parent_id": 308,
   "path": "vit.layers.*.mlp.fc2",
   "repeat": 12
+ },
+ {
+  "capture_id": 8,
+  "class": null,
+  "first_seq": 0,
+  "id": 317,
+  "parent_id": 316,
+  "path": "(input)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 8,
+  "class": "Wav2Vec2ForCTC",
+  "first_seq": 0,
+  "id": 316,
+  "parent_id": null,
+  "path": "(top)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 8,
+  "class": "Linear",
+  "first_seq": 389,
+  "id": 318,
+  "parent_id": 316,
+  "path": "lm_head",
+  "repeat": 1
+ },
+ {
+  "capture_id": 8,
+  "class": "Wav2Vec2Model",
+  "first_seq": 1,
+  "id": 319,
+  "parent_id": 316,
+  "path": "wav2vec2",
+  "repeat": 1
+ },
+ {
+  "capture_id": 8,
+  "class": "Wav2Vec2EncoderStableLayerNorm",
+  "first_seq": 24,
+  "id": 320,
+  "parent_id": 319,
+  "path": "wav2vec2.encoder",
+  "repeat": 1
+ },
+ {
+  "capture_id": 8,
+  "class": "LayerNorm",
+  "first_seq": 388,
+  "id": 323,
+  "parent_id": 320,
+  "path": "wav2vec2.encoder.layer_norm",
+  "repeat": 1
+ },
+ {
+  "capture_id": 8,
+  "class": "ModuleList",
+  "first_seq": 28,
+  "id": 324,
+  "parent_id": 320,
+  "path": "wav2vec2.encoder.layers",
+  "repeat": 1
+ },
+ {
+  "capture_id": 8,
+  "class": "Wav2Vec2EncoderLayerStableLayerNorm",
+  "first_seq": 28,
+  "id": 329,
+  "parent_id": 324,
+  "path": "wav2vec2.encoder.layers.*",
+  "repeat": 24
+ },
+ {
+  "capture_id": 8,
+  "class": "Wav2Vec2Attention",
+  "first_seq": 29,
+  "id": 333,
+  "parent_id": 329,
+  "path": "wav2vec2.encoder.layers.*.attention",
+  "repeat": 24
+ },
+ {
+  "capture_id": 8,
+  "class": "Linear",
+  "first_seq": 30,
+  "id": 341,
+  "parent_id": 333,
+  "path": "wav2vec2.encoder.layers.*.attention.k_proj",
+  "repeat": 24
+ },
+ {
+  "capture_id": 8,
+  "class": "Linear",
+  "first_seq": 36,
+  "id": 342,
+  "parent_id": 333,
+  "path": "wav2vec2.encoder.layers.*.attention.out_proj",
+  "repeat": 24
+ },
+ {
+  "capture_id": 8,
+  "class": "Linear",
+  "first_seq": 29,
+  "id": 343,
+  "parent_id": 333,
+  "path": "wav2vec2.encoder.layers.*.attention.q_proj",
+  "repeat": 24
+ },
+ {
+  "capture_id": 8,
+  "class": "Linear",
+  "first_seq": 31,
+  "id": 344,
+  "parent_id": 333,
+  "path": "wav2vec2.encoder.layers.*.attention.v_proj",
+  "repeat": 24
+ },
+ {
+  "capture_id": 8,
+  "class": "Wav2Vec2FeedForward",
+  "first_seq": 39,
+  "id": 334,
+  "parent_id": 329,
+  "path": "wav2vec2.encoder.layers.*.feed_forward",
+  "repeat": 24
+ },
+ {
+  "capture_id": 8,
+  "class": "GELUActivation",
+  "first_seq": 40,
+  "id": 345,
+  "parent_id": 334,
+  "path": "wav2vec2.encoder.layers.*.feed_forward.intermediate_act_fn",
+  "repeat": 24
+ },
+ {
+  "capture_id": 8,
+  "class": "Linear",
+  "first_seq": 39,
+  "id": 346,
+  "parent_id": 334,
+  "path": "wav2vec2.encoder.layers.*.feed_forward.intermediate_dense",
+  "repeat": 24
+ },
+ {
+  "capture_id": 8,
+  "class": "Linear",
+  "first_seq": 41,
+  "id": 347,
+  "parent_id": 334,
+  "path": "wav2vec2.encoder.layers.*.feed_forward.output_dense",
+  "repeat": 24
+ },
+ {
+  "capture_id": 8,
+  "class": "LayerNorm",
+  "first_seq": 38,
+  "id": 335,
+  "parent_id": 329,
+  "path": "wav2vec2.encoder.layers.*.final_layer_norm",
+  "repeat": 24
+ },
+ {
+  "capture_id": 8,
+  "class": "LayerNorm",
+  "first_seq": 28,
+  "id": 336,
+  "parent_id": 329,
+  "path": "wav2vec2.encoder.layers.*.layer_norm",
+  "repeat": 24
+ },
+ {
+  "capture_id": 8,
+  "class": "Wav2Vec2PositionalConvEmbedding",
+  "first_seq": 24,
+  "id": 325,
+  "parent_id": 320,
+  "path": "wav2vec2.encoder.pos_conv_embed",
+  "repeat": 1
+ },
+ {
+  "capture_id": 8,
+  "class": "GELUActivation",
+  "first_seq": 26,
+  "id": 330,
+  "parent_id": 325,
+  "path": "wav2vec2.encoder.pos_conv_embed.activation",
+  "repeat": 1
+ },
+ {
+  "capture_id": 8,
+  "class": "ParametrizedConv1d",
+  "first_seq": 24,
+  "id": 331,
+  "parent_id": 325,
+  "path": "wav2vec2.encoder.pos_conv_embed.conv",
+  "repeat": 1
+ },
+ {
+  "capture_id": 8,
+  "class": "ModuleDict",
+  "first_seq": 24,
+  "id": 337,
+  "parent_id": 331,
+  "path": "wav2vec2.encoder.pos_conv_embed.conv.parametrizations",
+  "repeat": 1
+ },
+ {
+  "capture_id": 8,
+  "class": "ParametrizationList",
+  "first_seq": 24,
+  "id": 348,
+  "parent_id": 337,
+  "path": "wav2vec2.encoder.pos_conv_embed.conv.parametrizations.weight",
+  "repeat": 1
+ },
+ {
+  "capture_id": 8,
+  "class": "_WeightNorm",
+  "first_seq": 24,
+  "id": 349,
+  "parent_id": 348,
+  "path": "wav2vec2.encoder.pos_conv_embed.conv.parametrizations.weight.*",
+  "repeat": 1
+ },
+ {
+  "capture_id": 8,
+  "class": "Wav2Vec2FeatureEncoder",
+  "first_seq": 1,
+  "id": 321,
+  "parent_id": 319,
+  "path": "wav2vec2.feature_extractor",
+  "repeat": 1
+ },
+ {
+  "capture_id": 8,
+  "class": "ModuleList",
+  "first_seq": 1,
+  "id": 326,
+  "parent_id": 321,
+  "path": "wav2vec2.feature_extractor.conv_layers",
+  "repeat": 1
+ },
+ {
+  "capture_id": 8,
+  "class": "Wav2Vec2LayerNormConvLayer",
+  "first_seq": 1,
+  "id": 332,
+  "parent_id": 326,
+  "path": "wav2vec2.feature_extractor.conv_layers.*",
+  "repeat": 7
+ },
+ {
+  "capture_id": 8,
+  "class": "GELUActivation",
+  "first_seq": 3,
+  "id": 338,
+  "parent_id": 332,
+  "path": "wav2vec2.feature_extractor.conv_layers.*.activation",
+  "repeat": 7
+ },
+ {
+  "capture_id": 8,
+  "class": "Conv1d",
+  "first_seq": 1,
+  "id": 339,
+  "parent_id": 332,
+  "path": "wav2vec2.feature_extractor.conv_layers.*.conv",
+  "repeat": 7
+ },
+ {
+  "capture_id": 8,
+  "class": "LayerNorm",
+  "first_seq": 2,
+  "id": 340,
+  "parent_id": 332,
+  "path": "wav2vec2.feature_extractor.conv_layers.*.layer_norm",
+  "repeat": 7
+ },
+ {
+  "capture_id": 8,
+  "class": "Wav2Vec2FeatureProjection",
+  "first_seq": 22,
+  "id": 322,
+  "parent_id": 319,
+  "path": "wav2vec2.feature_projection",
+  "repeat": 1
+ },
+ {
+  "capture_id": 8,
+  "class": "LayerNorm",
+  "first_seq": 22,
+  "id": 327,
+  "parent_id": 322,
+  "path": "wav2vec2.feature_projection.layer_norm",
+  "repeat": 1
+ },
+ {
+  "capture_id": 8,
+  "class": "Linear",
+  "first_seq": 23,
+  "id": 328,
+  "parent_id": 322,
+  "path": "wav2vec2.feature_projection.projection",
+  "repeat": 1
  }
 ]
