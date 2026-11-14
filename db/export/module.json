@@ -25954,5 +25954,266 @@
   "parent_id": 2867,
   "path": "model.rotary_emb",
   "repeat": 1
+ },
+ {
+  "capture_id": 74,
+  "class": null,
+  "first_seq": 0,
+  "id": 2886,
+  "parent_id": 2885,
+  "path": "(input)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 74,
+  "class": "SiglipForImageClassification",
+  "first_seq": 0,
+  "id": 2885,
+  "parent_id": null,
+  "path": "(top)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 74,
+  "class": "Linear",
+  "first_seq": 200,
+  "id": 2887,
+  "parent_id": 2885,
+  "path": "classifier",
+  "repeat": 1
+ },
+ {
+  "capture_id": 74,
+  "class": "SiglipVisionModel",
+  "first_seq": 1,
+  "id": 2888,
+  "parent_id": 2885,
+  "path": "vision_model",
+  "repeat": 1
+ },
+ {
+  "capture_id": 74,
+  "class": "SiglipVisionEmbeddings",
+  "first_seq": 1,
+  "id": 2889,
+  "parent_id": 2888,
+  "path": "vision_model.embeddings",
+  "repeat": 1
+ },
+ {
+  "capture_id": 74,
+  "class": "Conv2d",
+  "first_seq": 1,
+  "id": 2893,
+  "parent_id": 2889,
+  "path": "vision_model.embeddings.patch_embedding",
+  "repeat": 1
+ },
+ {
+  "capture_id": 74,
+  "class": "Embedding",
+  "first_seq": 2,
+  "id": 2894,
+  "parent_id": 2889,
+  "path": "vision_model.embeddings.position_embedding",
+  "repeat": 1
+ },
+ {
+  "capture_id": 74,
+  "class": "SiglipEncoder",
+  "first_seq": 4,
+  "id": 2890,
+  "parent_id": 2888,
+  "path": "vision_model.encoder",
+  "repeat": 1
+ },
+ {
+  "capture_id": 74,
+  "class": "ModuleList",
+  "first_seq": 4,
+  "id": 2895,
+  "parent_id": 2890,
+  "path": "vision_model.encoder.layers",
+  "repeat": 1
+ },
+ {
+  "capture_id": 74,
+  "class": "SiglipEncoderLayer",
+  "first_seq": 4,
+  "id": 2899,
+  "parent_id": 2895,
+  "path": "vision_model.encoder.layers.*",
+  "repeat": 12
+ },
+ {
+  "capture_id": 74,
+  "class": "LayerNorm",
+  "first_seq": 4,
+  "id": 2903,
+  "parent_id": 2899,
+  "path": "vision_model.encoder.layers.*.layer_norm1",
+  "repeat": 12
+ },
+ {
+  "capture_id": 74,
+  "class": "LayerNorm",
+  "first_seq": 14,
+  "id": 2904,
+  "parent_id": 2899,
+  "path": "vision_model.encoder.layers.*.layer_norm2",
+  "repeat": 12
+ },
+ {
+  "capture_id": 74,
+  "class": "SiglipMLP",
+  "first_seq": 15,
+  "id": 2905,
+  "parent_id": 2899,
+  "path": "vision_model.encoder.layers.*.mlp",
+  "repeat": 12
+ },
+ {
+  "capture_id": 74,
+  "class": "GELUTanh",
+  "first_seq": 16,
+  "id": 2907,
+  "parent_id": 2905,
+  "path": "vision_model.encoder.layers.*.mlp.activation_fn",
+  "repeat": 12
+ },
+ {
+  "capture_id": 74,
+  "class": "Linear",
+  "first_seq": 15,
+  "id": 2908,
+  "parent_id": 2905,
+  "path": "vision_model.encoder.layers.*.mlp.fc1",
+  "repeat": 12
+ },
+ {
+  "capture_id": 74,
+  "class": "Linear",
+  "first_seq": 17,
+  "id": 2909,
+  "parent_id": 2905,
+  "path": "vision_model.encoder.layers.*.mlp.fc2",
+  "repeat": 12
+ },
+ {
+  "capture_id": 74,
+  "class": "SiglipAttention",
+  "first_seq": 5,
+  "id": 2906,
+  "parent_id": 2899,
+  "path": "vision_model.encoder.layers.*.self_attn",
+  "repeat": 12
+ },
+ {
+  "capture_id": 74,
+  "class": "Linear",
+  "first_seq": 6,
+  "id": 2910,
+  "parent_id": 2906,
+  "path": "vision_model.encoder.layers.*.self_attn.k_proj",
+  "repeat": 12
+ },
+ {
+  "capture_id": 74,
+  "class": "Linear",
+  "first_seq": 12,
+  "id": 2911,
+  "parent_id": 2906,
+  "path": "vision_model.encoder.layers.*.self_attn.out_proj",
+  "repeat": 12
+ },
+ {
+  "capture_id": 74,
+  "class": "Linear",
+  "first_seq": 5,
+  "id": 2912,
+  "parent_id": 2906,
+  "path": "vision_model.encoder.layers.*.self_attn.q_proj",
+  "repeat": 12
+ },
+ {
+  "capture_id": 74,
+  "class": "Linear",
+  "first_seq": 7,
+  "id": 2913,
+  "parent_id": 2906,
+  "path": "vision_model.encoder.layers.*.self_attn.v_proj",
+  "repeat": 12
+ },
+ {
+  "capture_id": 74,
+  "class": "SiglipMultiheadAttentionPoolingHead",
+  "first_seq": 185,
+  "id": 2891,
+  "parent_id": 2888,
+  "path": "vision_model.head",
+  "repeat": 1
+ },
+ {
+  "capture_id": 74,
+  "class": "MultiheadAttention",
+  "first_seq": 186,
+  "id": 2896,
+  "parent_id": 2891,
+  "path": "vision_model.head.attention",
+  "repeat": 1
+ },
+ {
+  "capture_id": 74,
+  "class": "LayerNorm",
+  "first_seq": 194,
+  "id": 2897,
+  "parent_id": 2891,
+  "path": "vision_model.head.layernorm",
+  "repeat": 1
+ },
+ {
+  "capture_id": 74,
+  "class": "SiglipMLP",
+  "first_seq": 195,
+  "id": 2898,
+  "parent_id": 2891,
+  "path": "vision_model.head.mlp",
+  "repeat": 1
+ },
+ {
+  "capture_id": 74,
+  "class": "GELUTanh",
+  "first_seq": 196,
+  "id": 2900,
+  "parent_id": 2898,
+  "path": "vision_model.head.mlp.activation_fn",
+  "repeat": 1
+ },
+ {
+  "capture_id": 74,
+  "class": "Linear",
+  "first_seq": 195,
+  "id": 2901,
+  "parent_id": 2898,
+  "path": "vision_model.head.mlp.fc1",
+  "repeat": 1
+ },
+ {
+  "capture_id": 74,
+  "class": "Linear",
+  "first_seq": 197,
+  "id": 2902,
+  "parent_id": 2898,
+  "path": "vision_model.head.mlp.fc2",
+  "repeat": 1
+ },
+ {
+  "capture_id": 74,
+  "class": "LayerNorm",
+  "first_seq": 184,
+  "id": 2892,
+  "parent_id": 2888,
+  "path": "vision_model.post_layernorm",
+  "repeat": 1
  }
 ]
