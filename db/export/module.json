@@ -9187,5 +9187,212 @@
   "parent_id": 1006,
   "path": "global_pool.pool",
   "repeat": 1
+ },
+ {
+  "capture_id": 31,
+  "class": null,
+  "first_seq": 0,
+  "id": 1023,
+  "parent_id": 1022,
+  "path": "(input)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 31,
+  "class": "Qwen3ForCausalLM",
+  "first_seq": 0,
+  "id": 1022,
+  "parent_id": null,
+  "path": "(top)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 31,
+  "class": "Linear",
+  "first_seq": 856,
+  "id": 1024,
+  "parent_id": 1022,
+  "path": "lm_head",
+  "repeat": 1
+ },
+ {
+  "capture_id": 31,
+  "class": "Qwen3Model",
+  "first_seq": 1,
+  "id": 1025,
+  "parent_id": 1022,
+  "path": "model",
+  "repeat": 1
+ },
+ {
+  "capture_id": 31,
+  "class": "Embedding",
+  "first_seq": 1,
+  "id": 1026,
+  "parent_id": 1025,
+  "path": "model.embed_tokens",
+  "repeat": 1
+ },
+ {
+  "capture_id": 31,
+  "class": "ModuleList",
+  "first_seq": 15,
+  "id": 1027,
+  "parent_id": 1025,
+  "path": "model.layers",
+  "repeat": 1
+ },
+ {
+  "capture_id": 31,
+  "class": "Qwen3DecoderLayer",
+  "first_seq": 15,
+  "id": 1030,
+  "parent_id": 1027,
+  "path": "model.layers.*",
+  "repeat": 28
+ },
+ {
+  "capture_id": 31,
+  "class": "Qwen3RMSNorm",
+  "first_seq": 15,
+  "id": 1031,
+  "parent_id": 1030,
+  "path": "model.layers.*.input_layernorm",
+  "repeat": 28
+ },
+ {
+  "capture_id": 31,
+  "class": "Qwen3MLP",
+  "first_seq": 39,
+  "id": 1032,
+  "parent_id": 1030,
+  "path": "model.layers.*.mlp",
+  "repeat": 28
+ },
+ {
+  "capture_id": 31,
+  "class": "SiLUActivation",
+  "first_seq": 40,
+  "id": 1035,
+  "parent_id": 1032,
+  "path": "model.layers.*.mlp.act_fn",
+  "repeat": 28
+ },
+ {
+  "capture_id": 31,
+  "class": "Linear",
+  "first_seq": 43,
+  "id": 1036,
+  "parent_id": 1032,
+  "path": "model.layers.*.mlp.down_proj",
+  "repeat": 28
+ },
+ {
+  "capture_id": 31,
+  "class": "Linear",
+  "first_seq": 39,
+  "id": 1037,
+  "parent_id": 1032,
+  "path": "model.layers.*.mlp.gate_proj",
+  "repeat": 28
+ },
+ {
+  "capture_id": 31,
+  "class": "Linear",
+  "first_seq": 41,
+  "id": 1038,
+  "parent_id": 1032,
+  "path": "model.layers.*.mlp.up_proj",
+  "repeat": 28
+ },
+ {
+  "capture_id": 31,
+  "class": "Qwen3RMSNorm",
+  "first_seq": 38,
+  "id": 1033,
+  "parent_id": 1030,
+  "path": "model.layers.*.post_attention_layernorm",
+  "repeat": 28
+ },
+ {
+  "capture_id": 31,
+  "class": "Qwen3Attention",
+  "first_seq": 16,
+  "id": 1034,
+  "parent_id": 1030,
+  "path": "model.layers.*.self_attn",
+  "repeat": 28
+ },
+ {
+  "capture_id": 31,
+  "class": "Qwen3RMSNorm",
+  "first_seq": 19,
+  "id": 1039,
+  "parent_id": 1034,
+  "path": "model.layers.*.self_attn.k_norm",
+  "repeat": 28
+ },
+ {
+  "capture_id": 31,
+  "class": "Linear",
+  "first_seq": 18,
+  "id": 1040,
+  "parent_id": 1034,
+  "path": "model.layers.*.self_attn.k_proj",
+  "repeat": 28
+ },
+ {
+  "capture_id": 31,
+  "class": "Linear",
+  "first_seq": 36,
+  "id": 1041,
+  "parent_id": 1034,
+  "path": "model.layers.*.self_attn.o_proj",
+  "repeat": 28
+ },
+ {
+  "capture_id": 31,
+  "class": "Qwen3RMSNorm",
+  "first_seq": 17,
+  "id": 1042,
+  "parent_id": 1034,
+  "path": "model.layers.*.self_attn.q_norm",
+  "repeat": 28
+ },
+ {
+  "capture_id": 31,
+  "class": "Linear",
+  "first_seq": 16,
+  "id": 1043,
+  "parent_id": 1034,
+  "path": "model.layers.*.self_attn.q_proj",
+  "repeat": 28
+ },
+ {
+  "capture_id": 31,
+  "class": "Linear",
+  "first_seq": 20,
+  "id": 1044,
+  "parent_id": 1034,
+  "path": "model.layers.*.self_attn.v_proj",
+  "repeat": 28
+ },
+ {
+  "capture_id": 31,
+  "class": "Qwen3RMSNorm",
+  "first_seq": 855,
+  "id": 1028,
+  "parent_id": 1025,
+  "path": "model.norm",
+  "repeat": 1
+ },
+ {
+  "capture_id": 31,
+  "class": "Qwen3RotaryEmbedding",
+  "first_seq": 9,
+  "id": 1029,
+  "parent_id": 1025,
+  "path": "model.rotary_emb",
+  "repeat": 1
  }
 ]
