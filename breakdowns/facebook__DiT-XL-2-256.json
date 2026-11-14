@@ -153,6 +153,62 @@
    "sim_ppl": null,
    "sim_top1": null,
    "sqnr_db": 29.762312560046183
+  },
+  {
+   "agreement": 1.0,
+   "at": 1794684087.8443446,
+   "cosine": 1.000000000000004,
+   "mode": "full",
+   "nonfinite": 0,
+   "precision": "tf32",
+   "purpose": "candidate",
+   "ref_ppl": null,
+   "ref_top1": null,
+   "sim_ppl": null,
+   "sim_top1": null,
+   "sqnr_db": Infinity
+  },
+  {
+   "agreement": 0.74609375,
+   "at": 1794684087.8757112,
+   "cosine": 0.9995399131961458,
+   "mode": "quantized",
+   "nonfinite": 0,
+   "precision": "nx8",
+   "purpose": "candidate",
+   "ref_ppl": null,
+   "ref_top1": null,
+   "sim_ppl": null,
+   "sim_top1": null,
+   "sqnr_db": 29.762312560046183
+  },
+  {
+   "agreement": 1.0,
+   "at": 1794684087.9046903,
+   "cosine": 1.000000000000004,
+   "mode": "full",
+   "nonfinite": 0,
+   "precision": "tf32",
+   "purpose": "candidate",
+   "ref_ppl": null,
+   "ref_top1": null,
+   "sim_ppl": null,
+   "sim_top1": null,
+   "sqnr_db": Infinity
+  },
+  {
+   "agreement": 0.74609375,
+   "at": 1794684087.9305546,
+   "cosine": 0.9995399131961458,
+   "mode": "quantized",
+   "nonfinite": 0,
+   "precision": "nx8",
+   "purpose": "candidate",
+   "ref_ppl": null,
+   "ref_top1": null,
+   "sim_ppl": null,
+   "sim_top1": null,
+   "sqnr_db": 29.762312560046183
   }
  ],
  "category": "text-to-image",
@@ -525,6 +581,51 @@
    "op": "embedding",
    "options": [
     {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": "full",
+     "model_sqnr_db": Infinity,
+     "name": "onehot_gemm_v4",
+     "op_sqnr_db": Infinity
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": 0.0,
+     "mode": "quantized",
+     "model_sqnr_db": 29.762312560046183,
+     "name": "onehot_gemm_v4",
+     "op_sqnr_db": Infinity
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": "full",
+     "model_sqnr_db": Infinity,
+     "name": "mux_tree_embed_v3",
+     "op_sqnr_db": Infinity
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": 0.0,
+     "mode": "quantized",
+     "model_sqnr_db": 29.762312560046183,
+     "name": "mux_tree_embed_v3",
+     "op_sqnr_db": Infinity
+    },
+    {
+     "check_ok": null,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "onehot_bmm_v5",
+     "op_sqnr_db": null
+    },
+    {
      "check_ok": 0,
      "kind": "equivalent",
      "loss_db": null,
@@ -550,6 +651,15 @@
      "model_sqnr_db": 29.762312560046183,
      "name": "bit_product_gemm",
      "op_sqnr_db": Infinity
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "integer_quotient_selector_gemm",
+     "op_sqnr_db": null
     }
    ],
    "params": {
@@ -1519,6 +1629,87 @@
      "model_sqnr_db": null,
      "name": "onehot_bmm_nt_v3",
      "op_sqnr_db": null
+    },
+    {
+     "check_ok": null,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "probe_mux",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "probe_act",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "probe_act2",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "probe_act3",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "probe_act4",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "probe_act5",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "mux_tree_where_v2",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "mux_tree_embed",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "mux_tree_embed_f32",
+     "op_sqnr_db": null
     }
    ],
    "params": {
@@ -2443,7 +2634,26 @@
    "lut": 0,
    "macs": 0,
    "op": "embedding",
-   "options": [],
+   "options": [
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "radix4_mux_copy",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "radix4_mux_copy_v2",
+     "op_sqnr_db": null
+    }
+   ],
    "params": {
     "dim": 1152,
     "in_order": false,
@@ -3366,7 +3576,26 @@
    "lut": 0,
    "macs": 0,
    "op": "embedding",
-   "options": [],
+   "options": [
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "onehot_row_gemm_v6",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "onehot_gemm_f64_select",
+     "op_sqnr_db": null
+    }
+   ],
    "params": {
     "dim": 1152,
     "in_order": false,
@@ -4289,7 +4518,26 @@
    "lut": 0,
    "macs": 0,
    "op": "embedding",
-   "options": [],
+   "options": [
+    {
+     "check_ok": 0,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "block32_mux",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "block32_mux_v2",
+     "op_sqnr_db": null
+    }
+   ],
    "params": {
     "dim": 1152,
     "in_order": false,
@@ -26685,7 +26933,7 @@
   "nodes_ops_on_chip": 0,
   "pct_calls": 0.0,
   "pct_macs": 0.0,
-  "plan_id": 228,
+  "plan_id": 294,
   "status": "active"
  }
 }

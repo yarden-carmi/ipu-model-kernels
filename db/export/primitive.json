@@ -32,6 +32,62 @@
   "tensors": null
  },
  {
+  "doc": "Static source-axis moment reductions followed by affine evaluation at runtime index coordinates; second runtime operand is indices. This is a rank-two approximation, not exact gather.",
+  "name": "axis_affine_fit_primitive",
+  "origin": "agent",
+  "params": "[\"numel\", \"sel\"]",
+  "reference": "def fn(x, indices, **params):\n    import torch\n    d = int(params['sel']) % x.ndim\n    cuts = tuple(slice(None) if a == d else slice(0, indices.shape[a]) for a in range(x.ndim))\n    z = x[cuts].movedim(d, -1).float()\n    ids = indices.movedim(d, -1)\n    if indices.numel() == 0:\n        return torch.empty_like(indices, dtype=x.dtype)\n    k = z.shape[-1]\n    mu = z.mean(dim=-1, keepdim=True)\n    if k == 1:\n        y = mu.expand(ids.shape)\n    else:\n        t = torch.arange(k, device=x.device, dtype=torch.float32) - (k - 1) * 0.5\n        beta = (z * t).sum(dim=-1, keepdim=True) / (k * (k * k - 1) / 12.0)\n        y = mu + beta * (ids.float() - (k - 1) * 0.5)\n    return y.movedim(-1, d).to(x.dtype)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Fixed-address contiguous eight-lane means and index-interval predicate gating. The second runtime operand is the index tensor. Output shape equals its shape. All source addresses are independent of index values.",
+  "name": "axis_bin8_mean_primitive",
+  "origin": "agent",
+  "params": "[\"numel\", \"sel\"]",
+  "reference": "def fn(x, indices, **params):\n    import torch\n    d = int(params['sel']) % x.ndim\n    cuts = tuple(slice(None) if a == d else slice(0, indices.shape[a]) for a in range(x.ndim))\n    z = x[cuts].movedim(d, -1).float()\n    ids = indices.movedim(d, -1)\n    y = torch.zeros(ids.shape, device=x.device, dtype=torch.float32)\n    for s in range(0, z.shape[-1], 8):\n        e = min(s + 8, z.shape[-1])\n        mean = z[..., s:e].mean(dim=-1, keepdim=True)\n        y = torch.where((ids >= s) & (ids < e), mean, y)\n    return y.movedim(-1, d).to(x.dtype)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Fixed-axis sigmoid, mean, probability clamp, inverse sigmoid, and broadcast. The second runtime operand supplies only the output shape; no runtime data addressing is used.",
+  "name": "axis_sigmoid_centroid_primitive",
+  "origin": "agent",
+  "params": "[\"numel\", \"sel\"]",
+  "reference": "def fn(x, indices, **params):\n    import torch\n    d = int(params['sel']) % x.ndim\n    if indices.numel() == 0:\n        return torch.empty_like(indices, dtype=x.dtype)\n    cuts = tuple(slice(None) if a == d else slice(0, indices.shape[a]) for a in range(x.ndim))\n    z = x[cuts].movedim(d, -1).float()\n    p = torch.sigmoid(z).mean(dim=-1, keepdim=True).clamp(1e-6, 1.0 - 1e-6)\n    c = torch.log(p) - torch.log1p(-p)\n    y = c.expand(indices.movedim(d, -1).shape)\n    return y.movedim(-1, d).to(x.dtype)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Sum over the leading batch dimension: input (b, rows, cols) float32, output (rows, cols) = sum_i x[i].",
+  "name": "batched_sum",
+  "origin": "agent",
+  "params": "[\"b\", \"rows\", \"cols\"]",
+  "reference": "def fn(x, b=0, rows=0, cols=0):\n    import torch\n    return x.reshape(b, rows, cols).to(torch.float32).sum(0)",
+  "tensors": null
+ },
+ {
+  "doc": "Round both tensors to bfloat16, widen to float32 and place them in consecutive channel ranges.",
+  "name": "bf16_pair_place_new",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, x1, **params):\n    import torch\n    return torch.cat((x.to(torch.bfloat16).to(torch.float32), x1.to(torch.bfloat16).to(torch.float32)), dim=1)",
+  "tensors": null
+ },
+ {
+  "doc": "Round each float32 element to bfloat16 and back to float32 (round-to-nearest-even).",
+  "name": "bf16_round",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "import torch\ndef fn(x, numel):\n    return x.to(torch.bfloat16).to(torch.float32)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Round each element to bfloat16 and back to its original integer dtype.",
+  "name": "bf16_round_prim",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, **params):\n    return x.to(torch.bfloat16).to(x.dtype)",
+  "tensors": null
+ },
+ {
   "doc": "Bilinear 2x upsampling by gathering the four clamped neighbours of each output sample with outer-product bilinear weights.",
   "name": "bilinear2x_gather4",
   "origin": "agent",
@@ -69,6 +125,14 @@
   "origin": "agent",
   "params": "[\"channels\", \"h\", \"w\"]",
   "reference": "def fn(x, channels, h, w):\n    import torch\n    def amat(n_out, n_in):\n        i = torch.arange(n_out)\n        src = ((i + 0.5) * 0.5 - 0.5).clamp_min(0.0)\n        i0 = src.floor().long().clamp_max(n_in - 1)\n        i1 = (i0 + 1).clamp_max(n_in - 1)\n        l = src - i0\n        A = torch.zeros(n_out, n_in)\n        A[torch.arange(n_out), i0] += 1 - l\n        A[torch.arange(n_out), i1] += l\n        return A\n    Ah = amat(2*h, h)\n    Aw = amat(2*w, w)\n    K = torch.kron(Ah, Aw)\n    X = x.reshape(x.shape[0], h*w)\n    Y = X @ K.T\n    return Y.reshape(x.shape[0], 2*h, 2*w)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Bilinear 2x upsampling, align_corners=False, edge clamped: Y = A_h @ X @ A_w^T per channel.",
+  "name": "bilinear2x_sep_defined",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "import torch\ndef _interp_matrix(n):\n    m = 2 * n\n    A = torch.zeros(m, n, dtype=torch.float64)\n    for i in range(m):\n        src = max((i + 0.5) * 0.5 - 0.5, 0.0)\n        i0 = min(int(src // 1), n - 1)\n        i1 = min(i0 + 1, n - 1)\n        l = src - i0\n        A[i, i0] += 1.0 - l\n        A[i, i1] += l\n    return A\ndef fn(x, channels, h, w):\n    xd = x.to(torch.float64)\n    Ah = _interp_matrix(h)\n    Aw = _interp_matrix(w)\n    y = torch.matmul(torch.matmul(Ah, xd), Aw.T)\n    return y.to(x.dtype)\n",
   "tensors": null
  },
  {
@@ -200,6 +264,22 @@
   "tensors": null
  },
  {
+  "doc": "Selector matrix S[t, j] = product over bits b of (1 if bit b of id[t] equals bit b of j else 0), in float64; exactly one-hot for integer ids in [0, vocab).",
+  "name": "bit_product_sel_f64",
+  "origin": "agent",
+  "params": "[\"vocab\"]",
+  "reference": "def fn(x, vocab):\n    import torch\n    ids = x.long().reshape(-1)\n    j = torch.arange(int(vocab), device=ids.device)\n    S = torch.ones(ids.numel(), int(vocab), dtype=torch.float64, device=ids.device)\n    nb = max(1, int(vocab - 1).bit_length())\n    for b in range(nb):\n        ib = ((ids >> b) & 1).to(torch.float64).unsqueeze(1)\n        jb = ((j >> b) & 1).to(torch.float64).unsqueeze(0)\n        S = S * (1.0 - (ib - jb).abs().clamp(max=1.0))\n    return S\n",
+  "tensors": null
+ },
+ {
+  "doc": "Fixed-address 32-row block mux followed by a fixed-address block mux; table is supplied as a parameter.",
+  "name": "block32_mux_select",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\", \"dim\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    tokens, vocab, dim = params['tokens'], params['vocab'], params['dim']\n    table = params['table']\n    blocks = (vocab + 31) // 32\n    pad = blocks * 32 - vocab\n    if pad:\n        table = torch.cat((table, table.new_zeros((pad, dim))), dim=0)\n    ids = x.reshape(tokens).to(torch.int64)\n    v = table.reshape(1, blocks, 32, dim).expand(tokens, -1, -1, -1)\n    for bit in range(5):\n        v = v.reshape(tokens, blocks, -1, 2, dim)\n        mask = ((ids >> bit) & 1).bool().reshape(tokens, 1, 1, 1)\n        v = torch.where(mask, v[:, :, :, 1, :], v[:, :, :, 0, :])\n    v = v.reshape(tokens, blocks, dim)\n    result = v[:, 0, :]\n    for b in range(1, blocks):\n        result = torch.where((ids // 32 == b).reshape(tokens, 1), v[:, b, :], result)\n    return result",
+  "tensors": null
+ },
+ {
   "doc": "Flatten the source, adaptive-average-pool it to eight bins and repeat each bin mean numel/8 times; numel must be divisible by eight and the source nonempty.",
   "name": "block8_representative",
   "origin": "agent",
@@ -280,6 +360,22 @@
   "tensors": null
  },
  {
+  "doc": "Copy two NCHW tensors into adjacent channel regions of a new NCHW tensor.",
+  "name": "channel_copy_384_reference_prim",
+  "origin": "agent",
+  "params": "[\"n\", \"c0\", \"c1\", \"h\", \"w\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    x0, x1 = x\n    n, c0, c1, h, w = (params[k] for k in ('n', 'c0', 'c1', 'h', 'w'))\n    out = torch.empty((n, c0+c1, h, w), dtype=x0.dtype, device=x0.device)\n    out[:, :c0] = x0\n    out[:, c0:] = x1\n    return out\n",
+  "tensors": null
+ },
+ {
+  "doc": "Copy two NCHW tensors into consecutive output channel ranges per batch.",
+  "name": "channel_copy_dynamic_exact_v2_prim",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, y, **params):\n    import torch\n    out = torch.empty((x.shape[0], x.shape[1] + y.shape[1], *x.shape[2:]), dtype=x.dtype, device=x.device)\n    out[:, :x.shape[1]].copy_(x)\n    out[:, x.shape[1]:].copy_(y)\n    return out\n",
+  "tensors": null
+ },
+ {
   "doc": "Allocate the output and perform two disjoint channel-block copies. This is memory movement only, preserving all float32 bits, including signed zero, infinities and NaNs. No numerical conversion or arithmetic is applied to tensor values.",
   "name": "channel_copy_dynamic_ref",
   "origin": "agent",
@@ -304,6 +400,22 @@
   "tensors": null
  },
  {
+  "doc": "Copy a pair of NCHW tensors into adjacent output channel ranges for every batch.",
+  "name": "channel_pair_copy_dynamic_exact_new",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, *args, **params):\n    import torch\n    if args:\n        a, b = x, args[0]\n    else:\n        while isinstance(x, (list, tuple)) and len(x) == 1:\n            x = x[0]\n        a, b = x\n    n, c0, h, w = a.shape\n    c1 = b.shape[1]\n    out = torch.empty((n, c0 + c1, h, w), dtype=a.dtype, device=a.device)\n    out[:, :c0].copy_(a)\n    out[:, c0:].copy_(b)\n    return out",
+  "tensors": null
+ },
+ {
+  "doc": "Channel concatenation of two NCHW float32 tensors by two disjoint block copies (bit-exact).",
+  "name": "channel_pair_place",
+  "origin": "agent",
+  "params": "[\"batch\", \"channels\", \"spatial\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    if isinstance(x, (tuple, list)):\n        a, b = x[0], x[1]\n    else:\n        a, b = x, x\n    return torch.cat([a, b], dim=1)\n",
+  "tensors": null
+ },
+ {
   "doc": "Clamp each float32 element to [-4,4], preserving shape and NaNs.",
   "name": "clamp4_7",
   "origin": "agent",
@@ -312,11 +424,35 @@
   "tensors": null
  },
  {
+  "doc": "Four-tap half-pixel bilinear 2x gather with clamped edges and phase-interleaved output.",
+  "name": "clamped_phase_fused_op",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    h, w = params['h'], params['w']\n    i = torch.arange(h, device=x.device)\n    j = torch.arange(w, device=x.device)\n    y = x.new_empty((*x.shape[:-2], 2*h, 2*w))\n    for p in range(2):\n        r = (i + 2*p - 1).clamp(0, h-1)\n        for q in range(2):\n            s = (j + 2*q - 1).clamp(0, w-1)\n            y[..., p::2, q::2] = (9*x + 3*x[..., r, :] + 3*x[..., :, s] + x[..., r[:, None], s[None, :]]) / 16\n    return y",
+  "tensors": null
+ },
+ {
   "doc": "Clamp each element to [-4,4], retaining NaNs.",
   "name": "clip4_concat384",
   "origin": "agent",
   "params": "[\"numel\"]",
   "reference": "def fn(x, **params):\n    import torch\n    return torch.clamp(x, -4.0, 4.0)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Clamp two tensors to [-8,8] and place them in consecutive channel ranges.",
+  "name": "clip8_pair_place_new",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, x1, **params):\n    import torch\n    return torch.cat((torch.clamp(x, -8.0, 8.0), torch.clamp(x1, -8.0, 8.0)), dim=1)",
+  "tensors": null
+ },
+ {
+  "doc": "Gather along dim sel by compare-and-select over all source positions. Input x is stacked as x[0] = source, x[1] = index (as float values); output has the index shape.",
+  "name": "compare_select_gather",
+  "origin": "agent",
+  "params": "[\"numel\", \"sel\"]",
+  "reference": "def fn(x, numel, sel):\n    import torch\n    src, idx = x[0], x[1]\n    L = src.shape[sel]\n    s = src.movedim(sel, -1)\n    i = idx.movedim(sel, -1)\n    for d in range(s.dim() - 1):\n        s = s.narrow(d, 0, i.shape[d])\n    pos = torch.arange(L, device=src.device, dtype=i.dtype)\n    eq = i.unsqueeze(-1) == pos\n    sel_val = torch.where(eq, s.unsqueeze(-2), torch.zeros((), dtype=s.dtype, device=s.device))\n    out = sel_val.sum(-1)\n    return out.movedim(-1, sel)\n",
   "tensors": null
  },
  {
@@ -373,6 +509,14 @@
   "origin": "agent",
   "params": "[\"numel\", \"block\", \"offset\"]",
   "reference": "def fn(x, numel=401408, block=200704, offset=0, **params):\n    import torch\n    if x.numel() == numel:\n        return x.reshape(1, 512, 28, 28).clone()\n    out = torch.zeros(numel, dtype=x.dtype, device=x.device)\n    out[offset:offset + x.numel()] = x.reshape(-1)\n    return out.reshape(1, 512, 28, 28)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Concatenate two NCHW float32 tensors along dim 1, preserving all values exactly. The output has the same batch and spatial sizes and the summed channel count.",
+  "name": "concat_channel_pair",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(x0, x1, **params):\n    import torch\n    return torch.cat([x0, x1], dim=1)\n",
   "tensors": null
  },
  {
@@ -536,6 +680,22 @@
   "tensors": null
  },
  {
+  "doc": "One-hot indicator matrix for integer token ids: O[t, i] = 1.0 if ids[t] == i else 0.0, as float32 of shape (tokens, vocab), built by broadcast equality of the flattened ids against the constant range arange(vocab); uses only fixed addresses, no runtime lookup.",
+  "name": "embed_one_hot",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    tokens = params['tokens']\n    vocab = params['vocab']\n    ids = x.reshape(-1).to(torch.long)\n    return (ids[:, None] == torch.arange(vocab, device=ids.device)[None, :]).to(torch.float32)",
+  "tensors": null
+ },
+ {
+  "doc": "Compare each input id against fixed vocabulary indices and return a float32 selector matrix.",
+  "name": "eq_selector_fp32",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    return (x.reshape(-1, 1) == torch.arange(params['vocab'], device=x.device).reshape(1, -1)).to(torch.float32)\n",
+  "tensors": null
+ },
+ {
   "doc": "Bijection from rows [h*w,cout*kh*kw] to CHW disjoint spatial tiles.",
   "name": "exact_phase_fold",
   "origin": "agent",
@@ -608,6 +768,14 @@
   "tensors": null
  },
  {
+  "doc": "Concatenate two contiguous NCHW float32 tensors x0 and x1 along the channel axis (dim 1). The output shape is [x0.shape[0], x0.shape[1]+x1.shape[1], x0.shape[2], x0.shape[3]]. x0 and x1 are copied unchanged into their adjacent output channel blocks, preserving batch and spatial positions and the exact input bits. Pure data movement with no arithmetic.",
+  "name": "flat_pair_concat_exact",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x0, x1, numel=None, **params):\n    import torch\n    return torch.cat([x0, x1], dim=1)\n",
+  "tensors": null
+ },
+ {
   "doc": "Copy the two contiguous float32 inputs in order into one flat buffer of numel values: x0 first, then x1; a pure bit-preserving copy with no arithmetic.",
   "name": "flat_pair_copy",
   "origin": "agent",
@@ -656,6 +824,22 @@
   "tensors": null
  },
  {
+  "doc": "Round each float32 element to float16 and back to float32 (round-to-nearest-even).",
+  "name": "fp16_round",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "import torch\ndef fn(x, numel):\n    return x.to(torch.float16).to(torch.float32)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Round each element to fp16 and back to its original integer dtype.",
+  "name": "fp16_round_prim",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, **params):\n    return x.to(torch.float16).to(x.dtype)",
+  "tensors": null
+ },
+ {
   "doc": "Half-pixel bilinear 2x resize with replicated boundaries, evaluated from four input samples per output.",
   "name": "fused_halfpixel_four_op",
   "origin": "agent",
@@ -688,11 +872,35 @@
   "tensors": null
  },
  {
+  "doc": "Half-pixel bilinear horizontal resize followed by nearest vertical resize.",
+  "name": "horizontal_only_approx_prim",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, **params):\n    import torch.nn.functional as F\n    h,w = params['h'],params['w']\n    a=x.reshape(-1,1,h,w)\n    a=F.interpolate(a,size=(h,2*w),mode='bilinear',align_corners=False)\n    a=F.interpolate(a,size=(2*h,2*w),mode='nearest')\n    return a.reshape(-1,2*h,2*w)\n",
+  "tensors": null
+ },
+ {
   "doc": "One-hot indicator matrix: out[r, c] = 1 if x[r] == c else 0, float32, shape (rows, cols).",
   "name": "indicator_rows",
   "origin": "agent",
   "params": "[\"rows\", \"cols\"]",
   "reference": "def fn(x, **params):\n    import torch\n    ids = x.reshape(-1).long()\n    out = torch.zeros(ids.numel(), params['cols'], dtype=torch.float32, device=x.device)\n    out.scatter_(1, ids.unsqueeze(1), 1.0)\n    return out\n",
+  "tensors": null
+ },
+ {
+  "doc": "Symmetric per-tensor int8 quantize then dequantize; scale = max|x|/127.",
+  "name": "int8_roundtrip",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "import torch\ndef fn(x, numel):\n    s = x.abs().max() / 127.0\n    if s == 0:\n        return x.clone()\n    return torch.clamp(torch.round(x / s), -127, 127) * s\n",
+  "tensors": null
+ },
+ {
+  "doc": "Build exact float32 token indicators by fixed broadcast subtraction, integer absolute value, increment, and integer floor division of one by the positive distance. Requires valid ids in [0,vocab). No gather, scatter, or runtime-dependent memory access.",
+  "name": "integer_quotient_indicators",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    ids = x.reshape(params['tokens'], 1).to(torch.int64)\n    columns = torch.arange(params['vocab'], dtype=torch.int64, device=x.device).reshape(1, -1)\n    denominator = (ids - columns).abs() + 1\n    return torch.div(torch.ones_like(denominator), denominator, rounding_mode='floor').to(torch.float32)\n",
   "tensors": null
  },
  {
@@ -717,6 +925,22 @@
   "origin": "agent",
   "params": "[\"tokens\", \"vocab\"]",
   "reference": "def fn(x, **params):\n    import torch\n    j = torch.arange(params['vocab'], device=x.device, dtype=torch.float32)\n    d = x.reshape(-1, 1).to(torch.float32) - j[None, :]\n    return 4.0 * torch.clamp(0.5 - d, 0.0, 1.0) * torch.clamp(0.5 + d, 0.0, 1.0)",
+  "tensors": null
+ },
+ {
+  "doc": "Interquartile mean of the flattened source, broadcast to numel values.",
+  "name": "iqr_mean_broadcast",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    numel = params['numel']\n    s = torch.sort(x.flatten().float())[0]\n    n = s.numel()\n    lo = n // 4\n    hi = max(lo + 1, -(-3 * n // 4))\n    m = s[lo:hi].mean()\n    return m.to(x.dtype).expand(numel).clone()\n",
+  "tensors": null
+ },
+ {
+  "doc": "One-hot selector S[t, h*256 + l] = onehot_hi[t, h] * onehot_lo[t, l] where id = 256*hi + lo, in float64; exactly one-hot for integer ids in [0, vocab).",
+  "name": "kron_onehot",
+  "origin": "agent",
+  "params": "[\"vocab\"]",
+  "reference": "def fn(x, vocab):\n    import torch\n    ids = x.long().reshape(-1)\n    nhi = (int(vocab) + 255) // 256\n    hi = (ids // 256).clamp(max=nhi - 1)\n    lo = ids % 256\n    oh_hi = torch.nn.functional.one_hot(hi, nhi).to(torch.float64)\n    oh_lo = torch.nn.functional.one_hot(lo, 256).to(torch.float64)\n    return (oh_hi.unsqueeze(2) * oh_lo.unsqueeze(1)).reshape(ids.numel(), nhi * 256)[:, :int(vocab)]\n",
   "tensors": null
  },
  {
@@ -749,6 +973,14 @@
   "origin": "agent",
   "params": "[\"rows\", \"cols\"]",
   "reference": "def fn(ids, rows, cols):\n    import torch\n    O = torch.zeros(rows * cols, dtype=torch.float32, device=ids.device)\n    for t in range(rows):\n        idx = ids[t].item()\n        if 0 <= idx < cols:\n            O[t * cols + idx] = 1\n    return O.view(rows, cols)",
+  "tensors": null
+ },
+ {
+  "doc": "Build the one-hot selector matrix O of shape (tokens, vocab) from the integer ids, in the table's dtype.",
+  "name": "make_onehot_v4",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(x, tokens, vocab):\n    ids = x.reshape(tokens).long()\n    O = (ids[:, None] == torch.arange(vocab, device=ids.device)).to(x.new_zeros(1).dtype if x.is_floating_point() else torch.float32)\n    return O",
   "tensors": null
  },
  {
@@ -808,6 +1040,30 @@
   "tensors": null
  },
  {
+  "doc": "Embedding lookup by a 10-level binary where-multiplexer over the table padded to 1024 rows, evaluated in float32 and cast back to the table dtype.",
+  "name": "mux_tree_embed_f32_fn",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\", \"dim\"]",
+  "reference": "def fn(x, tokens, vocab, dim, table=None):\n    import torch\n    t = table if table is not None else x\n    padded = torch.cat([t, torch.zeros(1024 - t.shape[0], t.shape[1], dtype=t.dtype, device=t.device)], 0).to(torch.float32)\n    v = padded.unsqueeze(0).expand(tokens, -1, -1)\n    for b in range(10):\n        v = v.reshape(tokens, 2 ** (9 - b), 2, dim)\n        bit = ((x.reshape(-1)[:tokens].long() >> b) & 1).reshape(tokens, 1, 1, 1)\n        v = torch.where(bit == 1, v[..., 1, :], v[..., 0, :])\n    return v.reshape(tokens, dim).to(t.dtype)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Embedding lookup by a 10-level binary where-multiplexer over the table padded to 1024 rows; no runtime gather, only fixed addressing and conditional copies.",
+  "name": "mux_tree_embed_fn",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\", \"dim\"]",
+  "reference": "def fn(x, tokens, vocab, dim, table=None):\n    import torch\n    t = table if table is not None else x\n    padded = torch.cat([t, torch.zeros(1024 - t.shape[0], t.shape[1], dtype=t.dtype, device=t.device)], 0)\n    v = padded.unsqueeze(0).expand(tokens, -1, -1)\n    for b in range(10):\n        v = v.reshape(tokens, 2 ** (9 - b), 2, dim)\n        bit = ((x.reshape(-1)[:tokens].long() >> b) & 1).reshape(tokens, 1, 1, 1)\n        v = torch.where(bit == 1, v[..., 1, :], v[..., 0, :])\n    return v.reshape(tokens, dim)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Select table[ids] with a balanced binary mux tree of torch.where over a zero-padded 1024-row table.",
+  "name": "mux_tree_embed_v3_fn",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\", \"dim\"]",
+  "reference": "def fn(x, tokens, vocab, dim, **params):\n    table = params['table']\n    import torch\n    tokens = int(x.numel())\n    levels = 1\n    while (1 << levels) < vocab:\n        levels += 1\n    rows = 1 << levels\n    pad = torch.zeros(rows - vocab, dim, dtype=table.dtype, device=table.device)\n    t = torch.cat([table, pad], 0)\n    idl = x.reshape(tokens).long()\n    v = t[None].expand(tokens, rows, dim)\n    for b in range(levels):\n        g = rows >> (b + 1)\n        v = v.reshape(tokens, g, 2, dim)\n        bit = ((idl >> b) & 1).to(torch.bool).reshape(tokens, 1, 1, 1)\n        v = torch.where(bit, v[:, :, 1, :], v[:, :, 0, :])\n    return v.reshape(tokens, dim).to(table.dtype)\n",
+  "tensors": null
+ },
+ {
   "doc": "Pad the embedding table with zero rows to the next power of two (1024).",
   "name": "mux_tree_pad",
   "origin": "agent",
@@ -816,11 +1072,43 @@
   "tensors": null
  },
  {
+  "doc": "Pad the embedding table with fixed zero rows to 1024 rows and prepend a row carrying the ids as floats so the selection step can recover them from the flowing activation.",
+  "name": "mux_tree_pad_v2",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\", \"dim\"]",
+  "reference": "def fn(x, tokens, vocab, dim, table=None):\n    import torch\n    t = table if table is not None else x\n    padded = torch.cat([t, torch.zeros(1024 - t.shape[0], t.shape[1], dtype=t.dtype, device=t.device)], 0)\n    ids_row = torch.zeros(1, dim, dtype=t.dtype, device=t.device)\n    ids_row[0, :tokens] = x.reshape(-1)[:tokens].to(t.dtype)\n    return torch.cat([ids_row, padded], 0)\n",
+  "tensors": null
+ },
+ {
   "doc": "Balanced binary mux tree over the padded table using bit tests and torch.where (fixed addresses only).",
   "name": "mux_tree_select",
   "origin": "agent",
   "params": "[\"tokens\", \"vocab\", \"dim\"]",
   "reference": "import torch\ndef fn(padded, ids, tokens, vocab, dim):\n    ids = ids.reshape(-1).long()\n    v = padded.unsqueeze(0).expand(tokens, 1024, dim)\n    for b in range(10):\n        bit = ((ids >> b) & 1).to(v.dtype).reshape(tokens, 1, 1)\n        v = v.reshape(tokens, v.shape[1] // 2, 2, dim)\n        v = torch.where(bit == 1.0, v[:, :, 1, :], v[:, :, 0, :])\n    return v.reshape(tokens, dim)",
+  "tensors": null
+ },
+ {
+  "doc": "Recover ids from row 0 of the flowing tensor, then select table[ids[t]] with a 10-level binary where-multiplexer over the padded 1024-row table.",
+  "name": "mux_tree_select_v2",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\", \"dim\"]",
+  "reference": "def fn(x, tokens, vocab, dim, table=None):\n    import torch\n    ids = x[0, :tokens].round().long()\n    t = x[1:]\n    v = t.unsqueeze(0).expand(tokens, -1, -1)\n    for b in range(10):\n        v = v.reshape(tokens, 2 ** (9 - b), 2, dim)\n        bit = ((ids >> b) & 1).reshape(tokens, 1, 1, 1)\n        v = torch.where(bit == 1, v[..., 1, :], v[..., 0, :])\n    return v.reshape(tokens, dim)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Concatenate two NCHW float32 tensors x0 of shape [n,c0,h,w] and x1 of shape [n,c1,h,w] along the channel axis (dim 1), producing [n,c0+c1,h,w]. It is pure data movement: x0 is copied unchanged into output channels [0,c0) and x1 into output channels [c0,c0+c1), preserving all batch and spatial positions and the exact input bit patterns.",
+  "name": "nchw_channel_pair_concat",
+  "origin": "agent",
+  "params": "[\"n\", \"c0\", \"c1\", \"h\", \"w\"]",
+  "reference": "def fn(x0, x1, n=None, c0=None, c1=None, h=None, w=None, **params):\n    import torch\n    return torch.cat([x0, x1], dim=1)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Copy two NCHW tensors into disjoint channel slices of a newly allocated contiguous output, preserving payload bits.",
+  "name": "nchw_pair_copy_runtime",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x0, x1, **params):\n    import torch\n    n, c0, h, w = x0.shape\n    c1 = x1.shape[1]\n    y = torch.empty((n, c0 + c1, h, w), dtype=x0.dtype, device=x0.device)\n    y[:, :c0, :, :].copy_(x0)\n    y[:, c0:, :, :].copy_(x1)\n    return y",
   "tensors": null
  },
  {
@@ -856,11 +1144,19 @@
   "tensors": null
  },
  {
-  "doc": "Create a one-hot matrix from token ids in float32. Input: ids of shape (tokens,). Output: matrix of shape (rows, cols) = (tokens, vocab) where O[t, i] = 1 if ids[t] == i else 0, in float32.",
+  "doc": "Nearest-neighbor spatial resize, 2x in each dimension.",
+  "name": "nearest_phase_approx_prim",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, **params):\n    import torch.nn.functional as F\n    h, w = params['h'], params['w']\n    a = x.reshape(-1, 1, h, w)\n    return F.interpolate(a, size=(2*h, 2*w), mode='nearest').reshape(-1, 2*h, 2*w)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Build a float32 one-hot matrix O of shape (rows, cols) with O[r, i] = 1.0 if x[r] == i else 0.0, using a broadcast equality against arange(cols). No runtime addressing.",
   "name": "one_hot",
   "origin": "agent",
   "params": "[\"rows\", \"cols\"]",
-  "reference": "def fn(ids, rows, cols):\n    import torch\n    O = torch.zeros(rows * cols, dtype=torch.float32, device=ids.device)\n    for t in range(rows):\n        idx = ids[t].item()\n        if 0 <= idx < cols:\n            O[t * cols + idx] = 1\n    return O.view(rows, cols)",
+  "reference": "def fn(x, rows, cols):\n    import torch\n    ids = x.reshape(-1).long()\n    coord = torch.arange(cols, device=ids.device)\n    return (ids.unsqueeze(1) == coord.unsqueeze(0)).to(torch.float32)",
   "tensors": null
  },
  {
@@ -869,6 +1165,14 @@
   "origin": "agent",
   "params": "[\"tokens\", \"vocab\"]",
   "reference": "import torch\ndef fn(ids, tokens, vocab):\n    ids = ids.reshape(-1).long()\n    coords = torch.arange(vocab, device=ids.device)\n    return (ids[:, None] == coords[None, :]).to(torch.float32)",
+  "tensors": null
+ },
+ {
+  "doc": "One-hot indicator matrix from integer ids: out[t, i] = 1.0 if ids[t] == i else 0.0, in float64.",
+  "name": "one_hot_f64",
+  "origin": "agent",
+  "params": "[\"vocab\"]",
+  "reference": "def fn(x, vocab):\n    import torch\n    return torch.nn.functional.one_hot(x.long().reshape(-1), int(vocab)).to(torch.float64)\n",
   "tensors": null
  },
  {
@@ -885,6 +1189,38 @@
   "origin": "agent",
   "params": "[\"tokens\", \"vocab\"]",
   "reference": "import torch\ndef fn(x, tokens, vocab):\n    ids = x.reshape(-1)[:tokens]\n    coords = torch.arange(vocab, device=x.device)\n    return (ids.unsqueeze(-1) == coords.unsqueeze(0)).to(torch.float32)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Build a float32 one-hot matrix O of shape (tokens, vocab) with O[t, i] = 1.0 if x[t] == i else 0.0, using a broadcast equality against arange(vocab), and reshape it to (1, tokens, vocab).",
+  "name": "onehot_build",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(x, tokens, vocab):\n    import torch\n    ids = x.reshape(-1).long()\n    coord = torch.arange(vocab, device=ids.device)\n    O = (ids.unsqueeze(1) == coord.unsqueeze(0)).to(torch.float32)\n    return O.reshape(1, tokens, vocab)",
+  "tensors": null
+ },
+ {
+  "doc": "Build the (tokens, vocab) one-hot matrix from the ids in float64: O[t, i] = 1 if ids[t] == i else 0.",
+  "name": "onehot_build_f64",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(x, tokens, vocab):\n    ids = x.reshape(tokens).long()\n    O = torch.zeros(tokens, vocab, dtype=torch.float64)\n    O[torch.arange(tokens), ids] = 1.0\n    return O",
+  "tensors": null
+ },
+ {
+  "doc": "Float32 indicator block over a static vocab range: rows x cols with out[t, j] = 1.0 if flatten(x)[t] == start + j else 0.0, built by broadcast equality against arange(cols) + start; no data addressing.",
+  "name": "onehot_chunk",
+  "origin": "agent",
+  "params": "[\"rows\", \"cols\", \"start\"]",
+  "reference": "def fn(x, rows=0, cols=0, start=0):\n    import torch\n    ids = x.reshape(-1).long()\n    j = torch.arange(cols, device=ids.device)\n    return (ids.unsqueeze(1) == (j + int(start)).reshape(1, -1)).to(torch.float32)",
+  "tensors": null
+ },
+ {
+  "doc": "Stack of b float32 indicator blocks over consecutive vocab ranges: out[i, t, j] = 1.0 if flatten(x)[t] == i*k + j else 0.0, built by broadcast equality against a constant coordinate grid; no data addressing.",
+  "name": "onehot_chunks6",
+  "origin": "agent",
+  "params": "[\"b\", \"m\", \"k\"]",
+  "reference": "def fn(x, b=0, m=0, k=0):\n    import torch\n    ids = x.reshape(-1).long()\n    j = torch.arange(k, device=ids.device).reshape(1, 1, k)\n    s = (torch.arange(b, device=ids.device) * k).reshape(b, 1, 1)\n    return (ids.reshape(1, -1, 1) == (j + s)).to(torch.float32)",
   "tensors": null
  },
  {
@@ -912,6 +1248,22 @@
   "tensors": null
  },
  {
+  "doc": "probe",
+  "name": "onehot_probe",
+  "origin": "agent",
+  "params": "[\"rows\", \"cols\"]",
+  "reference": "def fn(x, rows=0, cols=0):\n    import torch\n    ids = x.reshape(-1).long()\n    return (ids.unsqueeze(1) == torch.arange(cols, device=ids.device).reshape(1, -1)).to(torch.float32)",
+  "tensors": null
+ },
+ {
+  "doc": "Build the (tokens, vocab) one-hot matrix from the ids: O[t, i] = 1 if ids[t] == i else 0, cast to the table's dtype.",
+  "name": "onehot_row_build",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(x, tokens, vocab):\n    ids = x.reshape(tokens).long()\n    O = torch.zeros(tokens, vocab, dtype=torch.float32)\n    O[torch.arange(tokens), ids] = 1.0\n    return O",
+  "tensors": null
+ },
+ {
   "doc": "Flatten integer ids to (tokens,) and return float32 one-hot matrix (tokens, vocab): O[t,i] = 1 if ids[t]==i else 0.",
   "name": "onehot_rows",
   "origin": "agent",
@@ -936,6 +1288,30 @@
   "tensors": null
  },
  {
+  "doc": "Fold reduced phases, duplicate adjacent columns, and add bias; shape is batch metadata.",
+  "name": "pair_column_fold",
+  "origin": "agent",
+  "params": "[\"cout\", \"h\", \"w\", \"kh\", \"kw\"]",
+  "reference": "def fn(x, **params):\n y,bias,shape=x\n c,h,w,kh,kw=(params[k] for k in ('cout','h','w','kh','kw'))\n y=y.reshape(*shape,h,w,c,kh,kw//2).movedim(-3,-5).transpose(-3,-2).reshape(*shape,c,h*kh,w*(kw//2))\n return y.repeat_interleave(2,dim=-1)+bias.reshape(*([1]*len(shape)),c,1,1)",
+  "tensors": null
+ },
+ {
+  "doc": "Pack input into spatial rows.",
+  "name": "pair_column_rows",
+  "origin": "agent",
+  "params": "[\"cin\", \"h\", \"w\"]",
+  "reference": "def fn(x, **params):\n return x.movedim(-3,-1).reshape(-1,params['cin'])",
+  "tensors": null
+ },
+ {
+  "doc": "Offline mean adjacent horizontal phase weights and flatten.",
+  "name": "pair_column_weights",
+  "origin": "agent",
+  "params": "[\"cin\", \"cout\", \"kh\", \"kw\"]",
+  "reference": "def fn(x, **params):\n return x.reshape(params['cin'],params['cout'],params['kh'],params['kw']//2,2).mean(-1).reshape(params['cin'],-1)",
+  "tensors": null
+ },
+ {
   "doc": "Average adjacent input-channel weight slices and flatten output-channel and phase axes.",
   "name": "pair_mean_weight_4",
   "origin": "agent",
@@ -944,11 +1320,35 @@
   "tensors": null
  },
  {
+  "doc": "Copy two NCHW operands into adjacent output channels.",
+  "name": "pair_named_operand_copy_new",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, x1, **params):\n    import torch\n    n, c, h, w = x.shape\n    y = torch.empty((n, c+x1.shape[1], h, w), dtype=x.dtype, device=x.device)\n    y[:, :c].copy_(x)\n    y[:, c:].copy_(x1)\n    return y",
+  "tensors": null
+ },
+ {
   "doc": "Sum adjacent input channels, then pack spatial positions into rows; preserve optional batch.",
   "name": "pair_sum_rows_4",
   "origin": "agent",
   "params": "[\"cin\", \"h\", \"w\"]",
   "reference": "def fn(x, **params):\n    c,h,w = x.shape[-3:]\n    return x.reshape(*x.shape[:-3], c//2, 2, h, w).sum(-3).movedim(-3, -1).reshape(*x.shape[:-3], h*w, c//2)",
+  "tensors": null
+ },
+ {
+  "doc": "Interleave phase and spatial axes, converting pointwise convolution output to non-overlapping spatial tiles.",
+  "name": "phase4_conv_shuffle",
+  "origin": "agent",
+  "params": "[\"cout\", \"h\", \"w\", \"kh\", \"kw\"]",
+  "reference": "def fn(x, **params):\n    c, h, w, kh, kw = (params[k] for k in ('cout', 'h', 'w', 'kh', 'kw'))\n    if x.ndim == 3:\n        return x.reshape(c, kh, kw, h, w).permute(0, 3, 1, 4, 2).reshape(c, h * kh, w * kw)\n    n = x.shape[0]\n    return x.reshape(n, c, kh, kw, h, w).permute(0, 1, 4, 2, 5, 3).reshape(n, c, h * kh, w * kw)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Convert [cin,cout,kh,kw] transposed-convolution weights into [cout*kh*kw,cin,1,1] pointwise convolution weights.",
+  "name": "phase4_conv_weight",
+  "origin": "agent",
+  "params": "[\"cin\", \"cout\", \"kh\", \"kw\"]",
+  "reference": "def fn(x, **params):\n    return x.permute(1, 2, 3, 0).reshape(params['cout'] * params['kh'] * params['kw'], params['cin'], 1, 1)\n",
   "tensors": null
  },
  {
@@ -1008,11 +1408,27 @@
   "tensors": null
  },
  {
+  "doc": "Blend exact half-pixel bilinear with nearest at equal weight; note the blend is not separable in two dimensions.",
+  "name": "phase_eighth_approx_prim",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, **params):\n    import torch.nn.functional as F\n    h,w=params['h'],params['w']\n    a=x.reshape(-1,1,h,w)\n    b=F.interpolate(a,size=(2*h,2*w),mode='bilinear',align_corners=False)\n    n=F.interpolate(a,size=(2*h,2*w),mode='nearest')\n    return ((b+n)*0.5).reshape(-1,2*h,2*w)\n",
+  "tensors": null
+ },
+ {
   "doc": "Interleave the tap dimensions with their input spatial dimensions, with no overlapping writes.",
   "name": "phase_fold",
   "origin": "agent",
   "params": "[\"h\", \"w\", \"cout\", \"kh\", \"kw\"]",
   "reference": "def fn(x, **params):\n    h,w,c,kh,kw = (params[k] for k in ('h','w','cout','kh','kw'))\n    return x.reshape(-1,h,w,c,kh,kw).permute(0,3,1,4,2,5).reshape(-1,c,h*kh,w*kw)",
+  "tensors": null
+ },
+ {
+  "doc": "Interleave disjoint 4x4 tile phases and add channel bias; carry original leading batch shape as metadata.",
+  "name": "phase_fold32",
+  "origin": "agent",
+  "params": "[\"cout\", \"h\", \"w\", \"kh\", \"kw\"]",
+  "reference": "def fn(x, **params):\n y,bias,shape=x\n c,h,w,kh,kw=(params[k] for k in ('cout','h','w','kh','kw'))\n y=y.reshape(*shape,h,w,c,kh,kw).movedim(-3,-5).transpose(-3,-2).reshape(*shape,c,h*kh,w*kw)\n return y+bias.reshape(*([1]*len(shape)),c,1,1)",
   "tensors": null
  },
  {
@@ -1024,11 +1440,35 @@
   "tensors": null
  },
  {
+  "doc": "Fixed per-channel 4x9 pointwise phase transform followed by 2x pixel shuffle.",
+  "name": "phase_pointwise_shuffle_ps",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, **params):\n import torch\n import torch.nn.functional as F\n h,w=x.shape[-2:]\n c=x.numel()//(9*h*w)\n z=x.reshape(c,9,h,w)\n phases=[]\n for p in range(2):\n  for q in range(2):\n   r=0 if p==0 else 2\n   s=0 if q==0 else 2\n   phases.append((9*z[:,4]+3*z[:,3*r+1]+3*z[:,3+s]+z[:,3*r+s])/16)\n return F.pixel_shuffle(torch.stack(phases,dim=1).reshape(1,4*c,h,w),2)[0]",
+  "tensors": null
+ },
+ {
+  "doc": "Fixed per-channel 4x9 pointwise phase transform followed by 2x pixel shuffle.",
+  "name": "phase_pointwise_shuffle_ps_v2",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, **params):\n import torch\n import torch.nn.functional as F\n h,w=x.shape[-2:]\n c=x.numel()//(9*h*w)\n z=x.reshape(c,9,h,w)\n phases=[]\n for p in range(2):\n  for q in range(2):\n   r=0 if p==0 else 2\n   s=0 if q==0 else 2\n   phases.append((9*z[:,4]+3*z[:,3*r+1]+3*z[:,3+s]+z[:,3*r+s])/16)\n return F.pixel_shuffle(torch.stack(phases,dim=1).reshape(1,4*c,h,w),2)[0]",
+  "tensors": null
+ },
+ {
   "doc": "Double rows with 3/4 center and 1/4 edge-clamped adjacent row, previous for even phase and next for odd phase.",
   "name": "phase_rows_2x",
   "origin": "agent",
   "params": "[\"channels\", \"h\", \"w\"]",
   "reference": "def fn(x, **params):\n    import torch\n    prev = torch.cat((x[..., :1, :], x[..., :-1, :]), dim=-2)\n    nxt = torch.cat((x[..., 1:, :], x[..., -1:, :]), dim=-2)\n    return torch.stack(((3*x+prev)*0.25, (3*x+nxt)*0.25), dim=-2).flatten(-3, -2)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Pack arbitrary leading batch dimensions and spatial positions as rows.",
+  "name": "phase_rows_pack32",
+  "origin": "agent",
+  "params": "[\"cin\", \"h\", \"w\"]",
+  "reference": "def fn(x, **params):\n return x.movedim(-3,-1).reshape(-1,params['cin'])",
   "tensors": null
  },
  {
@@ -1072,6 +1512,14 @@
   "tensors": null
  },
  {
+  "doc": "Nearest-neighbour resample of the flattened source, in position order, to numel values.",
+  "name": "positional_nearest_resample",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    numel = params['numel']\n    f = x.flatten()\n    n = f.numel()\n    idx = torch.floor(torch.arange(numel, device=f.device, dtype=torch.float64) * n / numel).long().clamp(max=n - 1)\n    return f[idx]\n",
+  "tensors": null
+ },
+ {
   "doc": "raises with the number and shapes of positional inputs",
   "name": "probe",
   "origin": "agent",
@@ -1104,6 +1552,30 @@
   "tensors": null
  },
  {
+  "doc": "diagnostic",
+  "name": "probe_step",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(*args, **params):\n    return args[0].reshape(1, 1)\n",
+  "tensors": null
+ },
+ {
+  "doc": "diagnostic",
+  "name": "probe_step2",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(*args, **params):\n    raise RuntimeError('N=%d SHAPES=%s PARAMS=%s' % (len(args), [(tuple(a.shape), str(a.dtype)) for a in args], sorted(params)))\n",
+  "tensors": null
+ },
+ {
+  "doc": "Diagnostic: reports its arguments.",
+  "name": "probe_step_in",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\", \"dim\"]",
+  "reference": "def fn(x, tokens, vocab, dim):\n    raise RuntimeError('ARGS x=%r tokens=%r vocab=%r dim=%r' % (x, tokens, vocab, dim))\n",
+  "tensors": null
+ },
+ {
   "doc": "Fixed-coordinate broadcast subtraction, squaring, subtracting from one and clamping below at zero. Returns exact float32 integer equality indicators without data-dependent addressing for valid ids and vocab=30522.",
   "name": "quadratic_integer_selectors",
   "origin": "agent",
@@ -1112,11 +1584,35 @@
   "tensors": null
  },
  {
-  "doc": "Per-tensor symmetric int8 quantize-dequantize of a float32 tensor.",
+  "doc": "Floor a 0-d integer scalar to a multiple of 4 (integer floor division then multiply by 4).",
+  "name": "quant4_scalar_prim",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, **params):\n    return (x // 4) * 4",
+  "tensors": null
+ },
+ {
+  "doc": "Per-tensor symmetric int8 quantization round-trip: s = max(max|x|, 1)/127, q = clamp(round(x/s), -128, 127), output q*s as float32 with the input's shape. Exact on 0/1 values.",
   "name": "quant_int8",
   "origin": "agent",
   "params": "[\"numel\"]",
-  "reference": "import torch\ndef fn(x, numel):\n    s = x.abs().max().clamp_min(1e-30) / 127.0\n    return torch.clamp(torch.round(x / s), -127, 127) * s\n",
+  "reference": "def fn(x, numel=0):\n    import torch\n    y = x.to(torch.float32)\n    s = y.abs().amax().clamp_min(1.0) / 127.0\n    q = torch.clamp(torch.round(y / s), -128.0, 127.0)\n    return (q * s).reshape(y.shape)",
+  "tensors": null
+ },
+ {
+  "doc": "Fixed-address radix-4 where-tree row selection from the module table.",
+  "name": "radix4_mux_copy_fn",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\", \"dim\"]",
+  "reference": "def radix4_mux_copy_fn(x, **params):\n    import torch\n    tokens, vocab, dim = params['tokens'], params['vocab'], params['dim']\n    table = params['table']\n    n = 1\n    while n < vocab:\n        n *= 4\n    z = torch.cat((table, table.new_zeros((n - vocab, dim))), dim=0)\n    z = z.unsqueeze(0).expand(tokens, n, dim)\n    ids = x.reshape(tokens).to(torch.int64)\n    while n > 1:\n        z = z.reshape(tokens, n // 4, 4, dim)\n        lo = (ids % 2 != 0).reshape(tokens, 1, 1)\n        hi = ((ids // 2) % 2 != 0).reshape(tokens, 1, 1)\n        a = torch.where(lo, z[:, :, 1, :], z[:, :, 0, :])\n        b = torch.where(lo, z[:, :, 3, :], z[:, :, 2, :])\n        z = torch.where(hi, b, a)\n        ids = ids // 4\n        n //= 4\n    return z.reshape(tokens, dim)",
+  "tensors": null
+ },
+ {
+  "doc": "Fixed-address radix-4 conditional-copy row selection.",
+  "name": "radix4_mux_copy_v2_fn",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\", \"dim\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    tokens, vocab, dim = params['tokens'], params['vocab'], params['dim']\n    table = params['table']\n    n = 1\n    while n < vocab:\n        n *= 4\n    z = torch.cat((table, table.new_zeros((n - vocab, dim))), dim=0).unsqueeze(0).expand(tokens, n, dim)\n    ids = x.reshape(tokens).to(torch.int64)\n    while n > 1:\n        z = z.reshape(tokens, n // 4, 4, dim)\n        lo = (ids % 2 != 0).reshape(tokens, 1, 1)\n        hi = ((ids // 2) % 2 != 0).reshape(tokens, 1, 1)\n        a = torch.where(lo, z[:, :, 1, :], z[:, :, 0, :])\n        b = torch.where(lo, z[:, :, 3, :], z[:, :, 2, :])\n        z = torch.where(hi, b, a)\n        ids = ids // 4\n        n //= 4\n    return z.reshape(tokens, dim)",
   "tensors": null
  },
  {
@@ -1125,6 +1621,14 @@
   "origin": "agent",
   "params": "[\"tokens\", \"vocab\"]",
   "reference": "def fn(x, **params):\n    import torch\n    ids = x.reshape(-1).to(torch.int64)\n    h = (params['vocab'] + 1023) // 1024\n    low = (ids[:, None].remainder(1024) == torch.arange(1024, device=x.device)[None, :]).to(torch.float32)\n    high = (ids[:, None].div(1024, rounding_mode='floor') == torch.arange(h, device=x.device)[None, :]).to(torch.float32)\n    return low, high\n",
+  "tensors": null
+ },
+ {
+  "doc": "Static SVD preprocessing of weight to two rank-32 factors.",
+  "name": "rank32_factors_precompute",
+  "origin": "agent",
+  "params": "[\"cin\", \"cout\", \"kh\", \"kw\"]",
+  "reference": "def fn(x, **params):\n import torch\n m=x.reshape(params['cin'],-1)\n u,s,v=torch.linalg.svd(m,full_matrices=False)\n return u[:,:32]*s[:32],v[:32,:]",
   "tensors": null
  },
  {
@@ -1149,6 +1653,22 @@
   "origin": "agent",
   "params": "[\"tokens\", \"vocab\"]",
   "reference": "def fn(x, **params):\n    import torch\n    ids = x.reshape(-1).to(torch.float32)\n    j = torch.arange(params['vocab'], device=x.device, dtype=torch.float32)\n    d = ids[:, None] - j[None, :]\n    return torch.relu(d + 1) - 2 * torch.relu(d) + torch.relu(d - 1)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Gather 3x3 edge-clamped neighborhoods in channel-major, row-major offset order.",
+  "name": "replicate_neighborhood9_ps",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, **params):\n import torch\n import torch.nn.functional as F\n h,w=params['h'],params['w']\n c=x.numel()//(h*w)\n x=x.reshape(c,h,w)\n z=F.pad(x.unsqueeze(0), (1,1,1,1), mode='replicate')[0]\n return torch.stack([z[:,1+dy:1+dy+h,1+dx:1+dx+w] for dy in (-1,0,1) for dx in (-1,0,1)],dim=1).reshape(c*9,h,w)",
+  "tensors": null
+ },
+ {
+  "doc": "Gather 3x3 edge-clamped neighborhoods in channel-major, row-major offset order.",
+  "name": "replicate_neighborhood9_ps_v2",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, **params):\n import torch\n import torch.nn.functional as F\n h,w=params['h'],params['w']\n c=x.numel()//(h*w)\n x=x.reshape(c,h,w)\n z=F.pad(x.unsqueeze(0), (1,1,1,1), mode='replicate')[0]\n return torch.stack([z[:,1+dy:1+dy+h,1+dx:1+dx+w] for dy in (-1,0,1) for dx in (-1,0,1)],dim=1).reshape(c*9,h,w)",
   "tensors": null
  },
  {
@@ -1232,11 +1752,43 @@
   "tensors": null
  },
  {
+  "doc": "one-hot rows: out[t,i]=1.0 if ids[t]==i else 0.0, float32, shape (tokens, vocab)",
+  "name": "sel_rows",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "import torch\ndef fn(x, tokens, vocab):\n    ids = x.reshape(-1).long()\n    return (ids[:, None] == torch.arange(vocab, device=ids.device)[None, :]).to(torch.float32)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Broadcast compare token ids with fixed vocabulary indices to form a float32 one-hot matrix.",
+  "name": "select_exact_indicator",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    return (x.reshape(-1, 1) == torch.arange(params['vocab'], device=x.device).reshape(1, -1)).to(torch.float32)",
+  "tensors": null
+ },
+ {
+  "doc": "Sort the flattened source ascending and nearest-neighbour resample it to numel values.",
+  "name": "sorted_nearest_resample",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    numel = params['numel']\n    s = torch.sort(x.flatten().float())[0]\n    n = s.numel()\n    idx = torch.floor(torch.arange(numel, device=s.device, dtype=torch.float64) * n / numel).long().clamp(max=n - 1)\n    return s[idx].to(x.dtype)\n",
+  "tensors": null
+ },
+ {
   "doc": "Lay the input out spatial-major: [cin,h,w] -> rows [h*w, cin] (or [B,cin,h,w] -> [B*h*w, cin]).",
   "name": "spatial_rows",
   "origin": "agent",
   "params": "[\"cin\", \"h\", \"w\"]",
   "reference": "def fn(x, cin, h, w):\n    if x.dim() == 4:\n        b = x.shape[0]\n        return x.permute(0, 2, 3, 1).reshape(b * h * w, cin)\n    return x.permute(1, 2, 0).reshape(h * w, cin)",
+  "tensors": null
+ },
+ {
+  "doc": "Shape-specialized fixed-wiring binary mux network. Runtime integers drive only predicate gates; every source load and lane pairing has a compile-time fixed address. Parameters numel and sel are the output element count and gather axis. All remaining extents are inferred from input tensor metadata.",
+  "name": "static_bit_mux_network",
+  "origin": "agent",
+  "params": "[\"numel\", \"sel\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    source, indices = x\n    axis = int(params['sel']) % source.ndim\n    if indices.numel() == 0:\n        return source.new_empty(indices.shape)\n    s = source.movedim(axis, -1)\n    ids = indices.movedim(axis, -1)\n    s = s[tuple(slice(0, extent) for extent in ids.shape[:-1]) + (slice(None),)]\n    lanes = s.unsqueeze(-2).expand(*ids.shape, s.shape[-1])\n    bit = 0\n    while lanes.shape[-1] > 1:\n        if lanes.shape[-1] % 2:\n            lanes = torch.cat((lanes, lanes[..., -1:]), dim=-1)\n        odd = ((ids >> bit) & 1).bool().unsqueeze(-1)\n        lanes = torch.where(odd, lanes[..., 1::2], lanes[..., 0::2])\n        bit += 1\n    return lanes[..., 0].movedim(-1, axis)\n",
   "tensors": null
  },
  {
@@ -1320,6 +1872,46 @@
   "tensors": null
  },
  {
+  "doc": "Float32 one-hot selector rows: out[t, i] = 1.0 if flatten(x)[t] == i else 0.0, by broadcast equality against arange(cols); constant coordinate vector, no data addressing.",
+  "name": "token_selector",
+  "origin": "agent",
+  "params": "[\"rows\", \"cols\"]",
+  "reference": "def fn(x, rows=0, cols=0):\n    import torch\n    ids = x.reshape(-1).long()\n    return (ids.unsqueeze(1) == torch.arange(cols, device=ids.device).reshape(1, -1)).to(torch.float32)",
+  "tensors": null
+ },
+ {
+  "doc": "Gather selected channels and pack spatial rows; input is (tensor, indices).",
+  "name": "top32_input_rows",
+  "origin": "agent",
+  "params": "[\"cin\", \"h\", \"w\"]",
+  "reference": "def fn(x, **params):\n a,idx=x\n return a.index_select(-3,idx).movedim(-3,-1).reshape(-1,32)",
+  "tensors": null
+ },
+ {
+  "doc": "Fold phase axes into output and add bias; shape is leading batch metadata.",
+  "name": "top32_tile_fold",
+  "origin": "agent",
+  "params": "[\"cout\", \"h\", \"w\", \"kh\", \"kw\"]",
+  "reference": "def fn(x, **params):\n y,bias,shape=x\n c,h,w,kh,kw=(params[k] for k in ('cout','h','w','kh','kw'))\n y=y.reshape(*shape,h,w,c,kh,kw).movedim(-3,-5).transpose(-3,-2).reshape(*shape,c,h*kh,w*kw)\n return y+bias.reshape(*([1]*len(shape)),c,1,1)",
+  "tensors": null
+ },
+ {
+  "doc": "Offline select 32 largest Frobenius-norm input-channel slices.",
+  "name": "top32_weight_precompute",
+  "origin": "agent",
+  "params": "[\"cin\", \"cout\", \"kh\", \"kw\"]",
+  "reference": "def fn(x, **params):\n m=x.reshape(params['cin'],-1)\n idx=m.square().sum(-1).topk(32).indices\n return idx,m.index_select(0,idx)",
+  "tensors": null
+ },
+ {
+  "doc": "Selector matrix S[t, j] = relu(1 - (id[t] - j)) * relu(1 + (id[t] - j)) in float64; exactly one-hot for integer ids in [0, vocab).",
+  "name": "tri_mul_sel_f64",
+  "origin": "agent",
+  "params": "[\"vocab\"]",
+  "reference": "def fn(x, vocab):\n    import torch\n    ids = x.long().reshape(-1).to(torch.float64)\n    j = torch.arange(int(vocab), dtype=torch.float64, device=ids.device)\n    d = ids.unsqueeze(1) - j.unsqueeze(0)\n    return torch.relu(1.0 - d) * torch.relu(1.0 + d)\n",
+  "tensors": null
+ },
+ {
   "doc": "1-D triangle smoothing along the column axis of a [channels,2h,2w] map: replicate-pad columns by one and set out[c,i,j] = (x[c,i,j-1] + 2*x[c,i,j] + x[c,i,j+1])/4 with column indices clamped to [0,2w-1].",
   "name": "tri_pass_cols",
   "origin": "agent",
@@ -1400,6 +1992,22 @@
   "tensors": null
  },
  {
+  "doc": "Quantize both inputs to multiples of 1/1024 and place them along the channel axis.",
+  "name": "uniform1024_pair_place_new",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, x1, **params):\n    import torch\n    return torch.cat((torch.round(x * 1024.0) / 1024.0, torch.round(x1 * 1024.0) / 1024.0), dim=1)",
+  "tensors": null
+ },
+ {
+  "doc": "Compare each token ID with all fixed vocabulary indices, producing a float32 one-hot matrix without data-dependent addressing.",
+  "name": "vocab_compare_selector_defined",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    ids = x.reshape(-1)\n    indices = torch.arange(params['vocab'], device=x.device, dtype=ids.dtype)\n    return (ids[:, None] == indices[None, :]).to(torch.float32)\n",
+  "tensors": null
+ },
+ {
   "doc": "Zero all off-diagonal (ci != co) entries of the weight [cin,cout,kh,kw] and flatten to [cin, cout*kh*kw].",
   "name": "weight_diag_taps",
   "origin": "agent",
@@ -1445,6 +2053,14 @@
   "origin": "agent",
   "params": "[\"tokens\", \"vocab\"]",
   "reference": "def fn(x, **params):\n    import torch\n    ids = x.reshape(-1).to(torch.int64)\n    j = torch.arange(params['vocab'], device=x.device, dtype=torch.int64)\n    return (torch.bitwise_xor(ids[:, None], j[None, :]) == 0).to(torch.float32)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Indicator matrix S[t, j] = 1.0 if (id[t] XOR j) == 0 else 0.0, in float64; exactly one-hot for integer ids in [0, vocab).",
+  "name": "xor_sel_f64",
+  "origin": "agent",
+  "params": "[\"vocab\"]",
+  "reference": "def fn(x, vocab):\n    import torch\n    ids = x.long().reshape(-1)\n    j = torch.arange(int(vocab), device=ids.device)\n    eq = (ids.unsqueeze(1) ^ j.unsqueeze(0)) == 0\n    return eq.to(torch.float64)\n",
   "tensors": null
  },
  {

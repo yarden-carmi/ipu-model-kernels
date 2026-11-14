@@ -164,7 +164,7 @@
    "q_sqnr": 40.84953125578899,
    "role": "main",
    "seq": 2,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -187,7 +187,7 @@
    "q_sqnr": 33.782007869524406,
    "role": "folded_store",
    "seq": 3,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -219,7 +219,7 @@
    "q_sqnr": 41.49435829675844,
    "role": "chained",
    "seq": 4,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -242,7 +242,7 @@
    "q_sqnr": 35.76553746557407,
    "role": "folded_store",
    "seq": 5,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2781,7 +2781,44 @@
    "lut": 0,
    "macs": 0,
    "op": "embedding",
-   "options": [],
+   "options": [
+    {
+     "check_ok": null,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "embed_onehot_gemm_f32",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "embed_sel_gemm_f32",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "select_exact_matmul",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "onehot_gemm_v2-2",
+     "op_sqnr_db": null
+    }
+   ],
    "params": {
     "dim": 512,
     "in_order": false,
