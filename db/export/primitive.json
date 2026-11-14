@@ -40,11 +40,43 @@
   "tensors": null
  },
  {
+  "doc": "one-hot matrix (tokens, vocab) from ids, float32",
+  "name": "one_hot",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(x, tokens, vocab):\n    import torch\n    ids = x.reshape(-1).long()\n    return torch.nn.functional.one_hot(ids, vocab).to(torch.float32)\n",
+  "tensors": null
+ },
+ {
   "doc": null,
   "name": "pool2d",
   "origin": "builtin",
   "params": null,
   "reference": null,
+  "tensors": null
+ },
+ {
+  "doc": "raises with the number and shapes of positional inputs",
+  "name": "probe",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(*inputs):\n    raise RuntimeError('NINPUTS=%d shapes=%s' % (len(inputs), [getattr(t, 'shape', t) for t in inputs]))\n",
+  "tensors": null
+ },
+ {
+  "doc": "prints inputs and passes ids through",
+  "name": "probe0",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(x, *rest):\n    import torch\n    raise RuntimeError('STEP0 got x=%s rest=%s' % (getattr(x, 'shape', x), [getattr(t, 'shape', t) for t in rest]))\n",
+  "tensors": null
+ },
+ {
+  "doc": "prints inputs",
+  "name": "probe1",
+  "origin": "agent",
+  "params": "{}",
+  "reference": "def fn(x, *rest):\n    raise RuntimeError('STEP1 got x=%s rest=%s' % (getattr(x, 'shape', x), [getattr(t, 'shape', t) for t in rest]))\n",
   "tensors": null
  },
  {

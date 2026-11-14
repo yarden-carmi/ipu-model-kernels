@@ -176,6 +176,14 @@
   "text": "add{broadcast=none,inner=0,numel=8388608}"
  },
  {
+  "elements": 98304,
+  "id": 382,
+  "macs": 0,
+  "op": "add",
+  "params": "{\"broadcast\": \"none\", \"inner\": 0, \"numel\": 98304}",
+  "text": "add{broadcast=none,inner=0,numel=98304}"
+ },
+ {
   "elements": 294912,
   "id": 108,
   "macs": 0,
@@ -464,12 +472,28 @@
   "text": "bmm{b=12,k=197,m=197,n=64}"
  },
  {
+  "elements": 98304,
+  "id": 387,
+  "macs": 25165824,
+  "op": "bmm",
+  "params": "{\"b\": 12, \"k\": 256, \"m\": 256, \"n\": 32}",
+  "text": "bmm{b=12,k=256,m=256,n=32}"
+ },
+ {
   "elements": 196608,
   "id": 322,
   "macs": 50331648,
   "op": "bmm",
   "params": "{\"b\": 12, \"k\": 256, \"m\": 256, \"n\": 64}",
   "text": "bmm{b=12,k=256,m=256,n=64}"
+ },
+ {
+  "elements": 786432,
+  "id": 386,
+  "macs": 25165824,
+  "op": "bmm",
+  "params": "{\"b\": 12, \"k\": 32, \"m\": 256, \"n\": 256}",
+  "text": "bmm{b=12,k=32,m=256,n=256}"
  },
  {
   "elements": 465708,
@@ -1537,6 +1561,30 @@
  },
  {
   "elements": 0,
+  "id": 381,
+  "macs": 0,
+  "op": "embedding",
+  "params": "{\"dim\": 384, \"in_order\": false, \"tokens\": 256, \"vocab\": 2}",
+  "text": "embedding{dim=384,in_order=0,tokens=256,vocab=2}"
+ },
+ {
+  "elements": 0,
+  "id": 380,
+  "macs": 0,
+  "op": "embedding",
+  "params": "{\"dim\": 384, \"in_order\": false, \"tokens\": 256, \"vocab\": 30522}",
+  "text": "embedding{dim=384,in_order=0,tokens=256,vocab=30522}"
+ },
+ {
+  "elements": 0,
+  "id": 383,
+  "macs": 0,
+  "op": "embedding",
+  "params": "{\"dim\": 384, \"in_order\": true, \"tokens\": 256, \"vocab\": 512}",
+  "text": "embedding{dim=384,in_order=1,tokens=256,vocab=512}"
+ },
+ {
+  "elements": 0,
   "id": 308,
   "macs": 0,
   "op": "embedding",
@@ -1574,6 +1622,14 @@
   "op": "exp",
   "params": "{\"numel\": 16384}",
   "text": "exp{numel=16384}"
+ },
+ {
+  "elements": 256,
+  "id": 379,
+  "macs": 0,
+  "op": "gather",
+  "params": "{\"numel\": 256, \"sel\": 1}",
+  "text": "gather{numel=256,sel=1}"
  },
  {
   "elements": 1179648,
@@ -1654,6 +1710,14 @@
   "op": "gelu",
   "params": "{\"numel\": 327680}",
   "text": "gelu{numel=327680}"
+ },
+ {
+  "elements": 393216,
+  "id": 389,
+  "macs": 0,
+  "op": "gelu",
+  "params": "{\"numel\": 393216}",
+  "text": "gelu{numel=393216}"
  },
  {
   "elements": 405504,
@@ -2024,6 +2088,14 @@
   "text": "layernorm{channels=320,layout=channels_last,tokens=4096}"
  },
  {
+  "elements": 98304,
+  "id": 384,
+  "macs": 0,
+  "op": "layernorm",
+  "params": "{\"channels\": 384, \"layout\": \"channels_last\", \"tokens\": 256}",
+  "text": "layernorm{channels=384,layout=channels_last,tokens=256}"
+ },
+ {
   "elements": 818688,
   "id": 350,
   "macs": 0,
@@ -2328,6 +2400,14 @@
   "text": "linear{bias=1,k=144,m=1024,n=432}"
  },
  {
+  "elements": 98304,
+  "id": 390,
+  "macs": 150994944,
+  "op": "linear",
+  "params": "{\"bias\": true, \"k\": 1536, \"m\": 256, \"n\": 384}",
+  "text": "linear{bias=1,k=1536,m=256,n=384}"
+ },
+ {
   "elements": 49152,
   "id": 55,
   "macs": 9437184,
@@ -2440,12 +2520,36 @@
   "text": "linear{bias=1,k=320,m=4096,n=320}"
  },
  {
+  "elements": 384,
+  "id": 391,
+  "macs": 147456,
+  "op": "linear",
+  "params": "{\"bias\": true, \"k\": 384, \"m\": 1, \"n\": 384}",
+  "text": "linear{bias=1,k=384,m=1,n=384}"
+ },
+ {
+  "elements": 393216,
+  "id": 388,
+  "macs": 150994944,
+  "op": "linear",
+  "params": "{\"bias\": true, \"k\": 384, \"m\": 256, \"n\": 1536}",
+  "text": "linear{bias=1,k=384,m=256,n=1536}"
+ },
+ {
   "elements": 49152,
   "id": 58,
   "macs": 18874368,
   "op": "linear",
   "params": "{\"bias\": true, \"k\": 384, \"m\": 256, \"n\": 192}",
   "text": "linear{bias=1,k=384,m=256,n=192}"
+ },
+ {
+  "elements": 98304,
+  "id": 385,
+  "macs": 37748736,
+  "op": "linear",
+  "params": "{\"bias\": true, \"k\": 384, \"m\": 256, \"n\": 384}",
+  "text": "linear{bias=1,k=384,m=256,n=384}"
  },
  {
   "elements": 101376,
@@ -2974,6 +3078,14 @@
   "op": "sub",
   "params": "{\"broadcast\": \"scalar\", \"inner\": 0, \"numel\": 1}",
   "text": "sub{broadcast=scalar,inner=0,numel=1}"
+ },
+ {
+  "elements": 384,
+  "id": 392,
+  "macs": 0,
+  "op": "tanh",
+  "params": "{\"numel\": 384}",
+  "text": "tanh{numel=384}"
  },
  {
   "elements": 1310720,
