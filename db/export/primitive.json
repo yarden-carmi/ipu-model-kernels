@@ -1,5 +1,53 @@
 [
  {
+  "doc": "Builds K^T = kron(A_h, A_w)^T for 2x bilinear upsampling (align_corners=False, edge clamp); shape (h*w, 4*h*w). The input's values are ignored; only its sizes are used.",
+  "name": "bilinear2x_interp",
+  "origin": "agent",
+  "params": "[\"h\", \"w\"]",
+  "reference": "def fn(x, h, w):\n    import torch\n    def mat(n_in):\n        n_out = 2 * n_in\n        A = torch.zeros(n_out, n_in, dtype=torch.float64)\n        for i in range(n_out):\n            src = max((i + 0.5) * (n_in / n_out) - 0.5, 0.0)\n            i0 = min(int(src), n_in - 1)\n            i1 = min(i0 + 1, n_in - 1)\n            l = src - i0\n            A[i, i0] += 1 - l\n            A[i, i1] += l\n        return A\n    Ah = mat(h)\n    Aw = mat(w)\n    K = torch.kron(Ah, Aw)\n    return K.t().to(x.dtype).contiguous()\n",
+  "tensors": null
+ },
+ {
+  "doc": "Bilinear 2x upsampling of [channels,h,w] as X @ kron(A_h,A_w)^T with constant interpolation matrices (align_corners=False, edge-clamped).",
+  "name": "bilinear2x_kron_gemm",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, channels, h, w):\n    import torch\n    def A(n):\n        M = torch.zeros(2 * n, n, dtype=torch.float64)\n        for i in range(2 * n):\n            src = max((i + 0.5) * 0.5 - 0.5, 0.0)\n            i0 = min(int(src // 1), n - 1)\n            i1 = min(i0 + 1, n - 1)\n            l = src - i0\n            M[i, i0] += 1 - l\n            M[i, i1] += l\n        return M.to(x.dtype)\n    K = torch.kron(A(h), A(w)).to(x.device)\n    X = x.reshape(channels, h * w)\n    return (X @ K.t()).reshape(channels, 2 * h, 2 * w)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Bilinear 2x upsampling of [channels,h,w] by constant separable matrices A_h x A_w^T (align_corners=False, edge-clamped).",
+  "name": "bilinear2x_separable",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, channels, h, w):\n    import torch\n    def A(n):\n        M = torch.zeros(2 * n, n, dtype=torch.float64)\n        for i in range(2 * n):\n            src = max((i + 0.5) * 0.5 - 0.5, 0.0)\n            i0 = min(int(src // 1), n - 1)\n            i1 = min(i0 + 1, n - 1)\n            l = src - i0\n            M[i, i0] += 1 - l\n            M[i, i1] += l\n        return M.to(x.dtype)\n    Ah = A(h).to(x.device)\n    Aw = A(w).to(x.device)\n    return torch.matmul(torch.matmul(Ah, x), Aw.t())\n",
+  "tensors": null
+ },
+ {
+  "doc": "Per-channel bilinear 2x upsampling, align_corners=False, edge-clamped, via constant separable interpolation matrices.",
+  "name": "bilinear2x_separable_defined",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, channels, h, w):\n    import torch\n    def mat(n):\n        A = torch.zeros(2 * n, n, dtype=x.dtype, device=x.device)\n        for i in range(2 * n):\n            src = max((i + 0.5) * 0.5 - 0.5, 0.0)\n            i0 = min(int(src // 1), n - 1)\n            i1 = min(i0 + 1, n - 1)\n            l = src - i0\n            A[i, i0] += 1 - l\n            A[i, i1] += l\n        return A\n    Ah = mat(h)\n    Aw = mat(w)\n    return torch.matmul(torch.matmul(Ah, x), Aw.t())\n",
+  "tensors": null
+ },
+ {
+  "doc": "2x upsampling of [channels, h, w] to [channels, 2h, 2w] where each output sample averages its two nearest source neighbours with weight 1/2 per axis.",
+  "name": "bilinear_half_interp",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, channels, h, w):\n    import torch\n    def mat(n):\n        A = torch.zeros(2 * n, n, dtype=x.dtype)\n        for i in range(2 * n):\n            i0 = min(i // 2, n - 1)\n            i1 = min(i0 + 1, n - 1)\n            A[i, i0] += 0.5\n            A[i, i1] += 0.5\n        return A\n    return torch.einsum('ih,chw,jw->cij', mat(h), x, mat(w))",
+  "tensors": null
+ },
+ {
+  "doc": "Bilinear 2x upsampling (align_corners=False, edge-clamped) of [channels, h, w] to [channels, 2h, 2w] with interpolation fractions rounded to a 1/4 grid.",
+  "name": "bilinear_q_interp",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, channels, h, w):\n    import torch\n    def mat(n):\n        A = torch.zeros(2 * n, n, dtype=x.dtype)\n        for i in range(2 * n):\n            src = max((i + 0.5) * 0.5 - 0.5, 0.0)\n            i0 = min(int(src), n - 1)\n            i1 = min(i0 + 1, n - 1)\n            l = round((src - i0) * 4) / 4\n            A[i, i0] += 1 - l\n            A[i, i1] += l\n        return A\n    Ah = mat(h)\n    Aw = mat(w)\n    return torch.einsum('ih,chw,jw->cij', Ah, x, Aw)",
+  "tensors": null
+ },
+ {
   "doc": null,
   "name": "binary",
   "origin": "builtin",
@@ -24,11 +72,19 @@
   "tensors": null
  },
  {
-  "doc": "Extract a single spatial tap (e.g., [0,0]) from a transposed-convolution weight tensor [cin, cout, kh, kw] to produce a [cin, cout] matrix.",
+  "doc": "3x3 mean filter with edge-replicate padding, applied per channel to [channels, h, w].",
+  "name": "box3x3",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, channels, h, w):\n    import torch.nn.functional as F\n    p = F.pad(x[None], (1, 1, 1, 1), mode='replicate')\n    return F.avg_pool2d(p, 3, stride=1)[0]",
+  "tensors": null
+ },
+ {
+  "doc": "Extract the center (kh//2, kw//2) spatial tap of the kernel, producing a [cin, cout] projection matrix. For kh=kw=2, the center is at index [1,1].",
   "name": "center_kernel_primitive",
   "origin": "agent",
   "params": "[\"cin\", \"cout\", \"kh\", \"kw\"]",
-  "reference": "def center_kernel_primitive(weight, cin, cout, kh, kw):\n    # weight: [cin, cout, kh, kw]\n    # Use the [0,0] tap as the representative kernel weight\n    return weight[:, :, 0, 0]  # [cin, cout]",
+  "reference": "def center_kernel_primitive(weight, cin, cout, kh, kw):\n    th = kh // 2\n    tw = kw // 2\n    return weight[:, :, th, tw]",
   "tensors": null
  },
  {
@@ -80,11 +136,19 @@
   "tensors": null
  },
  {
-  "doc": "Extract per-channel scaling factors from the diagonal of a transposed-convolution weight tensor [cin, cout, kh, kw] by averaging spatial taps for each cin=cout pair. Returns [cin] vector.",
+  "doc": "Extract per-channel diagonal scaling factors from the transposed-convolution kernel [cin, cout, kh, kw]. For each channel c in range(min(cin, cout)), compute the mean of weight[c, c, :, :] over its kh x kw spatial taps, producing a diagonal vector [min(cin, cout)].",
   "name": "diagonal_kernel_primitive",
   "origin": "agent",
   "params": "[\"cin\", \"cout\", \"kh\", \"kw\"]",
-  "reference": "def diagonal_kernel_primitive(weight, cin, cout, kh, kw):\n    # weight: [cin, cout, kh, kw]\n    # Average over spatial dims for diagonal channels (cin == cout)\n    diag = weight.diagonal(dim1=0, dim2=1)  # [min(cin,cout), kh, kw]\n    return diag.mean(dim=(-2, -1))  # [cin] assuming cin=cout",
+  "reference": "def diagonal_kernel_primitive(weight, cin, cout, kh, kw):\n    c = min(cin, cout)\n    diag = weight[:c, :c, :, :].mean(dim=(2, 3))  # [c]\n    return diag",
+  "tensors": null
+ },
+ {
+  "doc": "Given a summed spatial map [h*w], reshape to [h, w], tile each spatial position over tile_h x tile_w to produce [out_h, out_w] where out_h = h*tile_h and out_w = w*tile_w, then expand to all cout output channels, producing [channels, out_h, out_w].",
+  "name": "diagonal_tile_broadcast",
+  "origin": "agent",
+  "params": "[\"h\", \"w\", \"channels\", \"tile_h\", \"tile_w\", \"out_h\", \"out_w\"]",
+  "reference": "def diagonal_tile_broadcast(x, h, w, channels, tile_h, tile_w, out_h, out_w):\n    # x: [h*w] (summed spatial map)\n    x = x.reshape(1, h, w)  # [1, h, w]\n    x = x.repeat_interleave(tile_h, dim=1).repeat_interleave(tile_w, dim=2)  # [1, out_h, out_w]\n    x = x.expand(channels, out_h, out_w)  # [channels, out_h, out_w]\n    return x",
   "tensors": null
  },
  {
@@ -120,11 +184,11 @@
   "tensors": null
  },
  {
-  "doc": "Flatten input spatial dims [batch, cin, h, w] -> [batch, h*w, cin]",
+  "doc": "Flatten the spatial dimensions of an input tensor [cin, h, w] (or [batch, cin, h, w]) into a single spatial dimension, producing [cin, h*w] (or [batch, cin, h*w]).",
   "name": "flatten_input_spatial",
   "origin": "agent",
-  "params": "{\"cin\": \"int\", \"h\": \"int\", \"w\": \"int\"}",
-  "reference": "def flatten_input_spatial(x, cin, h, w):\n    return x.view(x.shape[0], h * w, cin)",
+  "params": "[\"cin\", \"h\", \"w\"]",
+  "reference": "def flatten_input_spatial(x, cin, h, w):\n    if x.dim() == 3:\n        return x.reshape(cin, h * w)\n    else:\n        return x.reshape(x.shape[0], cin, h * w)",
   "tensors": null
  },
  {
@@ -144,19 +208,43 @@
   "tensors": null
  },
  {
-  "doc": "Create a one-hot matrix from token ids in float32. Each row has exactly one 1 at the column corresponding to the token id.",
-  "name": "make_indicators",
+  "doc": "One-hot indicator matrix: out[r, c] = 1 if x[r] == c else 0, float32, shape (rows, cols).",
+  "name": "indicator_rows",
   "origin": "agent",
-  "params": "{\"cols\": \"int\", \"rows\": \"int\"}",
-  "reference": "def fn(ids, rows, cols):\n    import torch\n    return torch.nn.functional.one_hot(ids, num_classes=cols).to(torch.float32)",
+  "params": "[\"rows\", \"cols\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    ids = x.reshape(-1).long()\n    out = torch.zeros(ids.numel(), params['cols'], dtype=torch.float32, device=x.device)\n    out.scatter_(1, ids.unsqueeze(1), 1.0)\n    return out\n",
   "tensors": null
  },
  {
-  "doc": "Create a one-hot matrix from token ids in float32. Each row has exactly one 1 at the column corresponding to the token id.",
+  "doc": "Transposed Kronecker interpolation matrix K^T (h*w x 4*h*w) for bilinear 2x upsampling, align_corners=False, edge-clamped.",
+  "name": "interp_kron_t",
+  "origin": "agent",
+  "params": "[\"h\", \"w\"]",
+  "reference": "def fn(x, h, w):\n    import torch\n    def A(n):\n        M = torch.zeros(2 * n, n, dtype=torch.float64)\n        for i in range(2 * n):\n            src = max((i + 0.5) * 0.5 - 0.5, 0.0)\n            i0 = min(int(src // 1), n - 1)\n            i1 = min(i0 + 1, n - 1)\n            l = src - i0\n            M[i, i0] += 1 - l\n            M[i, i1] += l\n        return M\n    K = torch.kron(A(h), A(w))\n    return K.t().to(torch.float32)\n",
+  "tensors": null
+ },
+ {
+  "doc": "1-D bilinear 2x interpolation matrix (align_corners=False, edge-clamped), shape (2n x n).",
+  "name": "interp_matrix_1d",
+  "origin": "agent",
+  "params": "[\"n\"]",
+  "reference": "def fn(x, n):\n    import torch\n    A = torch.zeros(2 * n, n, dtype=torch.float64)\n    for i in range(2 * n):\n        src = max((i + 0.5) * 0.5 - 0.5, 0.0)\n        i0 = min(int(src // 1), n - 1)\n        i1 = min(i0 + 1, n - 1)\n        l = src - i0\n        A[i, i0] += 1 - l\n        A[i, i1] += l\n    return A.to(torch.float32)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Create a one-hot matrix from token ids in float32. Input: ids of shape (tokens,). Output: matrix of shape (rows, cols) = (tokens, vocab) where O[t, i] = 1 if ids[t] == i else 0, in float32.",
+  "name": "make_indicators",
+  "origin": "agent",
+  "params": "[\"rows\", \"cols\"]",
+  "reference": "def fn(ids, rows, cols):\n    import torch\n    O = torch.zeros(rows * cols, dtype=torch.float32, device=ids.device)\n    for t in range(rows):\n        idx = ids[t].item()\n        if 0 <= idx < cols:\n            O[t * cols + idx] = 1\n    return O.view(rows, cols)",
+  "tensors": null
+ },
+ {
+  "doc": "Create a one-hot matrix from token ids in float32. Input: ids of shape (tokens,). Output: matrix of shape (rows, cols) = (tokens, vocab) where O[t, i] = 1 if ids[t] == i else 0, in float32.",
   "name": "make_one_hot",
   "origin": "agent",
-  "params": "{\"cols\": \"int\", \"rows\": \"int\"}",
-  "reference": "def fn(ids, rows, cols):\n    import torch\n    return torch.nn.functional.one_hot(ids, num_classes=cols).to(torch.float32)",
+  "params": "[\"rows\", \"cols\"]",
+  "reference": "def fn(ids, rows, cols):\n    import torch\n    O = torch.zeros(rows * cols, dtype=torch.float32, device=ids.device)\n    for t in range(rows):\n        idx = ids[t].item()\n        if 0 <= idx < cols:\n            O[t * cols + idx] = 1\n    return O.view(rows, cols)",
   "tensors": null
  },
  {
@@ -176,11 +264,11 @@
   "tensors": null
  },
  {
-  "doc": "Average a transposed-convolution weight tensor [cin, cout, kh, kw] over its spatial dimensions kh, kw to produce a [cin, cout] matrix.",
+  "doc": "Average the spatial taps of a [cin, cout, kh, kw] kernel over its kh and kw dimensions, producing a [cin, cout] projection matrix.",
   "name": "mean_kernel_primitive",
   "origin": "agent",
   "params": "[\"cin\", \"cout\", \"kh\", \"kw\"]",
-  "reference": "def mean_kernel_primitive(weight, cin, cout, kh, kw):\n    # weight: [cin, cout, kh, kw]\n    return weight.mean(dim=(-2, -1))  # [cin, cout]",
+  "reference": "def mean_kernel_primitive(weight, cin, cout, kh, kw):\n    return weight.mean(dim=(2, 3))",
   "tensors": null
  },
  {
@@ -200,19 +288,27 @@
   "tensors": null
  },
  {
-  "doc": "Create a one-hot matrix from token ids. Each row has exactly one 1 at the column corresponding to the token id.",
-  "name": "one_hot",
+  "doc": "2x nearest-neighbour upsampling of [channels, h, w] to [channels, 2h, 2w].",
+  "name": "nearest2x",
   "origin": "agent",
-  "params": "{\"cols\": \"int\", \"rows\": \"int\"}",
-  "reference": "def fn(ids, rows, cols):\n    import torch\n    return torch.nn.functional.one_hot(ids, num_classes=cols).to(torch.float32)",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, channels, h, w):\n    return x.reshape(channels, h, 1, w, 1).expand(channels, h, 2, w, 2).reshape(channels, 2 * h, 2 * w)",
   "tensors": null
  },
  {
-  "doc": "Create a one-hot matrix from token ids. Each row has exactly one 1 at the column corresponding to the token id.",
+  "doc": "Create a one-hot matrix from token ids in float32. Input: ids of shape (tokens,). Output: matrix of shape (rows, cols) = (tokens, vocab) where O[t, i] = 1 if ids[t] == i else 0, in float32.",
+  "name": "one_hot",
+  "origin": "agent",
+  "params": "[\"rows\", \"cols\"]",
+  "reference": "def fn(ids, rows, cols):\n    import torch\n    O = torch.zeros(rows * cols, dtype=torch.float32, device=ids.device)\n    for t in range(rows):\n        idx = ids[t].item()\n        if 0 <= idx < cols:\n            O[t * cols + idx] = 1\n    return O.view(rows, cols)",
+  "tensors": null
+ },
+ {
+  "doc": "Create a one-hot matrix from token ids in float32. Input: ids of shape (tokens,). Output: matrix of shape (rows, cols) = (tokens, vocab) where O[t, i] = 1 if ids[t] == i else 0, in float32.",
   "name": "one_hot_ids",
   "origin": "agent",
-  "params": "{\"cols\": \"int\", \"rows\": \"int\"}",
-  "reference": "def fn(ids, rows, cols):\n    import torch\n    return torch.nn.functional.one_hot(ids, num_classes=cols).to(torch.float32)",
+  "params": "[\"rows\", \"cols\"]",
+  "reference": "def fn(ids, rows, cols):\n    import torch\n    O = torch.zeros(rows * cols, dtype=torch.float32, device=ids.device)\n    for t in range(rows):\n        idx = ids[t].item()\n        if 0 <= idx < cols:\n            O[t * cols + idx] = 1\n    return O.view(rows, cols)",
   "tensors": null
  },
  {
@@ -280,11 +376,11 @@
   "tensors": null
  },
  {
-  "doc": "Repeat each spatial position of a [h, w, channels] tensor repeat_h x repeat_w times to produce [h*repeat_h, w*repeat_w, channels].",
+  "doc": "Repeat each spatial position of a [h, w, channels] (or [batch, h, w, channels]) tensor over a tile_h x tile_w output tile, producing [h*tile_h, w*tile_w, channels] (or [batch, h*tile_h, w*tile_w, channels]). Here out_h = h*tile_h and out_w = w*tile_w.",
   "name": "tile_repeat",
   "origin": "agent",
-  "params": "[\"h\", \"w\", \"channels\", \"repeat_h\", \"repeat_w\"]",
-  "reference": "def tile_repeat(x, h, w, channels, repeat_h, repeat_w):\n    # x: [h, w, channels]\n    x = x.unsqueeze(2).unsqueeze(3)  # [h, w, 1, 1, channels]\n    x = x.expand(h, w, repeat_h, repeat_w, channels)\n    return x.reshape(h * repeat_h, w * repeat_w, channels)",
+  "params": "[\"h\", \"w\", \"channels\", \"tile_h\", \"tile_w\", \"out_h\", \"out_w\"]",
+  "reference": "def tile_repeat(x, h, w, channels, tile_h, tile_w, out_h, out_w):\n    if x.dim() == 3:\n        x = x.unsqueeze(0)\n    x = x.repeat_interleave(tile_h, dim=1).repeat_interleave(tile_w, dim=2)\n    return x.squeeze(0) if x.shape[0] == 1 else x",
   "tensors": null
  },
  {
@@ -296,11 +392,11 @@
   "tensors": null
  },
  {
-  "doc": "Create a one-hot matrix from token ids. Each row has exactly one 1 at the column corresponding to the token id.",
+  "doc": "Create a one-hot matrix from token ids in float32. Input: ids of shape (tokens,). Output: matrix of shape (rows, cols) = (tokens, vocab) where O[t, i] = 1 if ids[t] == i else 0, in float32.",
   "name": "token_indicators",
   "origin": "agent",
-  "params": "{\"cols\": \"int\", \"rows\": \"int\"}",
-  "reference": "def fn(ids, rows, cols):\n    import torch\n    return torch.nn.functional.one_hot(ids, num_classes=cols).to(torch.float32)",
+  "params": "[\"rows\", \"cols\"]",
+  "reference": "def fn(ids, rows, cols):\n    import torch\n    O = torch.zeros(rows * cols, dtype=torch.float32, device=ids.device)\n    for t in range(rows):\n        idx = ids[t].item()\n        if 0 <= idx < cols:\n            O[t * cols + idx] = 1\n    return O.view(rows, cols)",
   "tensors": null
  },
  {
