@@ -1,0 +1,65 @@
+[
+ {
+  "body": "No kernel has been measured yet, so MAC utilisation (the share of the multipliers busy each cycle) is not measured yet.",
+  "created_at": 1794650103.8667195,
+  "id": 5,
+  "kind": "compute_efficiency",
+  "numbers": "{\"by_primitive\": [], \"by_shape\": [], \"cycle_share\": [], \"pipeline_limited\": [], \"affected\": {\"operations\": 0, \"calls\": 0, \"macs\": 0, \"models\": 0}, \"cycle_share_note\": \"a combined kernel counts under its chain of primitives (its steps are not measured apart)\", \"impact\": {\"share\": 0.0, \"of\": null, \"cost_measured\": false}}",
+  "origin": "derive",
+  "title": "Compute efficiency: not measured yet"
+ },
+ {
+  "body": "The format search has not recorded any tensor's own error in its format yet. Measured on 2 models with a format search (of 263 surveyed).\n\nModel outputs keep a median 18.1 dB SQNR against full precision, the worst 13.3 dB (mobilevit_s.cvnets_in1k). 1 of 2 models with a prediction metric (top-1, perplexity or agreement) lose some of it; the most: stable-diffusion-v1-5/stable-diffusion-v1-5 (token agreement 100% \u2192 92%: the share of token positions whose predicted token matches full precision's).\n\nSeparately, the error accumulated along the data path (every tensor before a node quantized too): linear outputs end furthest from full precision, mobilevit_s.cvnets_in1k keeping only 4.2 dB there. The outputs furthest from full precision in each model's best format set: linear in mobilevit_s.cvnets_in1k (fp8_e3m4, 4.2 dB), silu in mobilevit_s.cvnets_in1k (fp8_e3m4, 5.5 dB), layernorm in mobilevit_s.cvnets_in1k (fp8_e3m4, 6.5 dB), attention in mobilevit_s.cvnets_in1k (fp8_e3m4, 6.8 dB), add in mobilevit_s.cvnets_in1k (fp8_e3m4, 7.7 dB), concat in mobilevit_s.cvnets_in1k (fp8_e3m4, 8.6 dB), conv2d in mobilevit_s.cvnets_in1k (fp8_e3m4, 9.0 dB), batchnorm in mobilevit_s.cvnets_in1k (fp8_e3m4, 9.0 dB), adaptive_avgpool2d in mobilevit_s.cvnets_in1k (fp8_e3m4, 10.8 dB) and mul in stable-diffusion-v1-5/stable-diffusion-v1-5 (fp8_e3m4, 14.6 dB).\n\nFormats chosen (E = exponent bits, M = mantissa bits, u = unsigned): fp8_e3m4 1806 (100%); 0% of tensors use an unsigned format.",
+  "created_at": 1794650144.4639673,
+  "id": 8,
+  "kind": "format_pressure",
+  "numbers": "{\"models\": [{\"repo\": \"mobilevit_s.cvnets_in1k\", \"sqnr_db\": 13.282148887062037, \"baseline_sqnr_db\": 13.282148887062037, \"metric\": \"top-1\", \"metric_change\": 0.0, \"metric_full_precision\": 0.875, \"metric_quantized\": 0.875}, {\"repo\": \"stable-diffusion-v1-5/stable-diffusion-v1-5\", \"sqnr_db\": 22.83038321582651, \"baseline_sqnr_db\": 22.83038321582651, \"metric\": \"token agreement\", \"metric_change\": -0.078125, \"metric_full_precision\": 1.0, \"metric_quantized\": 0.921875}], \"measured_models\": 2, \"surveyed_models\": 263, \"formats_chosen\": [{\"format\": \"fp8_e3m4\", \"tensors\": 1806, \"share\": 1.0}], \"exponent_widths\": [{\"exponent_bits\": 3, \"sign\": \"signed\", \"tensors\": 1806}], \"unsigned_share\": 0.0, \"output_sqnr_median_db\": 18.056266051444275, \"output_sqnr_worst_db\": 13.282148887062037, \"worst_tensors\": [], \"most_to_recover\": [], \"furthest_outputs\": [{\"repo\": \"mobilevit_s.cvnets_in1k\", \"op\": \"linear\", \"format\": \"fp8_e3m4\", \"sqnr_db\": 4.1747038078489895, \"calls\": 1.0, \"macs\": 42467328.0, \"selection_differs\": false}, {\"repo\": \"mobilevit_s.cvnets_in1k\", \"op\": \"silu\", \"format\": \"fp8_e3m4\", \"sqnr_db\": 5.535792637228454, \"calls\": 1.0, \"macs\": 0.0, \"selection_differs\": false}, {\"repo\": \"mobilevit_s.cvnets_in1k\", \"op\": \"layernorm\", \"format\": \"fp8_e3m4\", \"sqnr_db\": 6.4953038940694565, \"calls\": 1.0, \"macs\": 0.0, \"selection_differs\": false}, {\"repo\": \"mobilevit_s.cvnets_in1k\", \"op\": \"attention\", \"format\": \"fp8_e3m4\", \"sqnr_db\": 6.781495268981712, \"calls\": 1.0, \"macs\": 75497472.0, \"selection_differs\": false}, {\"repo\": \"mobilevit_s.cvnets_in1k\", \"op\": \"add\", \"format\": \"fp8_e3m4\", \"sqnr_db\": 7.713814811550563, \"calls\": 1.0, \"macs\": 0.0, \"selection_differs\": false}, {\"repo\": \"mobilevit_s.cvnets_in1k\", \"op\": \"concat\", \"format\": \"fp8_e3m4\", \"sqnr_db\": 8.586449269168579, \"calls\": 1.0, \"macs\": 0.0, \"selection_differs\": false}, {\"repo\": \"mobilevit_s.cvnets_in1k\", \"op\": \"conv2d\", \"format\": \"fp8_e3m4\", \"sqnr_db\": 9.005231401775461, \"calls\": 1.0, \"macs\": 2359296.0, \"selection_differs\": false}, {\"repo\": \"mobilevit_s.cvnets_in1k\", \"op\": \"batchnorm\", \"format\": \"fp8_e3m4\", \"sqnr_db\": 9.025228943794845, \"calls\": 1.0, \"macs\": 0.0, \"selection_differs\": false}, {\"repo\": \"mobilevit_s.cvnets_in1k\", \"op\": \"adaptive_avgpool2d\", \"format\": \"fp8_e3m4\", \"sqnr_db\": 10.846703531767673, \"calls\": 1.0, \"macs\": 0.0, \"selection_differs\": false}, {\"repo\": \"stable-diffusion-v1-5/stable-diffusion-v1-5\", \"op\": \"mul\", \"format\": \"fp8_e3m4\", \"sqnr_db\": 14.648059666912935, \"calls\": 1.0, \"macs\": 0.0, \"selection_differs\": false}], \"affected\": {\"operations\": 904, \"calls\": 904.0, \"macs\": 403637552128.0, \"models\": 2}, \"impact\": {\"share\": 0.0, \"of\": null, \"cost_measured\": true}}",
+  "origin": "derive",
+  "title": "NX8 formats: linear outputs keep only 4.2 dB"
+ },
+ {
+  "body": "No operation needs a workaround yet across the 0 planned models.",
+  "created_at": 1794650103.8628695,
+  "id": 1,
+  "kind": "isa_gaps",
+  "numbers": "{\"gaps\": [], \"failed_operations\": 0, \"surveyed\": {\"operations\": 0, \"calls\": 0, \"macs\": 0, \"models\": 0}, \"impact\": {\"share\": 0.0, \"of\": null, \"cost_measured\": false}}",
+  "origin": "derive",
+  "title": "ISA gaps: none yet"
+ },
+ {
+  "body": "No plan passes a tensor between kernels yet.",
+  "created_at": 1794650103.8659413,
+  "id": 4,
+  "kind": "layout_conversions",
+  "numbers": "{\"links\": 0, \"rearranged\": 0, \"failing\": 0, \"reader_cycles_on_rearranged_links\": null, \"readers_measured\": 0, \"by_kind\": [], \"by_model\": [], \"operations_computed_by_layout\": [], \"models\": 0, \"affected\": {\"operations\": 0, \"calls\": 0, \"macs\": 0, \"models\": 0}, \"impact\": {\"share\": 0.0, \"of\": null, \"cost_measured\": false}}",
+  "origin": "derive",
+  "title": "Layout conversions: none planned yet"
+ },
+ {
+  "body": "FP32 headroom (how far the largest value is from FP32 overflow): not measured yet.\n\nInstruction memory (IMEM, 1,024 words per bank) use: not measured yet (no kernel built).",
+  "created_at": 1794650103.868619,
+  "id": 6,
+  "kind": "resource_limits",
+  "numbers": "{\"lut_operations\": [], \"affected_by_lut\": {\"operations\": 0, \"calls\": 0, \"macs\": 0, \"models\": 0}, \"lut_worst_q_sqnr_db\": null, \"kernels_measured_for_imem\": 0, \"kernels_near_imem\": [], \"fp32_headroom\": [], \"at_fp32_limit\": {\"outputs\": 0, \"models\": 0, \"ops\": {}}, \"nonfinite_runs\": 0, \"launches_per_forward\": [], \"launches_median\": null, \"launches_max\": null, \"each_operation_on_chip\": {\"operations\": 0, \"calls\": 0, \"macs\": 0, \"models\": 0}, \"impact\": {\"share\": 0.0, \"of\": null, \"cost_measured\": false}}",
+  "origin": "derive",
+  "title": "Resource limits: "
+ },
+ {
+  "body": "Across the surveyed models, nothing has actually been measured or planned yet, so there are no architecture costs to rank. MAC utilisation (compute efficiency), NX8 format pressure, FP32 headroom, and IMEM usage are all \"not measured yet\" \u2014 no kernel has been built and no format set across the 144 surveyed models. ISA gaps and what-if gaps show none, since no operation needs a workaround and no capability is missing for the 0 planned models. Layout conversions are likewise \"none planned,\" as no plan passes tensors between kernels. In short: the survey establishes baselines but reports zero quantified costs on every axis.",
+  "created_at": 1794650136.5404508,
+  "id": 7,
+  "kind": "summary",
+  "numbers": null,
+  "origin": "summary",
+  "title": "Agent summary"
+ },
+ {
+  "body": "No missing capability affects the planned models yet.",
+  "created_at": 1794650103.8632884,
+  "id": 2,
+  "kind": "what_if",
+  "numbers": "{\"surveyed\": {\"operations\": 0, \"calls\": 0, \"macs\": 0, \"models\": 0}, \"gaps\": [], \"impact\": {\"share\": 0.0, \"of\": null, \"cost_measured\": false}}",
+  "origin": "derive",
+  "title": "What-if: no gap yet"
+ }
+]
