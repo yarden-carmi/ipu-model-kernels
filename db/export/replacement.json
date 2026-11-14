@@ -420,6 +420,18 @@
   "proposed_by": 188
  },
  {
+  "chain": "[{\"op\": \"channel_pair_copy_defined_primitive\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, x0, x1):\n    import torch\n    n, c0, h, w = x0.shape\n    c1 = x1.shape[1]\n    out = torch.empty((n, c0 + c1, h, w), dtype=x0.dtype, device=x0.device)\n    out[:, :c0, :, :].copy_(x0)\n    out[:, c0:, :, :].copy_(x1)\n    return out\n",
+  "id": 305,
+  "kind": "equivalent",
+  "name": "channel_pair_copy_defined",
+  "op": "aten",
+  "proposal": "{\"description\": \"Use a defined data-movement primitive, not an arithmetic simulation. Derive N,C0,C1,H,W from the two runtime NCHW inputs and allocate a contiguous float32 destination [N,C0+C1,H,W]. Copy x0[n,c,h,w] to out[n,c,h,w] and x1[n,c,h,w] to out[n,C0+c,h,w]. Source accesses use their actual strides; destination writes are disjoint. For this node each input has 75264 elements and the second output block starts at float offset 75264 (byte offset 301056). Preserve all value bits without rounding, addition, masking, or a requirement that source allocations be adjacent. Runtime-derived shapes also handle other instances of channel concatenation.\", \"rel_err\": 0.0}",
+  "proposed_by": 192
+ },
+ {
   "chain": "[{\"op\": \"concat_14_blocks\", \"params\": {\"numel\": \"numel\"}}]",
   "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
   "check_ok": 1,

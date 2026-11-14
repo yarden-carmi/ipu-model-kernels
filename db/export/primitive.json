@@ -296,6 +296,14 @@
   "tensors": null
  },
  {
+  "doc": "Exact two-source channel-axis copy. Input operands are two same-device, same-dtype rank-four tensors with matching batch and spatial dimensions. Allocate contiguous output and copy each operand into its channel interval using logical indexing. numel is the total number of destination elements; dimensions are derived from runtime operands. No floating-point arithmetic is performed.",
+  "name": "channel_pair_copy_defined_primitive",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, y, **params):\n    import torch\n    n, c0, h, w = x.shape\n    c1 = y.shape[1]\n    assert y.shape[0] == n and y.shape[2:] == (h, w)\n    assert x.dtype == y.dtype and x.device == y.device\n    assert x.numel() + y.numel() == params['numel']\n    out = torch.empty((n, c0 + c1, h, w), dtype=x.dtype, device=x.device)\n    out[:, :c0, :, :].copy_(x)\n    out[:, c0:, :, :].copy_(y)\n    return out\n",
+  "tensors": null
+ },
+ {
   "doc": "Clamp each float32 element to [-4,4], preserving shape and NaNs.",
   "name": "clamp4_7",
   "origin": "agent",
