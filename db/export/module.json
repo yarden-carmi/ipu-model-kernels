@@ -25297,5 +25297,473 @@
   "parent_id": 2767,
   "path": "vision_model.post_layernorm",
   "repeat": 1
+ },
+ {
+  "capture_id": 71,
+  "class": null,
+  "first_seq": 0,
+  "id": 2813,
+  "parent_id": 2812,
+  "path": "(input)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 71,
+  "class": "Qwen3_5ForConditionalGeneration",
+  "first_seq": 0,
+  "id": 2812,
+  "parent_id": null,
+  "path": "(top)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 71,
+  "class": "Linear",
+  "first_seq": 2430,
+  "id": 2814,
+  "parent_id": 2812,
+  "path": "lm_head",
+  "repeat": 1
+ },
+ {
+  "capture_id": 71,
+  "class": "Qwen3_5Model",
+  "first_seq": 4,
+  "id": 2815,
+  "parent_id": 2812,
+  "path": "model",
+  "repeat": 1
+ },
+ {
+  "capture_id": 71,
+  "class": "Qwen3_5TextModel",
+  "first_seq": 4,
+  "id": 2816,
+  "parent_id": 2815,
+  "path": "model.language_model",
+  "repeat": 1
+ },
+ {
+  "capture_id": 71,
+  "class": "Embedding",
+  "first_seq": 4,
+  "id": 2818,
+  "parent_id": 2816,
+  "path": "model.language_model.embed_tokens",
+  "repeat": 1
+ },
+ {
+  "capture_id": 71,
+  "class": "ModuleList",
+  "first_seq": 857,
+  "id": 2819,
+  "parent_id": 2816,
+  "path": "model.language_model.layers",
+  "repeat": 1
+ },
+ {
+  "capture_id": 71,
+  "class": "Qwen3_5DecoderLayer",
+  "first_seq": 857,
+  "id": 2827,
+  "parent_id": 2819,
+  "path": "model.language_model.layers.*",
+  "repeat": 24
+ },
+ {
+  "capture_id": 71,
+  "class": "Qwen3_5RMSNorm",
+  "first_seq": 857,
+  "id": 2834,
+  "parent_id": 2827,
+  "path": "model.language_model.layers.*.input_layernorm",
+  "repeat": 24
+ },
+ {
+  "capture_id": 71,
+  "class": "Qwen3_5GatedDeltaNet",
+  "first_seq": 858,
+  "id": 2835,
+  "parent_id": 2827,
+  "path": "model.language_model.layers.*.linear_attn",
+  "repeat": 18
+ },
+ {
+  "capture_id": 71,
+  "class": "Linear",
+  "first_seq": 861,
+  "id": 2843,
+  "parent_id": 2835,
+  "path": "model.language_model.layers.*.linear_attn.in_proj_a",
+  "repeat": 18
+ },
+ {
+  "capture_id": 71,
+  "class": "Linear",
+  "first_seq": 860,
+  "id": 2844,
+  "parent_id": 2835,
+  "path": "model.language_model.layers.*.linear_attn.in_proj_b",
+  "repeat": 18
+ },
+ {
+  "capture_id": 71,
+  "class": "Linear",
+  "first_seq": 858,
+  "id": 2845,
+  "parent_id": 2835,
+  "path": "model.language_model.layers.*.linear_attn.in_proj_qkv",
+  "repeat": 18
+ },
+ {
+  "capture_id": 71,
+  "class": "Linear",
+  "first_seq": 859,
+  "id": 2846,
+  "parent_id": 2835,
+  "path": "model.language_model.layers.*.linear_attn.in_proj_z",
+  "repeat": 18
+ },
+ {
+  "capture_id": 71,
+  "class": "Qwen3_5RMSNormGated",
+  "first_seq": 922,
+  "id": 2847,
+  "parent_id": 2835,
+  "path": "model.language_model.layers.*.linear_attn.norm",
+  "repeat": 18
+ },
+ {
+  "capture_id": 71,
+  "class": "Linear",
+  "first_seq": 924,
+  "id": 2848,
+  "parent_id": 2835,
+  "path": "model.language_model.layers.*.linear_attn.out_proj",
+  "repeat": 18
+ },
+ {
+  "capture_id": 71,
+  "class": "Qwen3_5MLP",
+  "first_seq": 927,
+  "id": 2836,
+  "parent_id": 2827,
+  "path": "model.language_model.layers.*.mlp",
+  "repeat": 24
+ },
+ {
+  "capture_id": 71,
+  "class": "SiLUActivation",
+  "first_seq": 928,
+  "id": 2849,
+  "parent_id": 2836,
+  "path": "model.language_model.layers.*.mlp.act_fn",
+  "repeat": 24
+ },
+ {
+  "capture_id": 71,
+  "class": "Linear",
+  "first_seq": 931,
+  "id": 2850,
+  "parent_id": 2836,
+  "path": "model.language_model.layers.*.mlp.down_proj",
+  "repeat": 24
+ },
+ {
+  "capture_id": 71,
+  "class": "Linear",
+  "first_seq": 927,
+  "id": 2851,
+  "parent_id": 2836,
+  "path": "model.language_model.layers.*.mlp.gate_proj",
+  "repeat": 24
+ },
+ {
+  "capture_id": 71,
+  "class": "Linear",
+  "first_seq": 929,
+  "id": 2852,
+  "parent_id": 2836,
+  "path": "model.language_model.layers.*.mlp.up_proj",
+  "repeat": 24
+ },
+ {
+  "capture_id": 71,
+  "class": "Qwen3_5RMSNorm",
+  "first_seq": 926,
+  "id": 2837,
+  "parent_id": 2827,
+  "path": "model.language_model.layers.*.post_attention_layernorm",
+  "repeat": 24
+ },
+ {
+  "capture_id": 71,
+  "class": "Qwen3_5Attention",
+  "first_seq": 1086,
+  "id": 2838,
+  "parent_id": 2827,
+  "path": "model.language_model.layers.*.self_attn",
+  "repeat": 6
+ },
+ {
+  "capture_id": 71,
+  "class": "Qwen3_5RMSNorm",
+  "first_seq": 1089,
+  "id": 2853,
+  "parent_id": 2838,
+  "path": "model.language_model.layers.*.self_attn.k_norm",
+  "repeat": 6
+ },
+ {
+  "capture_id": 71,
+  "class": "Linear",
+  "first_seq": 1088,
+  "id": 2854,
+  "parent_id": 2838,
+  "path": "model.language_model.layers.*.self_attn.k_proj",
+  "repeat": 6
+ },
+ {
+  "capture_id": 71,
+  "class": "Linear",
+  "first_seq": 1110,
+  "id": 2855,
+  "parent_id": 2838,
+  "path": "model.language_model.layers.*.self_attn.o_proj",
+  "repeat": 6
+ },
+ {
+  "capture_id": 71,
+  "class": "Qwen3_5RMSNorm",
+  "first_seq": 1087,
+  "id": 2856,
+  "parent_id": 2838,
+  "path": "model.language_model.layers.*.self_attn.q_norm",
+  "repeat": 6
+ },
+ {
+  "capture_id": 71,
+  "class": "Linear",
+  "first_seq": 1086,
+  "id": 2857,
+  "parent_id": 2838,
+  "path": "model.language_model.layers.*.self_attn.q_proj",
+  "repeat": 6
+ },
+ {
+  "capture_id": 71,
+  "class": "Linear",
+  "first_seq": 1090,
+  "id": 2858,
+  "parent_id": 2838,
+  "path": "model.language_model.layers.*.self_attn.v_proj",
+  "repeat": 6
+ },
+ {
+  "capture_id": 71,
+  "class": "Qwen3_5RMSNorm",
+  "first_seq": 2429,
+  "id": 2820,
+  "parent_id": 2816,
+  "path": "model.language_model.norm",
+  "repeat": 1
+ },
+ {
+  "capture_id": 71,
+  "class": "Qwen3_5TextRotaryEmbedding",
+  "first_seq": 850,
+  "id": 2821,
+  "parent_id": 2816,
+  "path": "model.language_model.rotary_emb",
+  "repeat": 1
+ },
+ {
+  "capture_id": 71,
+  "class": "Qwen3_5VisionModel",
+  "first_seq": 5,
+  "id": 2817,
+  "parent_id": 2815,
+  "path": "model.visual",
+  "repeat": 1
+ },
+ {
+  "capture_id": 71,
+  "class": "ModuleList",
+  "first_seq": 69,
+  "id": 2822,
+  "parent_id": 2817,
+  "path": "model.visual.blocks",
+  "repeat": 1
+ },
+ {
+  "capture_id": 71,
+  "class": "Qwen3_5VisionBlock",
+  "first_seq": 69,
+  "id": 2828,
+  "parent_id": 2822,
+  "path": "model.visual.blocks.*",
+  "repeat": 24
+ },
+ {
+  "capture_id": 71,
+  "class": "Qwen3_5VisionAttention",
+  "first_seq": 70,
+  "id": 2839,
+  "parent_id": 2828,
+  "path": "model.visual.blocks.*.attn",
+  "repeat": 24
+ },
+ {
+  "capture_id": 71,
+  "class": "Linear",
+  "first_seq": 93,
+  "id": 2859,
+  "parent_id": 2839,
+  "path": "model.visual.blocks.*.attn.proj",
+  "repeat": 24
+ },
+ {
+  "capture_id": 71,
+  "class": "Linear",
+  "first_seq": 70,
+  "id": 2860,
+  "parent_id": 2839,
+  "path": "model.visual.blocks.*.attn.qkv",
+  "repeat": 24
+ },
+ {
+  "capture_id": 71,
+  "class": "Qwen3_5VisionMLP",
+  "first_seq": 96,
+  "id": 2840,
+  "parent_id": 2828,
+  "path": "model.visual.blocks.*.mlp",
+  "repeat": 24
+ },
+ {
+  "capture_id": 71,
+  "class": "GELUTanh",
+  "first_seq": 97,
+  "id": 2861,
+  "parent_id": 2840,
+  "path": "model.visual.blocks.*.mlp.act_fn",
+  "repeat": 24
+ },
+ {
+  "capture_id": 71,
+  "class": "Linear",
+  "first_seq": 96,
+  "id": 2862,
+  "parent_id": 2840,
+  "path": "model.visual.blocks.*.mlp.linear_fc1",
+  "repeat": 24
+ },
+ {
+  "capture_id": 71,
+  "class": "Linear",
+  "first_seq": 98,
+  "id": 2863,
+  "parent_id": 2840,
+  "path": "model.visual.blocks.*.mlp.linear_fc2",
+  "repeat": 24
+ },
+ {
+  "capture_id": 71,
+  "class": "LayerNorm",
+  "first_seq": 69,
+  "id": 2841,
+  "parent_id": 2828,
+  "path": "model.visual.blocks.*.norm1",
+  "repeat": 24
+ },
+ {
+  "capture_id": 71,
+  "class": "LayerNorm",
+  "first_seq": 95,
+  "id": 2842,
+  "parent_id": 2828,
+  "path": "model.visual.blocks.*.norm2",
+  "repeat": 24
+ },
+ {
+  "capture_id": 71,
+  "class": "Qwen3_5VisionPatchMerger",
+  "first_seq": 813,
+  "id": 2823,
+  "parent_id": 2817,
+  "path": "model.visual.merger",
+  "repeat": 1
+ },
+ {
+  "capture_id": 71,
+  "class": "GELU",
+  "first_seq": 815,
+  "id": 2829,
+  "parent_id": 2823,
+  "path": "model.visual.merger.act_fn",
+  "repeat": 1
+ },
+ {
+  "capture_id": 71,
+  "class": "Linear",
+  "first_seq": 814,
+  "id": 2830,
+  "parent_id": 2823,
+  "path": "model.visual.merger.linear_fc1",
+  "repeat": 1
+ },
+ {
+  "capture_id": 71,
+  "class": "Linear",
+  "first_seq": 816,
+  "id": 2831,
+  "parent_id": 2823,
+  "path": "model.visual.merger.linear_fc2",
+  "repeat": 1
+ },
+ {
+  "capture_id": 71,
+  "class": "LayerNorm",
+  "first_seq": 813,
+  "id": 2832,
+  "parent_id": 2823,
+  "path": "model.visual.merger.norm",
+  "repeat": 1
+ },
+ {
+  "capture_id": 71,
+  "class": "Qwen3_5VisionPatchEmbed",
+  "first_seq": 55,
+  "id": 2824,
+  "parent_id": 2817,
+  "path": "model.visual.patch_embed",
+  "repeat": 1
+ },
+ {
+  "capture_id": 71,
+  "class": "Conv3d",
+  "first_seq": 55,
+  "id": 2833,
+  "parent_id": 2824,
+  "path": "model.visual.patch_embed.proj",
+  "repeat": 1
+ },
+ {
+  "capture_id": 71,
+  "class": "Embedding",
+  "first_seq": 56,
+  "id": 2825,
+  "parent_id": 2817,
+  "path": "model.visual.pos_embed",
+  "repeat": 1
+ },
+ {
+  "capture_id": 71,
+  "class": "Qwen3_5VisionRotaryEmbedding",
+  "first_seq": 60,
+  "id": 2826,
+  "parent_id": 2817,
+  "path": "model.visual.rotary_pos_emb",
+  "repeat": 1
  }
 ]

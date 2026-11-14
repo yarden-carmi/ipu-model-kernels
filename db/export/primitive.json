@@ -840,11 +840,35 @@
   "tensors": null
  },
  {
+  "doc": "Add the per-channel bias to the disjoint folded output.",
+  "name": "phase_bias",
+  "origin": "agent",
+  "params": "[\"cout\", \"h\", \"w\"]",
+  "reference": "def fn(x, **params):\n    y, bias = x\n    return y + bias.reshape(1,-1,1,1)",
+  "tensors": null
+ },
+ {
   "doc": "Double columns with 3/4 center and 1/4 edge-clamped adjacent column, previous for even phase and next for odd phase.",
   "name": "phase_cols_2x",
   "origin": "agent",
   "params": "[\"channels\", \"h\", \"w\"]",
   "reference": "def fn(x, **params):\n    import torch\n    prev = torch.cat((x[..., :1], x[..., :-1]), dim=-1)\n    nxt = torch.cat((x[..., 1:], x[..., -1:]), dim=-1)\n    return torch.stack(((3*x+prev)*0.25, (3*x+nxt)*0.25), dim=-1).flatten(-2, -1)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Interleave the tap dimensions with their input spatial dimensions, with no overlapping writes.",
+  "name": "phase_fold",
+  "origin": "agent",
+  "params": "[\"h\", \"w\", \"cout\", \"kh\", \"kw\"]",
+  "reference": "def fn(x, **params):\n    h,w,c,kh,kw = (params[k] for k in ('h','w','cout','kh','kw'))\n    return x.reshape(-1,h,w,c,kh,kw).permute(0,3,1,4,2,5).reshape(-1,c,h*kh,w*kw)",
+  "tensors": null
+ },
+ {
+  "doc": "Convert CHW input to spatial-major rows, preserving any batch as additional rows.",
+  "name": "phase_input_rows",
+  "origin": "agent",
+  "params": "[\"cin\", \"h\", \"w\"]",
+  "reference": "def fn(x, **params):\n    return x.movedim(-3, -1).reshape(-1, params['cin'])",
   "tensors": null
  },
  {
@@ -869,6 +893,14 @@
   "origin": "agent",
   "params": "[\"channels\", \"h\", \"w\"]",
   "reference": "def fn(x, **params):\n import torch\n import torch.nn.functional as F\n h, w = x.shape[-2:]\n p = F.pad(x.unsqueeze(0), (1,1,1,1), mode='replicate').squeeze(0)\n c = p[:,1:h+1,1:w+1]\n rows = []\n for di in (-1,1):\n  phases = []\n  for dj in (-1,1):\n   v = p[:,1+di:h+1+di,1:w+1]\n   u = p[:,1:h+1,1+dj:w+1+dj]\n   d = p[:,1+di:h+1+di,1+dj:w+1+dj]\n   phases.append((9*c+3*v+3*u+d)/16)\n  rows.append(torch.stack(phases, dim=-1))\n return torch.stack(rows, dim=2).reshape(x.shape[0],2*h,2*w)",
+  "tensors": null
+ },
+ {
+  "doc": "Flatten transposed-convolution weights [cin,cout,kh,kw] to [cin,cout*kh*kw].",
+  "name": "phase_weight_matrix",
+  "origin": "agent",
+  "params": "[\"cin\", \"cout\", \"kh\", \"kw\"]",
+  "reference": "def fn(x, **params):\n    return x.reshape(params['cin'], params['cout'] * params['kh'] * params['kw'])",
   "tensors": null
  },
  {

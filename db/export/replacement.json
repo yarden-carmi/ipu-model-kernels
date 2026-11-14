@@ -1320,6 +1320,18 @@
   "proposed_by": 158
  },
  {
+  "chain": "[{\"op\": \"phase_input_rows\", \"params\": {\"cin\": \"cin\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"phase_weight_matrix\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"kh\": \"kh\", \"kw\": \"kw\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"cin\", \"m\": \"h*w\", \"n\": \"cout*kh*kw\"}}, {\"op\": \"phase_fold\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"w\": \"w\"}}, {\"op\": \"phase_bias\", \"params\": {\"cout\": \"cout\", \"h\": \"h*kh\", \"w\": \"w*kw\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    x = inputs[0]\n    unbatched = x.ndim == 3\n    if unbatched:\n        x = x.unsqueeze(0)\n    n, ci, h, w = x.shape\n    weight = module.weight\n    _, co, kh, kw = weight.shape\n    rows = x.permute(0,2,3,1).reshape(n*h*w,ci)\n    matrix = weight.reshape(ci,co*kh*kw)\n    product = rows @ matrix\n    y = product.reshape(n,h,w,co,kh,kw).permute(0,3,1,4,2,5).reshape(n,co,h*kh,w*kw)\n    if module.bias is not None:\n        y = y + module.bias.reshape(1,co,1,1)\n    return y.squeeze(0) if unbatched else y",
+  "id": 301,
+  "kind": "equivalent",
+  "name": "phase_gemm4",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"For stride=kernel size 4, padding 0 and dilation 1, output position (4*i+a,4*j+b) receives contributions only from input (i,j). Arrange input pixels as rows X[(n*h+i)*w+j,ci] and arrange weights as W2[ci,co*kh*kw+a*kw+b]. Compute X @ W2, then permute the result from [batch,h,w,cout,kh,kw] to [batch,cout,h,kh,w,kw] and reshape to [batch,cout,4*h,4*w]. Add the channel bias once. The fold is a one-to-one permutation, not an overlapping scatter. For an unbatched input omit the batch dimension. This specialization requires groups=1, stride=kh=kw, padding=0, dilation=1, and output_padding=0.\", \"rel_err\": null}",
+  "proposed_by": 177
+ },
+ {
   "chain": "[{\"op\": \"spatial_rows\", \"params\": {\"cin\": \"cin\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"weight_rank_r\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"kh\": \"kh\", \"kw\": \"kw\", \"rank\": 16}}, {\"op\": \"gemm\", \"params\": {\"k\": \"cin\", \"m\": \"h*w\", \"n\": \"cout*kh*kw\"}}, {\"op\": \"disjoint_tile_layout\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"w\": \"w\"}}, {\"op\": \"add_bias\", \"params\": {\"channels\": \"cout\", \"h\": \"h*kh\", \"w\": \"w*kw\"}}]",
   "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
   "check_ok": null,
@@ -1330,6 +1342,42 @@
   "op": "conv_transpose2d",
   "proposal": "{\"description\": \"Approximate conv_transpose2d by a rank-16 truncated SVD of the flattened kernel. Step 1: spatial_rows lays the input [cin,h,w] out spatial-major as rows [h*w, cin]. Step 2: weight_rank_r flattens the weight [cin,cout,kh,kw] to W2[cin, cout*kh*kw] (column co*kh*kw+th*kw+tw), computes its truncated SVD of rank r=16 (W2 ~= U_r S_r V_r^T with U_r [cin,16], S_r [16], V_r [16, cout*kh*kw]) and returns the reconstructed W2r of rank 16. Step 3: gemm rows @ W2r -> [h*w, cout*kh*kw]; entry (i*w+j, co*kh*kw+th*kw+tw) = sum_ci x[ci,i,j]*W2r[ci,co,th,tw], the low-rank approximation of the transposed-conv contribution of pixel (i,j) to channel co at tap (th,tw). Step 4: disjoint_tile_layout folds each row into its disjoint stride-by-stride output tile, producing [cout, h*kh, w*kw] = [cout, 64, 64]. Step 5: add_bias adds the per-output-channel bias, broadcast over the spatial dims. Keeps the exact tile placement and full tap structure; only the channel mixing matrix is approximated by its best rank-16 (Frobenius) approximation.\", \"rel_err\": null}",
   "proposed_by": 158
+ },
+ {
+  "chain": "[{\"op\": \"flatten_rows\", \"params\": {\"cin\": \"cin\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"weight_rank_r\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"kh\": \"kh\", \"kw\": \"kw\", \"r\": 24}}, {\"op\": \"gemm\", \"params\": {\"k\": \"cin\", \"m\": \"h*w\", \"n\": \"cout*kh*kw\"}}, {\"op\": \"tile_fold\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"stride\": \"stride\", \"w\": \"w\"}}, {\"op\": \"add_bias_map\", \"params\": {\"cout\": \"cout\", \"oh\": \"h*stride\", \"ow\": \"w*stride\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "import torch\ndef forward(module, *inputs):\n    x = inputs[0]\n    w = module.weight\n    bias = module.bias\n    single = x.dim() == 3\n    if single: x = x.unsqueeze(0)\n    n, ci, h, wid = x.shape\n    _, co, kh, kw = w.shape\n    rows = x.permute(0,2,3,1).reshape(-1,ci)\n    mat = w.reshape(ci,-1)\n    u,s,vh = torch.linalg.svd(mat, full_matrices=False)\n    r = min(24, s.numel())\n    approx = (u[:,:r] * s[:r]) @ vh[:r,:]\n    z = rows @ approx\n    y = z.reshape(n,h,wid,co,kh,kw).permute(0,3,1,4,2,5).reshape(n,co,h*kh,wid*kw)\n    if bias is not None: y = y + bias.reshape(1,-1,1,1)\n    return y.squeeze(0) if single else y\n",
+  "id": 303,
+  "kind": "approximate",
+  "name": "rank24_phase4",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"Flatten input spatial positions to rows and flatten the weight to [cin,cout*kh*kw]. Replace this matrix by its rank-24 truncated SVD reconstruction. GEMM against the reconstructed weight, reshape to [batch,h,w,cout,kh,kw], permute to [batch,cout,h,kh,w,kw], and reshape to the output. Add channel bias. Since stride and kernel size both equal four, this fold has no overlapping writes. The approximation discards the smallest 24 singular components for the specified dimensions; reconstructing the matrix does not save GEMM arithmetic.\", \"rel_err\": null}",
+  "proposed_by": 177
+ },
+ {
+  "chain": "[{\"op\": \"flatten_rows\", \"params\": {\"cin\": \"cin\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"weight_rank_r\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"kh\": \"kh\", \"kw\": \"kw\", \"r\": 40}}, {\"op\": \"gemm\", \"params\": {\"k\": \"cin\", \"m\": \"h*w\", \"n\": \"cout*kh*kw\"}}, {\"op\": \"tile_fold\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"stride\": \"stride\", \"w\": \"w\"}}, {\"op\": \"add_bias_map\", \"params\": {\"cout\": \"cout\", \"oh\": \"h*stride\", \"ow\": \"w*stride\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "import torch\ndef forward(module, *inputs):\n    x = inputs[0]\n    w = module.weight\n    bias = module.bias\n    single = x.dim() == 3\n    if single: x = x.unsqueeze(0)\n    n, ci, h, wid = x.shape\n    _, co, kh, kw = w.shape\n    rows = x.permute(0,2,3,1).reshape(-1,ci)\n    mat = w.reshape(ci,-1)\n    u,s,vh = torch.linalg.svd(mat, full_matrices=False)\n    r = min(40, s.numel())\n    approx = (u[:,:r] * s[:r]) @ vh[:r,:]\n    z = rows @ approx\n    y = z.reshape(n,h,wid,co,kh,kw).permute(0,3,1,4,2,5).reshape(n,co,h*kh,wid*kw)\n    if bias is not None: y = y + bias.reshape(1,-1,1,1)\n    return y.squeeze(0) if single else y\n",
+  "id": 304,
+  "kind": "approximate",
+  "name": "rank40_phase4",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"Flatten the input to spatial rows and flatten the weight to [cin,cout*kh*kw]. Replace the weight by its rank-40 truncated SVD reconstruction, then GEMM, reshape the result to [batch,h,w,cout,kh,kw], permute to [batch,cout,h,kh,w,kw], reshape to output, and add channel bias. This retains 40 of 48 singular components and all 16 spatial phases. The 4x4 output tiles are disjoint, so folding does not require overlapping writes. This reconstructed-weight version retains the original GEMM arithmetic cost.\", \"rel_err\": null}",
+  "proposed_by": 177
+ },
+ {
+  "chain": "[{\"op\": \"flatten_rows\", \"params\": {\"cin\": \"cin\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"weight_rank_r\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"kh\": \"kh\", \"kw\": \"kw\", \"r\": 8}}, {\"op\": \"gemm\", \"params\": {\"k\": \"cin\", \"m\": \"h*w\", \"n\": \"cout*kh*kw\"}}, {\"op\": \"tile_fold\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"stride\": \"stride\", \"w\": \"w\"}}, {\"op\": \"add_bias_map\", \"params\": {\"cout\": \"cout\", \"oh\": \"h*stride\", \"ow\": \"w*stride\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "import torch\ndef forward(module, *inputs):\n    x = inputs[0]\n    w = module.weight\n    bias = module.bias\n    single = x.dim() == 3\n    if single: x = x.unsqueeze(0)\n    n, ci, h, wid = x.shape\n    _, co, kh, kw = w.shape\n    rows = x.permute(0,2,3,1).reshape(-1,ci)\n    mat = w.reshape(ci,-1)\n    u,s,vh = torch.linalg.svd(mat, full_matrices=False)\n    r = min(8, s.numel())\n    approx = (u[:,:r] * s[:r]) @ vh[:r,:]\n    z = rows @ approx\n    y = z.reshape(n,h,wid,co,kh,kw).permute(0,3,1,4,2,5).reshape(n,co,h*kh,wid*kw)\n    if bias is not None: y = y + bias.reshape(1,-1,1,1)\n    return y.squeeze(0) if single else y\n",
+  "id": 302,
+  "kind": "approximate",
+  "name": "rank8_phase4",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"Flatten each input pixel into a row X of length cin and flatten W[ci,co,a,b] to M[ci,co*kh*kw+a*kw+b]. Compute the rank-8 truncated SVD M8=U8 diag(S8) V8^T; this is a static weight preprocessing step. Multiply X by M8, reshape the columns to [cout,kh,kw] and interleave the input and tap axes into [cout,h*4,w*4]. The 4x4 tiles are disjoint. Add bias once per output channel. Unlike a factored implementation, reconstructing M8 before GEMM does not reduce dense GEMM cost.\", \"rel_err\": null}",
+  "proposed_by": 177
  },
  {
   "chain": "[{\"op\": \"tile_repeat\", \"params\": {\"channels\": \"cin\", \"h\": \"h\", \"stride\": \"stride\", \"w\": \"w\"}}]",
