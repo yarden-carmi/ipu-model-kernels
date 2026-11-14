@@ -32,6 +32,14 @@
   "tensors": null
  },
  {
+  "doc": "Epsilon-ball tolerance-comparator selector of shape (tokens, vocab): on the chip this is binary 'sub' (rows-vs-columns broadcast of the flattened ids against the constant index vector arange(vocab)), then unary 'abs', then binary 'lt' with const value 0.5, then unary 'cast' to the accumulator dtype. Pure elementwise compare and cast; no lookup, no gather, no data-dependent addressing.",
+  "name": "epsball_select",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    v = int(params['vocab'])\n    ids = x.reshape(-1).to(torch.float32)\n    ar = torch.arange(v, device=ids.device, dtype=torch.float32)\n    d = ids.unsqueeze(1) - ar.unsqueeze(0)\n    return (d.abs() < 0.5).to(torch.float32)",
+  "tensors": null
+ },
+ {
   "doc": null,
   "name": "gemm",
   "origin": "builtin",
@@ -40,11 +48,59 @@
   "tensors": null
  },
  {
+  "doc": "Soft Laplacian-kernel selector of shape (tokens, vocab): on the chip this is binary 'sub' (rows-vs-columns broadcast of the flattened ids against the constant index vector arange(vocab)), then unary 'abs', then binary 'mul' with const value -60, then row_softmax (rows=tokens, n=vocab). Pure elementwise arithmetic plus a row-softmax; no lookup, no gather, no data-dependent addressing.",
+  "name": "laplacian_soft_select",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    v = int(params['vocab'])\n    ids = x.reshape(-1).to(torch.float32)\n    ar = torch.arange(v, device=ids.device, dtype=torch.float32)\n    d = ids.unsqueeze(1) - ar.unsqueeze(0)\n    logits = -60.0 * d.abs()\n    return torch.softmax(logits, dim=-1)",
+  "tensors": null
+ },
+ {
+  "doc": "Selector matrix from integer ids by broadcast equality against the constant row-index vector arange(vocab): sel[i, j] = 1.0 if flat_ids[i] == j else 0.0, shape (numel(ids), vocab), cast to float. Pure elementwise compare-and-cast: lowerable to the chip's binary op ('eq', rows-vs-columns broadcast) against a compile-time constant index vector followed by a cast unary. No lookup, no gather, no data-dependent addressing.",
+  "name": "one_hot",
+  "origin": "agent",
+  "params": "[\"vocab\"]",
+  "reference": "def fn(x, vocab):\n    flat = x.reshape(-1).long()\n    return (flat.unsqueeze(1) == torch.arange(int(vocab), device=x.device)).to(torch.float32)",
+  "tensors": null
+ },
+ {
+  "doc": "Batched selector tensor from integer ids by broadcast equality against the constant row-index vector arange(vocab): sel[0, i, j] = 1.0 if flat_ids[i] == j else 0.0, shape (1, numel(ids), vocab), cast to float. Pure elementwise compare-and-cast: lowerable to the chip's binary op ('eq', broadcast) against a compile-time constant index vector followed by a cast unary. No lookup, no gather, no data-dependent addressing.",
+  "name": "one_hot_b",
+  "origin": "agent",
+  "params": "[\"vocab\"]",
+  "reference": "def fn(x, vocab):\n    flat = x.reshape(-1).long()\n    return (flat.unsqueeze(0).unsqueeze(2) == torch.arange(int(vocab), device=x.device)).to(torch.float32)",
+  "tensors": null
+ },
+ {
   "doc": null,
   "name": "pool2d",
   "origin": "builtin",
   "params": null,
   "reference": null,
+  "tensors": null
+ },
+ {
+  "doc": "Truncated-ramp kernel selector of shape (tokens, vocab): on the chip this is binary 'sub' (rows-vs-columns broadcast of the flattened ids against the constant index vector arange(vocab)), then unary 'abs', then binary 'sub' with const value 1, then unary 'relu' (clamp below at 0). Pure elementwise arithmetic; no exp, no normalization; no lookup, no gather, no data-dependent addressing.",
+  "name": "ramp_select",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    v = int(params['vocab'])\n    ids = x.reshape(-1).to(torch.float32)\n    ar = torch.arange(v, device=ids.device, dtype=torch.float32)\n    d = ids.unsqueeze(1) - ar.unsqueeze(0)\n    return torch.clamp(1.0 - d.abs(), min=0.0)",
+  "tensors": null
+ },
+ {
+  "doc": "Soft RBF selector of shape (tokens, vocab): on the chip this is binary 'sub' (rows-vs-columns broadcast of the flattened ids against the constant index vector arange(vocab)), then binary 'mul' (elementwise square), then binary 'mul' with const value -60, then row_softmax (rows=tokens, n=vocab). Pure elementwise arithmetic plus a row-softmax; no lookup, no gather, no data-dependent addressing.",
+  "name": "rbf_soft_select",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    v = int(params['vocab'])\n    ids = x.reshape(-1).to(torch.float32)\n    ar = torch.arange(v, device=ids.device, dtype=torch.float32)\n    d = ids.unsqueeze(1) - ar.unsqueeze(0)\n    logits = -60.0 * (d * d)\n    return torch.softmax(logits, dim=-1)",
+  "tensors": null
+ },
+ {
+  "doc": "Batched soft RBF selector of shape (1, tokens, vocab): on the chip this is binary 'sub' (rows-vs-columns broadcast of the flattened ids against the constant index vector arange(vocab)), then binary 'mul' (elementwise square), then binary 'mul' with const value -60, then row_softmax (rows=tokens, n=vocab), viewed as a batch of one. Pure elementwise arithmetic plus a row-softmax; no lookup, no gather, no data-dependent addressing.",
+  "name": "rbf_soft_select_b",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    v = int(params['vocab'])\n    ids = x.reshape(-1).to(torch.float32)\n    ar = torch.arange(v, device=ids.device, dtype=torch.float32)\n    d = ids.unsqueeze(1) - ar.unsqueeze(0)\n    logits = -60.0 * (d * d)\n    return torch.softmax(logits, dim=-1).unsqueeze(0)",
   "tensors": null
  },
  {
@@ -77,6 +133,14 @@
   "origin": "builtin",
   "params": null,
   "reference": null,
+  "tensors": null
+ },
+ {
+  "doc": "Hard uniform-window smoothing selector of shape (tokens, vocab), half-width W=1: on the chip this is binary 'sub' (rows-vs-columns broadcast of the flattened ids against the constant index vector arange(vocab)), then unary 'abs', then binary 'lt' with const value 1.5, then unary 'cast' to the accumulator dtype, then binary 'mul' with const value 3 and reciprocal=true (scale by 1/3). Pure elementwise compare and cast; no exp, no normalization; no lookup, no gather, no data-dependent addressing.",
+  "name": "window_mean_select",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    v = int(params['vocab'])\n    ids = x.reshape(-1).to(torch.float32)\n    ar = torch.arange(v, device=ids.device, dtype=torch.float32)\n    d = ids.unsqueeze(1) - ar.unsqueeze(0)\n    return (d.abs() < 1.5).to(torch.float32) * (1.0 / 3.0)",
   "tensors": null
  }
 ]
