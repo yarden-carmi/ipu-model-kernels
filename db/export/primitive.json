@@ -24,11 +24,51 @@
   "tensors": null
  },
  {
+  "doc": "Project with the center spatial kernel slice, repeat into stride tiles, and add bias.",
+  "name": "center_kernel_primitive",
+  "origin": "agent",
+  "params": "[\"h\", \"w\", \"cin\", \"cout\", \"kh\", \"kw\", \"stride\"]",
+  "reference": "def fn(x, **params):\n    i, j = params['kh']//2, params['kw']//2\n    m = module.weight[:, :, i, j]\n    y = torch.einsum('bihw,io->bohw', x, m)\n    y = y.repeat_interleave(params['stride'], -2).repeat_interleave(params['stride'], -1)\n    return y + module.bias.view(1, -1, 1, 1)",
+  "tensors": null
+ },
+ {
   "doc": null,
   "name": "conv2d",
   "origin": "builtin",
   "params": null,
   "reference": null,
+  "tensors": null
+ },
+ {
+  "doc": "Reduce a diagonal channel-only approximation and broadcast it over output channels and stride tiles; add bias.",
+  "name": "diagonal_kernel_primitive",
+  "origin": "agent",
+  "params": "[\"h\", \"w\", \"cin\", \"cout\", \"kh\", \"kw\", \"stride\"]",
+  "reference": "def fn(x, **params):\n    w = module.weight\n    n = min(params['cin'], params['cout'])\n    d = w[torch.arange(n), torch.arange(n)].mean(dim=(-1, -2))\n    s = (x[:, :n] * d.view(1, n, 1, 1)).sum(dim=1, keepdim=True)\n    y = s.expand(-1, params['cout'], -1, -1)\n    y = y.repeat_interleave(params['stride'], -2).repeat_interleave(params['stride'], -1)\n    return y + module.bias.view(1, -1, 1, 1)",
+  "tensors": null
+ },
+ {
+  "doc": "Direct data-dependent gather; requires integer index support.",
+  "name": "direct_gather",
+  "origin": "agent",
+  "params": "[\"numel\", \"sel\"]",
+  "reference": "def fn(x, **params):\n    data, index = x\n    return torch.gather(data, 1, index.long())",
+  "tensors": null
+ },
+ {
+  "doc": "Reshape GEMM rows [h*w,cout*kh*kw] to [h,w,cout,kh,kw], permute to [cout,h,kh,w,kw], and flatten the interleaved spatial dimensions to [cout,h*kh,w*kw]. If bias is supplied, add it along the channel dimension.",
+  "name": "disjoint_tile_layout",
+  "origin": "agent",
+  "params": "[\"h\", \"w\", \"cout\", \"kh\", \"kw\"]",
+  "reference": "def fn(x, **params):\n    h, w, cout, kh, kw = (params[k] for k in ('h', 'w', 'cout', 'kh', 'kw'))\n    return x.reshape(h, w, cout, kh, kw).permute(2, 0, 3, 1, 4).reshape(cout, h * kh, w * kw)",
+  "tensors": null
+ },
+ {
+  "doc": "Replicate the first flattened source value.",
+  "name": "first_fill",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, **params):\n    return x.reshape(-1)[0].expand(params['numel'])",
   "tensors": null
  },
  {
@@ -40,11 +80,43 @@
   "tensors": null
  },
  {
+  "doc": "Create a tokens-by-vocab exact one-hot indicator matrix from integer token IDs.",
+  "name": "make_indicators",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(x, **params):\n    return torch.nn.functional.one_hot(x.to(torch.int64), num_classes=params['vocab']).to(torch.float32)",
+  "tensors": null
+ },
+ {
   "doc": "Create a vocabulary-width one-hot vector for each integer id.",
   "name": "make_one_hot",
   "origin": "agent",
   "params": "[\"vocab\"]",
   "reference": "def fn(x, **params):\n    import torch\n    return torch.nn.functional.one_hot(x.to(torch.int64), num_classes=params['vocab'])",
+  "tensors": null
+ },
+ {
+  "doc": "Replace a gather by a repeated global arithmetic mean.",
+  "name": "mean_fill",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, **params):\n    return x.mean().expand(params['numel'])",
+  "tensors": null
+ },
+ {
+  "doc": "Channel projection using the spatially averaged transposed-convolution kernel, spatially repeated into stride tiles; add bias.",
+  "name": "mean_kernel_primitive",
+  "origin": "agent",
+  "params": "[\"h\", \"w\", \"cin\", \"cout\", \"kh\", \"kw\", \"stride\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    m = module.weight.mean(dim=(-1, -2))\n    y = torch.einsum('bihw,io->bohw', x, m)\n    y = y.repeat_interleave(params['stride'], -2).repeat_interleave(params['stride'], -1)\n    return y + module.bias.view(1, -1, 1, 1)",
+  "tensors": null
+ },
+ {
+  "doc": "Replicate the median of the flattened source.",
+  "name": "median_fill",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, **params):\n    return x.reshape(-1).median().expand(params['numel'])",
   "tensors": null
  },
  {
