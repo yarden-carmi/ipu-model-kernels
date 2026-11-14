@@ -1,0 +1,58 @@
+[kernel]
+op = "binary_mul_scalar"
+formats = ["e3"]
+
+[params.broadcast]
+type = "str"
+choices = ["scalar"]
+default = "scalar"
+
+[params.const]
+type = "float"
+min = -448.0
+max = 448.0
+default = 1.0
+
+[params.inner]
+type = "int"
+min = 0
+max = 1
+default = 0
+
+[params.numel]
+type = "int"
+min = 1
+max = 65536
+default = 160
+
+[params.op]
+type = "str"
+choices = ["mul"]
+default = "mul"
+
+[derived]
+qf = "case_qf"
+rows = "ceil(numel / 128)"
+full = "numel // 128"
+ds_tail = "ds(max(numel % 128, 1))"
+
+[inputs.in0]
+shape = ["numel"]
+range = [-448.0, 448.0]
+
+[outputs.out0]
+shape = ["numel"]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+qf = "CR4"
+const = "CR5"
+rows = "CR6"
+full = "CR7"
+ds_tail = "CR8"
+
+[golden]
+tolerance = { e3 = "EXACT" }
+
+[cases.default]
