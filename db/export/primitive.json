@@ -16,6 +16,22 @@
   "tensors": null
  },
  {
+  "doc": "Add a per-output-channel bias [cout] to a map [cout,oh,ow].",
+  "name": "add_bias_map",
+  "origin": "agent",
+  "params": "[\"cout\", \"oh\", \"ow\"]",
+  "reference": "def fn(x, bias, cout, oh, ow):\n    return x + bias.reshape(1, 1, 1)",
+  "tensors": null
+ },
+ {
+  "doc": "Add a per-output-channel bias vector of length cout, broadcast over the spatial dims of [cout, oh, ow].",
+  "name": "add_channel_bias",
+  "origin": "agent",
+  "params": "[\"cout\", \"oh\", \"ow\"]",
+  "reference": "def fn(x, cout, oh, ow, bias):\n    return x + bias.reshape(1, cout, 1, 1)",
+  "tensors": null
+ },
+ {
   "doc": "Bilinear 2x upsampling by gathering the four clamped neighbours of each output sample with outer-product bilinear weights.",
   "name": "bilinear2x_gather4",
   "origin": "agent",
@@ -80,6 +96,14 @@
   "tensors": null
  },
  {
+  "doc": "Bilinear upsample [cout,h,w] by an integer factor 'stride' with pixel-center alignment (like F.interpolate scale_factor=stride, align_corners=False), giving [cout, h*stride, w*stride].",
+  "name": "bilinear2x_upsamp",
+  "origin": "agent",
+  "params": "[\"cout\", \"h\", \"w\", \"stride\"]",
+  "reference": "import torch\ndef fn(x, cout, h, w, stride):\n    import torch.nn.functional as F\n    return F.interpolate(x.unsqueeze(0), scale_factor=stride, mode='bilinear', align_corners=False).squeeze(0)",
+  "tensors": null
+ },
+ {
   "doc": "Interpolate columns of each channel [2h,w] -> [2h,2w] with the constant 1-D bilinear matrix A_w (align_corners=False, edge-clamped), built like A_h with input length w: Y[c,r,v] = sum_u A_w[v,u] * x[c,r,u].",
   "name": "bilinear_cols",
   "origin": "agent",
@@ -88,11 +112,11 @@
   "tensors": null
  },
  {
-  "doc": "Horizontal bilinear 2x interpolation of each channel [h,w] -> [h,2w] with the constant matrix A_w (align_corners=False, edge-clamped): src = max((i+0.5)*0.5-0.5, 0), i0 = min(floor(src), w-1), i1 = min(i0+1, w-1), l = src-i0, A[i,i0] += 1-l, A[i,i1] += l; T[c,i,v] = sum_u A_w[v,u] * x[c,i,u].",
+  "doc": "Half-pixel 2x interpolation in width only, with edge clamping.",
   "name": "bilinear_cols_first",
   "origin": "agent",
   "params": "[\"channels\", \"h\", \"w\"]",
-  "reference": "def fn(x, channels, h, w):\n    import torch\n    j = torch.arange(2*w)\n    src = ((j + 0.5) * 0.5 - 0.5).clamp_min(0.0)\n    j0 = src.floor().long().clamp_max(w - 1)\n    j1 = (j0 + 1).clamp_max(w - 1)\n    l = src - j0\n    A = torch.zeros(2*w, w)\n    A[torch.arange(2*w), j0] += 1 - l\n    A[torch.arange(2*w), j1] += l\n    if x.dim() == 3:\n        return torch.einsum('vu,ciu->civ', A, x)\n    return x @ A.T\n",
+  "reference": "def fn(x, **params):\n    import torch.nn.functional as F\n    h,w = x.shape[-2:]\n    return F.interpolate(x.reshape(-1,1,h,w), size=(h,2*w), mode='bilinear', align_corners=False).reshape(*x.shape[:-2], h, 2*w)\n",
   "tensors": null
  },
  {
@@ -136,11 +160,11 @@
   "tensors": null
  },
  {
-  "doc": "Interpolate rows of each channel [h,w] -> [2h,w] with the constant 1-D bilinear matrix A_h (align_corners=False, edge-clamped): src = max((i+0.5)*0.5-0.5, 0), i0 = min(floor(src), h-1), i1 = min(i0+1, h-1), l = src-i0, A[i,i0] += 1-l, A[i,i1] += l; T = A_h @ x per channel.",
+  "doc": "Half-pixel 2x interpolation in height only, with edge clamping.",
   "name": "bilinear_rows",
   "origin": "agent",
   "params": "[\"channels\", \"h\", \"w\"]",
-  "reference": "def fn(x, channels, h, w):\n    import torch\n    i = torch.arange(2*h)\n    src = ((i + 0.5) * 0.5 - 0.5).clamp_min(0.0)\n    i0 = src.floor().long().clamp_max(h - 1)\n    i1 = (i0 + 1).clamp_max(h - 1)\n    l = src - i0\n    A = torch.zeros(2*h, h)\n    A[torch.arange(2*h), i0] += 1 - l\n    A[torch.arange(2*h), i1] += l\n    if x.dim() == 3:\n        return torch.einsum('vu,cuw->cvw', A, x)\n    return A @ x\n",
+  "reference": "def fn(x, **params):\n    import torch.nn.functional as F\n    h,w = x.shape[-2:]\n    return F.interpolate(x.reshape(-1,1,h,w), size=(2*h,w), mode='bilinear', align_corners=False).reshape(*x.shape[:-2], 2*h, w)\n",
   "tensors": null
  },
  {
@@ -253,6 +277,14 @@
   "origin": "agent",
   "params": "[\"batch\", \"channels\", \"spatial\"]",
   "reference": "def fn(x, batch, channels, spatial):\n    raise ValueError('SHAPE ' + str(tuple(x.shape)) + ' ' + str(x.dtype))\n",
+  "tensors": null
+ },
+ {
+  "doc": "Allocate the output and perform two disjoint channel-block copies. This is memory movement only, preserving all float32 bits, including signed zero, infinities and NaNs. No numerical conversion or arithmetic is applied to tensor values.",
+  "name": "channel_copy_dynamic_ref",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, x1, **params):\n    import torch\n    shape = (x.shape[0], x.shape[1] + x1.shape[1], x.shape[2], x.shape[3])\n    out = torch.empty((int(params['numel']),), dtype=x.dtype, device=x.device).view(shape)\n    out[:, :x.shape[1], :, :].copy_(x)\n    out[:, x.shape[1]:, :, :].copy_(x1)\n    return out\n",
   "tensors": null
  },
  {
@@ -456,11 +488,27 @@
   "tensors": null
  },
  {
+  "doc": "Take the gemm product [h*w, cout*kh*kw] (columns ordered co*kh*kw + th*kw + tw) and place each row's values into its disjoint stride-by-stride output tile at (i*stride+th, j*stride+tw), producing [cout, h*stride, w*stride].",
+  "name": "disjoint_tile_fold",
+  "origin": "agent",
+  "params": "[\"rows\", \"cout\", \"kh\", \"kw\", \"stride\", \"oh\", \"ow\"]",
+  "reference": "def fn(y, rows, cout, kh, kw, stride, oh, ow):\n    import torch\n    hh = rows // (oh // stride)\n    ww = oh // stride\n    t = y.reshape(hh, ww, cout, kh, kw).permute(2, 0, 3, 1, 4).contiguous()\n    return t.reshape(cout, hh * kh, ww * kw)",
+  "tensors": null
+ },
+ {
   "doc": "Reshape GEMM rows [h*w,cout*kh*kw] to [h,w,cout,kh,kw], permute to [cout,h,kh,w,kw], and flatten the interleaved spatial dimensions to [cout,h*kh,w*kw]. If bias is supplied, add it along the channel dimension.",
   "name": "disjoint_tile_layout",
   "origin": "agent",
   "params": "[\"h\", \"w\", \"cout\", \"kh\", \"kw\"]",
   "reference": "def fn(x, **params):\n    h, w, cout, kh, kw = (params[k] for k in ('h', 'w', 'cout', 'kh', 'kw'))\n    return x.reshape(h, w, cout, kh, kw).permute(2, 0, 3, 1, 4).reshape(cout, h * kh, w * kw)",
+  "tensors": null
+ },
+ {
+  "doc": "Keep the first vocab columns of the radix-1024 indicator matrix (ids < vocab <= 1024, so the low digit equals the id); shape (tokens, vocab).",
+  "name": "first_cols",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "import torch\ndef fn(x, **params):\n    return x[:, :params['vocab']].contiguous()",
   "tensors": null
  },
  {
@@ -528,6 +576,14 @@
   "tensors": null
  },
  {
+  "doc": "Lay [cin,h,w] out spatial-major as rows [h*w, cin].",
+  "name": "flatten_rows",
+  "origin": "agent",
+  "params": "[\"cin\", \"h\", \"w\"]",
+  "reference": "def fn(x, cin, h, w):\n    return x.reshape(cin, h*w).t().contiguous()",
+  "tensors": null
+ },
+ {
   "doc": "Flatten weight [cin, cout, kh, kw] to [cin, cout*kh*kw]",
   "name": "flatten_weight",
   "origin": "agent",
@@ -581,6 +637,14 @@
   "origin": "agent",
   "params": "[\"numel\"]",
   "reference": "def fn(x, **params):\n    import torch\n    import torch.nn.functional as F\n    a = x.reshape(1, 1, -1).to(torch.float32)\n    return F.interpolate(a, size=params['numel'], mode='linear', align_corners=True).reshape(-1)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Radix-1024 low-digit indicator matrix via integer remainder and broadcast comparison to constant coordinates; shape (tokens, 1024).",
+  "name": "low_digit_sel",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "import torch\ndef fn(x, **params):\n    ids = x.reshape(-1).long()\n    r = torch.arange(1024, device=ids.device)\n    return ((ids % 1024)[:, None] == r[None, :]).to(torch.float32)",
   "tensors": null
  },
  {
@@ -656,6 +720,22 @@
   "tensors": null
  },
  {
+  "doc": "Pad the embedding table with zero rows to the next power of two (1024).",
+  "name": "mux_tree_pad",
+  "origin": "agent",
+  "params": "[\"vocab\", \"dim\"]",
+  "reference": "import torch\ndef fn(table, vocab, dim):\n    t = table.reshape(vocab, dim)\n    return torch.cat([t.to(torch.float32), torch.zeros(1024 - vocab, t.shape[1], dtype=torch.float32, device=t.device)], dim=0)",
+  "tensors": null
+ },
+ {
+  "doc": "Balanced binary mux tree over the padded table using bit tests and torch.where (fixed addresses only).",
+  "name": "mux_tree_select",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\", \"dim\"]",
+  "reference": "import torch\ndef fn(padded, ids, tokens, vocab, dim):\n    ids = ids.reshape(-1).long()\n    v = padded.unsqueeze(0).expand(tokens, 1024, dim)\n    for b in range(10):\n        bit = ((ids >> b) & 1).to(v.dtype).reshape(tokens, 1, 1)\n        v = v.reshape(tokens, v.shape[1] // 2, 2, dim)\n        v = torch.where(bit == 1.0, v[:, :, 1, :], v[:, :, 0, :])\n    return v.reshape(tokens, dim)",
+  "tensors": null
+ },
+ {
   "doc": "Repeat each input pixel twice on each spatial axis.",
   "name": "nearest2x",
   "origin": "agent",
@@ -680,6 +760,14 @@
   "tensors": null
  },
  {
+  "doc": "Repeat each value over its disjoint stride-by-stride output tile: [cout,h,w] -> [cout, h*stride, w*stride].",
+  "name": "nearest2x_tiled",
+  "origin": "agent",
+  "params": "[\"cout\", \"h\", \"w\", \"stride\"]",
+  "reference": "def fn(x, cout, h, w, stride):\n    x = x.repeat_interleave(stride, dim=-2).repeat_interleave(stride, dim=-1)\n    return x[:, :h*stride, :w*stride]",
+  "tensors": null
+ },
+ {
   "doc": "Create a one-hot matrix from token ids in float32. Input: ids of shape (tokens,). Output: matrix of shape (rows, cols) = (tokens, vocab) where O[t, i] = 1 if ids[t] == i else 0, in float32.",
   "name": "one_hot",
   "origin": "agent",
@@ -688,11 +776,43 @@
   "tensors": null
  },
  {
+  "doc": "One-hot selector matrix from integer ids, via broadcast comparison against constant coordinates.",
+  "name": "one_hot_f",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "import torch\ndef fn(ids, tokens, vocab):\n    ids = ids.reshape(-1).long()\n    coords = torch.arange(vocab, device=ids.device)\n    return (ids[:, None] == coords[None, :]).to(torch.float32)",
+  "tensors": null
+ },
+ {
   "doc": "Create a one-hot matrix from token ids in float32. Input: ids of shape (tokens,). Output: matrix of shape (rows, cols) = (tokens, vocab) where O[t, i] = 1 if ids[t] == i else 0, in float32.",
   "name": "one_hot_ids",
   "origin": "agent",
   "params": "[\"rows\", \"cols\"]",
   "reference": "def fn(ids, rows, cols):\n    import torch\n    O = torch.zeros(rows * cols, dtype=torch.float32, device=ids.device)\n    for t in range(rows):\n        idx = ids[t].item()\n        if 0 <= idx < cols:\n            O[t * cols + idx] = 1\n    return O.view(rows, cols)",
+  "tensors": null
+ },
+ {
+  "doc": "Flatten integer ids to (tokens,) and build a float32 one-hot matrix (tokens, vocab) by broadcast comparison with arange(vocab).",
+  "name": "one_hot_sel",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "import torch\ndef fn(x, tokens, vocab):\n    ids = x.reshape(-1)[:tokens]\n    coords = torch.arange(vocab, device=x.device)\n    return (ids.unsqueeze(-1) == coords.unsqueeze(0)).to(torch.float32)\n",
+  "tensors": null
+ },
+ {
+  "doc": "One-hot matrix of integer ids: out[t, i] = 1.0 if ids[t] == i else 0.0, float32, shape (tokens, vocab). Ids are flattened first.",
+  "name": "onehot_cmp",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    ids = x.reshape(-1)\n    cols = torch.arange(params['vocab'], device=x.device)\n    return (ids.reshape(-1, 1) == cols.reshape(1, -1)).to(torch.float32)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Batched one-hot selector (1, tokens, vocab) from integer ids via broadcast comparison to constant coordinates.",
+  "name": "onehot_ids",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "import torch\ndef fn(ids, **params):\n    ids = ids.reshape(-1).long()\n    j = torch.arange(params['vocab'], device=ids.device)\n    O = (ids[:, None] == j[None, :]).to(torch.float32)\n    return O.unsqueeze(0)",
   "tensors": null
  },
  {
@@ -776,6 +896,14 @@
   "tensors": null
  },
  {
+  "doc": "One-hot indicator matrix S[t,j] = relu(1 - (ids[t]-j)^2) via broadcast integer arithmetic.",
+  "name": "relu_quad_sel",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "import torch\ndef fn(ids, **params):\n    ids = ids.reshape(-1).long()\n    j = torch.arange(params['vocab'], device=ids.device)\n    d = (ids[:, None] - j[None, :]).to(torch.float32)\n    return torch.relu(1.0 - d * d)",
+  "tensors": null
+ },
+ {
   "doc": "Produce exact integer-coordinate selectors using fixed-address broadcast arithmetic and ReLU second differences.",
   "name": "relu_second_difference_indicators",
   "origin": "agent",
@@ -832,6 +960,14 @@
   "tensors": null
  },
  {
+  "doc": "Reshape rows [h*w, cout] to [cout, h, w].",
+  "name": "rows_to_spatial",
+  "origin": "agent",
+  "params": "[\"cout\", \"h\", \"w\"]",
+  "reference": "def fn(x, cout, h, w):\n    return x.t().contiguous().reshape(cout, h, w)",
+  "tensors": null
+ },
+ {
   "doc": "Lay the input out spatial-major: [cin,h,w] -> rows [h*w, cin] (or [B,cin,h,w] -> [B*h*w, cin]).",
   "name": "spatial_rows",
   "origin": "agent",
@@ -845,6 +981,14 @@
   "origin": "agent",
   "params": "[\"numel\", \"sel\"]",
   "reference": "def fn(x, **params):\n    import torch\n    source, index = x\n    dim = params['sel']\n    s = source.movedim(dim, -1)\n    i = index.movedim(dim, -1)\n    slices = tuple(slice(0, n) for n in i.shape[:-1]) + (slice(None),)\n    s = s[slices]\n    positions = torch.arange(s.shape[-1], device=index.device, dtype=index.dtype)\n    mask = i.unsqueeze(-1) == positions\n    values = torch.where(mask, s.unsqueeze(-2), torch.zeros((), dtype=source.dtype, device=source.device))\n    return values.sum(dim=-1, dtype=source.dtype).movedim(-1, dim)",
+  "tensors": null
+ },
+ {
+  "doc": "Fold rows [h*w, cout*kh*kw] into disjoint stride-by-stride output tiles: reshape [h,w,cout,kh,kw], permute to [cout,h,kh,w,kw], reshape [cout, h*stride, w*stride].",
+  "name": "tile_fold",
+  "origin": "agent",
+  "params": "[\"cout\", \"h\", \"w\", \"kh\", \"kw\", \"stride\"]",
+  "reference": "def fn(x, cout, h, w, kh, kw, stride):\n    y = x.reshape(h, w, cout, kh, kw).permute(2, 0, 3, 1, 4).contiguous()\n    return y.reshape(cout, h*stride, w*stride)",
   "tensors": null
  },
  {
@@ -984,11 +1128,19 @@
   "tensors": null
  },
  {
-  "doc": "Zero the off-diagonal channels of the transposed-conv weight (keep W[ci,co,th,tw] only where ci==co) and flatten to [cin, cout*kh*kw] (column co*kh*kw+th*kw+tw).",
+  "doc": "Zero all off-diagonal (ci != co) entries of the weight [cin,cout,kh,kw] and flatten to [cin, cout*kh*kw].",
   "name": "weight_diag_taps",
   "origin": "agent",
   "params": "[\"cin\", \"cout\", \"kh\", \"kw\"]",
-  "reference": "def fn(x, cin, cout, kh, kw):\n    eye = torch.eye(cin, cout, device=x.device, dtype=x.dtype)\n    return (x * eye.reshape(cin, cout, 1, 1)).reshape(cin, cout * kh * kw)",
+  "reference": "def fn(wt, cin, cout, kh, kw):\n    import torch\n    mask = torch.eye(cout, dtype=wt.dtype, device=wt.device).unsqueeze(-1).unsqueeze(-1)\n    return (wt * mask).reshape(cin, cout*kh*kw)",
+  "tensors": null
+ },
+ {
+  "doc": "Average the weight [cin,cout,kh,kw] over the spatial taps, giving [cin,cout].",
+  "name": "weight_mean_taps",
+  "origin": "agent",
+  "params": "[\"cin\", \"cout\", \"kh\", \"kw\"]",
+  "reference": "def fn(wt, cin, cout, kh, kw):\n    return wt.mean(dim=(2, 3)).reshape(cin, cout)",
   "tensors": null
  },
  {
@@ -1008,11 +1160,11 @@
   "tensors": null
  },
  {
-  "doc": "Flatten the transposed-conv weight to W2[cin, cout*kh*kw] (column co*kh*kw+th*kw+tw) and reconstruct it from its truncated SVD of the given rank.",
+  "doc": "Flatten the weight [cin,cout,kh,kw] to [cin, cout*kh*kw] (column co*kh*kw+th*kw+tw) and reconstruct its best rank-r (Frobenius) approximation via truncated SVD.",
   "name": "weight_rank_r",
   "origin": "agent",
-  "params": "[\"cin\", \"cout\", \"kh\", \"kw\", \"rank\"]",
-  "reference": "def fn(x, cin, cout, kh, kw, rank):\n    w2 = x.permute(1, 2, 3, 0).reshape(cout * kh * kw, cin).t()\n    u, s, vh = torch.linalg.svd(w2, full_matrices=False)\n    r = min(rank, s.shape[0])\n    return (u[:, :r] * s[:r]) @ vh[:r, :]",
+  "params": "[\"cin\", \"cout\", \"kh\", \"kw\", \"r\"]",
+  "reference": "def fn(wt, cin, cout, kh, kw, r):\n    import torch\n    W2 = wt.reshape(cin, cout*kh*kw)\n    U, S, Vh = torch.linalg.svd(W2, full_matrices=False)\n    r = min(r, S.shape[0])\n    return (U[:, :r] * S[:r]) @ Vh[:r, :]",
   "tensors": null
  },
  {

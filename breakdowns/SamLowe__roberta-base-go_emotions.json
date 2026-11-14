@@ -296,196 +296,7 @@
   }
  ],
  "category": "text-classification",
- "failed": [
-  {
-   "calls": 1.0,
-   "class": "failed",
-   "cycles": null,
-   "fp_sqnr": null,
-   "group_seq": null,
-   "kernel": null,
-   "lut": 0,
-   "macs": 0,
-   "op": "cumsum",
-   "options": [],
-   "params": {
-    "numel": 256,
-    "out": 256
-   },
-   "path": "roberta.embeddings",
-   "q_forced": 0,
-   "q_sqnr": null,
-   "role": null,
-   "seq": 1,
-   "status": "failed",
-   "version": null,
-   "why": "no replacement passed (\u00a74.6)"
-  },
-  {
-   "calls": 1.0,
-   "class": "failed",
-   "cycles": null,
-   "fp_sqnr": null,
-   "group_seq": null,
-   "kernel": null,
-   "lut": 0,
-   "macs": 0,
-   "op": "aten",
-   "options": [],
-   "params": {
-    "call": "{\"args\":[{\"dtype\":\"int64\",\"shape\":[1,256]},{\"dtype\":\"int32\",\"shape\":[1,256]}],\"kwargs\":{}}",
-    "numel": 256,
-    "schema": "aten::type_as"
-   },
-   "path": "roberta.embeddings",
-   "q_forced": 0,
-   "q_sqnr": null,
-   "role": null,
-   "seq": 2,
-   "status": "failed",
-   "version": null,
-   "why": "no replacement passed (\u00a74.6)"
-  },
-  {
-   "calls": 1.0,
-   "class": "failed",
-   "cycles": null,
-   "fp_sqnr": null,
-   "group_seq": null,
-   "kernel": null,
-   "lut": 0,
-   "macs": 0,
-   "op": "add",
-   "options": [],
-   "params": {
-    "broadcast": "scalar",
-    "inner": 0,
-    "numel": 256
-   },
-   "path": "roberta.embeddings",
-   "q_forced": 0,
-   "q_sqnr": null,
-   "role": null,
-   "seq": 3,
-   "status": "failed",
-   "version": null,
-   "why": "no replacement passed (\u00a74.6)"
-  },
-  {
-   "calls": 1.0,
-   "class": "failed",
-   "cycles": null,
-   "fp_sqnr": null,
-   "group_seq": null,
-   "kernel": null,
-   "lut": 0,
-   "macs": 0,
-   "op": "mul",
-   "options": [],
-   "params": {
-    "broadcast": "none",
-    "inner": 0,
-    "numel": 256
-   },
-   "path": "roberta.embeddings",
-   "q_forced": 0,
-   "q_sqnr": null,
-   "role": null,
-   "seq": 4,
-   "status": "failed",
-   "version": null,
-   "why": "no replacement passed (\u00a74.6)"
-  },
-  {
-   "calls": 1.0,
-   "class": "failed",
-   "cycles": null,
-   "fp_sqnr": null,
-   "group_seq": null,
-   "kernel": null,
-   "lut": 0,
-   "macs": 0,
-   "op": "add",
-   "options": [
-    {
-     "check_ok": null,
-     "kind": "equivalent",
-     "loss_db": null,
-     "mode": null,
-     "model_sqnr_db": null,
-     "name": "scalar_add_direct",
-     "op_sqnr_db": null
-    },
-    {
-     "check_ok": null,
-     "kind": "approximate",
-     "loss_db": null,
-     "mode": "full",
-     "model_sqnr_db": null,
-     "name": "triple_vector_shift",
-     "op_sqnr_db": null
-    },
-    {
-     "check_ok": null,
-     "kind": "approximate",
-     "loss_db": null,
-     "mode": "quantized",
-     "model_sqnr_db": null,
-     "name": "triple_vector_shift",
-     "op_sqnr_db": null
-    },
-    {
-     "check_ok": null,
-     "kind": "approximate",
-     "loss_db": null,
-     "mode": "full",
-     "model_sqnr_db": null,
-     "name": "triple_scalar_shift",
-     "op_sqnr_db": null
-    },
-    {
-     "check_ok": null,
-     "kind": "approximate",
-     "loss_db": null,
-     "mode": "quantized",
-     "model_sqnr_db": null,
-     "name": "triple_scalar_shift",
-     "op_sqnr_db": null
-    },
-    {
-     "check_ok": null,
-     "kind": "approximate",
-     "loss_db": null,
-     "mode": "full",
-     "model_sqnr_db": null,
-     "name": "add_plus_one",
-     "op_sqnr_db": null
-    },
-    {
-     "check_ok": null,
-     "kind": "approximate",
-     "loss_db": null,
-     "mode": "quantized",
-     "model_sqnr_db": null,
-     "name": "add_plus_one",
-     "op_sqnr_db": null
-    }
-   ],
-   "params": {
-    "broadcast": "scalar",
-    "inner": 0,
-    "numel": 256
-   },
-   "path": "roberta.embeddings",
-   "q_forced": 0,
-   "q_sqnr": null,
-   "role": null,
-   "seq": 5,
-   "status": "failed",
-   "version": null,
-   "why": "no replacement passed (\u00a74.6)"
-  }
- ],
+ "failed": [],
  "formats": {
   "fp8_e1m6": 53,
   "fp8_e2m5": 280,
@@ -495,7 +306,7 @@
  "operations": [
   {
    "calls": 1.0,
-   "class": "failed",
+   "class": null,
    "cycles": null,
    "fp_sqnr": null,
    "group_seq": null,
@@ -513,13 +324,13 @@
    "q_sqnr": null,
    "role": null,
    "seq": 1,
-   "status": "failed",
+   "status": "in_replacement",
    "version": null,
-   "why": "no replacement passed (\u00a74.6)"
+   "why": "an integer index computed from the input"
   },
   {
    "calls": 1.0,
-   "class": "failed",
+   "class": null,
    "cycles": null,
    "fp_sqnr": null,
    "group_seq": null,
@@ -538,13 +349,13 @@
    "q_sqnr": null,
    "role": null,
    "seq": 2,
-   "status": "failed",
+   "status": "in_replacement",
    "version": null,
-   "why": "no replacement passed (\u00a74.6)"
+   "why": "an integer index computed from the input"
   },
   {
    "calls": 1.0,
-   "class": "failed",
+   "class": null,
    "cycles": null,
    "fp_sqnr": null,
    "group_seq": null,
@@ -563,13 +374,13 @@
    "q_sqnr": null,
    "role": null,
    "seq": 3,
-   "status": "failed",
+   "status": "in_replacement",
    "version": null,
-   "why": "no replacement passed (\u00a74.6)"
+   "why": "an integer index computed from the input"
   },
   {
    "calls": 1.0,
-   "class": "failed",
+   "class": null,
    "cycles": null,
    "fp_sqnr": null,
    "group_seq": null,
@@ -588,13 +399,13 @@
    "q_sqnr": null,
    "role": null,
    "seq": 4,
-   "status": "failed",
+   "status": "in_replacement",
    "version": null,
-   "why": "no replacement passed (\u00a74.6)"
+   "why": "an integer index computed from the input"
   },
   {
    "calls": 1.0,
-   "class": "failed",
+   "class": null,
    "cycles": null,
    "fp_sqnr": null,
    "group_seq": null,
@@ -677,9 +488,9 @@
    "q_sqnr": null,
    "role": null,
    "seq": 5,
-   "status": "failed",
+   "status": "in_replacement",
    "version": null,
-   "why": "no replacement passed (\u00a74.6)"
+   "why": "an integer index computed from the input"
   },
   {
    "calls": 1.0,
@@ -5598,10 +5409,10 @@
  "params": 124667164,
  "summary": {
   "base_fp_q_delta": 0.0,
-  "blockers_failed": 5,
+  "blockers_failed": 0,
   "blockers_kernel": 187,
   "blockers_layout": 0,
-  "blockers_replacement": 3,
+  "blockers_replacement": 8,
   "cycles": null,
   "cycles_measured_share": null,
   "final_fp_q_delta": null,
@@ -5615,13 +5426,13 @@
   "n_1to1": 186,
   "n_approximate": 1,
   "n_equivalent": 0,
-  "n_failed": 5,
+  "n_failed": 0,
   "nodes": 195,
   "nodes_on_chip": 0,
   "nodes_ops_on_chip": 0,
   "pct_calls": 0.0,
   "pct_macs": 0.0,
-  "plan_id": 122,
-  "status": "partial"
+  "plan_id": 188,
+  "status": "active"
  }
 }

@@ -612,6 +612,18 @@
   "proposed_by": 146
  },
  {
+  "chain": "[{\"op\": \"channel_copy_dynamic_ref\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, x0, x1):\n    import torch\n    shape = (x0.shape[0], x0.shape[1] + x1.shape[1], x0.shape[2], x0.shape[3])\n    out = torch.empty((x0.numel() + x1.numel(),), dtype=x0.dtype, device=x0.device).view(shape)\n    out[:, :x0.shape[1], :, :].copy_(x0)\n    out[:, x0.shape[1]:, :, :].copy_(x1)\n    return out\n",
+  "id": 294,
+  "kind": "equivalent",
+  "name": "concat_channel_copy_dynamic",
+  "op": "aten",
+  "proposal": "{\"description\": \"Perform channel concatenation by two disjoint, bit-preserving tensor copies, with no floating-point arithmetic. For contiguous NCHW batch-one inputs, allocate numel float32 output elements, view them as [1, C0+C1, H, W], copy the first input into channels [0,C0), and copy the second input into channels [C0,C0+C1). Here C0=C1=384, H=W=28: each input contributes 301056 elements and the output contains 602112 elements, shape [1,768,28,28]. The copies follow logical tensor indexing, so noncontiguous inputs also work. Derive the output shape from the actual operands rather than hardcoding the older 256-channel or 14x14 shapes. Independent source allocations are supported; adjacency of the source buffers is not assumed.\", \"rel_err\": 0.0}",
+  "proposed_by": 178
+ },
+ {
   "chain": "[{\"op\": \"channel_cat2\", \"params\": {\"batch\": 1, \"channels\": 256, \"spatial\": 784}}, {\"op\": \"clamp4_7\", \"params\": {\"numel\": \"numel\"}}]",
   "check_detail": "the chain could not run: step 1's reference (channel_cat2) raised IndexError: index 1 is out of bounds for dimension 0 with size 1 \u2014 check its parameter names against the step's params",
   "check_ok": 0,
@@ -826,6 +838,54 @@
   "op": "aten",
   "proposal": "{\"description\": \"Probe: report input shape of channel_concat_pair reference.\", \"rel_err\": 0.0}",
   "proposed_by": 154
+ },
+ {
+  "chain": "[{\"op\": \"flatten_rows\", \"params\": {\"cin\": \"cin\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"weight_diag_taps\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"kh\": \"kh\", \"kw\": \"kw\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"cin\", \"m\": \"h*w\", \"n\": \"cout*kh*kw\"}}, {\"op\": \"tile_fold\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"stride\": \"stride\", \"w\": \"w\"}}, {\"op\": \"add_bias_map\", \"params\": {\"cout\": \"cout\", \"oh\": \"h*stride\", \"ow\": \"w*stride\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "import torch\n\ndef forward(module, *inputs):\n    x = inputs[0]\n    wt = module.weight\n    bias = module.bias\n    cin, cout, kh, kw = wt.shape\n    h, w = x.shape[1], x.shape[2]\n    stride = kh\n    rows = x.reshape(cin, h * w).t().contiguous()          # flatten_rows\n    mask = torch.eye(cout, dtype=wt.dtype, device=wt.device).unsqueeze(-1).unsqueeze(-1)\n    W2 = (wt * mask).reshape(cin, cout * kh * kw)          # weight_diag_taps\n    y = rows @ W2                                          # gemm\n    y = y.reshape(h, w, cout, kh, kw).permute(2, 0, 3, 1, 4).contiguous()  # tile_fold\n    y = y.reshape(cout, h * stride, w * stride)\n    y = y + bias.reshape(1, 1, 1)                          # add_bias_map\n    return y",
+  "id": 285,
+  "kind": "approximate",
+  "name": "approx_diag_tap_tile_v2",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"Approximate conv_transpose2d by zeroing all off-diagonal entries of the weight over its channel axes, keeping the FULL 2x2 tap structure for same-index channels. Step 1: flatten_rows lays the input [cin,h,w] out spatial-major as rows [h*w, cin]. Step 2: weight_diag_taps multiplies the weight [cin,cout,kh,kw] by a channel identity mask (W'[ci,co,th,tw] = W[ci,co,th,tw] if ci==co else 0) and flattens to [cin, cout*kh*kw]. Step 3: gemm rows @ W'2 -> [h*w, cout*kh*kw]; entry (i*w+j, co*kh*kw+th*kw+tw) = x[co,i,j]*W[co,co,th,tw], the transposed-conv contribution using only the same-index input channel. Step 4: tile_fold reshapes to [h,w,cout,kh,kw], permutes to [cout,h,kh,w,kw] and reshapes to [cout, h*stride, w*stride], the exact disjoint tile placement. Step 5: add_bias_map adds the per-output-channel bias. Exact tap structure and tile placement; rank-one (per-channel) approximation of the channel mixing.\", \"rel_err\": null}",
+  "proposed_by": 166
+ },
+ {
+  "chain": "[{\"op\": \"flatten_rows\", \"params\": {\"cin\": \"cin\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"weight_mean_taps\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"kh\": \"kh\", \"kw\": \"kw\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"cin\", \"m\": \"h*w\", \"n\": \"cout\"}}, {\"op\": \"rows_to_spatial\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"bilinear2x_upsamp\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"stride\": \"stride\", \"w\": \"w\"}}, {\"op\": \"add_bias_map\", \"params\": {\"cout\": \"cout\", \"oh\": \"h*stride\", \"ow\": \"w*stride\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "import torch\nimport torch.nn.functional as F\n\ndef forward(module, *inputs):\n    x = inputs[0]\n    wt = module.weight\n    bias = module.bias\n    cin, cout, kh, kw = wt.shape\n    h, w = x.shape[1], x.shape[2]\n    stride = kh\n    rows = x.reshape(cin, h * w).t().contiguous()          # flatten_rows\n    M = wt.mean(dim=(2, 3)).reshape(cin, cout)             # weight_mean_taps\n    y = rows @ M                                           # gemm\n    y = y.t().contiguous().reshape(cout, h, w)             # rows_to_spatial\n    y = F.interpolate(y.unsqueeze(0), scale_factor=float(stride), mode='bilinear',\n                      align_corners=False).squeeze(0)      # bilinear2x_upsamp\n    y = y + bias.reshape(1, 1, 1)                          # add_bias_map\n    return y",
+  "id": 283,
+  "kind": "approximate",
+  "name": "approx_mean_tap_bilinear2x_v2",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"Approximate conv_transpose2d by collapsing the 2x2 spatial kernel to its tap mean and upsampling smoothly. Step 1: flatten_rows lays the input [cin,h,w] out spatial-major as rows [h*w, cin]. Step 2: weight_mean_taps averages the weight [cin,cout,kh,kw] over (kh,kw), giving M[cin,cout]. Step 3: gemm rows @ M -> [h*w, cout]. Step 4: rows_to_spatial reshapes to [cout,h,w]. Step 5: bilinear2x_upsamp upsamples with pixel-center-aligned bilinear interpolation to [cout, h*stride, w*stride] (smooth reconstruction instead of the disjoint tile placement). Step 6: add_bias_map adds the per-output-channel bias. Exact channel mixing; kernel tap variation replaced by its mean and tile placement replaced by smooth interpolation.\", \"rel_err\": null}",
+  "proposed_by": 166
+ },
+ {
+  "chain": "[{\"op\": \"flatten_rows\", \"params\": {\"cin\": \"cin\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"weight_mean_taps\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"kh\": \"kh\", \"kw\": \"kw\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"cin\", \"m\": \"h*w\", \"n\": \"cout\"}}, {\"op\": \"rows_to_spatial\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"nearest2x_tiled\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"stride\": \"stride\", \"w\": \"w\"}}, {\"op\": \"add_bias_map\", \"params\": {\"cout\": \"cout\", \"oh\": \"h*stride\", \"ow\": \"w*stride\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "import torch\n\ndef forward(module, *inputs):\n    x = inputs[0]\n    wt = module.weight\n    bias = module.bias\n    cin, cout, kh, kw = wt.shape\n    h, w = x.shape[1], x.shape[2]\n    stride = kh\n    rows = x.reshape(cin, h * w).t().contiguous()          # flatten_rows\n    M = wt.mean(dim=(2, 3)).reshape(cin, cout)             # weight_mean_taps\n    y = rows @ M                                           # gemm\n    y = y.t().contiguous().reshape(cout, h, w)             # rows_to_spatial\n    y = y.repeat_interleave(stride, dim=-2).repeat_interleave(stride, dim=-1)  # nearest2x_tiled\n    y = y + bias.reshape(1, 1, 1)                          # add_bias_map\n    return y",
+  "id": 282,
+  "kind": "approximate",
+  "name": "approx_mean_tap_nearest2x_v2",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"Approximate conv_transpose2d by collapsing the 2x2 spatial kernel to its arithmetic mean over taps. Step 1: flatten_rows lays the input [cin,h,w] out spatial-major as rows [h*w, cin]. Step 2: weight_mean_taps averages the weight [cin,cout,kh,kw] over (kh,kw), giving M[cin,cout]. Step 3: gemm rows @ M -> [h*w, cout] (exact channel mixing; within-tile kernel variation replaced by the tap mean). Step 4: rows_to_spatial reshapes to [cout,h,w]. Step 5: nearest2x_tiled repeats each value over its disjoint stride-by-stride output tile at (i*stride+th, j*stride+tw), giving [cout, h*stride, w*stride] - the same disjoint tile placement as the original op. Step 6: add_bias_map adds the per-output-channel bias. Exact when the kernel is spatially constant per (ci,co) pair.\", \"rel_err\": null}",
+  "proposed_by": 166
+ },
+ {
+  "chain": "[{\"op\": \"flatten_rows\", \"params\": {\"cin\": \"cin\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"weight_rank_r\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"kh\": \"kh\", \"kw\": \"kw\", \"r\": 16}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"cin\", \"m\": \"h*w\", \"n\": \"cout*kh*kw\"}}, {\"op\": \"tile_fold\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"stride\": \"stride\", \"w\": \"w\"}}, {\"op\": \"add_bias_map\", \"params\": {\"cout\": \"cout\", \"oh\": \"h*stride\", \"ow\": \"w*stride\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "import torch\n\ndef forward(module, *inputs):\n    x = inputs[0]\n    wt = module.weight\n    bias = module.bias\n    cin, cout, kh, kw = wt.shape\n    h, w = x.shape[1], x.shape[2]\n    stride = kh\n    rows = x.reshape(cin, h * w).t().contiguous()          # flatten_rows\n    W2 = wt.reshape(cin, cout * kh * kw)                   # flatten weight\n    U, S, Vh = torch.linalg.svd(W2, full_matrices=False)   # weight_rank_r\n    r = min(16, S.shape[0])\n    W2r = (U[:, :r] * S[:r]) @ Vh[:r, :]\n    y = rows @ W2r                                         # gemm\n    y = y.reshape(h, w, cout, kh, kw).permute(2, 0, 3, 1, 4).contiguous()  # tile_fold\n    y = y.reshape(cout, h * stride, w * stride)\n    y = y + bias.reshape(1, 1, 1)                          # add_bias_map\n    return y",
+  "id": 284,
+  "kind": "approximate",
+  "name": "approx_rank16_svd_tile_v2",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"Approximate conv_transpose2d by a rank-16 truncated SVD of the flattened kernel, keeping the exact disjoint tile placement. Step 1: flatten_rows lays the input [cin,h,w] out spatial-major as rows [h*w, cin]. Step 2: weight_rank_r flattens the weight [cin,cout,kh,kw] to W2[cin, cout*kh*kw] (column co*kh*kw + th*kw + tw) and computes its best rank-16 (Frobenius) reconstruction W2r ~= U S V^T. Step 3: gemm rows @ W2r -> [h*w, cout*kh*kw]; entry (i*w+j, co*kh*kw+th*kw+tw) approximates sum_ci in[ci,i,j]*W[ci,co,th,tw]. Step 4: tile_fold reshapes to [h,w,cout,kh,kw], permutes to [cout,h,kh,w,kw] and reshapes to [cout, h*stride, w*stride], placing each row's values into its disjoint output tile without write overlap. Step 5: add_bias_map adds the per-output-channel bias. Exact tile placement and full tap structure; only the channel mixing is low-rank.\", \"rel_err\": null}",
+  "proposed_by": 166
  },
  {
   "chain": "[{\"op\": \"center_kernel_primitive\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"stride\": \"stride\", \"w\": \"w\"}}]",
@@ -1056,6 +1116,18 @@
   "proposed_by": 140
  },
  {
+  "chain": "[{\"op\": \"flatten_rows\", \"params\": {\"cin\": \"cin\", \"rows\": \"h*w\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"cin\", \"m\": \"h*w\", \"n\": \"cout*kh*kw\"}}, {\"op\": \"disjoint_tile_fold\", \"params\": {\"cout\": \"cout\", \"kh\": \"kh\", \"kw\": \"kw\", \"oh\": \"h*stride\", \"ow\": \"w*stride\", \"rows\": \"h*w\", \"stride\": \"stride\"}}, {\"op\": \"add_channel_bias\", \"params\": {\"cout\": \"cout\", \"oh\": \"h*stride\", \"ow\": \"w*stride\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "import torch\n\ndef forward(module, *inputs):\n    x = inputs[0]\n    weight = inputs[1] if len(inputs) > 1 else module.weight\n    bias = None\n    if len(inputs) > 2:\n        bias = inputs[2]\n    elif getattr(module, \"bias\", None) is not None:\n        bias = module.bias\n    cin, cout, kh, kw = weight.shape\n    c, hh, ww = x.shape\n    stride = kh  # stride == kh == kw == 2\n    rows = hh * ww\n    X = x.reshape(c, rows).transpose(0, 1).contiguous()\n    W2 = weight.reshape(cin, cout * kh * kw)\n    Y = X @ W2\n    t = Y.reshape(hh, ww, cout, kh, kw).permute(2, 0, 3, 1, 4).contiguous()\n    out = t.reshape(cout, hh * stride, ww * stride)\n    if bias is not None:\n        out = out + bias.reshape(1, cout, 1, 1)\n    return out\n",
+  "id": 279,
+  "kind": "equivalent",
+  "name": "disjoint_gemm_fold-2",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"Stride == kh == kw == 2, padding == 0, dilation == 1: each input position (i,j) contributes to exactly one disjoint 2x2 output tile at (2i+th, 2j+tw), th,tw in [0,2), so col2im-style overlapping writes are unnecessary. Step 1: flatten_rows lays the input [cin,h,w] out spatial-major as rows [h*w, cin]. Step 2: flatten the transposed-conv weight [cin,cout,kh,kw] to [cin, cout*kh*kw] (column co*kh*kw + th*kw + tw). Step 3: gemm X[h*w,cin] @ W2[cin, cout*kh*kw] -> [h*w, cout*kh*kw]; entry (i*w+j, co*kh*kw+th*kw+tw) = sum_ci in[ci,i,j]*W[ci,co,th,tw], exactly the conv_transpose2d contribution of input pixel (i,j) to output channel co at (2i+th, 2j+tw). Step 4: disjoint_tile_fold reshapes the product to [h,w,cout,kh,kw], permutes to [cout,h,kh,w,kw] and reshapes to [cout, h*stride, w*stride] = [cout,32,32], placing each row's values into its disjoint output tile without any write overlap. Step 5: add the per-output-channel bias, broadcast over the spatial dims.\", \"rel_err\": null}",
+  "proposed_by": 166
+ },
+ {
   "chain": "[{\"op\": \"flatten_input\", \"params\": {\"cin\": \"cin\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"flatten_weight\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"kh\": \"kh\", \"kw\": \"kw\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"cin\", \"m\": \"h*w\", \"n\": \"cout*kh*kw\"}}, {\"op\": \"disjoint_tile_layout\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"w\": \"w\"}}, {\"op\": \"add_bias\", \"params\": {\"channels\": \"cout\", \"h\": \"h*stride\", \"w\": \"w*stride\"}}]",
   "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
   "check_ok": null,
@@ -1080,6 +1152,18 @@
   "proposed_by": 141
  },
  {
+  "chain": "[{\"op\": \"flatten_input\", \"params\": {\"cin\": \"cin\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"flatten_weight\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"kh\": \"kh\", \"kw\": \"kw\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"cin\", \"m\": \"h*w\", \"n\": \"cout*kh*kw\"}}, {\"op\": \"tile_scatter\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"stride\": \"stride\", \"w\": \"w\"}}, {\"op\": \"add_bias\", \"params\": {\"channels\": \"cout\", \"h\": \"h*stride\", \"w\": \"w*stride\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "import torch\n\ndef forward(module, *inputs):\n    x = inputs[0]\n    weight = inputs[1] if len(inputs) > 1 else module.weight\n    bias = None\n    if len(inputs) > 2:\n        bias = inputs[2]\n    elif getattr(module, \"bias\", None) is not None:\n        bias = module.bias\n    cin, cout, kh, kw = weight.shape\n    c, hh, ww = x.shape\n    stride = kh\n    rows = hh * ww\n    X = x.reshape(c, rows).transpose(0, 1).contiguous()\n    W2 = weight.reshape(cin, cout * kh * kw)\n    Y = X @ W2\n    t = Y.reshape(hh, ww, cout, kh, kw).permute(2, 0, 3, 1, 4).contiguous()\n    out = t.reshape(cout, hh * stride, ww * stride)\n    if bias is not None:\n        out = out + bias.reshape(1, cout, 1, 1)\n    return out\n",
+  "id": 280,
+  "kind": "equivalent",
+  "name": "disjoint_gemm_tile_scatter",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"Stride == kh == kw == 2, padding == 0, dilation == 1: each input position (i,j) feeds exactly one disjoint 2x2 output tile at (2i+th, 2j+tw), th,tw in [0,2), so col2im's overlapping writes never occur. Step 1: flatten_input lays the input [cin,h,w] out spatial-major as rows [h*w, cin]. Step 2: flatten_weight flattens the weight [cin,cout,kh,kw] to [cin, cout*kh*kw] (column co*kh*kw + th*kw + tw). Step 3: gemm X[h*w,cin] @ W2[cin, cout*kh*kw] -> [h*w, cout*kh*kw]; entry (i*w+j, co*kh*kw+th*kw+tw) = sum_ci in[ci,i,j]*W[ci,co,th,tw], exactly the conv_transpose2d contribution of pixel (i,j) to channel co at (2i+th, 2j+tw). Step 4: tile_scatter reshapes the product to [h,w,cout,kh,kw], permutes to [cout,h,kh,w,kw] and reshapes to [cout, h*stride, w*stride] = [cout,32,32], interleaving each row into its disjoint output tile. Step 5: add_bias adds the per-output-channel bias, broadcast over the spatial dims.\", \"rel_err\": null}",
+  "proposed_by": 166
+ },
+ {
   "chain": "[{\"op\": \"flatten_input\", \"params\": {\"cin\": \"cin\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"cin\", \"m\": \"h*w\", \"n\": \"cout*kh*kw\"}}, {\"op\": \"disjoint_tile_layout\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"w\": \"w\"}}, {\"op\": \"add_bias\", \"params\": {\"channels\": \"cout\", \"h\": \"h*stride\", \"w\": \"w*stride\"}}]",
   "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
   "check_ok": null,
@@ -1090,6 +1174,18 @@
   "op": "conv_transpose2d",
   "proposal": "{\"description\": \"Stride=kh=kw=2, padding=0, dilation=1: each input pixel (i,j) feeds exactly one disjoint 2x2 output tile at (2i+th, 2j+tw). Step 1: flatten_input lays input [cin,h,w] spatial-major as rows [h*w, cin]. Step 2: gemm rows @ W2 with weight [cin,cout,kh,kw] flattened to [cin, cout*kh*kw] (column co*kh*kw+th*kw+tw), giving [h*w, cout*kh*kw]; entry (i*w+j, co*kh*kw+th*kw+tw) = sum_ci in[ci,i,j]*W[ci,co,th,tw], the exact conv_transpose2d contribution of pixel (i,j) to channel co at (2i+th,2j+tw). Step 3: disjoint_tile_layout scatters each row's (co,th,tw) columns into its disjoint stride-by-stride output tile at [co, i*stride+th, j*stride+tw], producing [cout, h*stride, w*stride] = [cout,32,32]. Step 4: add_bias adds the per-output-channel bias, broadcast over the spatial dims.\", \"rel_err\": null}",
   "proposed_by": 141
+ },
+ {
+  "chain": "[{\"op\": \"flatten_input\", \"params\": {\"cin\": \"cin\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"flatten_weight\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"kh\": \"kh\", \"kw\": \"kw\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"cin\", \"m\": \"h*w\", \"n\": \"cout*kh*kw\"}}, {\"op\": \"disjoint_tile_layout\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"w\": \"w\"}}, {\"op\": \"add_bias\", \"params\": {\"channels\": \"cout\", \"h\": \"h*stride\", \"w\": \"w*stride\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "import torch\n\ndef forward(module, *inputs):\n    x = inputs[0]\n    weight = inputs[1] if len(inputs) > 1 else module.weight\n    bias = None\n    if len(inputs) > 2:\n        bias = inputs[2]\n    elif getattr(module, \"bias\", None) is not None:\n        bias = module.bias\n    cin, cout, kh, kw = weight.shape\n    c, hh, ww = x.shape\n    stride = kh\n    rows = hh * ww\n    X = x.reshape(c, rows).transpose(0, 1).contiguous()\n    W2 = weight.reshape(cin, cout * kh * kw)\n    Y = X @ W2\n    t = Y.reshape(hh, ww, cout, kh, kw).permute(2, 0, 3, 1, 4).contiguous()\n    out = t.reshape(cout, hh * stride, ww * stride)\n    if bias is not None:\n        out = out + bias.reshape(1, cout, 1, 1)\n    return out\n",
+  "id": 281,
+  "kind": "equivalent",
+  "name": "disjoint_gemm_tilelayout2",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"Stride == kh == kw == 2, padding == 0, dilation == 1: each input position (i,j) feeds exactly one disjoint 2x2 output tile at (2i+th, 2j+tw), th,tw in [0,2), so no overlapping writes are needed. Step 1: flatten_input lays the input [cin,h,w] out spatial-major as rows [h*w, cin]. Step 2: flatten_weight flattens the weight [cin,cout,kh,kw] to [cin, cout*kh*kw] (column co*kh*kw + th*kw + tw). Step 3: gemm X[h*w,cin] @ W2[cin, cout*kh*kw] -> [h*w, cout*kh*kw]; entry (i*w+j, co*kh*kw+th*kw+tw) = sum_ci in[ci,i,j]*W[ci,co,th,tw], exactly the conv_transpose2d contribution of pixel (i,j) to channel co at (2i+th, 2j+tw). Step 4: disjoint_tile_layout folds each row's (co,th,tw) columns into its disjoint stride-by-stride output tile at [co, i*stride+th, j*stride+tw], producing [cout, h*stride, w*stride] = [cout,32,32]. Step 5: add_bias adds the per-output-channel bias, broadcast over the spatial dims.\", \"rel_err\": null}",
+  "proposed_by": 166
  },
  {
   "chain": "[{\"op\": \"flatten_input_spatial\", \"params\": {\"cin\": \"cin\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"flatten_weight\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"kh\": \"kh\", \"kw\": \"kw\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"cin\", \"m\": \"h*w\", \"n\": \"cout*kh*kw\"}}, {\"op\": \"disjoint_tile_layout\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"w\": \"w\"}}, {\"op\": \"binary\", \"params\": {\"broadcast\": true, \"const\": false, \"inner\": \"cout\", \"numel\": \"cout*h*kh*w*kw\", \"op\": \"add\", \"value\": 0}}]",
@@ -1932,6 +2028,18 @@
   "proposed_by": 84
  },
  {
+  "chain": "[{\"op\": \"mux_tree_pad\", \"params\": {\"dim\": \"dim\", \"vocab\": \"vocab\"}}, {\"op\": \"mux_tree_select\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "the chain could not run: step 1's reference (mux_tree_pad) raised TypeError: it takes 0 activations, the chain gives it 1 \u2014 check its parameter names against the step's params",
+  "check_ok": 0,
+  "code": "import torch\n\ndef forward(module, ids):\n    table = module.table\n    t = table.reshape(table.shape[0], -1).to(torch.float32)\n    dim = t.shape[1]\n    if t.shape[0] < 1024:\n        t = torch.cat([t, torch.zeros(1024 - t.shape[0], dim, dtype=t.dtype, device=t.device)], dim=0)\n    ids = ids.reshape(-1).long()\n    tokens = ids.shape[0]\n    v = t.unsqueeze(0).expand(tokens, 1024, dim)\n    for b in range(10):\n        bit = ((ids >> b) & 1).to(v.dtype).reshape(tokens, 1, 1)\n        v = v.reshape(tokens, v.shape[1] // 2, 2, dim)\n        v = torch.where(bit == 1.0, v[:, :, 1, :], v[:, :, 0, :])\n    return v.reshape(tokens, dim).to(table.dtype)",
+  "id": 288,
+  "kind": "equivalent",
+  "name": "mux_tree_where",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Select the embedding row with a balanced binary multiplexer tree using only fixed addresses and torch.where-style conditional copies (no runtime gather, no multiplication by zero, so unselected NaN/Inf rows cannot contaminate the result and signed zeros are preserved). Step 1 (primitive mux_tree_pad): pad the table with fixed zero rows to 1024 = 2^10 rows, shape (1024, dim). Step 2 (primitive mux_tree_select): expand to (tokens, 1024, dim); for bit b = 0..9, reshape the current (tokens, 2^(10-b), dim) value to (tokens, 2^(9-b), 2, dim) and keep v[..., 1, :] where bit b of the (integer) id is 1 else v[..., 0, :], via torch.where with the bit broadcast; after 10 levels a single row per token remains, which is exactly table[ids[t]]. Reshape to (tokens, dim). Valid ids are in [0, vocab); all indexing is by constants, bit values come from broadcast integer arithmetic on the ids.\", \"rel_err\": 0.0}",
+  "proposed_by": 169
+ },
+ {
   "chain": "[{\"op\": \"one_hot_ids\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"bmm\", \"params\": {\"b\": \"1\", \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
   "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
   "check_ok": 1,
@@ -2064,6 +2172,18 @@
   "proposed_by": 18
  },
  {
+  "chain": "[{\"op\": \"onehot_ids\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"bmm_nt\", \"params\": {\"b\": \"1\", \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\", \"scale\": 1.0}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "import torch\n\ndef forward(module, ids):\n    table = module.table\n    vocab, dim = table.shape\n    ids = ids.reshape(-1).long()\n    j = torch.arange(vocab, device=ids.device)\n    O = (ids[:, None] == j[None, :]).to(torch.float32).unsqueeze(0)\n    B = table.to(torch.float32).t().unsqueeze(0)\n    out = torch.bmm(O, B.transpose(1, 2))\n    return out.squeeze(0).to(table.dtype)",
+  "id": 291,
+  "kind": "equivalent",
+  "name": "onehot_bmm_nt_v3",
+  "op": "embedding",
+  "proposal": "{\"description\": \"One-hot selection via a transposed-operand batched matmul. Step 1 (primitive onehot_ids): flatten the integer ids and build the one-hot matrix O of shape (tokens, vocab) with O[t, i] = 1.0 if ids[t] == i else 0.0, float32, via a broadcast comparison against the constant coordinate vector; reshape to (1, tokens, vocab). Step 2: bmm_nt with b = 1, m = tokens, k = vocab, n = dim and scale 1.0, passing B = table^T of shape (1, dim, vocab); bmm_nt computes A @ B^T = O @ table, shape (1, tokens, dim). Row t of the result is table[ids[t]]. Squeeze the batch dimension and cast back to the table's dtype.\", \"rel_err\": 0.0}",
+  "proposed_by": 169
+ },
+ {
   "chain": "[{\"op\": \"one_hot\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"bmm\", \"params\": {\"b\": \"1\", \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
   "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
   "check_ok": 1,
@@ -2098,6 +2218,18 @@
   "op": "embedding",
   "proposal": "{\"description\": \"Convert each integer token id to an exact one-hot row of length vocab, reshape the indicators to (1, tokens, vocab), and multiply by the embedding table using transposed-operand batched GEMM. Reshape the table to (1, dim, vocab), so bmm_nt computes O @ table^T and returns (1, tokens, dim); remove the singleton batch dimension. Each output row is exactly the selected table row.\", \"rel_err\": 0.0}",
   "proposed_by": 37
+ },
+ {
+  "chain": "[{\"op\": \"onehot_cmp\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "import torch\n\ndef forward(module, ids):\n    table = module.table\n    vocab, dim = table.shape\n    flat = ids.reshape(-1)\n    cols = torch.arange(vocab, device=ids.device)\n    onehot = (flat.reshape(-1, 1) == cols.reshape(1, -1)).to(torch.float32)\n    out = onehot @ table.to(torch.float32)\n    return out.to(table.dtype).reshape(*ids.shape, dim)\n",
+  "id": 293,
+  "kind": "equivalent",
+  "name": "onehot_cmp_gemm",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Embedding as a dense selector gemm. Step 1 (primitive onehot_cmp): flatten the integer ids to (tokens,), and build O[t, i] = 1.0 if ids[t] == i else 0.0 in float32 with shape (tokens, vocab), using a broadcast equality comparison against the constant coordinate vector arange(vocab). No runtime addressing. Step 2: gemm with m = tokens, k = vocab, n = dim computing O @ table, where table has shape (vocab, dim) and is used in float32 accumulation. Row t of the result is table[ids[t]] exactly for finite table entries. Cast back to the table dtype and reshape to ids.shape + (dim,).\", \"rel_err\": 0.0}",
+  "proposed_by": 181
  },
  {
   "chain": "[{\"op\": \"one_hot\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
@@ -2304,6 +2436,30 @@
   "proposed_by": 63
  },
  {
+  "chain": "[{\"op\": \"one_hot_f\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "import torch\n\ndef forward(module, ids):\n    table = module.table\n    ids = ids.reshape(-1).long()\n    coords = torch.arange(table.shape[0], device=ids.device)\n    O = (ids[:, None] == coords[None, :]).to(torch.float32)\n    out = O @ table.to(torch.float32)\n    return out.to(table.dtype)",
+  "id": 287,
+  "kind": "equivalent",
+  "name": "onehot_gemm_sel",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the embedding lookup with a dense matmul through an explicit one-hot selector. Step 1 (primitive one_hot_f): flatten the integer ids to shape (tokens,) and build O[t, i] = 1.0 if ids[t] == i else 0.0 as float32, shape (tokens, vocab). This uses only a broadcast comparison against the constant coordinate vector arange(vocab); no runtime addressing. Step 2: gemm with m = tokens, k = vocab, n = dim computing O @ table, where table is the embedding weight of shape (vocab, dim). Row t of the result is table[ids[t]]. Cast the result back to the table's dtype. Exact for any finite table entries in real arithmetic; accumulation is in float32.\", \"rel_err\": 0.0}",
+  "proposed_by": 169
+ },
+ {
+  "chain": "[{\"op\": \"one_hot_sel\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "import torch\n\ndef forward(module, ids):\n    table = module.table\n    vocab, dim = table.shape\n    flat = ids.reshape(-1)\n    coords = torch.arange(vocab, device=ids.device)\n    onehot = (flat.unsqueeze(-1) == coords.unsqueeze(0)).to(torch.float32)\n    out = onehot @ table.to(torch.float32)\n    return out.to(table.dtype).reshape(*ids.shape, dim)\n",
+  "id": 292,
+  "kind": "equivalent",
+  "name": "onehot_gemm_sel-2",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Embedding as a dense matmul through an explicit one-hot selector. Step 1 (primitive one_hot_sel): flatten the integer ids to (tokens,) and build O[t, i] = 1.0 if ids[t] == i else 0.0 as float32, shape (tokens, vocab), using a broadcast comparison against the constant coordinate vector arange(vocab). Step 2 (gemm, m = tokens, k = vocab, n = dim, bias = false): compute O @ table in float32 accumulation, table of shape (vocab, dim). Row t of the result is table[ids[t]] exactly for finite entries. Cast back to the table dtype and reshape to ids.shape + (dim,).\", \"rel_err\": 0.0}",
+  "proposed_by": 184
+ },
+ {
   "chain": "[{\"op\": \"one_hot\", \"params\": {\"cols\": \"vocab\", \"rows\": \"tokens\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
   "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
   "check_ok": 1,
@@ -2374,6 +2530,30 @@
   "op": "embedding",
   "proposal": "{\"description\": \"Flatten the integer ids to tokens rows and convert them to float32. At fixed vocabulary coordinates j=0,...,vocab-1, broadcast subtract to form D[t,j]=ids[t]-j. Compute S[t,j]=max(0,1-D[t,j]*D[t,j]) using elementwise multiply, subtract and lower clamp. This is a fixed-address arithmetic circuit, not a gather, scatter or runtime-addressed write. For valid integer ids S is exactly the Kronecker indicator: D=0 gives 1, and every nonzero integer difference has squared magnitude at least 1 and gives 0 after clamping. All ids and differences for vocab=30522 are exactly representable in float32; rounding of larger squares cannot change this indicator. GEMM S (tokens,vocab) with the finite embedding table (vocab,dim), in float32 for a float32 or lower precision table, then cast back to the table dtype and restore the ids' leading dimensions followed by dim. For a float64 table promote S to float64 instead to avoid losing table precision. The product selects exactly one table row without approximating its entries.\", \"rel_err\": 0.0}",
   "proposed_by": 123
+ },
+ {
+  "chain": "[{\"op\": \"low_digit_sel\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"first_cols\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "import torch\n\ndef forward(module, ids):\n    table = module.table\n    vocab, dim = table.shape\n    ids = ids.reshape(-1).long()\n    r = torch.arange(vocab, device=ids.device)\n    L = (ids[:, None] == r[None, :]).to(torch.float32)\n    out = L @ table.to(torch.float32)\n    return out.to(table.dtype)",
+  "id": 289,
+  "kind": "equivalent",
+  "name": "radix_low_digit_gemm",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Fixed-radix (1024) digit selector, the repaired factorized scheme. Since vocab = 1001 <= 1024 = radix, only the low digit is needed. Step 1 (primitive low_digit_sel): for each token t and constant coordinate r in [0, 1024), compute L[t, r] = 1.0 if (ids[t] mod 1024) == r else 0.0, using broadcast integer remainder and comparison against the constant range; shape (tokens, 1024), float32. This is exact for integer ids and uses no runtime addressing. Step 2 (primitive pad_rows): pad the table with a fixed zero row region to 1024 rows, shape (1024, dim). Step 3: gemm with m = tokens, k = 1024, n = dim computing L @ padded_table; since exactly one entry of each row of L is 1, row t of the result is table[ids[t]] exactly in real arithmetic. Cast back to the table dtype.\", \"rel_err\": 0.0}",
+  "proposed_by": 169
+ },
+ {
+  "chain": "[{\"op\": \"relu_quad_sel\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "import torch\n\ndef forward(module, ids):\n    table = module.table\n    vocab, dim = table.shape\n    ids = ids.reshape(-1).long()\n    j = torch.arange(vocab, device=ids.device)\n    d = (ids[:, None] - j[None, :]).to(torch.float32)\n    S = torch.relu(1.0 - d * d)\n    out = S @ table.to(torch.float32)\n    return out.to(table.dtype)",
+  "id": 290,
+  "kind": "equivalent",
+  "name": "relu_quad_sel_gemm",
+  "op": "embedding",
+  "proposal": "{\"description\": \"One-hot selector from a clamped quadratic hinge, using only fixed-address broadcast arithmetic. Step 1 (primitive relu_quad_sel): flatten the integer ids; for each constant vocabulary coordinate j compute d = float32(ids[t]) - float32(j) and S[t, j] = relu(1 - d*d). For integer ids the difference d is an exact integer: d = 0 gives S = 1, and every nonzero integer d gives 1 - d*d <= 0 so relu gives exactly 0. Hence S is exactly one-hot without any comparison or runtime addressing. Step 2: gemm with m = tokens, k = vocab, n = dim computing S @ table (the embedding weight of shape (vocab, dim)); row t of the result is table[ids[t]] in real arithmetic. Cast the result back to the table's dtype. Accumulate in float32; unselected rows are multiplied by zero, so nonfinite unselected entries could propagate, but for finite table entries the result is the exact selected row.\", \"rel_err\": 0.0}",
+  "proposed_by": 169
  },
  {
   "chain": "[{\"op\": \"relu_second_difference_indicators\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
@@ -2866,6 +3046,18 @@
   "op": "upsample",
   "proposal": "{\"description\": \"Approximate bilinear 2x upsampling with interpolation weights quantized to a 1/4 grid. Build the separable 1-D matrices A_h (2h x h) and A_w (2w x w) exactly as in bilinear align_corners=False (src=max((i+0.5)*0.5-0.5,0), i0=min(floor(src),n-1), i1=min(i0+1,n-1), l=src-i0), then round each weight l to the nearest multiple of 0.25 (so 1-l and l are also multiples of 0.25 and each row still sums to 1). Output Y = A_h X A_w^T per channel, computed as one primitive. Differs from exact bilinear only where l is not a multiple of 0.25, which is the approximation.\", \"rel_err\": 1.1966278548399467e-07}",
   "proposed_by": 97
+ },
+ {
+  "chain": "[{\"op\": \"bilinear_cols_first\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"bilinear_rows\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"2*w\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 1e-07, within 0.001)",
+  "check_ok": 1,
+  "code": "import torch.nn.functional as F\ndef forward(module, *inputs):\n    x = inputs[0]\n    h, w = x.shape[-2:]\n    t = F.interpolate(x.unsqueeze(0), size=(h, 2*w), mode='bilinear', align_corners=False)\n    y = F.interpolate(t, size=(2*h, 2*w), mode='bilinear', align_corners=False)\n    return y.squeeze(0)\n",
+  "id": 286,
+  "kind": "equivalent",
+  "name": "cols_then_rows_reuse",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Apply the existing bilinear_cols_first operation to [channels,h,w], producing [channels,h,2*w]. Then apply bilinear_rows with its width parameter set to 2*w, producing [channels,2*h,2*w]. Both passes use the half-pixel coordinate transform and clamp endpoints. Their separable composition is the requested bilinear interpolation.\", \"rel_err\": 1.194220355629268e-07}",
+  "proposed_by": 175
  },
  {
   "chain": "[{\"op\": \"bilinear2x_gather4_2\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
