@@ -288,6 +288,14 @@
   "tensors": null
  },
  {
+  "doc": "Copy two positional NCHW operands into disjoint channel slices of one fresh output, preserving each float32 bit pattern. Declare both operands explicitly so the chain runner supplies both inputs.",
+  "name": "channel_pair_bitcopy_primitive",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, x1, **params):\n    import torch\n    x0 = x\n    n, c0, h, w = x0.shape\n    c1 = x1.shape[1]\n    out = torch.empty((n, c0 + c1, h, w), dtype=x0.dtype, device=x0.device)\n    out[:, :c0, :, :].copy_(x0)\n    out[:, c0:, :, :].copy_(x1)\n    return out\n",
+  "tensors": null
+ },
+ {
   "doc": "Clamp each float32 element to [-4,4], preserving shape and NaNs.",
   "name": "clamp4_7",
   "origin": "agent",
@@ -592,6 +600,14 @@
   "tensors": null
  },
  {
+  "doc": "Half-pixel 2x bilinear interpolation by four clamped gathers and product weights.",
+  "name": "gather4_halfpixel_reference",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    h, w = x.shape[-2:]\n    r = (torch.arange(2*h, device=x.device, dtype=torch.float32)*0.5-0.25).clamp(min=0)\n    c = (torch.arange(2*w, device=x.device, dtype=torch.float32)*0.5-0.25).clamp(min=0)\n    r0 = r.floor().long().clamp(max=h-1); r1 = (r0+1).clamp(max=h-1)\n    c0 = c.floor().long().clamp(max=w-1); c1 = (c0+1).clamp(max=w-1)\n    fr = (r-r0).to(x.dtype)[:, None]; fc = (c-c0).to(x.dtype)[None, :]\n    return (1-fr)*(1-fc)*x[...,r0[:,None],c0[None,:]] + (1-fr)*fc*x[...,r0[:,None],c1[None,:]] + fr*(1-fc)*x[...,r1[:,None],c0[None,:]] + fr*fc*x[...,r1[:,None],c1[None,:]]\n",
+  "tensors": null
+ },
+ {
   "doc": null,
   "name": "gemm",
   "origin": "builtin",
@@ -816,6 +832,14 @@
   "tensors": null
  },
  {
+  "doc": "Flatten integer ids to (tokens,) and return float32 one-hot matrix (tokens, vocab): O[t,i] = 1 if ids[t]==i else 0.",
+  "name": "onehot_rows",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    ids = x.reshape(-1).long()\n    cols = torch.arange(params['vocab'], device=ids.device)\n    return (ids[:, None] == cols[None, :]).to(torch.float32)\n",
+  "tensors": null
+ },
+ {
   "doc": "Double columns with 3/4 center and 1/4 edge-clamped adjacent column, previous for even phase and next for odd phase.",
   "name": "phase_cols_2x",
   "origin": "agent",
@@ -829,6 +853,14 @@
   "origin": "agent",
   "params": "[\"channels\", \"h\", \"w\"]",
   "reference": "def fn(x, **params):\n    import torch\n    prev = torch.cat((x[..., :1, :], x[..., :-1, :]), dim=-2)\n    nxt = torch.cat((x[..., 1:, :], x[..., -1:, :]), dim=-2)\n    return torch.stack(((3*x+prev)*0.25, (3*x+nxt)*0.25), dim=-2).flatten(-3, -2)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Separable 2x half-pixel bilinear interpolation with replicated edges and interleaved even/odd output phases.",
+  "name": "phase_select_half_pixel",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    prev = torch.cat((x[..., :1], x[..., :-1]), dim=-1)\n    nxt = torch.cat((x[..., 1:], x[..., -1:]), dim=-1)\n    t = torch.stack((0.75*x + 0.25*prev, 0.75*x + 0.25*nxt), dim=-1).flatten(-2)\n    prev = torch.cat((t[..., :1, :], t[..., :-1, :]), dim=-2)\n    nxt = torch.cat((t[..., 1:, :], t[..., -1:, :]), dim=-2)\n    return torch.stack((0.75*t + 0.25*prev, 0.75*t + 0.25*nxt), dim=-2).flatten(-3, -2)",
   "tensors": null
  },
  {
