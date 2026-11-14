@@ -48,6 +48,18 @@
   "proposed_by": 13
  },
  {
+  "chain": "[{\"op\": \"one_hot\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"bmm\", \"params\": {\"b\": 1, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "not checked: step 1 (one_hot) has no reference I can run \u2014 define it in `primitives` with a `reference` (the code matches the operation (largest relative difference 0, within 0.001))",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    import torch\n    ids = inputs[0].long()\n    table = module.table\n    indicator = torch.nn.functional.one_hot(ids, num_classes=table.shape[0]).to(torch.float32)\n    result = torch.bmm(indicator.unsqueeze(0), table.to(torch.float32).unsqueeze(0))\n    return result.squeeze(0).to(table.dtype)",
+  "id": 15,
+  "kind": "approximate",
+  "name": "onehot_bmm_approx",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Use a batched one-hot matrix multiplication to realize lookup, with float32 indicators and accumulation. Reshape the indicators and table to batch size one, multiply, and remove the batch dimension. The result is the dense-arithmetic approximation to the embedding gather.\", \"rel_err\": 0.0}",
+  "proposed_by": 35
+ },
+ {
   "chain": "[{\"op\": \"one_hot\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"bmm_nt\", \"params\": {\"b\": \"1\", \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
   "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
   "check_ok": 1,
@@ -82,6 +94,18 @@
   "op": "embedding",
   "proposal": "{\"description\": \"Replace the embedding lookup with a dense matmul. Step 1: build a one-hot matrix O of shape (tokens x vocab) where O[t, i] = 1 if ids[t] == i else 0 (primitive 'one_hot'). Step 2: gemm with m = tokens, k = vocab, n = dim computing O @ table, where table is the embedding weight of shape (vocab x dim). Row t of the result is table[ids[t]], exactly the embedding output. The table arrives as module.table (also module.weight); ids is the runtime input.\", \"rel_err\": 0.0}",
   "proposed_by": 16
+ },
+ {
+  "chain": "[{\"op\": \"one_hot\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "not checked: step 1 (one_hot) has no reference I can run \u2014 define it in `primitives` with a `reference` (the code matches the operation (largest relative difference 0, within 0.001))",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    import torch\n    ids = inputs[0].long()\n    table = module.table\n    indicator = torch.nn.functional.one_hot(ids, num_classes=table.shape[0]).to(torch.float32)\n    return (indicator @ table.to(torch.float32)).to(table.dtype)",
+  "id": 14,
+  "kind": "approximate",
+  "name": "onehot_f32",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Construct a one-hot indicator for every token, cast it and the table to float32, and multiply by the table. This is a numerically stabilized dense implementation of embedding; on devices where the table is reduced precision, the float32 accumulation may differ slightly from direct gathering.\", \"rel_err\": 0.0}",
+  "proposed_by": 35
  },
  {
   "chain": "[{\"op\": \"one_hot\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
@@ -130,5 +154,29 @@
   "op": "embedding",
   "proposal": "{\"description\": \"Replace the embedding lookup with a dense matmul. Step 1: build a one-hot matrix O of shape (tokens x vocab) where O[t, i] = 1 if ids[t] == i else 0 (primitive 'one_hot', defined with a runnable reference). Step 2: gemm with m = tokens, k = vocab, n = dim computing O @ table, where table is the embedding weight of shape (vocab x dim). Row t of the result is table[ids[t]], exactly the embedding output. The table arrives as module.table (also module.weight); ids is the runtime input.\", \"rel_err\": 0.0}",
   "proposed_by": 16
+ },
+ {
+  "chain": "[{\"op\": \"make_one_hot\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "the chain could not run: step 1's reference (make_one_hot) raised KeyError: 'fn' \u2014 check its parameter names against the step's params",
+  "check_ok": 0,
+  "code": "def forward(module, *inputs):\n    import torch\n    ids = inputs[0].to(torch.int64)\n    table = module.table if hasattr(module, 'table') else module.weight\n    indicators = torch.nn.functional.one_hot(ids, num_classes=table.shape[0]).to(dtype=table.dtype)\n    return torch.matmul(indicators, table)",
+  "id": 12,
+  "kind": "equivalent",
+  "name": "onehot_gemm_ref-2",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Convert each runtime token id to a one-hot row of length vocab, cast the indicator matrix to the embedding table dtype, then multiply it by the (vocab x dim) table. The product row t is exactly the table row selected by id[t].\", \"rel_err\": 0.0}",
+  "proposed_by": 35
+ },
+ {
+  "chain": "[{\"op\": \"one_hot\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "not checked: step 1 (one_hot) has no reference I can run \u2014 define it in `primitives` with a `reference` (the code matches the operation (largest relative difference 0.0002, within 0.001))",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    import torch\n    ids = inputs[0].long()\n    table = module.table\n    indicator = torch.nn.functional.one_hot(ids, num_classes=table.shape[0]).to(torch.float16)\n    return (indicator @ table.to(torch.float16)).to(table.dtype)",
+  "id": 13,
+  "kind": "approximate",
+  "name": "onehot_lowrank",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Apply an economical low-precision dense lookup: generate a one-hot token matrix, quantize both the indicator and embedding table to float16, multiply, then return the table dtype. The reduced-precision product approximates the gather while retaining the full vocabulary selection.\", \"rel_err\": 0.0002441425167636382}",
+  "proposed_by": 35
  }
 ]
