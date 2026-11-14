@@ -152,11 +152,59 @@
   "tensors": null
  },
  {
-  "doc": "Allocate output [batch, 2*channels, spatial] and copy each input into its respective channel range, preserving NCHW order.",
+  "doc": "Copy two NCHW tensors to adjacent channel ranges.",
   "name": "channel_concat_pair",
   "origin": "agent",
   "params": "[\"batch\", \"channels\", \"spatial\"]",
-  "reference": "def fn(x, **params):\n    batch = params['batch']\n    channels = params['channels']\n    spatial = params['spatial']\n    return torch.cat((x[0].reshape(batch, channels, spatial), x[1].reshape(batch, channels, spatial)), dim=1)",
+  "reference": "def fn(x, y, **params):\n    import torch\n    return torch.cat((x, y), dim=1)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Clamp each float32 element to [-4,4], preserving shape and NaNs.",
+  "name": "clamp4_7",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, **params):\n    return x.clamp(-4.0, 4.0)",
+  "tensors": null
+ },
+ {
+  "doc": "Copy two NCHW input tensors into adjacent channel blocks.",
+  "name": "concat14_copy_ref",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, y, **params):\n    import torch\n    out = torch.empty((1, 512, 14, 14), dtype=x.dtype, device=x.device)\n    out[:, :256].copy_(x)\n    out[:, 256:].copy_(y)\n    return out\n",
+  "tensors": null
+ },
+ {
+  "doc": "Copy two equally sized contiguous input blocks to consecutive output blocks in NCHW channel order.",
+  "name": "concat7_copy_blocks",
+  "origin": "agent",
+  "params": "[\"block_elements\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    a, b = x\n    n = params['block_elements']\n    out = torch.empty((1, 512, 7, 7), dtype=a.dtype, device=a.device)\n    out.view(-1)[:n].copy_(a.reshape(-1))\n    out.view(-1)[n:2*n].copy_(b.reshape(-1))\n    return out\n",
+  "tensors": null
+ },
+ {
+  "doc": "Copy two NCHW tensors in order into adjacent channel blocks of a newly allocated output.",
+  "name": "concat7_exact_primitive",
+  "origin": "agent",
+  "params": "[\"block_elements\"]",
+  "reference": "def fn(x0, x1, **params):\n    import torch\n    out = torch.empty((1, 512, 7, 7), dtype=x0.dtype, device=x0.device)\n    out[:, :256, :, :].copy_(x0)\n    out[:, 256:, :, :].copy_(x1)\n    return out\n",
+  "tensors": null
+ },
+ {
+  "doc": "Copy the input blocks in order.",
+  "name": "concat7_probe_blocks",
+  "origin": "agent",
+  "params": "[\"block_elements\"]",
+  "reference": "def fn(x, **params):\n    raise ValueError('probe x=' + str(type(x)) + ' params=' + str([(k, type(v), getattr(v, 'shape', None)) for k, v in params.items()]))\n",
+  "tensors": null
+ },
+ {
+  "doc": "Copy two input tensors in order into adjacent channel blocks.",
+  "name": "concat_14_blocks",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, y, **params):\n    import torch\n    out = torch.empty((1, 512, 14, 14), dtype=x.dtype, device=x.device)\n    out[:, :256].copy_(x)\n    out[:, 256:].copy_(y)\n    return out\n",
   "tensors": null
  },
  {
@@ -168,6 +216,22 @@
   "tensors": null
  },
  {
+  "doc": "Concatenate two NCHW inputs then clip to [-4,4].",
+  "name": "concat_clip_primitive",
+  "origin": "agent",
+  "params": "[\"elements\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    a, b = x[0] if len(x) == 1 else x\n    return torch.cat((a, b), dim=1).clamp(-4.0, 4.0)",
+  "tensors": null
+ },
+ {
+  "doc": "Copy two same-shaped NCHW inputs into adjacent channel ranges.",
+  "name": "concat_copy_exact",
+  "origin": "agent",
+  "params": "[\"batch\", \"channels\", \"spatial\"]",
+  "reference": "def fn(x, *args, **params):\n    import torch\n    if args:\n        a, b = x, args[0]\n    else:\n        a, b = x\n    return torch.cat((a, b), dim=1)\n",
+  "tensors": null
+ },
+ {
   "doc": "NCHW output whose first channel half is x0 minus x1 and whose second half is x1.",
   "name": "concat_difference",
   "origin": "agent",
@@ -176,11 +240,35 @@
   "tensors": null
  },
  {
+  "doc": "Concatenate a pair of NCHW inputs and round through float16.",
+  "name": "concat_half_round_primitive",
+  "origin": "agent",
+  "params": "[\"elements\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    a, b = x[0] if len(x) == 1 else x\n    return torch.cat((a, b), dim=1).to(torch.float16).to(torch.float32)",
+  "tensors": null
+ },
+ {
+  "doc": "Concatenate two NCHW inputs then quantize to multiples of 1/256.",
+  "name": "concat_quantize_primitive",
+  "origin": "agent",
+  "params": "[\"elements\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    a, b = x[0] if len(x) == 1 else x\n    return torch.round(torch.cat((a, b), dim=1) * 256.0) / 256.0",
+  "tensors": null
+ },
+ {
   "doc": "NCHW channel concat with the second output half equal to the pointwise sum of the inputs.",
   "name": "concat_sum",
   "origin": "agent",
   "params": "[\"channels\"]",
   "reference": "def fn(x0, x1, **params):\n    import torch\n    return torch.cat((x0, x0 + x1), dim=1)",
+  "tensors": null
+ },
+ {
+  "doc": "Copy two equal contiguous channel blocks in order into one output.",
+  "name": "concat_two_blocks_28",
+  "origin": "agent",
+  "params": "[\"block\"]",
+  "reference": "def fn(x, y, **params):\n    import torch\n    return torch.cat((x, y), dim=1)\n",
   "tensors": null
  },
  {
@@ -237,6 +325,14 @@
   "origin": "agent",
   "params": "[\"numel\"]",
   "reference": "def fn(x, **params):\n    return x.reshape(-1)[0].expand(params['numel'])",
+  "tensors": null
+ },
+ {
+  "doc": "Round float32 elements to the nearest multiple of 1/256, ties to even, without saturation.",
+  "name": "fixed256_7",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    return torch.round(x * 256.0) * (1.0 / 256.0)",
   "tensors": null
  },
  {
@@ -392,6 +488,30 @@
   "tensors": null
  },
  {
+  "doc": "Double columns with 3/4 center and 1/4 edge-clamped adjacent column, previous for even phase and next for odd phase.",
+  "name": "phase_cols_2x",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    prev = torch.cat((x[..., :1], x[..., :-1]), dim=-1)\n    nxt = torch.cat((x[..., 1:], x[..., -1:]), dim=-1)\n    return torch.stack(((3*x+prev)*0.25, (3*x+nxt)*0.25), dim=-1).flatten(-2, -1)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Double rows with 3/4 center and 1/4 edge-clamped adjacent row, previous for even phase and next for odd phase.",
+  "name": "phase_rows_2x",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    prev = torch.cat((x[..., :1, :], x[..., :-1, :]), dim=-2)\n    nxt = torch.cat((x[..., 1:, :], x[..., -1:, :]), dim=-2)\n    return torch.stack(((3*x+prev)*0.25, (3*x+nxt)*0.25), dim=-2).flatten(-3, -2)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Replicate-pad spatially, evaluate four bilinear polyphase stencils, and interleave them.",
+  "name": "phase_stencil_replicate_op",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, **params):\n import torch\n import torch.nn.functional as F\n h, w = x.shape[-2:]\n p = F.pad(x.unsqueeze(0), (1,1,1,1), mode='replicate').squeeze(0)\n c = p[:,1:h+1,1:w+1]\n rows = []\n for di in (-1,1):\n  phases = []\n  for dj in (-1,1):\n   v = p[:,1+di:h+1+di,1:w+1]\n   u = p[:,1:h+1,1+dj:w+1+dj]\n   d = p[:,1+di:h+1+di,1+dj:w+1+dj]\n   phases.append((9*c+3*v+3*u+d)/16)\n  rows.append(torch.stack(phases, dim=-1))\n return torch.stack(rows, dim=2).reshape(x.shape[0],2*h,2*w)",
+  "tensors": null
+ },
+ {
   "doc": null,
   "name": "pool2d",
   "origin": "builtin",
@@ -448,6 +568,14 @@
   "tensors": null
  },
  {
+  "doc": "Round each float32 value through binary16 and convert back to float32.",
+  "name": "round_fp16_7",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    return x.to(torch.float16).to(torch.float32)",
+  "tensors": null
+ },
+ {
   "doc": null,
   "name": "row_norm",
   "origin": "builtin",
@@ -477,6 +605,14 @@
   "origin": "agent",
   "params": "[\"h\", \"w\", \"channels\", \"stride\"]",
   "reference": "def fn(x, h, w, channels, stride):\n    import torch.nn.functional as F\n    x = x.unsqueeze(0)\n    x = F.interpolate(x, scale_factor=stride, mode='bilinear', align_corners=False)\n    x = x.squeeze(0)\n    return x",
+  "tensors": null
+ },
+ {
+  "doc": "Scatter disjoint stride-by-stride output tiles: input is [h*w, cout*kh*kw] with rows in spatial order (i,j) and columns co*kh*kw+th*kw+tw; reshapes to [h,w,cout,kh,kw], permutes to [cout,h,kh,w,kw] and reshapes to [cout, h*stride, w*stride], placing row (i,j)'s column (co,th,tw) at output [co, i*stride+th, j*stride+tw].",
+  "name": "tile_scatter",
+  "origin": "agent",
+  "params": "[\"cout\", \"h\", \"w\", \"kh\", \"kw\", \"stride\"]",
+  "reference": "def fn(x, cout, h, w, kh, kw, stride):\n    t = x.reshape(h, w, cout, kh, kw).permute(2, 0, 3, 1, 4).contiguous()\n    return t.reshape(cout, h * stride, w * stride)",
   "tensors": null
  },
  {
@@ -557,6 +693,14 @@
   "origin": "agent",
   "params": "{\"batch_hw\": \"int\", \"cout\": \"int\", \"kh\": \"int\", \"kw\": \"int\", \"stride\": \"int\"}",
   "reference": "def unflatten_output(x, batch_hw, cout, kh, kw, stride):\n    h = 16\n    w = 16\n    batch = x.shape[0]\n    x = x.view(batch, h, w, cout, kh, kw)\n    x = x.permute(0, 3, 1, 4, 2, 5)\n    x = x.reshape(batch, cout, h * kh, w * kw)\n    return x",
+  "tensors": null
+ },
+ {
+  "doc": "Reshape [h*w, cout] rows back to a channel-major image [cout, h, w].",
+  "name": "unflatten_rows",
+  "origin": "agent",
+  "params": "[\"h\", \"w\", \"cout\"]",
+  "reference": "def fn(x, h, w, cout):\n    return x.reshape(h, w, cout).permute(2, 0, 1).contiguous()",
   "tensors": null
  }
 ]

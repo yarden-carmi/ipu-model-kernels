@@ -180,6 +180,18 @@
   "proposed_by": 83
  },
  {
+  "chain": "[{\"op\": \"channel_concat_pair\", \"params\": {\"batch\": 1, \"channels\": 256, \"spatial\": \"numel // (2 * 256)\"}}]",
+  "check_detail": "not checked: step 1 (channel_concat_pair) has no reference I can run \u2014 define it in `primitives` with a `reference` (the code matches the operation (largest relative difference 0, within 0.001))",
+  "check_ok": null,
+  "code": "import torch\ndef forward(module, x0, x1):\n    return torch.cat((x0, x1), dim=1)\n",
+  "id": 199,
+  "kind": "equivalent",
+  "name": "channel_concat_28",
+  "op": "aten",
+  "proposal": "{\"description\": \"Copy the first contiguous NCHW input into output channels 0 through 255, then the second into channels 256 through 511. Each channel has 28*28 elements; both copies preserve the float32 bits.\", \"rel_err\": 0.0}",
+  "proposed_by": 143
+ },
+ {
   "chain": "[{\"op\": \"concat_blend\", \"params\": {\"channels\": \"numel // 1568\"}}]",
   "check_detail": "not equivalent: the chain's largest relative difference is 1 at element [0, 405, 23, 10] (got 0.0002079, expected 1.996), over 0.001; not equivalent: the code's largest relative difference is 1 at element [0, 405, 23, 10] (got 0.0002079, expected 1.996), over 0.001",
   "check_ok": 0,
@@ -216,6 +228,30 @@
   "proposed_by": 90
  },
  {
+  "chain": "[{\"op\": \"concat_copy_exact\", \"params\": {\"batch\": 1, \"channels\": 256, \"spatial\": \"numel // (2 * 256)\"}}]",
+  "check_detail": "the chain could not run: step 1's reference (concat_copy_exact) raised ValueError: not enough values to unpack (expected 2, got 1) \u2014 check its parameter names against the step's params",
+  "check_ok": 0,
+  "code": "import torch\ndef forward(module, x0, x1):\n    return torch.cat((x0, x1), dim=1)\n",
+  "id": 200,
+  "kind": "equivalent",
+  "name": "channel_concat_exact",
+  "op": "aten",
+  "proposal": "{\"description\": \"For each batch, copy the first input's 256 contiguous 28x28 channel planes to output channels 0:256 and the second input's planes to channels 256:512, preserving all float32 bits. The result has shape [1,512,28,28].\", \"rel_err\": 0.0}",
+  "proposed_by": 143
+ },
+ {
+  "chain": "[{\"op\": \"channel_concat_pair\", \"params\": {\"batch\": 1, \"channels\": 256, \"spatial\": 196}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "import torch\ndef forward(module, x0, x1):\n    return torch.cat((x0, x1), dim=1)\n",
+  "id": 198,
+  "kind": "equivalent",
+  "name": "channel_concat_pair_exact",
+  "op": "aten",
+  "proposal": "{\"description\": \"Concatenate the two float32 NCHW inputs on the channel axis. Copy x0 into output channels 0 through 255, and copy x1 into channels 256 through 511, retaining all 14 by 14 spatial positions. No arithmetic is required.\", \"rel_err\": 0.0}",
+  "proposed_by": 142
+ },
+ {
   "chain": "[{\"op\": \"concat_sum\", \"params\": {\"channels\": \"numel // 1568\"}}]",
   "check_detail": "not equivalent: the chain's largest relative difference is 1 at element [0, 660, 24, 16] (got -3.415, expected -1.415), over 0.001; not equivalent: the code's largest relative difference is 1 at element [0, 660, 24, 16] (got -3.415, expected -1.415), over 0.001",
   "check_ok": 0,
@@ -226,6 +262,198 @@
   "op": "aten",
   "proposal": "{\"description\": \"Approximate concatenation using the first input in the first channel half and the sum of both inputs in the second half. This retains the first input exactly and encodes the second input only through a residual-like sum.\", \"rel_err\": 0.9999972581853598}",
   "proposed_by": 90
+ },
+ {
+  "chain": "[{\"op\": \"concat_two_blocks_28\", \"params\": {\"block\": \"numel//2\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, x0, x1):\n    import torch\n    out = torch.empty((1, 512, 28, 28), dtype=x0.dtype, device=x0.device)\n    out[:, :256].copy_(x0)\n    out[:, 256:].copy_(x1)\n    return out\n",
+  "id": 204,
+  "kind": "equivalent",
+  "name": "channel_copy_28",
+  "op": "aten",
+  "proposal": "{\"description\": \"Allocate an NCHW float32 output of shape [1,512,28,28]. Copy the 200704 contiguous elements of x0 to output offsets [0,200704), and those of x1 to offsets [200704,401408). The result is an exact channel-axis concatenation, including all 28x28 positions, with no floating-point arithmetic.\", \"rel_err\": 0.0}",
+  "proposed_by": 144
+ },
+ {
+  "chain": "[{\"op\": \"concat_14_blocks\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "import torch\ndef forward(module, x0, x1):\n    out = torch.empty((1, 512, 14, 14), dtype=x0.dtype, device=x0.device)\n    out[:, :256].copy_(x0)\n    out[:, 256:].copy_(x1)\n    return out\n",
+  "id": 208,
+  "kind": "equivalent",
+  "name": "concat14_blocks_verified",
+  "op": "aten",
+  "proposal": "{\"description\": \"Invoke concat_14_blocks to copy x0 followed by x1 into adjacent channel blocks of a newly allocated [1,512,14,14] output. Each input block is 50176 float32 values; copying uses no arithmetic.\", \"rel_err\": 0.0}",
+  "proposed_by": 146
+ },
+ {
+  "chain": "[{\"op\": \"concat14_copy_ref\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "import torch\ndef forward(module, x0, x1):\n    out = torch.empty((1, 512, 14, 14), dtype=x0.dtype, device=x0.device)\n    out[:, :256].copy_(x0)\n    out[:, 256:].copy_(x1)\n    return out\n",
+  "id": 207,
+  "kind": "equivalent",
+  "name": "concat14_reference",
+  "op": "aten",
+  "proposal": "{\"description\": \"Copy x0 and x1 in order into adjacent contiguous channel blocks of a new [1,512,14,14] float32 tensor, preserving each element exactly.\", \"rel_err\": 0.0}",
+  "proposed_by": 146
+ },
+ {
+  "chain": "[{\"op\": \"channel_concat\", \"params\": {\"batch\": 1, \"channels\": 256, \"spatial\": 49}}, {\"op\": \"clamp4_7\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "not checked: step 1 (channel_concat) has no reference I can run \u2014 define it in `primitives` with a `reference` (the code matches the operation (largest relative difference 0, within 0.001))",
+  "check_ok": null,
+  "code": "def forward(module, x0, x1):\n    import torch\n    y = torch.cat((x0, x1), dim=1)\n    return y.clamp(-4.0, 4.0)",
+  "id": 219,
+  "kind": "approximate",
+  "name": "concat7_clamp4",
+  "op": "aten",
+  "proposal": "{\"description\": \"Copy x0 then x1 into adjacent channel blocks with channel_concat (batch 1, 256 channels per input, 49 spatial positions); clamp every output element to [-4,4]. NaNs remain NaNs. Output is float32 [1,512,7,7].\", \"rel_err\": 0.0}",
+  "proposed_by": 147
+ },
+ {
+  "chain": "[{\"op\": \"concat7_copy_blocks\", \"params\": {\"block_elements\": \"numel // 2\"}}]",
+  "check_detail": "the chain could not run: step 1's reference (concat7_copy_blocks) raised ValueError: not enough values to unpack (expected 2, got 1) \u2014 check its parameter names against the step's params",
+  "check_ok": 0,
+  "code": "def forward(module, x0, x1):\n    import torch\n    out = torch.empty((1, 512, 7, 7), dtype=x0.dtype, device=x0.device)\n    out.view(-1)[:12544].copy_(x0.reshape(-1))\n    out.view(-1)[12544:].copy_(x1.reshape(-1))\n    return out\n",
+  "id": 215,
+  "kind": "equivalent",
+  "name": "concat7_copy",
+  "op": "aten",
+  "proposal": "{\"description\": \"Allocate a contiguous float32 output of shape [1,512,7,7]. Copy the 12544 elements of the first input in NCHW order into output offsets [0,12544), then copy the 12544 elements of the second input into offsets [12544,25088). This is channel concatenation for batch size one and preserves every float32 bit; no arithmetic is used.\", \"rel_err\": 0.0}",
+  "proposed_by": 147
+ },
+ {
+  "chain": "[{\"op\": \"concat7_exact_primitive\", \"params\": {\"block_elements\": \"numel // 2\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, x0, x1):\n    import torch\n    out = torch.empty((1, 512, 7, 7), dtype=x0.dtype, device=x0.device)\n    out[:, :256, :, :].copy_(x0)\n    out[:, 256:, :, :].copy_(x1)\n    return out\n",
+  "id": 222,
+  "kind": "equivalent",
+  "name": "concat7_exact_blocks",
+  "op": "aten",
+  "proposal": "{\"description\": \"Allocate a contiguous float32 output of shape [1,512,7,7]. Copy the first input's 12544 values in logical NCHW order into channels 0 through 255, then copy the second input's 12544 values into channels 256 through 511. This is a bit-preserving copy with no arithmetic.\", \"rel_err\": 0.0}",
+  "proposed_by": 149
+ },
+ {
+  "chain": "[{\"op\": \"channel_concat\", \"params\": {\"batch\": 1, \"channels\": 256, \"spatial\": 49}}, {\"op\": \"fixed256_7\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "not checked: step 1 (channel_concat) has no reference I can run \u2014 define it in `primitives` with a `reference` (the code matches the operation (largest relative difference 0.001, within 0.001))",
+  "check_ok": null,
+  "code": "def forward(module, x0, x1):\n    import torch\n    y = torch.cat((x0, x1), dim=1)\n    return torch.round(y * 256.0) * (1.0 / 256.0)",
+  "id": 221,
+  "kind": "approximate",
+  "name": "concat7_fixed256",
+  "op": "aten",
+  "proposal": "{\"description\": \"Copy x0 then x1 into adjacent channel blocks with channel_concat (batch 1, 256 channels per input, 49 spatial positions). Multiply each float32 value by 256, round to nearest integer with ties to even, then multiply by 1/256, without saturation. Preserve shape [1,512,7,7].\", \"rel_err\": 0.0009765911390090224}",
+  "proposed_by": 147
+ },
+ {
+  "chain": "[{\"op\": \"channel_concat\", \"params\": {\"batch\": 1, \"channels\": 256, \"spatial\": 49}}, {\"op\": \"round_fp16_7\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "not checked: step 1 (channel_concat) has no reference I can run \u2014 define it in `primitives` with a `reference` (the code matches the operation (largest relative difference 0.0002, within 0.001))",
+  "check_ok": null,
+  "code": "def forward(module, x0, x1):\n    import torch\n    y = torch.cat((x0, x1), dim=1)\n    return y.to(torch.float16).to(torch.float32)",
+  "id": 220,
+  "kind": "approximate",
+  "name": "concat7_fp16",
+  "op": "aten",
+  "proposal": "{\"description\": \"Copy x0 then x1 into adjacent channel blocks with channel_concat (batch 1, 256 channels per input, 49 spatial positions). Convert each output to IEEE binary16 round-to-nearest ties-to-even, then back to float32. Overflow becomes signed infinity; output shape is [1,512,7,7].\", \"rel_err\": 0.0002441477847522556}",
+  "proposed_by": 147
+ },
+ {
+  "chain": "[{\"op\": \"channel_concat\", \"params\": {\"batch\": 1, \"channels\": 256, \"spatial\": 49}}]",
+  "check_detail": "not checked: step 1 (channel_concat) has no reference I can run \u2014 define it in `primitives` with a `reference` (the code matches the operation (largest relative difference 0, within 0.001))",
+  "check_ok": null,
+  "code": "def forward(module, x0, x1):\n    import torch\n    return torch.cat((x0, x1), dim=1)\n",
+  "id": 218,
+  "kind": "equivalent",
+  "name": "concat7_native",
+  "op": "aten",
+  "proposal": "{\"description\": \"Use channel_concat to place the two 256-channel NCHW inputs in order into a 512-channel output, copying 12544 elements per input without arithmetic.\", \"rel_err\": 0.0}",
+  "proposed_by": 147
+ },
+ {
+  "chain": "[{\"op\": \"channel_concat_pair\", \"params\": {\"batch\": 1, \"channels\": 256, \"spatial\": 49}}]",
+  "check_detail": "not checked: step 1 (channel_concat_pair) has no reference I can run \u2014 define it in `primitives` with a `reference` (the code matches the operation (largest relative difference 0, within 0.001))",
+  "check_ok": null,
+  "code": "def forward(module, x0, x1):\n    import torch\n    out = torch.empty((1, 512, 7, 7), dtype=x0.dtype, device=x0.device)\n    out[:, :256].copy_(x0)\n    out[:, 256:].copy_(x1)\n    return out\n",
+  "id": 217,
+  "kind": "equivalent",
+  "name": "concat7_pair",
+  "op": "aten",
+  "proposal": "{\"description\": \"Use the channel_concat_pair operation to copy the two inputs in order into adjacent channel blocks of a [1,512,7,7] output. Each block contains 12544 float32 values, with no arithmetic.\", \"rel_err\": 0.0}",
+  "proposed_by": 147
+ },
+ {
+  "chain": "[{\"op\": \"concat7_probe_blocks\", \"params\": {\"block_elements\": \"numel // 2\"}}]",
+  "check_detail": "the chain could not run: step 1's reference (concat7_probe_blocks) raised ValueError: probe x=<class 'torch.Tensor'> params=[('block_elements', <class 'int'>, None)] \u2014 check its parameter names against the step's params",
+  "check_ok": 0,
+  "code": "def forward(module, x0, x1):\n    import torch\n    return torch.cat((x0, x1), dim=1)\n",
+  "id": 216,
+  "kind": "equivalent",
+  "name": "concat7_probe",
+  "op": "aten",
+  "proposal": "{\"description\": \"Copy the first 12544 input values then the second 12544 into a [1,512,7,7] output.\", \"rel_err\": 0.0}",
+  "proposed_by": 147
+ },
+ {
+  "chain": "[{\"op\": \"concat_14_blocks\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, x0, x1):\n    import torch\n    out = torch.empty((x0.shape[0], x0.shape[1] + x1.shape[1], *x0.shape[2:]), dtype=x0.dtype, device=x0.device)\n    out[:, :x0.shape[1]].copy_(x0)\n    out[:, x0.shape[1]:].copy_(x1)\n    return out\n",
+  "id": 205,
+  "kind": "equivalent",
+  "name": "concat_14_copy",
+  "op": "aten",
+  "proposal": "{\"description\": \"Allocate a contiguous float32 output of shape [1,512,14,14]. Copy all 50176 contiguous elements of x0 to output offsets 0 through 50175, then all 50176 elements of x1 to offsets 50176 through 100351. This is channel concatenation for batch size one and preserves the input bits without arithmetic.\", \"rel_err\": 0.0}",
+  "proposed_by": 145
+ },
+ {
+  "chain": "[{\"op\": \"concat_14_blocks\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "not checked: step 1 (concat_14_blocks) has no reference I can run \u2014 define it in `primitives` with a `reference` (the code matches the operation (largest relative difference 0, within 0.001))",
+  "check_ok": null,
+  "code": "import torch\ndef forward(module, x0, x1):\n    out = torch.empty((1, 512, 14, 14), dtype=x0.dtype, device=x0.device)\n    out[:, :256].copy_(x0)\n    out[:, 256:].copy_(x1)\n    return out\n",
+  "id": 206,
+  "kind": "equivalent",
+  "name": "concat_blocks14",
+  "op": "aten",
+  "proposal": "{\"description\": \"Use concat_14_blocks to copy the 50176 contiguous float32 elements of the first input, followed by the 50176 elements of the second, into an output of shape [1,512,14,14]. This preserves the bit patterns and requires no arithmetic.\", \"rel_err\": 0.0}",
+  "proposed_by": 146
+ },
+ {
+  "chain": "[{\"op\": \"concat_clip_primitive\", \"params\": {\"elements\": \"numel\"}}]",
+  "check_detail": "the chain could not run: step 1's reference (concat_clip_primitive) raised ValueError: too many values to unpack (expected 2) \u2014 check its parameter names against the step's params",
+  "check_ok": 0,
+  "code": "def forward(module, x0, x1):\n    import torch\n    return torch.cat((x0, x1), dim=1).clamp(-4.0, 4.0)",
+  "id": 202,
+  "kind": "approximate",
+  "name": "concat_clip",
+  "op": "aten",
+  "proposal": "{\"description\": \"Concatenate the two NCHW tensors along channels in their original order, then clamp each output value to the interval [-4,4]. Values within the interval are unchanged; outliers are saturated.\", \"rel_err\": 0.0}",
+  "proposed_by": 143
+ },
+ {
+  "chain": "[{\"op\": \"concat_half_round_primitive\", \"params\": {\"elements\": \"numel\"}}]",
+  "check_detail": "the chain could not run: step 1's reference (concat_half_round_primitive) raised ValueError: too many values to unpack (expected 2) \u2014 check its parameter names against the step's params",
+  "check_ok": 0,
+  "code": "def forward(module, x0, x1):\n    import torch\n    return torch.cat((x0, x1), dim=1).to(torch.float16).to(torch.float32)",
+  "id": 201,
+  "kind": "approximate",
+  "name": "concat_half_round",
+  "op": "aten",
+  "proposal": "{\"description\": \"Copy the two channel blocks in order into a [1,512,28,28] output, rounding each float32 value to float16 and then converting back to float32. This reduces stored mantissa precision and may overflow values beyond the float16 range.\", \"rel_err\": 0.00024414111976612043}",
+  "proposed_by": 143
+ },
+ {
+  "chain": "[{\"op\": \"concat_quantize_primitive\", \"params\": {\"elements\": \"numel\"}}]",
+  "check_detail": "the chain could not run: step 1's reference (concat_quantize_primitive) raised ValueError: too many values to unpack (expected 2) \u2014 check its parameter names against the step's params",
+  "check_ok": 0,
+  "code": "def forward(module, x0, x1):\n    import torch\n    return torch.round(torch.cat((x0, x1), dim=1) * 256.0) / 256.0",
+  "id": 203,
+  "kind": "approximate",
+  "name": "concat_quantize",
+  "op": "aten",
+  "proposal": "{\"description\": \"Concatenate the two channel blocks in order, multiply each float32 output element by 256, round to nearest integer with ties to even, then multiply by 1/256. This is fixed-step quantization without saturation.\", \"rel_err\": 0.0009765644790644817}",
+  "proposed_by": 143
  },
  {
   "chain": "[{\"op\": \"center_kernel_primitive\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"stride\": \"stride\", \"w\": \"w\"}}]",
@@ -264,6 +492,18 @@
   "proposed_by": 76
  },
  {
+  "chain": "[{\"op\": \"center_tap_gemm\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"w\": \"w\"}}, {\"op\": \"nearest2x\", \"params\": {\"channels\": \"cout\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"add_bias\", \"params\": {\"channels\": \"cout\", \"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "import torch\n\ndef forward(module, *inputs):\n    x = inputs[0]\n    w = module.weight  # [cin, cout, kh, kw]\n    bias = getattr(module, 'bias', None)\n    if bias is None:\n        for t in inputs:\n            if torch.is_tensor(t) and t.dim() == 1 and t.numel() == w.shape[1]:\n                bias = t\n    squeeze = x.dim() == 3\n    if squeeze:\n        x = x.unsqueeze(0)\n    M = w[:, :, w.shape[2] // 2, w.shape[3] // 2]  # [cin, cout]\n    y = torch.einsum('bchw,cd->bdhw', x, M)\n    y = y.repeat_interleave(2, dim=2).repeat_interleave(2, dim=3)\n    if bias is not None:\n        y = y + bias.reshape(1, -1, 1, 1)\n    return y[0] if squeeze else y\n",
+  "id": 212,
+  "kind": "approximate",
+  "name": "center_tap_nearest2x",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"Approximate conv_transpose2d by keeping only a single spatial tap of the 2x2 kernel: M[ci,co] = W[ci,co,kh//2,kw//2] (tap (1,1)). Step 1: center_tap_gemm applies this [cin,cout] projection at each input position of [cin,h,w], giving [cout,h,w] (exact channel mixing, the other three kernel taps discarded). Step 2: nearest2x repeats each value over its stride-sized 2x2 output tile at (2i+th, 2j+tw), th,tw in [0,2), giving [cout,2h,2w] \\u2014 the same disjoint tile placement as the original op. Step 3: add_bias adds the per-output-channel bias.\", \"rel_err\": null}",
+  "proposed_by": 141
+ },
+ {
   "chain": "[{\"op\": \"center_tap_gemm\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"w\": \"w\"}}, {\"op\": \"tile_up\", \"params\": {\"channels\": \"cout\", \"h\": \"h\", \"stride\": \"stride\", \"w\": \"w\"}}, {\"op\": \"add_bias\", \"params\": {\"channels\": \"cout\", \"h\": \"h*stride\", \"w\": \"w*stride\"}}]",
   "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
   "check_ok": null,
@@ -286,6 +526,18 @@
   "op": "conv_transpose2d",
   "proposal": "{\"description\": \"Collapse input channels by their arithmetic mean at each spatial location, broadcast that shared scalar feature to all 96 output channels, and repeat each location over its 2x2 tile. This is a rank-one channel-mixing heuristic and ignores kernel-tap variation and bias.\", \"rel_err\": null}",
   "proposed_by": 47
+ },
+ {
+  "chain": "[{\"op\": \"diag_scale_gemm\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"w\": \"w\"}}, {\"op\": \"nearest2x\", \"params\": {\"channels\": \"cout\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"add_bias\", \"params\": {\"channels\": \"cout\", \"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "import torch\n\ndef forward(module, *inputs):\n    x = inputs[0]\n    w = module.weight  # [cin, cout, kh, kw]\n    bias = getattr(module, 'bias', None)\n    if bias is None:\n        for t in inputs:\n            if torch.is_tensor(t) and t.dim() == 1 and t.numel() == w.shape[1]:\n                bias = t\n    squeeze = x.dim() == 3\n    if squeeze:\n        x = x.unsqueeze(0)\n    cin, cout, kh, kw = w.shape\n    d = w.diagonal(dim1=0, dim2=1).mean(dim=-1)  # [min(cin,cout)] = mean over taps of W[c,c,th,tw]\n    if cin != cout:\n        d = d[: min(cin, cout)]\n    # scale input channels, sum over channels -> single spatial map, broadcast to cout channels\n    m = torch.einsum('bchw,c->bhw', x[:, : d.numel()], d)  # [b, h, w]\n    y = m.unsqueeze(1).expand(-1, cout, -1, -1).contiguous()\n    y = y.repeat_interleave(2, dim=2).repeat_interleave(2, dim=3)\n    if bias is not None:\n        y = y + bias.reshape(1, -1, 1, 1)\n    return y[0] if squeeze else y\n",
+  "id": 213,
+  "kind": "approximate",
+  "name": "diag_scale_nearest2x",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"Approximate conv_transpose2d by a diagonal (per-channel) channel mixing. Step 1: diag_scale_gemm extracts per-channel scale factors from the kernel diagonal, d[c] = mean_{th,tw} W[c,c,th,tw], and scales each input channel independently, summing over channels to produce a [cout,h,w] output map (rank-one channel approximation: cross-channel mixing beyond same-index channels and within-tile kernel variation are discarded). Step 2: nearest2x repeats each value over its stride-sized 2x2 output tile at (2i+th, 2j+tw), giving [cout,2h,2w] \\u2014 the same disjoint tile placement as the original op. Step 3: add_bias adds the per-output-channel bias.\", \"rel_err\": null}",
+  "proposed_by": 141
  },
  {
   "chain": "[{\"op\": \"diag_scale_gemm\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kw\", \"w\": \"w\"}}, {\"op\": \"tile_up\", \"params\": {\"channels\": \"cout\", \"h\": \"h\", \"stride\": \"stride\", \"w\": \"w\"}}, {\"op\": \"add_bias\", \"params\": {\"channels\": \"cout\", \"h\": \"h*stride\", \"w\": \"w*stride\"}}]",
@@ -420,6 +672,30 @@
   "proposed_by": 140
  },
  {
+  "chain": "[{\"op\": \"flatten_input\", \"params\": {\"cin\": \"cin\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"cin\", \"m\": \"h*w\", \"n\": \"cout*kh*kw\"}}, {\"op\": \"tile_scatter\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"stride\": \"stride\", \"w\": \"w\"}}, {\"op\": \"add_bias\", \"params\": {\"channels\": \"cout\", \"h\": \"h*stride\", \"w\": \"w*stride\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "import torch\n\ndef forward(module, *inputs):\n    x = inputs[0]\n    weight = getattr(module, 'weight', None)\n    if weight is None:\n        weight = inputs[1]\n    bias = getattr(module, 'bias', None)\n    if bias is None and len(inputs) > 2:\n        bias = inputs[2]\n\n    batched = x.dim() == 4\n    if batched:\n        b, cin, h, w = x.shape\n    else:\n        cin, h, w = x.shape\n    cout, kh, kw = weight.shape[1], weight.shape[2], weight.shape[3]\n\n    stride = getattr(module, 'stride', None)\n    if isinstance(stride, (tuple, list)):\n        stride = stride[0]\n    if not stride:\n        stride = kh\n    padding = getattr(module, 'padding', 0)\n    if isinstance(padding, (tuple, list)):\n        padding = padding[0]\n\n    # Step 1: flatten_input -> spatial-major rows [h*w, cin]\n    if batched:\n        xm = x.reshape(cin, h * w).t().contiguous()\n    else:\n        xm = x.permute(1, 2, 0).reshape(h * w, cin).contiguous()\n\n    # Step 2: gemm rows @ weight flattened [cin, cout*kh*kw]\n    w2 = weight.reshape(cin, cout * kh * kw)\n    prod = xm @ w2  # [h*w, cout*kh*kw]\n\n    # Step 3: tile_scatter -> [cout, h*stride, w*stride]\n    prod = prod.reshape(h, w, cout, kh, kw).permute(2, 0, 3, 1, 4).contiguous()\n    out = prod.reshape(cout, h * stride, w * stride)\n\n    # Step 4: add_bias\n    if bias is not None:\n        out = out + bias.reshape(1, cout, 1, 1)\n    if batched:\n        out = out.unsqueeze(0)\n    return out",
+  "id": 209,
+  "kind": "equivalent",
+  "name": "disjoint_gemm_scatter",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"Stride=kh=kw=2, padding=0, dilation=1, so every input pixel (i,j) feeds exactly one disjoint 2x2 output tile at (2i+th, 2j+tw), th,tw in [0,2). Step 1: flatten_input lays the input [cin,h,w] out spatial-major as rows [h*w, cin]. Step 2: gemm rows @ W2 where the weight [cin,cout,kh,kw] is flattened to [cin, cout*kh*kw] (column co*kh*kw + th*kw + tw), giving [h*w, cout*kh*kw]; entry (i*w+j, co*kh*kw+th*kw+tw) = sum_ci in[ci,i,j]*W[ci,co,th,tw], exactly the conv_transpose2d contribution of input pixel (i,j) to output channel co at (2i+th, 2j+tw). Step 3: tile_scatter reshapes the product to [h,w,cout,kh,kw], permutes to [cout,h,kh,w,kw] and reshapes to [cout, h*stride, w*stride] = [cout,32,32], interleaving each row into its disjoint output tile. Step 4: add_bias adds the per-output-channel bias, broadcast over the spatial dims.\", \"rel_err\": null}",
+  "proposed_by": 141
+ },
+ {
+  "chain": "[{\"op\": \"flatten_input\", \"params\": {\"cin\": \"cin\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"cin\", \"m\": \"h*w\", \"n\": \"cout*kh*kw\"}}, {\"op\": \"disjoint_tile_layout\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"w\": \"w\"}}, {\"op\": \"add_bias\", \"params\": {\"channels\": \"cout\", \"h\": \"h*stride\", \"w\": \"w*stride\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "import torch\n\ndef forward(module, *inputs):\n    x = inputs[0]\n    weight = getattr(module, 'weight', None)\n    if weight is None:\n        weight = inputs[1]\n    bias = getattr(module, 'bias', None)\n    if bias is None and len(inputs) > 2:\n        bias = inputs[2]\n\n    batched = x.dim() == 4\n    if batched:\n        b, cin, h, w = x.shape\n    else:\n        cin, h, w = x.shape\n    cout, kh, kw = weight.shape[1], weight.shape[2], weight.shape[3]\n\n    stride = getattr(module, 'stride', None)\n    if isinstance(stride, (tuple, list)):\n        stride = stride[0]\n    if not stride:\n        stride = kh\n\n    # Step 1: flatten_input -> spatial-major rows [h*w, cin]\n    if batched:\n        xm = x.reshape(cin, h * w).t().contiguous()\n    else:\n        xm = x.permute(1, 2, 0).reshape(h * w, cin).contiguous()\n\n    # Step 2: gemm rows @ weight flattened [cin, cout*kh*kw]\n    w2 = weight.reshape(cin, cout * kh * kw)\n    prod = xm @ w2  # [h*w, cout*kh*kw]\n\n    # Step 3: disjoint_tile_layout -> [cout, h*stride, w*stride]\n    prod = prod.reshape(h, w, cout, kh, kw).permute(2, 0, 3, 1, 4).contiguous()\n    out = prod.reshape(cout, h * stride, w * stride)\n\n    # Step 4: add_bias\n    if bias is not None:\n        out = out + bias.reshape(1, cout, 1, 1)\n    if batched:\n        out = out.unsqueeze(0)\n    return out",
+  "id": 210,
+  "kind": "equivalent",
+  "name": "disjoint_gemm_tilelayout",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"Stride=kh=kw=2, padding=0, dilation=1: each input pixel (i,j) feeds exactly one disjoint 2x2 output tile at (2i+th, 2j+tw). Step 1: flatten_input lays input [cin,h,w] spatial-major as rows [h*w, cin]. Step 2: gemm rows @ W2 with weight [cin,cout,kh,kw] flattened to [cin, cout*kh*kw] (column co*kh*kw+th*kw+tw), giving [h*w, cout*kh*kw]; entry (i*w+j, co*kh*kw+th*kw+tw) = sum_ci in[ci,i,j]*W[ci,co,th,tw], the exact conv_transpose2d contribution of pixel (i,j) to channel co at (2i+th,2j+tw). Step 3: disjoint_tile_layout scatters each row's (co,th,tw) columns into its disjoint stride-by-stride output tile at [co, i*stride+th, j*stride+tw], producing [cout, h*stride, w*stride] = [cout,32,32]. Step 4: add_bias adds the per-output-channel bias, broadcast over the spatial dims.\", \"rel_err\": null}",
+  "proposed_by": 141
+ },
+ {
   "chain": "[{\"op\": \"flatten_input_spatial\", \"params\": {\"cin\": \"cin\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"flatten_weight\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"kh\": \"kh\", \"kw\": \"kw\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"cin\", \"m\": \"h*w\", \"n\": \"cout*kh*kw\"}}, {\"op\": \"disjoint_tile_layout\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"w\": \"w\"}}, {\"op\": \"binary\", \"params\": {\"broadcast\": true, \"const\": false, \"inner\": \"cout\", \"numel\": \"cout*h*kh*w*kw\", \"op\": \"add\", \"value\": 0}}]",
   "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
   "check_ok": null,
@@ -478,6 +754,30 @@
   "op": "conv_transpose2d",
   "proposal": "{\"description\": \"Approximate conv_transpose2d by collapsing the 4x4 kernel to its tap mean (a [cin,cout] projection M[ci,co] = mean_{th,tw} W[ci,co,th,tw]), applying it at input resolution, then upsampling smoothly instead of block-repeating. Step 1: flatten the input [batch,cin,16,16] to rows and GEMM with M -> [batch,cout,16,16]. Step 2: bilinear 2x upsample 16->32. Step 3: bilinear 2x upsample 32->64, giving [batch,cout,64,64]. Step 4: add the per-output-channel bias. Approximate: replaces within-tile kernel variation by its mean and the piecewise-constant tile placement by bilinear interpolation.\", \"rel_err\": null}",
   "proposed_by": 140
+ },
+ {
+  "chain": "[{\"op\": \"flatten_input\", \"params\": {\"cin\": \"cin\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"mean_tap_gemm\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"w\": \"w\"}}, {\"op\": \"unflatten_rows\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"bilinear2x_gather4\", \"params\": {\"channels\": \"cout\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"add_bias\", \"params\": {\"channels\": \"cout\", \"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "import torch\n\ndef forward(module, *inputs):\n    x = inputs[0]\n    w = module.weight  # [cin, cout, kh, kw]\n    bias = getattr(module, 'bias', None)\n    if bias is None:\n        for t in inputs:\n            if torch.is_tensor(t) and t.dim() == 1 and t.numel() == w.shape[1]:\n                bias = t\n    squeeze = x.dim() == 3\n    if squeeze:\n        x = x.unsqueeze(0)\n    M = w.mean(dim=(2, 3))  # [cin, cout]\n    b, cin, h, ww = x.shape\n    rows = x.permute(0, 2, 3, 1).reshape(b * h * ww, cin)\n    y = rows @ M\n    y = y.reshape(b, h, ww, w.shape[1]).permute(0, 3, 1, 2).contiguous()\n    y = torch.nn.functional.interpolate(y, scale_factor=2, mode='bilinear', align_corners=False)\n    if bias is not None:\n        y = y + bias.reshape(1, -1, 1, 1)\n    return y[0] if squeeze else y\n",
+  "id": 211,
+  "kind": "approximate",
+  "name": "mean_tap_bilinear2x",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"Approximate conv_transpose2d by collapsing the 2x2 spatial kernel to its arithmetic mean over taps, giving a [cin, cout] projection M[ci,co] = mean_{th,tw} W[ci,co,th,tw]. Step 1: flatten the input [cin,h,w] spatial-major to rows [h*w, cin]. Step 2: mean_tap_gemm computes rows @ M -> [h*w, cout] (exact channel mixing, within-tile kernel variation replaced by its mean). Step 3: unflatten_rows reshapes to [cout, h, w]. Step 4: bilinear2x_gather4 upsamples smoothly h->2h, w->2w giving [cout, 2h, 2w] (instead of the disjoint tile placement). Step 5: add_bias adds the per-output-channel bias.\", \"rel_err\": null}",
+  "proposed_by": 141
+ },
+ {
+  "chain": "[{\"op\": \"mean_tap_gemm\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"w\": \"w\"}}, {\"op\": \"nearest2x\", \"params\": {\"channels\": \"cout\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"add_bias\", \"params\": {\"channels\": \"cout\", \"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "import torch\n\ndef forward(module, *inputs):\n    x = inputs[0]\n    w = module.weight  # [cin, cout, kh, kw]\n    bias = getattr(module, 'bias', None)\n    if bias is None:\n        for t in inputs:\n            if torch.is_tensor(t) and t.dim() == 1 and t.numel() == w.shape[1]:\n                bias = t\n    squeeze = x.dim() == 3\n    if squeeze:\n        x = x.unsqueeze(0)\n    M = w.mean(dim=(2, 3))  # [cin, cout]\n    y = torch.einsum('bchw,cd->bdhw', x, M)\n    y = y.repeat_interleave(2, dim=2).repeat_interleave(2, dim=3)\n    if bias is not None:\n        y = y + bias.reshape(1, -1, 1, 1)\n    return y[0] if squeeze else y\n",
+  "id": 214,
+  "kind": "approximate",
+  "name": "mean_tap_nearest2x",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"Approximate conv_transpose2d by collapsing the 2x2 spatial kernel to its arithmetic mean over taps, giving a [cin,cout] projection M[ci,co] = mean_{th,tw} W[ci,co,th,tw]. Step 1: mean_tap_gemm applies this projection at each input position of [cin,h,w], giving [cout,h,w] (exact channel mixing; within-tile kernel variation replaced by the tap mean). Step 2: nearest2x repeats each value over its stride-sized 2x2 output tile at (2i+th, 2j+tw), th,tw in [0,2), giving [cout,2h,2w] \\u2014 the same disjoint tile placement as the original op. Step 3: add_bias adds the per-output-channel bias. This differs from the original only in replacing the four per-tap kernel weights by their mean, so it is exact when the kernel is spatially constant.\", \"rel_err\": null}",
+  "proposed_by": 141
  },
  {
   "chain": "[{\"op\": \"mean_tap_gemm\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"w\": \"w\"}}, {\"op\": \"tile_up\", \"params\": {\"channels\": \"cout\", \"h\": \"h\", \"stride\": \"stride\", \"w\": \"w\"}}, {\"op\": \"add_bias\", \"params\": {\"channels\": \"cout\", \"h\": \"h*stride\", \"w\": \"w*stride\"}}]",
@@ -2038,6 +2338,30 @@
   "op": "upsample",
   "proposal": "{\"description\": \"First nearest-repeat each pixel 2x in both axes. Then replicate-pad the resulting image by one pixel on each edge and apply a depthwise 3x3 convolution, stride 1, with kernel outer([1/4,1/2,1/4],[1/4,1/2,1/4]). For each axis this maps a repeated sequence ...,a,a,b,b,... to ...,a,(3a+b)/4,(a+3b)/4,b,..., including clamped endpoints. Thus the separable filter gives exactly 2x bilinear interpolation with align_corners=False. The second step is a defined fixed-filter primitive, including its edge padding and depthwise convolution.\", \"rel_err\": 1.7913305334439023e-07}",
   "proposed_by": 117
+ },
+ {
+  "chain": "[{\"op\": \"phase_stencil_replicate_op\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 1e-07, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, *inputs):\n import torch\n import torch.nn.functional as F\n x = inputs[0]\n h, w = x.shape[-2:]\n p = F.pad(x.unsqueeze(0), (1,1,1,1), mode='replicate').squeeze(0)\n c = p[:,1:h+1,1:w+1]\n rows = []\n for di in (-1,1):\n  phases = []\n  for dj in (-1,1):\n   v = p[:,1+di:h+1+di,1:w+1]\n   u = p[:,1:h+1,1+dj:w+1+dj]\n   d = p[:,1+di:h+1+di,1+dj:w+1+dj]\n   phases.append((9*c+3*v+3*u+d)/16)\n  rows.append(torch.stack(phases, dim=-1))\n return torch.stack(rows, dim=2).reshape(x.shape[0],2*h,2*w)",
+  "id": 223,
+  "kind": "equivalent",
+  "name": "phase_stencil_replicate",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Compute the four output phases using a replicated one-pixel input halo. For each input pixel and phase (a,b), use the vertical neighbour above if a=0 and below otherwise, and the horizontal neighbour left if b=0 and right otherwise. The phase value is (9*center+3*vertical+3*horizontal+diagonal)/16. Interleave phases in row-major order to produce [channels,2*h,2*w]. This is half-pixel bilinear interpolation with edge clamping.\", \"rel_err\": 1.193417396063489e-07}",
+  "proposed_by": 150
+ },
+ {
+  "chain": "[{\"op\": \"phase_rows_2x\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"phase_cols_2x\", \"params\": {\"channels\": \"channels\", \"h\": \"2*h\", \"w\": \"w\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 1e-07, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, *inputs):\n    import torch\n    x = inputs[0]\n    prev = torch.cat((x[..., :1, :], x[..., :-1, :]), dim=-2)\n    nxt = torch.cat((x[..., 1:, :], x[..., -1:, :]), dim=-2)\n    x = torch.stack(((3*x+prev)*0.25, (3*x+nxt)*0.25), dim=-2).flatten(-3, -2)\n    prev = torch.cat((x[..., :1], x[..., :-1]), dim=-1)\n    nxt = torch.cat((x[..., 1:], x[..., -1:]), dim=-1)\n    return torch.stack(((3*x+prev)*0.25, (3*x+nxt)*0.25), dim=-1).flatten(-2, -1)\n",
+  "id": 224,
+  "kind": "equivalent",
+  "name": "separable_phase_passes",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Apply two separable 1D half-pixel interpolation passes. First, for each input row i, output rows 2i and 2i+1 are (3*x[i]+x[max(i-1,0)])/4 and (3*x[i]+x[min(i+1,h-1)])/4. Then apply the same rule to columns of the intermediate. Clamped neighbors implement edge replication. This computes the four bilinear phases with weights 9/16, 3/16, 3/16, 1/16 without forming interpolation matrices.\", \"rel_err\": 1.193417396063489e-07}",
+  "proposed_by": 151
  },
  {
   "chain": "[{\"op\": \"bilinear2x_gather4\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
