@@ -252,6 +252,30 @@
   "proposed_by": 165
  },
  {
+  "chain": "[{\"op\": \"cat_pair_exact\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "not equivalent: the chain never reads 1 of aten's 2 inputs \u2014 every input must reach a step",
+  "check_ok": 0,
+  "code": "import torch\n\ndef forward(module, x0, x1):\n    return torch.cat([x0, x1], dim=1)\n",
+  "id": 310,
+  "kind": "equivalent",
+  "name": "cat_pair_exact_chip",
+  "op": "aten",
+  "proposal": "{\"description\": \"Use the chip's cat_pair_exact operation on the two float32 NCHW inputs [1,256,14,14] to place x0 in output channels 0..255 and x1 in channels 256..511 of a [1,512,14,14] tensor (numel 100352). Pure copies, bit-identical.\", \"rel_err\": 0.0}",
+  "proposed_by": 186
+ },
+ {
+  "chain": "[{\"op\": \"channel_cat2\", \"params\": {\"batch\": \"1\", \"channels\": \"numel // 196\", \"spatial\": \"196\"}}, {\"op\": \"reshape_nchw\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "not equivalent: the chain never reads 1 of aten's 2 inputs \u2014 every input must reach a step",
+  "check_ok": 0,
+  "code": "import torch\n\ndef forward(module, x0, x1):\n    return torch.cat([x0, x1], dim=1)\n",
+  "id": 312,
+  "kind": "equivalent",
+  "name": "channel_cat2_chip",
+  "op": "aten",
+  "proposal": "{\"description\": \"Channel concatenation of the two float32 NCHW inputs [1,256,14,14] with the chip's channel_cat2 operation: x0 to output channels 0..255, x1 to channels 256..511 of a [1,512,14,14] output (numel 100352), then a metadata-only reshape to [1,512,14,14]. Copies only, bit-identical.\", \"rel_err\": 0.0}",
+  "proposed_by": 186
+ },
+ {
   "chain": "[{\"op\": \"channel_cat2\", \"params\": {\"batch\": \"numel // 401408\", \"channels\": \"numel // 1568\", \"spatial\": \"numel // 512\"}}]",
   "check_detail": "the chain could not run: step 1's reference (channel_cat2) raised IndexError: index 1 is out of bounds for dimension 0 with size 1 \u2014 check its parameter names against the step's params",
   "check_ok": 0,
@@ -298,6 +322,18 @@
   "op": "aten",
   "proposal": "{\"description\": \"Pure data movement, no arithmetic. Run the chip's channel_concat operation on x0 and x1 (both [1,256,28,28] float32). Batch=1, channels=256 per input, spatial=784 (28x28). It copies x0 into output channels 0..255 and x1 into channels 256..511 of a [1,512,28,28] float32 result, bit-identical to aten::concat along dim 1.\", \"rel_err\": 0.0}",
   "proposed_by": 160
+ },
+ {
+  "chain": "[{\"op\": \"channel_concat\", \"params\": {\"batch\": \"1\", \"channels\": \"numel // 196\", \"spatial\": \"196\"}}]",
+  "check_detail": "not checked: step 1 (channel_concat) has no reference I can run \u2014 define it in `primitives` with a `reference` (the code matches the operation (largest relative difference 0, within 0.001))",
+  "check_ok": null,
+  "code": "import torch\n\ndef forward(module, x0, x1):\n    return torch.cat([x0, x1], dim=1)\n",
+  "id": 308,
+  "kind": "equivalent",
+  "name": "channel_concat_chip-2",
+  "op": "aten",
+  "proposal": "{\"description\": \"Concatenate the two float32 NCHW inputs [1,256,14,14] on the channel axis (dim 1) using the chip's channel_concat operation: x0 fills output channels 0..255, x1 fills channels 256..511, output shape [1,512,14,14], numel 100352. Pure copy, no arithmetic, so the result is bit-identical.\", \"rel_err\": 0.0}",
+  "proposed_by": 186
  },
  {
   "chain": "[{\"op\": \"channel_concat\", \"params\": {\"batch\": 1, \"channels\": 384, \"spatial\": 784}}]",
@@ -360,6 +396,18 @@
   "proposed_by": 156
  },
  {
+  "chain": "[{\"op\": \"channel_concat_pair\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "not equivalent: the chain never reads 1 of aten's 2 inputs \u2014 every input must reach a step",
+  "check_ok": 0,
+  "code": "import torch\n\ndef forward(module, x0, x1):\n    return torch.cat([x0, x1], dim=1)\n",
+  "id": 311,
+  "kind": "equivalent",
+  "name": "channel_concat_pair_chip",
+  "op": "aten",
+  "proposal": "{\"description\": \"Concatenate the two float32 NCHW inputs [1,256,14,14] on channel axis with the chip's channel_concat_pair operation: x0 fills output channels 0..255, x1 fills channels 256..511 of a [1,512,14,14] output (numel 100352). Pure copies, no arithmetic.\", \"rel_err\": 0.0}",
+  "proposed_by": 186
+ },
+ {
   "chain": "[{\"op\": \"channel_concat_pair\", \"params\": {\"batch\": 1, \"channels\": 256, \"spatial\": 196}}]",
   "check_detail": "the chain could not run: step 1's reference (channel_concat_pair) raised IndexError: index 1 is out of bounds for dimension 0 with size 1 \u2014 check its parameter names against the step's params",
   "check_ok": 0,
@@ -382,6 +430,18 @@
   "op": "aten",
   "proposal": "{\"description\": \"Concatenate the two float32 NCHW inputs on the channel axis. Copy x0 into output channels 0 through 255, and copy x1 into channels 256 through 511, retaining all 14 by 14 spatial positions. No arithmetic is required.\", \"rel_err\": 0.0}",
   "proposed_by": 142
+ },
+ {
+  "chain": "[{\"op\": \"concat_pair_copy\", \"params\": {\"batch\": \"1\", \"channels\": \"numel // 196\", \"spatial\": \"196\"}}]",
+  "check_detail": "not equivalent: the chain never reads 1 of aten's 2 inputs \u2014 every input must reach a step",
+  "check_ok": 0,
+  "code": "import torch\n\ndef forward(module, x0, x1):\n    return torch.cat([x0, x1], dim=1)\n",
+  "id": 309,
+  "kind": "equivalent",
+  "name": "channel_concat_pair_prim",
+  "op": "aten",
+  "proposal": "{\"description\": \"Channel concatenation of two float32 NCHW batch-one tensors [1,256,14,14] by a primitive that copies x0 into output channels 0..255 and x1 into channels 256..511 of a new [1,512,14,14] tensor (numel 100352). Pure element copies, no arithmetic, bit-identical.\", \"rel_err\": 0.0}",
+  "proposed_by": 186
  },
  {
   "chain": "[{\"op\": \"concat_sum\", \"params\": {\"channels\": \"numel // 1568\"}}]",
@@ -430,6 +490,30 @@
   "op": "aten",
   "proposal": "{\"description\": \"Use a defined data-movement primitive, not an arithmetic simulation. Derive N,C0,C1,H,W from the two runtime NCHW inputs and allocate a contiguous float32 destination [N,C0+C1,H,W]. Copy x0[n,c,h,w] to out[n,c,h,w] and x1[n,c,h,w] to out[n,C0+c,h,w]. Source accesses use their actual strides; destination writes are disjoint. For this node each input has 75264 elements and the second output block starts at float offset 75264 (byte offset 301056). Preserve all value bits without rounding, addition, masking, or a requirement that source allocations be adjacent. Runtime-derived shapes also handle other instances of channel concatenation.\", \"rel_err\": 0.0}",
   "proposed_by": 192
+ },
+ {
+  "chain": "[{\"op\": \"disjoint_channel_pair_load_store\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, x0, x1):\n    import torch\n    n, c0, h, w = x0.shape\n    c1 = x1.shape[1]\n    y = torch.empty((n, c0 + c1, h, w), dtype=x0.dtype, device=x0.device)\n    y[:, :c0, :, :].copy_(x0)\n    y[:, c0:, :, :].copy_(x1)\n    return y",
+  "id": 324,
+  "kind": "equivalent",
+  "name": "channel_pair_disjoint_copy",
+  "op": "aten",
+  "proposal": "{\"description\": \"Allocate a contiguous output with the runtime input dtype/device and shape [N,C0+C1,H,W]. For each batch n, copy x0[n,c,h,w] to y[n,c,h,w] and x1[n,c,h,w] to y[n,C0+c,h,w], using the actual source strides. Implement as two disjoint load/store regions, with no arithmetic on the values. Here N=1, C0=C1=384, H=W=7: the first region contains 18816 float32 values and the second begins at output element 18816 (byte 75264); output has 37632 values. For contiguous inputs these are two contiguous memory copies; otherwise use strided source loads. The source allocations need not be adjacent. This preserves float32 bits, including signed zeros and nonfinite values. Runtime shape derivation makes the same kernel valid for other channel-axis concatenations of two NCHW inputs.\", \"rel_err\": 0.0}",
+  "proposed_by": 197
+ },
+ {
+  "chain": "[{\"op\": \"runtime_channel_pair_copy7\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, x0, x1):\n    n, c0, h, w = x0.shape\n    c1 = x1.shape[1]\n    out = x0.new_empty((n, c0 + c1, h, w))\n    out[:, :c0, :, :].copy_(x0)\n    out[:, c0:, :, :].copy_(x1)\n    return out\n",
+  "id": 322,
+  "kind": "equivalent",
+  "name": "channel_pair_runtime_copy7",
+  "op": "aten",
+  "proposal": "{\"description\": \"Derive N,C0,H,W and C1 from the runtime NCHW inputs. Allocate a contiguous output [N,C0+C1,H,W] with the input dtype and device. Copy x0[n,c,h,w] to out[n,c,h,w] and x1[n,c,h,w] to out[n,C0+c,h,w], using actual source strides and disjoint destination slices. This is data movement only: preserve all float32 bits, including signed zeros, infinities, and NaNs. For this node each input has 18816 elements; the output has 37632 elements, shape [1,768,7,7], and the second block starts at element offset 18816 (byte offset 75264). Source buffers need not be adjacent. No concatenation instruction or arithmetic is used.\", \"rel_err\": 0.0}",
+  "proposed_by": 195
  },
  {
   "chain": "[{\"op\": \"concat_14_blocks\", \"params\": {\"numel\": \"numel\"}}]",
@@ -636,6 +720,18 @@
   "proposed_by": 146
  },
  {
+  "chain": "[{\"op\": \"channel_concat\", \"params\": {\"batch\": \"1\", \"channels\": \"numel // 196\", \"spatial\": \"196\"}}, {\"op\": \"round_bf16\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "not equivalent: the code's largest relative difference is 0.002 at element [0, 42, 0, 3] (got -1.344, expected -1.348), over 0.001",
+  "check_ok": 0,
+  "code": "import torch\n\ndef forward(module, x0, x1):\n    y = torch.cat([x0, x1], dim=1)\n    return y.bfloat16().float()\n",
+  "id": 316,
+  "kind": "approximate",
+  "name": "concat_channel_bf16",
+  "op": "aten",
+  "proposal": "{\"description\": \"Approximate channel concat in bfloat16. Step 1: channel_concat copies x0 into channels 0..255 and x1 into channels 256..511 of [1,512,14,14] (exact copy). Step 2: round every element to bfloat16 (8 significant bits) and back to float32, relative error <= 2^-9 per element.\", \"rel_err\": 0.0019530323321444827}",
+  "proposed_by": 186
+ },
+ {
   "chain": "[{\"op\": \"channel_copy_dynamic_ref\", \"params\": {\"numel\": \"numel\"}}]",
   "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
   "check_ok": 1,
@@ -646,6 +742,30 @@
   "op": "aten",
   "proposal": "{\"description\": \"Perform channel concatenation by two disjoint, bit-preserving tensor copies, with no floating-point arithmetic. For contiguous NCHW batch-one inputs, allocate numel float32 output elements, view them as [1, C0+C1, H, W], copy the first input into channels [0,C0), and copy the second input into channels [C0,C0+C1). Here C0=C1=384, H=W=28: each input contributes 301056 elements and the output contains 602112 elements, shape [1,768,28,28]. The copies follow logical tensor indexing, so noncontiguous inputs also work. Derive the output shape from the actual operands rather than hardcoding the older 256-channel or 14x14 shapes. Independent source allocations are supported; adjacency of the source buffers is not assumed.\", \"rel_err\": 0.0}",
   "proposed_by": 178
+ },
+ {
+  "chain": "[{\"op\": \"channel_concat\", \"params\": {\"batch\": \"1\", \"channels\": \"numel // 196\", \"spatial\": \"196\"}}, {\"op\": \"round_fp16\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "not checked: step 1 (channel_concat) has no reference I can run \u2014 define it in `primitives` with a `reference` (the code matches the operation (largest relative difference 0.0002, within 0.001))",
+  "check_ok": null,
+  "code": "import torch\n\ndef forward(module, x0, x1):\n    y = torch.cat([x0, x1], dim=1)\n    return y.half().float()\n",
+  "id": 318,
+  "kind": "approximate",
+  "name": "concat_channel_fp16",
+  "op": "aten",
+  "proposal": "{\"description\": \"Approximate channel concat in half precision. Step 1: channel_concat copies x0 into channels 0..255 and x1 into channels 256..511 of [1,512,14,14] (exact copy). Step 2: round every element to float16 and back to float32 (relative error <= 2^-11 per element, so the result differs from the exact concat by at most ~4.9e-4 relative).\", \"rel_err\": 0.0002441439428817616}",
+  "proposed_by": 186
+ },
+ {
+  "chain": "[{\"op\": \"channel_concat\", \"params\": {\"batch\": \"1\", \"channels\": \"numel // 196\", \"spatial\": \"196\"}}, {\"op\": \"quant_int8\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "not equivalent: the code's largest relative difference is 0.0039 at element [0, 180, 1, 13] (got 0.4094, expected 0.4173), over 0.001",
+  "check_ok": 0,
+  "code": "import torch\n\ndef forward(module, x0, x1):\n    y = torch.cat([x0, x1], dim=1)\n    s = y.abs().max().clamp_min(1e-30) / 127.0\n    return torch.clamp(torch.round(y / s), -127, 127) * s\n",
+  "id": 317,
+  "kind": "approximate",
+  "name": "concat_channel_int8",
+  "op": "aten",
+  "proposal": "{\"description\": \"Approximate channel concat with 8-bit quantization. Step 1: channel_concat copies x0 into channels 0..255 and x1 into channels 256..511 of [1,512,14,14] (exact copy). Step 2: per-tensor symmetric quantization: scale = max(|y|)/127 (computed over all 100352 elements), q = clamp(round(y/scale), -127, 127), output q*scale. Absolute error <= scale/2 per element.\", \"rel_err\": 0.003936880684423211}",
+  "proposed_by": 186
  },
  {
   "chain": "[{\"op\": \"channel_cat2\", \"params\": {\"batch\": 1, \"channels\": 256, \"spatial\": 784}}, {\"op\": \"clamp4_7\", \"params\": {\"numel\": \"numel\"}}]",
@@ -840,6 +960,18 @@
   "proposed_by": 143
  },
  {
+  "chain": "[{\"op\": \"pad_lo\", \"params\": {\"numel\": \"numel\"}}, {\"op\": \"round_fp16\", \"params\": {\"numel\": \"numel\"}}, {\"op\": \"pad_hi\", \"params\": {\"numel\": \"numel\"}}, {\"op\": \"round_fp16\", \"params\": {\"numel\": \"numel\"}}, {\"op\": \"binary\", \"params\": {\"inner\": \"1\", \"numel\": \"numel\", \"op\": \"add\"}}]",
+  "check_detail": "the chain could not run: step 3's reference (pad_hi) raised RuntimeError: The expanded size of the tensor (50176) must match the existing size (100352) at non-singleton dimension 0.  Target sizes: [50176].  Tensor sizes: [100352] \u2014 check its parameter names against the step's params",
+  "check_ok": 0,
+  "code": "import torch\n\ndef forward(module, x0, x1):\n    z = torch.zeros_like(x0)\n    a = torch.cat([x0, z], dim=1).half().float()\n    b = torch.cat([z, x1], dim=1).half().float()\n    return a + b\n",
+  "id": 313,
+  "kind": "approximate",
+  "name": "concat_masked_add_fp16",
+  "op": "aten",
+  "proposal": "{\"description\": \"Approximate channel concat as a masked sum in half precision. Step 1: place x0 in channels 0..255 of a zero [1,512,14,14] buffer (pad_lo). Step 2: round the padded x0 to float16 and back to float32 (round_fp16). Step 3: place x1 in channels 256..511 of a zero buffer (pad_hi). Step 4: round to float16 and back. Step 5: add the two buffers elementwise (binary add). Each input element is copied exactly except for one fp16 rounding (relative error <= 2^-11), and the zero padding adds exactly 0.\", \"rel_err\": 0.0002441439428817616}",
+  "proposed_by": 186
+ },
+ {
   "chain": "[{\"op\": \"concat_quantize_primitive\", \"params\": {\"elements\": \"numel\"}}]",
   "check_detail": "the chain could not run: step 1's reference (concat_quantize_primitive) raised ValueError: too many values to unpack (expected 2) \u2014 check its parameter names against the step's params",
   "check_ok": 0,
@@ -852,6 +984,18 @@
   "proposed_by": 143
  },
  {
+  "chain": "[{\"op\": \"binary\", \"params\": {\"inner\": \"1\", \"numel\": \"numel\", \"op\": \"add\"}}]",
+  "check_detail": "not checked: step 1 (binary) has no reference I can run \u2014 define it in `primitives` with a `reference` (the code matches the operation (largest relative difference 0, within 0.001))",
+  "check_ok": null,
+  "code": "import torch\n\ndef forward(module, x0, x1):\n    return torch.cat([x0, x1], dim=1)\n",
+  "id": 314,
+  "kind": "approximate",
+  "name": "probe_binary_add",
+  "op": "aten",
+  "proposal": "{\"description\": \"Probe: how a binary add step receives its second operand (x1) in a linear chain.\", \"rel_err\": 0.0}",
+  "proposed_by": 186
+ },
+ {
   "chain": "[{\"op\": \"channel_concat_pair\", \"params\": {\"batch\": 1, \"channels\": 256, \"spatial\": 196}}]",
   "check_detail": "the chain could not run: step 1's reference (channel_concat_pair) raised ValueError: SHAPE (1, 256, 14, 14) torch.float32 \u2014 check its parameter names against the step's params",
   "check_ok": 0,
@@ -862,6 +1006,18 @@
   "op": "aten",
   "proposal": "{\"description\": \"Probe: report input shape of channel_concat_pair reference.\", \"rel_err\": 0.0}",
   "proposed_by": 154
+ },
+ {
+  "chain": "[{\"op\": \"probe_in\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "the chain could not run: step 1's reference (probe_in) raised RuntimeError: INPUT type=<class 'torch.Tensor'> value=tensor([[[[-0.0150,  1.0729, -1.6461,  ..., -0.3931, -1.9107, -1.3246], \u2014 check its parameter names against the step's params",
+  "check_ok": 0,
+  "code": "import torch\n\ndef forward(module, x0, x1):\n    return torch.cat([x0, x1], dim=1)\n",
+  "id": 315,
+  "kind": "approximate",
+  "name": "probe_tuple",
+  "op": "aten",
+  "proposal": "{\"description\": \"Probe: what a primitive reference receives as its input in the first step.\", \"rel_err\": 0.0}",
+  "proposed_by": 186
  },
  {
   "chain": "[{\"op\": \"flatten_rows\", \"params\": {\"cin\": \"cin\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"weight_diag_taps\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"kh\": \"kh\", \"kw\": \"kw\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"cin\", \"m\": \"h*w\", \"n\": \"cout*kh*kw\"}}, {\"op\": \"tile_fold\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"stride\": \"stride\", \"w\": \"w\"}}, {\"op\": \"add_bias_map\", \"params\": {\"cout\": \"cout\", \"oh\": \"h*stride\", \"ow\": \"w*stride\"}}]",
@@ -3156,6 +3312,18 @@
   "proposed_by": 175
  },
  {
+  "chain": "[{\"op\": \"fused_halfpixel_four_op\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 1e-07, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, *inputs):\n    import torch\n    x = inputs[0]\n    h, w = x.shape[-2:]\n    oh, ow = module.size\n    sy = ((torch.arange(oh, device=x.device, dtype=torch.float32)+0.5)*(h/oh)-0.5).clamp(0, h-1)\n    sx = ((torch.arange(ow, device=x.device, dtype=torch.float32)+0.5)*(w/ow)-0.5).clamp(0, w-1)\n    y0, x0 = sy.floor().long(), sx.floor().long()\n    y1, x1 = (y0+1).clamp(max=h-1), (x0+1).clamp(max=w-1)\n    fy, fx = (sy-y0).to(x.dtype), (sx-x0).to(x.dtype)\n    a = x[..., y0[:, None], x0[None, :]]\n    b = x[..., y0[:, None], x1[None, :]]\n    c = x[..., y1[:, None], x0[None, :]]\n    d = x[..., y1[:, None], x1[None, :]]\n    top = a*(1-fx[None,:]) + b*fx[None,:]\n    bottom = c*(1-fx[None,:]) + d*fx[None,:]\n    return top*(1-fy[:,None]) + bottom*fy[:,None]\n",
+  "id": 323,
+  "kind": "equivalent",
+  "name": "fused_halfpixel_four",
+  "op": "upsample",
+  "proposal": "{\"description\": \"One fused gather-and-weight primitive. For output (2i+p,2j+q), p,q in {0,1}, clamp the neighboring row i+(2p-1) and column j+(2q-1) to the input bounds. Combine the current pixel, horizontal neighbor, vertical neighbor, and diagonal neighbor with weights 9/16, 3/16, 3/16, and 1/16 respectively. This is the tensor product of the half-pixel 3/4,1/4 interpolation stencils, including replicated edges. The reference computes the equivalent separable weighted sum; the implementation can fuse the four loads and accumulation. For other output sizes the forward code uses general half-pixel coordinates and clamping, matching the model's requested size.\", \"rel_err\": 1.1975951809727994e-07}",
+  "proposed_by": 198
+ },
+ {
   "chain": "[{\"op\": \"bilinear2x_gather4_2\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
   "check_detail": "equivalent to the operation (largest relative difference 1e-07, within 0.001)",
   "check_ok": 1,
@@ -3190,6 +3358,18 @@
   "op": "upsample",
   "proposal": "{\"description\": \"Apply the defined gather4_halfpixel_reference primitive. For each output coordinate use half-pixel source coordinates max(i/2-1/4,0), take the floor and the next index clamped to the input edge, and combine the four samples with the products of the linear interpolation weights. The output is [channels,2*h,2*w]; coincident edge indices are included twice with their respective weights.\", \"rel_err\": 1.194220355629268e-07}",
   "proposed_by": 182
+ },
+ {
+  "chain": "[{\"op\": \"half_pixel_gather_7_4\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"oh\": \"h*7//4\", \"ow\": \"w*7//4\", \"w\": \"w\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 1e-07, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, *inputs):\n    import torch\n    x = inputs[0]\n    h, w = x.shape[-2:]\n    oh, ow = module.size if module.size is not None else (h*7//4, w*7//4)\n    y = ((torch.arange(oh, device=x.device, dtype=torch.float32)+0.5)*(h/oh)-0.5).clamp(0,h-1)\n    z = ((torch.arange(ow, device=x.device, dtype=torch.float32)+0.5)*(w/ow)-0.5).clamp(0,w-1)\n    y0, z0 = y.floor().long(), z.floor().long()\n    y1, z1 = (y0+1).clamp(max=h-1), (z0+1).clamp(max=w-1)\n    a, b = (y-y0).view(1,oh,1), (z-z0).view(1,1,ow)\n    top = x[:,y0[:,None],z0[None,:]]*(1-b)+x[:,y0[:,None],z1[None,:]]*b\n    bot = x[:,y1[:,None],z0[None,:]]*(1-b)+x[:,y1[:,None],z1[None,:]]*b\n    return top*(1-a)+bot*a",
+  "id": 321,
+  "kind": "equivalent",
+  "name": "half_pixel_7_4_gather",
+  "op": "upsample",
+  "proposal": "{\"description\": \"For the specified 128 by 128 to 224 by 224 resize, compute the half-pixel source coordinate for each output row and column, clamp it to the input boundary, and gather the four surrounding pixels. Interpolate horizontally then vertically. This is align_corners=False bilinear interpolation, with 7/4 output-to-input ratio on both axes. The defined primitive is a gather-and-weight kernel, not a dense interpolation matrix.\", \"rel_err\": 1.1977076354939699e-07}",
+  "proposed_by": 194
  },
  {
   "chain": "[{\"op\": \"phase_select_half_pixel\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
@@ -3682,5 +3862,29 @@
   "op": "upsample",
   "proposal": "{\"description\": \"Bilinear 2x upsampling (align_corners=False, edge-clamped) per channel as one defined primitive bilinear2x_separable2 with params channels, h, w, applying two constant 1-D interpolation matrices in sequence. Build A_h (2h x h) and A_w (2w x w): for output index i and input length n, src = max((i+0.5)*0.5 - 0.5, 0), i0 = min(floor(src), n-1), i1 = min(i0+1, n-1), l = src - i0, A[i,i0] += 1-l, A[i,i1] += l. Then T = A_h @ x per channel ([channels, 2h, w]) and Y = T @ A_w^T per channel ([channels, 2h, 2w]). Per channel Y = A_h x A_w^T, exactly bilinear2d scale 2, align_corners=False.\", \"rel_err\": 1.194220355629268e-07}",
   "proposed_by": 134
+ },
+ {
+  "chain": "[{\"op\": \"zero_stuff_replicate_halo\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"fixed_triangle_depthwise4\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "the chain could not run: step 1's reference (zero_stuff_replicate_halo) raised ValueError: not enough values to unpack (expected 3, got 2) \u2014 check its parameter names against the step's params",
+  "check_ok": 0,
+  "code": "def forward(module, *inputs):\n    import torch\n    import torch.nn.functional as F\n    x = inputs[0]\n    c, h, w = x.shape\n    p = F.pad(x.unsqueeze(0), (1, 1, 1, 1), mode='replicate').squeeze(0)\n    z = x.new_zeros((c, 2*h+3, 2*w+3))\n    z[:, ::2, ::2] = p\n    v = x.new_tensor([1., 3., 3., 1.])\n    k = (v[:, None] * v[None, :] / 16).reshape(1, 1, 4, 4).repeat(c, 1, 1, 1)\n    return F.conv2d(z.unsqueeze(0), k, groups=c).squeeze(0)",
+  "id": 319,
+  "kind": "equivalent",
+  "name": "zero_stuff_triangle_conv",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Implement 2x half-pixel bilinear interpolation as a depthwise valid convolution over a zero-stuffed, edge-replicated input. First form z of shape [channels,2*h+3,2*w+3], initially zero; set z[:,2*a,2*b] = x[:,clamp(a-1,0,h-1),clamp(b-1,0,w-1)] for a=0..h+1 and b=0..w+1. Then apply a depthwise 4x4 valid convolution, stride 1, with identical constant kernel outer([1,3,3,1],[1,3,3,1])/16 for every channel. The result has shape [channels,2*h,2*w]. On even and odd output positions respectively, the 1D stencil yields (previous+3*current)/4 and (3*current+next)/4; the replicated halo implements edge clamping. The second defined step embeds the constant kernel because conv2d otherwise requires a runtime weight operand.\", \"rel_err\": 1.1956851072398016e-07}",
+  "proposed_by": 193
+ },
+ {
+  "chain": "[{\"op\": \"zero_stuff_replicate_halo\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"fixed_triangle_depthwise4\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 1e-07, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, *inputs):\n    import torch\n    import torch.nn.functional as F\n    x = inputs[0]\n    h, w = x.shape[-2:]\n    p = F.pad(x.reshape(-1, 1, h, w), (1, 1, 1, 1), mode='replicate').reshape(*x.shape[:-2], h+2, w+2)\n    z = x.new_zeros((*x.shape[:-2], 2*h+3, 2*w+3))\n    z[..., ::2, ::2] = p\n    v = x.new_tensor([1., 3., 3., 1.])\n    k = (v[:, None] * v[None, :] / 16).reshape(1, 1, 4, 4)\n    return F.conv2d(z.reshape(-1, 1, 2*h+3, 2*w+3), k).reshape(*x.shape[:-2], 2*h, 2*w)",
+  "id": 320,
+  "kind": "equivalent",
+  "name": "zero_stuff_triangle_conv_v2",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Implement 2x half-pixel bilinear interpolation as a depthwise valid convolution over a zero-stuffed, edge-replicated input. First form z of shape [channels,2*h+3,2*w+3], initially zero; set z[:,2*a,2*b] = x[:,clamp(a-1,0,h-1),clamp(b-1,0,w-1)] for a=0..h+1 and b=0..w+1. Then apply a depthwise 4x4 valid convolution, stride 1, with identical constant kernel outer([1,3,3,1],[1,3,3,1])/16 for every channel. The result has shape [channels,2*h,2*w]. On even and odd output positions respectively, the 1D stencil yields (previous+3*current)/4 and (3*current+next)/4; the replicated halo implements edge clamping. The second defined step embeds the constant kernel because conv2d otherwise requires a runtime weight operand.\", \"rel_err\": 1.1956851072398016e-07}",
+  "proposed_by": 193
  }
 ]
