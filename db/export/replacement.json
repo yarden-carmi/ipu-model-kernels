@@ -217,6 +217,18 @@
  },
  {
   "chain": "[{\"op\": \"one_hot\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    import torch\n    table = getattr(module, 'table', getattr(module, 'weight', None))\n    O = torch.nn.functional.one_hot(ids, num_classes=30522).to(table.dtype)\n    return torch.matmul(O, table)\n",
+  "id": 20,
+  "kind": "equivalent",
+  "name": "onehot_gemm_ref-3",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the embedding lookup with a dense matmul. Step 1: build a one-hot matrix O of shape (tokens x vocab) via one_hot primitive. Step 2: gemm with m = tokens, k = vocab, n = dim computing O @ table.\", \"rel_err\": 0.0}",
+  "proposed_by": 40
+ },
+ {
+  "chain": "[{\"op\": \"one_hot\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
   "check_detail": "not checked: step 1 (one_hot) has no reference I can run \u2014 define it in `primitives` with a `reference` (the code matches the operation (largest relative difference 0.0002, within 0.001))",
   "check_ok": null,
   "code": "def forward(module, *inputs):\n    import torch\n    ids = inputs[0].long()\n    table = module.table\n    indicator = torch.nn.functional.one_hot(ids, num_classes=table.shape[0]).to(torch.float16)\n    return (indicator @ table.to(torch.float16)).to(table.dtype)",
