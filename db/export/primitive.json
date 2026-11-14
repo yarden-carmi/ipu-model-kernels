@@ -32,6 +32,46 @@
   "tensors": null
  },
  {
+  "doc": "Allocate output [batch, 2*channels, spatial] and copy each input into its respective channel range, preserving NCHW order.",
+  "name": "channel_concat",
+  "origin": "agent",
+  "params": "[\"batch\", \"channels\", \"spatial\"]",
+  "reference": "def fn(x, **params):\n    batch = params['batch']\n    channels = params['channels']\n    spatial = params['spatial']\n    if isinstance(x, (tuple, list)):\n        x0, x1 = x\n    else:\n        x0, x1 = x.chunk(2, dim=0)\n    return torch.cat((x0.reshape(batch, channels, spatial), x1.reshape(batch, channels, spatial)), dim=1)",
+  "tensors": null
+ },
+ {
+  "doc": "Allocate output [batch, 2*channels, spatial] and copy each input into its respective channel range, preserving NCHW order.",
+  "name": "channel_concat_pair",
+  "origin": "agent",
+  "params": "[\"batch\", \"channels\", \"spatial\"]",
+  "reference": "def fn(x, **params):\n    batch = params['batch']\n    channels = params['channels']\n    spatial = params['spatial']\n    return torch.cat((x[0].reshape(batch, channels, spatial), x[1].reshape(batch, channels, spatial)), dim=1)",
+  "tensors": null
+ },
+ {
+  "doc": "NCHW channel concat with its second half replaced by the pointwise mean of both inputs.",
+  "name": "concat_blend",
+  "origin": "agent",
+  "params": "[\"channels\"]",
+  "reference": "def fn(x0, x1, **params):\n    import torch\n    return torch.cat((x0, (x0 + x1) * 0.5), dim=1)",
+  "tensors": null
+ },
+ {
+  "doc": "NCHW output whose first channel half is x0 minus x1 and whose second half is x1.",
+  "name": "concat_difference",
+  "origin": "agent",
+  "params": "[\"channels\"]",
+  "reference": "def fn(x0, x1, **params):\n    import torch\n    return torch.cat((x0 - x1, x1), dim=1)",
+  "tensors": null
+ },
+ {
+  "doc": "NCHW channel concat with the second output half equal to the pointwise sum of the inputs.",
+  "name": "concat_sum",
+  "origin": "agent",
+  "params": "[\"channels\"]",
+  "reference": "def fn(x0, x1, **params):\n    import torch\n    return torch.cat((x0, x0 + x1), dim=1)",
+  "tensors": null
+ },
+ {
   "doc": null,
   "name": "conv2d",
   "origin": "builtin",
@@ -104,19 +144,19 @@
   "tensors": null
  },
  {
-  "doc": "Create a one-hot indicator matrix from integer token ids in float32. Input: ids of shape (tokens). Output: matrix of shape (tokens, vocab) with exactly one 1 per row at the column indexed by the corresponding id, in float32.",
+  "doc": "Create a one-hot matrix from token ids in float32. Each row has exactly one 1 at the column corresponding to the token id.",
   "name": "make_indicators",
   "origin": "agent",
-  "params": "[\"tokens\", \"vocab\"]",
-  "reference": "def fn(ids, tokens, vocab):\n    import torch\n    one_hot = torch.zeros(tokens, vocab, dtype=torch.float32, device=ids.device)\n    one_hot.scatter_(1, ids.unsqueeze(1), 1.0)\n    return one_hot",
+  "params": "{\"cols\": \"int\", \"rows\": \"int\"}",
+  "reference": "def fn(ids, rows, cols):\n    import torch\n    return torch.nn.functional.one_hot(ids, num_classes=cols).to(torch.float32)",
   "tensors": null
  },
  {
-  "doc": "Create a one-hot indicator matrix from integer token ids in float32. Input: ids of shape (tokens). Output: matrix of shape (tokens, vocab) with exactly one 1 per row at the column indexed by the corresponding id, in float32.",
+  "doc": "Create a one-hot matrix from token ids in float32. Each row has exactly one 1 at the column corresponding to the token id.",
   "name": "make_one_hot",
   "origin": "agent",
-  "params": "[\"tokens\", \"vocab\"]",
-  "reference": "def fn(ids, tokens, vocab):\n    import torch\n    one_hot = torch.zeros(tokens, vocab, dtype=torch.float32, device=ids.device)\n    one_hot.scatter_(1, ids.unsqueeze(1), 1.0)\n    return one_hot",
+  "params": "{\"cols\": \"int\", \"rows\": \"int\"}",
+  "reference": "def fn(ids, rows, cols):\n    import torch\n    return torch.nn.functional.one_hot(ids, num_classes=cols).to(torch.float32)",
   "tensors": null
  },
  {
@@ -160,19 +200,19 @@
   "tensors": null
  },
  {
-  "doc": "Build an exact float32 indicator matrix from integer ids; each input id selects one column.",
+  "doc": "Create a one-hot matrix from token ids. Each row has exactly one 1 at the column corresponding to the token id.",
   "name": "one_hot",
   "origin": "agent",
-  "params": "[\"numel\", \"vocab\"]",
-  "reference": "def fn(x, numel, vocab):\n    import torch\n    return torch.nn.functional.one_hot(x.to(torch.int64), num_classes=vocab).to(torch.float32)",
+  "params": "{\"cols\": \"int\", \"rows\": \"int\"}",
+  "reference": "def fn(ids, rows, cols):\n    import torch\n    return torch.nn.functional.one_hot(ids, num_classes=cols).to(torch.float32)",
   "tensors": null
  },
  {
-  "doc": "Create a one-hot indicator matrix from integer token ids in float32. Input: ids of shape (tokens). Output: matrix of shape (tokens, vocab) with exactly one 1 per row at the column indexed by the corresponding id, in float32.",
+  "doc": "Create a one-hot matrix from token ids. Each row has exactly one 1 at the column corresponding to the token id.",
   "name": "one_hot_ids",
   "origin": "agent",
-  "params": "[\"tokens\", \"vocab\"]",
-  "reference": "def fn(ids, tokens, vocab):\n    import torch\n    one_hot = torch.zeros(tokens, vocab, dtype=torch.float32, device=ids.device)\n    one_hot.scatter_(1, ids.unsqueeze(1), 1.0)\n    return one_hot",
+  "params": "{\"cols\": \"int\", \"rows\": \"int\"}",
+  "reference": "def fn(ids, rows, cols):\n    import torch\n    return torch.nn.functional.one_hot(ids, num_classes=cols).to(torch.float32)",
   "tensors": null
  },
  {
@@ -256,11 +296,11 @@
   "tensors": null
  },
  {
-  "doc": "Create a one-hot indicator matrix from integer token ids in float32. Input: ids of shape (tokens). Output: matrix of shape (tokens, vocab) with exactly one 1 per row at the column indexed by the corresponding id, in float32.",
+  "doc": "Create a one-hot matrix from token ids. Each row has exactly one 1 at the column corresponding to the token id.",
   "name": "token_indicators",
   "origin": "agent",
-  "params": "[\"tokens\", \"vocab\"]",
-  "reference": "def fn(ids, tokens, vocab):\n    import torch\n    one_hot = torch.zeros(tokens, vocab, dtype=torch.float32, device=ids.device)\n    one_hot.scatter_(1, ids.unsqueeze(1), 1.0)\n    return one_hot",
+  "params": "{\"cols\": \"int\", \"rows\": \"int\"}",
+  "reference": "def fn(ids, rows, cols):\n    import torch\n    return torch.nn.functional.one_hot(ids, num_classes=cols).to(torch.float32)",
   "tensors": null
  },
  {
