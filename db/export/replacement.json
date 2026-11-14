@@ -48,6 +48,18 @@
   "proposed_by": 42
  },
  {
+  "chain": "[{\"op\": \"mean_tile\", \"params\": {\"channels\": \"cin\", \"h\": \"h\", \"out_channels\": \"cout\", \"stride\": \"stride\", \"w\": \"w\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    x = inputs[0]\n    y = x.mean(dim=1, keepdim=True)\n    y = y.repeat(1, 96, 1, 1)\n    return y.repeat_interleave(2, dim=-2).repeat_interleave(2, dim=-1)\n",
+  "id": 35,
+  "kind": "approximate",
+  "name": "channel_mean",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"Collapse input channels by their arithmetic mean at each spatial location, broadcast that shared scalar feature to all 96 output channels, and repeat each location over its 2x2 tile. This is a rank-one channel-mixing heuristic and ignores kernel-tap variation and bias.\", \"rel_err\": null}",
+  "proposed_by": 47
+ },
+ {
   "chain": "[{\"op\": \"diagonal_kernel_primitive\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"stride\": \"stride\", \"w\": \"w\"}}]",
   "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
   "check_ok": null,
@@ -72,6 +84,18 @@
   "proposed_by": 42
  },
  {
+  "chain": "[{\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"cin\", \"m\": \"h*w\", \"n\": \"cout*kh*kw\"}}, {\"op\": \"disjoint_tile_layout\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"w\": \"w\"}}, {\"op\": \"binary\", \"params\": {\"broadcast\": \"channel\", \"inner\": \"cout\", \"numel\": \"out_elements\", \"op\": \"add\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    x = inputs[0]\n    weight = module.weight\n    bias = module.bias\n    b, _, h, w = x.shape\n    cin, cout, kh, kw = weight.shape\n    a = x.permute(0, 2, 3, 1).reshape(b * h * w, cin)\n    c = weight.permute(0, 1, 2, 3).reshape(cin, cout * kh * kw)\n    z = a @ c\n    z = z.reshape(b, h, w, cout, kh, kw).permute(0, 3, 1, 4, 2, 5).reshape(b, cout, h * kh, w * kw)\n    return z + bias.reshape(1, cout, 1, 1)",
+  "id": 32,
+  "kind": "equivalent",
+  "name": "disjoint_gemm-2",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"Flatten each input batch's HxW positions to rows and multiply by the transposed-convolution weight rearranged from [cin, cout, kh, kw] to [cin, cout*kh*kw]. Reshape the product to [batch,h,w,cout,kh,kw], permute to [batch,cout,h,kh,w,kw], and fold each input coordinate and tap into output coordinates (ih*kh+tap_h, iw*kw+tap_w). Because stride=kh=kw=2 and padding=0, these tiles are disjoint and cover the output exactly. Finally add bias over output channels.\", \"rel_err\": null}",
+  "proposed_by": 47
+ },
+ {
   "chain": "[{\"op\": \"mean_kernel_primitive\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"stride\": \"stride\", \"w\": \"w\"}}]",
   "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
   "check_ok": null,
@@ -82,6 +106,30 @@
   "op": "conv_transpose2d",
   "proposal": "{\"description\": \"Average the transposed-convolution kernel over its kh and kw axes, apply the resulting cin-to-cout linear map at each input location, then repeat each projected value over its stride-by-stride output tile and add channel bias. This discards within-tile kernel variation.\", \"rel_err\": null}",
   "proposed_by": 42
+ },
+ {
+  "chain": "[{\"op\": \"tile_repeat\", \"params\": {\"channels\": \"cin\", \"h\": \"h\", \"stride\": \"stride\", \"w\": \"w\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    x = inputs[0]\n    return x.repeat_interleave(2, dim=-2).repeat_interleave(2, dim=-1)\n",
+  "id": 33,
+  "kind": "approximate",
+  "name": "repeat_nearest",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"Ignore learned channel mixing and kernel taps. Repeat each input value into its stride-by-stride output tile, preserving channels; this gives a nearest-neighbor zero-order spatial estimate. The output has 96 channels and 32x32 spatial dimensions.\", \"rel_err\": null}",
+  "proposed_by": 47
+ },
+ {
+  "chain": "[{\"op\": \"tile_scaled\", \"params\": {\"channels\": \"cin\", \"h\": \"h\", \"stride\": \"stride\", \"w\": \"w\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    x = inputs[0]\n    return x.repeat_interleave(2, dim=-2).repeat_interleave(2, dim=-1) * 0.25\n",
+  "id": 34,
+  "kind": "approximate",
+  "name": "repeat_scaled",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"Use a quarter-gain approximation to the average across four spatial kernel taps, repeating each input sample over its 2x2 output tile. Channel mixing is omitted.\", \"rel_err\": null}",
+  "proposed_by": 47
  },
  {
   "chain": "[{\"op\": \"one_hot\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"probe\", \"params\": {}}]",
@@ -168,6 +216,18 @@
   "proposed_by": 16
  },
  {
+  "chain": "[{\"op\": \"one_hot\", \"params\": {\"vocab\": \"vocab\"}}, {\"op\": \"bmm_nt\", \"params\": {\"b\": 1, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, *inputs):\n    import torch\n    ids = inputs[0]\n    table = module.table\n    vocab = table.shape[0]\n    dim = table.shape[1]\n    indicators = torch.nn.functional.one_hot(ids.to(torch.int64), num_classes=vocab).to(torch.float32)\n    a = indicators.reshape(1, ids.numel(), vocab)\n    bt = table.transpose(0, 1).reshape(1, dim, vocab)\n    result = torch.bmm(a, bt.transpose(1, 2))\n    return result.reshape(ids.numel(), dim)",
+  "id": 37,
+  "kind": "equivalent",
+  "name": "onehot_bmmnt_exact",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Convert each token id to an exact float32 one-hot row of length vocab. Reshape the indicator matrix to (1, tokens, vocab), transpose the embedding table and reshape it to (1, dim, vocab), then use transposed-operand batched GEMM: O @ table^T. Remove the singleton batch dimension. Each row has one selected coefficient equal to one and all others zero, so the result is precisely the corresponding table row.\", \"rel_err\": 0.0}",
+  "proposed_by": 52
+ },
+ {
   "chain": "[{\"op\": \"make_one_hot\", \"params\": {\"vocab\": \"vocab\"}}, {\"op\": \"bmm_nt\", \"params\": {\"b\": 1, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\", \"scale\": 1.0}}]",
   "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
   "check_ok": 1,
@@ -240,6 +300,18 @@
   "proposed_by": 18
  },
  {
+  "chain": "[{\"op\": \"one_hot\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    import torch\n    table = module.table\n    O = torch.nn.functional.one_hot(ids, num_classes=table.shape[0]).to(torch.float32)\n    out = torch.matmul(O, table.to(torch.float32))\n    return out.to(table.dtype)",
+  "id": 38,
+  "kind": "equivalent",
+  "name": "onehot_gemm_f32-2",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Replace the embedding lookup with a dense matmul, with the one-hot operand explicitly pinned to float32 so the gemm runs in single precision regardless of the ids dtype.\", \"rel_err\": 0.0}",
+  "proposed_by": 55
+ },
+ {
   "chain": "[{\"op\": \"one_hot\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
   "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
   "check_ok": 1,
@@ -276,6 +348,30 @@
   "proposed_by": 40
  },
  {
+  "chain": "[{\"op\": \"one_hot_ids\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, *inputs):\n    import torch\n    ids = inputs[0]\n    table = module.table\n    indicators = torch.nn.functional.one_hot(ids.to(torch.int64), num_classes=table.shape[0]).to(torch.float32)\n    return (indicators @ table.to(torch.float32)).to(table.dtype)",
+  "id": 36,
+  "kind": "equivalent",
+  "name": "onehot_gemm_reference",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Convert each integer token id into an exact float32 indicator row of length vocab. Multiply the (tokens, vocab) indicator matrix by the embedding table (vocab, dim) using GEMM with m=tokens, k=vocab, n=dim. Each row has exactly one nonzero entry, so the output row is exactly the table row selected by that token id; cast the result to the table dtype.\", \"rel_err\": 0.0}",
+  "proposed_by": 50
+ },
+ {
+  "chain": "[{\"op\": \"one_hot\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, ids):\n    import torch\n    vocab = module.table.shape[0]\n    o = torch.nn.functional.one_hot(ids.long(), num_classes=vocab).to(torch.float32)\n    res = torch.matmul(o, module.table.to(torch.float32))\n    return res.to(module.table.dtype)",
+  "id": 39,
+  "kind": "equivalent",
+  "name": "onehot_gemm_reference-2",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Convert each integer token id into an exact float32 indicator row of length vocab. Multiply the (tokens, vocab) indicator matrix by the embedding table (vocab, dim) using GEMM with m=tokens, k=vocab, n=dim. Each row has exactly one nonzero entry, so the output row is exactly the table row selected by that token id; cast the result to the table dtype.\", \"rel_err\": 0.0}",
+  "proposed_by": 60
+ },
+ {
   "chain": "[{\"op\": \"one_hot\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
   "check_detail": "not checked: step 1 (one_hot) has no reference I can run \u2014 define it in `primitives` with a `reference` (the code matches the operation (largest relative difference 0.0002, within 0.001))",
   "check_ok": null,
@@ -286,6 +382,30 @@
   "op": "embedding",
   "proposal": "{\"description\": \"Apply an economical low-precision dense lookup: generate a one-hot token matrix, quantize both the indicator and embedding table to float16, multiply, then return the table dtype. The reduced-precision product approximates the gather while retaining the full vocabulary selection.\", \"rel_err\": 0.0002441425167636382}",
   "proposed_by": 35
+ },
+ {
+  "chain": "[{\"op\": \"one_hot\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "not checked: step 1 (one_hot) has no reference I can run \u2014 define it in `primitives` with a `reference` (the code matches the operation (largest relative difference 0, within 0.001))",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    import torch\n    ids = inputs[0]\n    table = module.table\n    indicators = torch.nn.functional.one_hot(ids.to(torch.int64), num_classes=table.shape[0]).to(torch.float32)\n    return torch.matmul(indicators, table.to(torch.float32)).to(table.dtype)\n",
+  "id": 30,
+  "kind": "equivalent",
+  "name": "onehot_matmul",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Convert each runtime token id into an exact one-hot vector of length vocab. Multiply the (tokens, vocab) indicator matrix by the embedding table (vocab, dim) with GEMM; each output row is the uniquely selected table row. Use float32 indicators so integer ids are not treated as numeric values in the multiplication.\", \"rel_err\": 0.0}",
+  "proposed_by": 49
+ },
+ {
+  "chain": "[{\"op\": \"token_indicators\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, *inputs):\n    import torch\n    ids = inputs[0]\n    table = module.table\n    indicators = torch.nn.functional.one_hot(ids.to(torch.int64), num_classes=table.shape[0]).to(torch.float32)\n    return torch.matmul(indicators, table.to(torch.float32)).to(table.dtype)\n",
+  "id": 31,
+  "kind": "equivalent",
+  "name": "onehot_matmul_ref",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Build an exact (tokens, vocab) indicator matrix from the integer token ids, then GEMM it with the (vocab, dim) embedding table. Since each row has exactly one 1, its product is the corresponding embedding row. The indicator is float32 for the multiply and the result is converted back to the table dtype.\", \"rel_err\": 0.0}",
+  "proposed_by": 49
  },
  {
   "chain": "[{\"op\": \"make_indicators\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",

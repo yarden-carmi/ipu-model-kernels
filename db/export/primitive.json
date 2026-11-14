@@ -112,6 +112,14 @@
   "tensors": null
  },
  {
+  "doc": "Average channels at each pixel, broadcast to output channels, and repeat over disjoint stride tiles.",
+  "name": "mean_tile",
+  "origin": "agent",
+  "params": "[\"h\", \"w\", \"channels\", \"out_channels\", \"stride\"]",
+  "reference": "def fn(x, **params):\n    y = x.mean(dim=1, keepdim=True) if x.dim() == 4 else x.mean(dim=0, keepdim=True)\n    axis = 1 if x.dim() == 4 else 0\n    y = y.repeat_interleave(params['out_channels'], dim=axis)\n    return y.repeat_interleave(params['stride'], dim=-2).repeat_interleave(params['stride'], dim=-1)",
+  "tensors": null
+ },
+ {
   "doc": "Replicate the median of the flattened source.",
   "name": "median_fill",
   "origin": "agent",
@@ -120,11 +128,19 @@
   "tensors": null
  },
  {
-  "doc": "Build one-hot matrix from token ids",
+  "doc": "Convert token ids to one-hot float32 indicators of shape (tokens, vocab).",
   "name": "one_hot",
   "origin": "agent",
   "params": "[\"tokens\", \"vocab\"]",
-  "reference": "def fn(x, tokens, vocab):\n    return torch.nn.functional.one_hot(x, num_classes=vocab).to(x.dtype)",
+  "reference": "def fn(x, tokens, vocab):\n    import torch\n    return torch.nn.functional.one_hot(x.long(), num_classes=vocab).to(torch.float32)",
+  "tensors": null
+ },
+ {
+  "doc": "Build a float32 (tokens, vocab) exact one-hot indicator matrix from integer token ids.",
+  "name": "one_hot_ids",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    return torch.nn.functional.one_hot(x.to(torch.int64), num_classes=params['vocab']).to(torch.float32)",
   "tensors": null
  },
  {
@@ -181,6 +197,30 @@
   "origin": "builtin",
   "params": null,
   "reference": null,
+  "tensors": null
+ },
+ {
+  "doc": "Repeat each spatial input sample into a stride-by-stride tile without channel mixing.",
+  "name": "tile_repeat",
+  "origin": "agent",
+  "params": "[\"h\", \"w\", \"channels\", \"stride\"]",
+  "reference": "def fn(x, **params):\n    return x.repeat_interleave(params['stride'], dim=-2).repeat_interleave(params['stride'], dim=-1)",
+  "tensors": null
+ },
+ {
+  "doc": "Repeat samples into stride tiles and apply a fixed quarter gain.",
+  "name": "tile_scaled",
+  "origin": "agent",
+  "params": "[\"h\", \"w\", \"channels\", \"stride\"]",
+  "reference": "def fn(x, **params):\n    return x.repeat_interleave(params['stride'], dim=-2).repeat_interleave(params['stride'], dim=-1) * 0.25",
+  "tensors": null
+ },
+ {
+  "doc": "Create one exact one-hot row per token id.",
+  "name": "token_indicators",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(x, tokens, vocab):\n    import torch\n    return torch.nn.functional.one_hot(x.to(torch.int64), num_classes=vocab).to(torch.float32)",
   "tensors": null
  },
  {

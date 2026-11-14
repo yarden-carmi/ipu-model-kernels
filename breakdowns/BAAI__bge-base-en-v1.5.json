@@ -125,6 +125,34 @@
    "sim_ppl": null,
    "sim_top1": null,
    "sqnr_db": null
+  },
+  {
+   "agreement": null,
+   "at": 1794669962.6267095,
+   "cosine": 1.0,
+   "mode": "full",
+   "nonfinite": 0,
+   "precision": "tf32",
+   "purpose": "candidate",
+   "ref_ppl": null,
+   "ref_top1": null,
+   "sim_ppl": null,
+   "sim_top1": null,
+   "sqnr_db": Infinity
+  },
+  {
+   "agreement": null,
+   "at": 1794669962.6364138,
+   "cosine": 0.999114093515618,
+   "mode": "quantized",
+   "nonfinite": 0,
+   "precision": "nx8",
+   "purpose": "candidate",
+   "ref_ppl": null,
+   "ref_top1": null,
+   "sim_ppl": null,
+   "sim_top1": null,
+   "sqnr_db": 23.236153048669756
   }
  ],
  "category": "feature-extraction",
@@ -162,7 +190,7 @@
   },
   {
    "calls": 1.0,
-   "class": "approximate",
+   "class": "equivalent",
    "cycles": null,
    "fp_sqnr": Infinity,
    "group_seq": 0,
@@ -171,6 +199,24 @@
    "macs": 0,
    "op": "embedding",
    "options": [
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": "full",
+     "model_sqnr_db": Infinity,
+     "name": "onehot_gemm_f32-2",
+     "op_sqnr_db": Infinity
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": 0.0,
+     "mode": "quantized",
+     "model_sqnr_db": 23.236153048669756,
+     "name": "onehot_gemm_f32-2",
+     "op_sqnr_db": Infinity
+    },
     {
      "check_ok": 0,
      "kind": "equivalent",
@@ -5017,15 +5063,15 @@
   "macs_total": 22951821312.0,
   "model_id": 166,
   "n_1to1": 188,
-  "n_approximate": 1,
-  "n_equivalent": 0,
+  "n_approximate": 0,
+  "n_equivalent": 1,
   "n_failed": 0,
   "nodes": 189,
   "nodes_on_chip": 0,
   "nodes_ops_on_chip": 0,
   "pct_calls": 0.0,
   "pct_macs": 0.0,
-  "plan_id": 34,
+  "plan_id": 70,
   "status": "partial"
  }
 }
