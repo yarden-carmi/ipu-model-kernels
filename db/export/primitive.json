@@ -872,6 +872,14 @@
   "tensors": null
  },
  {
+  "doc": "Flatten integer ids to (tokens,) and build a float32 one-hot matrix (tokens, vocab) by broadcast equality against arange(vocab).",
+  "name": "onehot_eq",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(x, tokens, vocab):\n    import torch\n    ids = x.reshape(-1)[:tokens]\n    coords = torch.arange(vocab, device=x.device)\n    return (ids.unsqueeze(1) == coords.unsqueeze(0)).to(torch.float32)\n",
+  "tensors": null
+ },
+ {
   "doc": "Batched one-hot selector (1, tokens, vocab) from integer ids via broadcast comparison to constant coordinates.",
   "name": "onehot_ids",
   "origin": "agent",

@@ -2472,6 +2472,18 @@
   "proposed_by": 16
  },
  {
+  "chain": "[{\"op\": \"onehot_eq\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "import torch\n\ndef forward(module, ids):\n    table = module.table\n    flat = ids.reshape(-1)\n    coords = torch.arange(table.shape[0], device=ids.device)\n    onehot = (flat.unsqueeze(1) == coords.unsqueeze(0)).to(torch.float32)\n    out = onehot @ table.to(torch.float32)\n    return out.to(table.dtype).reshape(ids.shape + (table.shape[1],))\n",
+  "id": 325,
+  "kind": "equivalent",
+  "name": "onehot_eq_gemm",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Embedding as a dense selector gemm. Step 1 (primitive onehot_eq): flatten the integer ids to (tokens,); build O[t, i] = 1.0 if ids[t] == i else 0.0 in float32, shape (tokens, vocab), by a broadcast equality comparison against the constant coordinate vector arange(vocab). Step 2 (gemm, m = tokens, k = vocab, n = dim, bias = false): compute O @ table in float32 accumulation, table of shape (vocab, dim) cast to float32. Each row of O has exactly one 1, so row t equals table[ids[t]] for finite table entries. Cast the result back to the table dtype and reshape to ids.shape + (dim,).\", \"rel_err\": 0.0}",
+  "proposed_by": 199
+ },
+ {
   "chain": "[{\"op\": \"one_hot\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
   "check_detail": "not checked: step 1 (one_hot) has no reference I can run \u2014 define it in `primitives` with a `reference` (the code matches the operation (largest relative difference 0, within 0.001))",
   "check_ok": null,
