@@ -24,11 +24,11 @@
   "tensors": null
  },
  {
-  "doc": "Project with the center spatial kernel slice, repeat into stride tiles, and add bias.",
+  "doc": "Extract a single spatial tap (e.g., [0,0]) from a transposed-convolution weight tensor [cin, cout, kh, kw] to produce a [cin, cout] matrix.",
   "name": "center_kernel_primitive",
   "origin": "agent",
-  "params": "[\"h\", \"w\", \"cin\", \"cout\", \"kh\", \"kw\", \"stride\"]",
-  "reference": "def fn(x, **params):\n    i, j = params['kh']//2, params['kw']//2\n    m = module.weight[:, :, i, j]\n    y = torch.einsum('bihw,io->bohw', x, m)\n    y = y.repeat_interleave(params['stride'], -2).repeat_interleave(params['stride'], -1)\n    return y + module.bias.view(1, -1, 1, 1)",
+  "params": "[\"cin\", \"cout\", \"kh\", \"kw\"]",
+  "reference": "def center_kernel_primitive(weight, cin, cout, kh, kw):\n    # weight: [cin, cout, kh, kw]\n    # Use the [0,0] tap as the representative kernel weight\n    return weight[:, :, 0, 0]  # [cin, cout]",
   "tensors": null
  },
  {
@@ -40,11 +40,11 @@
   "tensors": null
  },
  {
-  "doc": "Reduce a diagonal channel-only approximation and broadcast it over output channels and stride tiles; add bias.",
+  "doc": "Extract per-channel scaling factors from the diagonal of a transposed-convolution weight tensor [cin, cout, kh, kw] by averaging spatial taps for each cin=cout pair. Returns [cin] vector.",
   "name": "diagonal_kernel_primitive",
   "origin": "agent",
-  "params": "[\"h\", \"w\", \"cin\", \"cout\", \"kh\", \"kw\", \"stride\"]",
-  "reference": "def fn(x, **params):\n    w = module.weight\n    n = min(params['cin'], params['cout'])\n    d = w[torch.arange(n), torch.arange(n)].mean(dim=(-1, -2))\n    s = (x[:, :n] * d.view(1, n, 1, 1)).sum(dim=1, keepdim=True)\n    y = s.expand(-1, params['cout'], -1, -1)\n    y = y.repeat_interleave(params['stride'], -2).repeat_interleave(params['stride'], -1)\n    return y + module.bias.view(1, -1, 1, 1)",
+  "params": "[\"cin\", \"cout\", \"kh\", \"kw\"]",
+  "reference": "def diagonal_kernel_primitive(weight, cin, cout, kh, kw):\n    # weight: [cin, cout, kh, kw]\n    # Average over spatial dims for diagonal channels (cin == cout)\n    diag = weight.diagonal(dim1=0, dim2=1)  # [min(cin,cout), kh, kw]\n    return diag.mean(dim=(-2, -1))  # [cin] assuming cin=cout",
   "tensors": null
  },
  {
@@ -72,6 +72,30 @@
   "tensors": null
  },
  {
+  "doc": "Flatten input [batch, cin, h, w] to [batch*h*w, cin]",
+  "name": "flatten_input",
+  "origin": "agent",
+  "params": "{\"cin\": \"int\", \"h\": \"int\", \"w\": \"int\"}",
+  "reference": "def flatten_input(x, cin, h, w):\n    return x.view(-1, cin)",
+  "tensors": null
+ },
+ {
+  "doc": "Flatten input spatial dims [batch, cin, h, w] -> [batch, h*w, cin]",
+  "name": "flatten_input_spatial",
+  "origin": "agent",
+  "params": "{\"cin\": \"int\", \"h\": \"int\", \"w\": \"int\"}",
+  "reference": "def flatten_input_spatial(x, cin, h, w):\n    return x.view(x.shape[0], h * w, cin)",
+  "tensors": null
+ },
+ {
+  "doc": "Flatten weight [cin, cout, kh, kw] to [cin, cout*kh*kw]",
+  "name": "flatten_weight",
+  "origin": "agent",
+  "params": "{\"cin\": \"int\", \"cout\": \"int\", \"kh\": \"int\", \"kw\": \"int\"}",
+  "reference": "def flatten_weight(w, cin, cout, kh, kw):\n    return w.view(cin, cout * kh * kw)",
+  "tensors": null
+ },
+ {
   "doc": null,
   "name": "gemm",
   "origin": "builtin",
@@ -80,19 +104,27 @@
   "tensors": null
  },
  {
-  "doc": "Create a tokens-by-vocab exact one-hot indicator matrix from integer token IDs.",
+  "doc": "Create a one-hot indicator matrix from integer token ids in float32. Input: ids of shape (tokens). Output: matrix of shape (tokens, vocab) with exactly one 1 per row at the column indexed by the corresponding id, in float32.",
   "name": "make_indicators",
   "origin": "agent",
   "params": "[\"tokens\", \"vocab\"]",
-  "reference": "def fn(x, **params):\n    return torch.nn.functional.one_hot(x.to(torch.int64), num_classes=params['vocab']).to(torch.float32)",
+  "reference": "def fn(ids, tokens, vocab):\n    import torch\n    one_hot = torch.zeros(tokens, vocab, dtype=torch.float32, device=ids.device)\n    one_hot.scatter_(1, ids.unsqueeze(1), 1.0)\n    return one_hot",
   "tensors": null
  },
  {
-  "doc": "Create a vocabulary-width one-hot vector for each integer id.",
+  "doc": "Create a one-hot indicator matrix from integer token ids in float32. Input: ids of shape (tokens). Output: matrix of shape (tokens, vocab) with exactly one 1 per row at the column indexed by the corresponding id, in float32.",
   "name": "make_one_hot",
   "origin": "agent",
-  "params": "[\"vocab\"]",
-  "reference": "def fn(x, **params):\n    import torch\n    return torch.nn.functional.one_hot(x.to(torch.int64), num_classes=params['vocab'])",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(ids, tokens, vocab):\n    import torch\n    one_hot = torch.zeros(tokens, vocab, dtype=torch.float32, device=ids.device)\n    one_hot.scatter_(1, ids.unsqueeze(1), 1.0)\n    return one_hot",
+  "tensors": null
+ },
+ {
+  "doc": "Broadcast the mean of the flattened source to numel values.",
+  "name": "mean_estimate",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, **params):\n    return x.reshape(-1).mean().expand(params['numel'])",
   "tensors": null
  },
  {
@@ -104,11 +136,11 @@
   "tensors": null
  },
  {
-  "doc": "Channel projection using the spatially averaged transposed-convolution kernel, spatially repeated into stride tiles; add bias.",
+  "doc": "Average a transposed-convolution weight tensor [cin, cout, kh, kw] over its spatial dimensions kh, kw to produce a [cin, cout] matrix.",
   "name": "mean_kernel_primitive",
   "origin": "agent",
-  "params": "[\"h\", \"w\", \"cin\", \"cout\", \"kh\", \"kw\", \"stride\"]",
-  "reference": "def fn(x, **params):\n    import torch\n    m = module.weight.mean(dim=(-1, -2))\n    y = torch.einsum('bihw,io->bohw', x, m)\n    y = y.repeat_interleave(params['stride'], -2).repeat_interleave(params['stride'], -1)\n    return y + module.bias.view(1, -1, 1, 1)",
+  "params": "[\"cin\", \"cout\", \"kh\", \"kw\"]",
+  "reference": "def mean_kernel_primitive(weight, cin, cout, kh, kw):\n    # weight: [cin, cout, kh, kw]\n    return weight.mean(dim=(-2, -1))  # [cin, cout]",
   "tensors": null
  },
  {
@@ -128,19 +160,19 @@
   "tensors": null
  },
  {
-  "doc": "Convert token ids to one-hot indicator matrix in float32",
+  "doc": "Build an exact float32 indicator matrix from integer ids; each input id selects one column.",
   "name": "one_hot",
   "origin": "agent",
-  "params": "[\"vocab\"]",
-  "reference": "def fn(x, vocab):\n    return torch.nn.functional.one_hot(x.long(), num_classes=vocab).to(torch.float32)",
+  "params": "[\"numel\", \"vocab\"]",
+  "reference": "def fn(x, numel, vocab):\n    import torch\n    return torch.nn.functional.one_hot(x.to(torch.int64), num_classes=vocab).to(torch.float32)",
   "tensors": null
  },
  {
-  "doc": "Build a float32 (tokens, vocab) exact one-hot indicator matrix from integer token ids.",
+  "doc": "Create a one-hot indicator matrix from integer token ids in float32. Input: ids of shape (tokens). Output: matrix of shape (tokens, vocab) with exactly one 1 per row at the column indexed by the corresponding id, in float32.",
   "name": "one_hot_ids",
   "origin": "agent",
   "params": "[\"tokens\", \"vocab\"]",
-  "reference": "def fn(x, **params):\n    import torch\n    return torch.nn.functional.one_hot(x.to(torch.int64), num_classes=params['vocab']).to(torch.float32)",
+  "reference": "def fn(ids, tokens, vocab):\n    import torch\n    one_hot = torch.zeros(tokens, vocab, dtype=torch.float32, device=ids.device)\n    one_hot.scatter_(1, ids.unsqueeze(1), 1.0)\n    return one_hot",
   "tensors": null
  },
  {
@@ -184,6 +216,14 @@
   "tensors": null
  },
  {
+  "doc": "Broadcast signed root-mean-square of flattened source values.",
+  "name": "rms_estimate",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, **params):\n    flat = x.reshape(-1)\n    rms = flat.square().mean().sqrt()\n    return rms * flat.mean().sign().expand(params['numel'])",
+  "tensors": null
+ },
+ {
   "doc": null,
   "name": "row_norm",
   "origin": "builtin",
@@ -200,27 +240,35 @@
   "tensors": null
  },
  {
-  "doc": "Repeat each spatial input sample into a stride-by-stride tile without channel mixing.",
+  "doc": "Repeat each spatial position of a [h, w, channels] tensor repeat_h x repeat_w times to produce [h*repeat_h, w*repeat_w, channels].",
   "name": "tile_repeat",
   "origin": "agent",
-  "params": "[\"h\", \"w\", \"channels\", \"stride\"]",
-  "reference": "def fn(x, **params):\n    return x.repeat_interleave(params['stride'], dim=-2).repeat_interleave(params['stride'], dim=-1)",
+  "params": "[\"h\", \"w\", \"channels\", \"repeat_h\", \"repeat_w\"]",
+  "reference": "def tile_repeat(x, h, w, channels, repeat_h, repeat_w):\n    # x: [h, w, channels]\n    x = x.unsqueeze(2).unsqueeze(3)  # [h, w, 1, 1, channels]\n    x = x.expand(h, w, repeat_h, repeat_w, channels)\n    return x.reshape(h * repeat_h, w * repeat_w, channels)",
   "tensors": null
  },
  {
-  "doc": "Repeat samples into stride tiles and apply a fixed quarter gain.",
+  "doc": "Scale a tensor spatially by stride factor using bilinear interpolation",
   "name": "tile_scaled",
   "origin": "agent",
   "params": "[\"h\", \"w\", \"channels\", \"stride\"]",
-  "reference": "def fn(x, **params):\n    return x.repeat_interleave(params['stride'], dim=-2).repeat_interleave(params['stride'], dim=-1) * 0.25",
+  "reference": "def fn(x, h, w, channels, stride):\n    import torch.nn.functional as F\n    x = x.unsqueeze(0)\n    x = F.interpolate(x, scale_factor=stride, mode='bilinear', align_corners=False)\n    x = x.squeeze(0)\n    return x",
   "tensors": null
  },
  {
-  "doc": "Create one exact one-hot row per token id.",
+  "doc": "Create a one-hot indicator matrix from integer token ids in float32. Input: ids of shape (tokens). Output: matrix of shape (tokens, vocab) with exactly one 1 per row at the column indexed by the corresponding id, in float32.",
   "name": "token_indicators",
   "origin": "agent",
   "params": "[\"tokens\", \"vocab\"]",
-  "reference": "def fn(x, tokens, vocab):\n    import torch\n    return torch.nn.functional.one_hot(x.to(torch.int64), num_classes=vocab).to(torch.float32)",
+  "reference": "def fn(ids, tokens, vocab):\n    import torch\n    one_hot = torch.zeros(tokens, vocab, dtype=torch.float32, device=ids.device)\n    one_hot.scatter_(1, ids.unsqueeze(1), 1.0)\n    return one_hot",
+  "tensors": null
+ },
+ {
+  "doc": "Broadcast mean after clipping to one standard deviation around the source mean.",
+  "name": "trimmed_estimate",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, **params):\n    flat = x.reshape(-1)\n    mu = flat.mean()\n    sigma = flat.var(unbiased=False).sqrt()\n    return flat.clamp(mu - sigma, mu + sigma).mean().expand(params['numel'])",
   "tensors": null
  },
  {
@@ -229,6 +277,14 @@
   "origin": "builtin",
   "params": null,
   "reference": null,
+  "tensors": null
+ },
+ {
+  "doc": "Reshape BMM output [batch, h*w, cout*kh*kw] to [batch, cout, h*stride, w*stride]",
+  "name": "unflatten_output",
+  "origin": "agent",
+  "params": "{\"batch_hw\": \"int\", \"cout\": \"int\", \"kh\": \"int\", \"kw\": \"int\", \"stride\": \"int\"}",
+  "reference": "def unflatten_output(x, batch_hw, cout, kh, kw, stride):\n    h = 16\n    w = 16\n    batch = x.shape[0]\n    x = x.view(batch, h, w, cout, kh, kw)\n    x = x.permute(0, 3, 1, 4, 2, 5)\n    x = x.reshape(batch, cout, h * kh, w * kw)\n    return x",
   "tensors": null
  }
 ]
