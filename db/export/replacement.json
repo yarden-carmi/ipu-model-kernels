@@ -1,5 +1,17 @@
 [
  {
+  "chain": "[{\"op\": \"binary\", \"params\": {\"broadcast\": \"scalar\", \"inner\": \"inner\", \"numel\": \"numel\", \"op\": \"add\"}}, {\"op\": \"binary\", \"params\": {\"broadcast\": \"scalar\", \"const\": 1, \"inner\": \"inner\", \"numel\": \"numel\", \"op\": \"add\"}}]",
+  "check_detail": "not checked: there is no torch reference of add here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of add here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    x, s = inputs\n    t = x + s\n    return t + 1\n",
+  "id": 228,
+  "kind": "approximate",
+  "name": "add_plus_one",
+  "op": "add",
+  "proposal": "{\"description\": \"Scalar-broadcast add the runtime scalar to the vector, then scalar-broadcast add the integer constant one to every result. Retain integer dtype and its arithmetic semantics; the resulting index is shifted upward by one absent overflow.\", \"rel_err\": null}",
+  "proposed_by": 153
+ },
+ {
   "chain": "[{\"op\": \"binary\", \"params\": {\"broadcast\": \"scalar\", \"inner\": \"inner\", \"numel\": \"numel\", \"op\": \"add\"}}]",
   "check_detail": "not checked: there is no torch reference of add here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of add here to run the code against \u2014 the evaluation in the model decides",
   "check_ok": null,
@@ -144,6 +156,18 @@
   "proposed_by": 67
  },
  {
+  "chain": "[{\"op\": \"binary\", \"params\": {\"broadcast\": \"scalar\", \"inner\": \"inner\", \"numel\": \"numel\", \"op\": \"add\"}}]",
+  "check_detail": "not checked: there is no torch reference of add here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of add here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    return inputs[0] + inputs[1]\n",
+  "id": 225,
+  "kind": "equivalent",
+  "name": "scalar_add_direct",
+  "op": "add",
+  "proposal": "{\"description\": \"Apply binary add with scalar broadcasting to the runtime vector and scalar: for each of the numel elements, output vector[i] + scalar. Preserve the input integer dtype and the original operand order. This replaces the addition only; it does not eliminate the input-dependent indices consumed by the subsequent gather or embedding.\", \"rel_err\": null}",
+  "proposed_by": 153
+ },
+ {
   "chain": "[{\"op\": \"binary\", \"params\": {\"broadcast\": \"scalar\", \"const\": 0.5, \"inner\": 0, \"numel\": 256, \"op\": \"mul\"}}, {\"op\": \"binary\", \"params\": {\"broadcast\": \"scalar\", \"inner\": 0, \"numel\": 256, \"op\": \"add\"}}]",
   "check_detail": "not checked: there is no torch reference of add here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of add here to run the code against \u2014 the evaluation in the model decides",
   "check_ok": null,
@@ -154,6 +178,30 @@
   "op": "add",
   "proposal": "{\"description\": \"Scale the second operand by 0.5 using binary op=mul scalar, then add it to the first operand using binary op=add scalar.\", \"rel_err\": null}",
   "proposed_by": 83
+ },
+ {
+  "chain": "[{\"op\": \"binary\", \"params\": {\"broadcast\": \"scalar\", \"const\": 3, \"inner\": 0, \"numel\": 1, \"op\": \"mul\"}}, {\"op\": \"binary\", \"params\": {\"broadcast\": \"scalar\", \"inner\": \"inner\", \"numel\": \"numel\", \"op\": \"add\"}}]",
+  "check_detail": "not checked: there is no torch reference of add here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of add here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    x, s = inputs\n    t = s * 3\n    return x + t\n",
+  "id": 227,
+  "kind": "approximate",
+  "name": "triple_scalar_shift",
+  "op": "add",
+  "proposal": "{\"description\": \"Multiply the scalar operand by integer 3 and scalar-broadcast add the result to the vector. Preserve the operand dtype. This deliberately overweights the scalar shift by a factor of three.\", \"rel_err\": null}",
+  "proposed_by": 153
+ },
+ {
+  "chain": "[{\"op\": \"binary\", \"params\": {\"broadcast\": \"scalar\", \"const\": 3, \"inner\": \"inner\", \"numel\": \"numel\", \"op\": \"mul\"}}, {\"op\": \"binary\", \"params\": {\"broadcast\": \"scalar\", \"inner\": \"inner\", \"numel\": \"numel\", \"op\": \"add\"}}]",
+  "check_detail": "not checked: there is no torch reference of add here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of add here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    x, s = inputs\n    t = x * 3\n    return t + s\n",
+  "id": 226,
+  "kind": "approximate",
+  "name": "triple_vector_shift",
+  "op": "add",
+  "proposal": "{\"description\": \"Multiply the vector operand by the integer constant 3, then scalar-broadcast add the unmodified second operand. Keep the runtime integer dtype; this deliberately overweights the vector by a factor of three.\", \"rel_err\": null}",
+  "proposed_by": 153
  },
  {
   "chain": "[{\"op\": \"unary\", \"params\": {\"fn\": \"abs\", \"numel\": 256}}, {\"op\": \"binary\", \"params\": {\"broadcast\": \"scalar\", \"const\": 1.0, \"inner\": 0, \"numel\": 256, \"op\": \"add\"}}]",
