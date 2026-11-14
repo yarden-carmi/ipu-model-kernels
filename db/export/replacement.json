@@ -1,5 +1,41 @@
 [
  {
+  "chain": "[{\"op\": \"binary\", \"params\": {\"broadcast\": \"scalar\", \"const\": 2, \"inner\": \"inner\", \"numel\": \"numel\", \"op\": \"mul\"}}]",
+  "check_detail": "not checked: there is no torch reference of add here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of add here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    x, y = inputs\n    return x * 2",
+  "id": 17,
+  "kind": "approximate",
+  "name": "double_first",
+  "op": "add",
+  "proposal": "{\"description\": \"Assume both operands are similar and replace their sum by twice the first operand: multiply the first input elementwise by scalar 2.\", \"rel_err\": null}",
+  "proposed_by": 36
+ },
+ {
+  "chain": "[{\"op\": \"binary\", \"params\": {\"broadcast\": \"scalar\", \"const\": 1, \"inner\": \"inner\", \"numel\": \"numel\", \"op\": \"mul\"}}]",
+  "check_detail": "not checked: there is no torch reference of add here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of add here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    x, y = inputs\n    return x * 1",
+  "id": 16,
+  "kind": "approximate",
+  "name": "pass_first",
+  "op": "add",
+  "proposal": "{\"description\": \"Ignore the second addend and return the first operand unchanged. This is a zero-arithmetic fallback; it is exact only when the omitted operand is zero and otherwise estimates the result by the first addend.\", \"rel_err\": null}",
+  "proposed_by": 36
+ },
+ {
+  "chain": "[{\"op\": \"binary\", \"params\": {\"broadcast\": \"scalar\", \"const\": 1, \"inner\": \"inner\", \"numel\": \"numel\", \"op\": \"mul\"}}]",
+  "check_detail": "not checked: there is no torch reference of add here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of add here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    x, y = inputs\n    return y * 1",
+  "id": 18,
+  "kind": "approximate",
+  "name": "pass_second",
+  "op": "add",
+  "proposal": "{\"description\": \"Ignore the first addend and return the second operand unchanged. This estimates the result by the second addend and is exact when the omitted operand is zero.\", \"rel_err\": null}",
+  "proposed_by": 36
+ },
+ {
   "chain": "[{\"op\": \"one_hot\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"probe\", \"params\": {}}]",
   "check_detail": "not equivalent: the chain gives 12865792 elements, embedding gives 196608 \u2014 check the last step's sizes; the code could not run: `forward` raised RuntimeError: diag only \u2014 check that it takes `forward(module, *inputs)` as TASK.md describes",
   "check_ok": 0,
