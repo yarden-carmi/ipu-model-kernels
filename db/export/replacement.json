@@ -252,6 +252,18 @@
   "proposed_by": 90
  },
  {
+  "chain": "[{\"op\": \"channel_concat\", \"params\": {\"batch\": 1, \"channels\": 256, \"spatial\": 784}}]",
+  "check_detail": "not checked: step 1 (channel_concat) has no reference I can run \u2014 define it in `primitives` with a `reference` (the code matches the operation (largest relative difference 0, within 0.001))",
+  "check_ok": null,
+  "code": "import torch\n\ndef forward(module, x0, x1):\n    return torch.cat([x0, x1], dim=1)\n",
+  "id": 254,
+  "kind": "equivalent",
+  "name": "channel_concat_chip",
+  "op": "aten",
+  "proposal": "{\"description\": \"Pure data movement, no arithmetic. Run the chip's channel_concat operation on x0 and x1 (both [1,256,28,28] float32). Batch=1, channels=256 per input, spatial=784 (28x28). It copies x0 into output channels 0..255 and x1 into channels 256..511 of a [1,512,28,28] float32 result, bit-identical to aten::concat along dim 1.\", \"rel_err\": 0.0}",
+  "proposed_by": 160
+ },
+ {
   "chain": "[{\"op\": \"channel_concat\", \"params\": {\"batch\": 1, \"channels\": 384, \"spatial\": 784}}]",
   "check_detail": "the chain could not run: step 1's reference (channel_concat) raised ValueError: not enough values to unpack (expected 2, got 1) \u2014 check its parameter names against the step's params",
   "check_ok": 0,
@@ -286,6 +298,18 @@
   "op": "aten",
   "proposal": "{\"description\": \"For each batch, copy the first input's 256 contiguous 28x28 channel planes to output channels 0:256 and the second input's planes to channels 256:512, preserving all float32 bits. The result has shape [1,512,28,28].\", \"rel_err\": 0.0}",
   "proposed_by": 143
+ },
+ {
+  "chain": "[{\"op\": \"concat_two_blocks_flat\", \"params\": {\"block\": \"numel // 2\", \"numel\": \"numel\"}}]",
+  "check_detail": "not equivalent: the chain never reads 1 of aten's 2 inputs \u2014 every input must reach a step",
+  "check_ok": 0,
+  "code": "import torch\n\ndef forward(module, x0, x1):\n    block = x0.numel()\n    numel = 2 * block\n    buf = torch.empty(numel, dtype=torch.float32, device=x0.device)\n    buf[:block] = x0.reshape(-1)\n    buf[block:] = x1.reshape(-1)\n    return buf.reshape(1, 512, 28, 28)\n",
+  "id": 253,
+  "kind": "equivalent",
+  "name": "channel_concat_flat_copy",
+  "op": "aten",
+  "proposal": "{\"description\": \"Pure data movement, no arithmetic. Allocate a contiguous float32 output buffer of numel elements, where numel = 401408 and block = numel // 2 = 200704 (= 256 channels x 28 x 28). Copy the block contiguous elements of x0 (NCHW row-major order) to output offsets [0, block). Copy the block contiguous elements of x1 to output offsets [block, numel). Reinterpret the buffer as [1, 512, 28, 28]. Because NCHW is row-major and the channel axis is the outermost non-batch axis, this is bit-identical to aten::concat along dim 1.\", \"rel_err\": 0.0}",
+  "proposed_by": 160
  },
  {
   "chain": "[{\"op\": \"concat_pair_28\", \"params\": {\"block\": 200704, \"numel\": 401408}}]",
@@ -492,6 +516,18 @@
   "proposed_by": 146
  },
  {
+  "chain": "[{\"op\": \"channel_cat2\", \"params\": {\"batch\": 1, \"channels\": 256, \"spatial\": 784}}, {\"op\": \"clamp4_7\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "the chain could not run: step 1's reference (channel_cat2) raised IndexError: index 1 is out of bounds for dimension 0 with size 1 \u2014 check its parameter names against the step's params",
+  "check_ok": 0,
+  "code": "import torch\n\ndef forward(module, x0, x1):\n    y = torch.cat([x0, x1], dim=1)\n    return torch.clamp(y, min=-4.0, max=4.0)\n",
+  "id": 256,
+  "kind": "approximate",
+  "name": "concat_clamp4",
+  "op": "aten",
+  "proposal": "{\"description\": \"Approximate aten::concat along dim 1 of x0, x1 [1,256,28,28] float32 into [1,512,28,28]. Step 1 (channel_cat2): copy x0 into output channels 0..255 and x1 into channels 256..511 (exact copy, batch=1, channels=256, spatial=784). Step 2: clamp every element to [-4,4] (clamp4_7, numel=401408); NaNs remain NaNs. Lossy for inputs with magnitude above 4.\", \"rel_err\": 0.0}",
+  "proposed_by": 160
+ },
+ {
   "chain": "[{\"op\": \"concat_two_blocks_28\", \"params\": {\"block\": \"numel // 2\"}}, {\"op\": \"clamp4_7\", \"params\": {\"numel\": 401408}}]",
   "check_detail": "not checked: step 1 (concat_two_blocks_28) has no reference I can run \u2014 define it in `primitives` with a `reference` (the code matches the operation (largest relative difference 0, within 0.001))",
   "check_ok": null,
@@ -552,6 +588,18 @@
   "proposed_by": 154
  },
  {
+  "chain": "[{\"op\": \"channel_cat2\", \"params\": {\"batch\": 1, \"channels\": 256, \"spatial\": 784}}, {\"op\": \"fixed256_7\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "the chain could not run: step 1's reference (channel_cat2) raised IndexError: index 1 is out of bounds for dimension 0 with size 1 \u2014 check its parameter names against the step's params",
+  "check_ok": 0,
+  "code": "import torch\n\ndef forward(module, x0, x1):\n    y = torch.cat([x0, x1], dim=1)\n    return torch.round(y * 256.0) / 256.0\n",
+  "id": 255,
+  "kind": "approximate",
+  "name": "concat_fixed256_quant",
+  "op": "aten",
+  "proposal": "{\"description\": \"Approximate aten::concat along dim 1 of x0, x1 [1,256,28,28] float32 into [1,512,28,28]. Step 1 (channel_cat2): copy x0 into output channels 0..255 and x1 into channels 256..511 (exact copy, batch=1, channels=256, spatial=784). Step 2: quantize to a Q*.8 fixed-point grid: multiply by 256, round to nearest integer with ties-to-even, multiply by 1/256; no saturation (fixed256_7, numel=401408). Absolute error per element at most 2^-9.\", \"rel_err\": 0.0009765644790644817}",
+  "proposed_by": 160
+ },
+ {
   "chain": "[{\"op\": \"concat_two_blocks_28\", \"params\": {\"block\": \"numel // 2\"}}, {\"op\": \"round_fp16_7\", \"params\": {\"numel\": 401408}}]",
   "check_detail": "not checked: step 1 (concat_two_blocks_28) has no reference I can run \u2014 define it in `primitives` with a `reference` (the code matches the operation (largest relative difference 0.0002, within 0.001))",
   "check_ok": null,
@@ -586,6 +634,18 @@
   "op": "aten",
   "proposal": "{\"description\": \"Approximate aten::concat along dim 1 for x0, x1 of shape [1,256,14,14] float32. Step 1: concat_14_blocks copies x0 into output elements 0..50175 and x1 into 50176..100351 of a [1,512,14,14] buffer (exact copy). Step 2: round every element to IEEE binary16 (round-to-nearest, ties-to-even) and back to float32 (round_fp16_7 over numel=100352). Relative error per element is at most about 2^-11; overflow becomes signed infinity.\", \"rel_err\": 0.0002441439428817616}",
   "proposed_by": 154
+ },
+ {
+  "chain": "[{\"op\": \"flat_pair_reshape\", \"params\": {\"numel\": \"numel\"}}, {\"op\": \"round_fp16_7\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "the chain could not run: step 1's reference (flat_pair_reshape) raised RuntimeError: shape '[1, 512, 28, 28]' is invalid for input of size 200704 \u2014 check its parameter names against the step's params",
+  "check_ok": 0,
+  "code": "import torch\n\ndef forward(module, x0, x1):\n    y = torch.cat([x0, x1], dim=1)\n    return y.to(torch.float16).to(torch.float32)\n",
+  "id": 257,
+  "kind": "approximate",
+  "name": "concat_fp16_round",
+  "op": "aten",
+  "proposal": "{\"description\": \"Approximate aten::concat along dim 1 of x0, x1 [1,256,28,28] float32 into [1,512,28,28]. Step 1 (flat_pair_reshape): the two operands are laid out as one flat buffer of numel=401408 values, x0 in offsets [0,200704) and x1 in [200704,401408) (exact copy); reshape it to [1,512,28,28], which is the channel concatenation. Step 2: round every element to IEEE binary16 (round-to-nearest, ties-to-even) and back to float32 (round_fp16_7, numel=401408). Relative error per element at most about 2^-11; values beyond the binary16 range overflow to signed infinity.\", \"rel_err\": 0.00024414111976612043}",
+  "proposed_by": 160
  },
  {
   "chain": "[{\"op\": \"concat_half_round_primitive\", \"params\": {\"elements\": \"numel\"}}]",
@@ -2184,6 +2244,30 @@
   "proposed_by": 155
  },
  {
+  "chain": "[{\"op\": \"block8_representative\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "not checked: there is no torch reference of gather here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of gather here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    import torch\n    import torch.nn.functional as F\n    x = inputs[0].reshape(1, 1, -1).to(torch.float32)\n    return F.adaptive_avg_pool1d(x, 8).reshape(-1).repeat_interleave(32)\n",
+  "id": 250,
+  "kind": "approximate",
+  "name": "block8_estimate",
+  "op": "gather",
+  "proposal": "{\"description\": \"Ignore the unavailable indices. Flatten the nonempty source in row-major order. Compute eight adaptive-average bins over the source; bin j covers positions floor(j*N/8) through ceil((j+1)*N/8)-1. Repeat each bin mean numel/8 times in order, yielding a flat numel-element approximation. This assumes corresponding source and output positions have some locality; it is not equivalent to gather.\", \"rel_err\": null}",
+  "proposed_by": 159
+ },
+ {
+  "chain": "[{\"op\": \"static_compare_select\", \"params\": {\"numel\": \"numel\", \"sel\": \"sel\"}}]",
+  "check_detail": "not checked: there is no torch reference of gather here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of gather here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    import torch\n    source, index = inputs\n    dim = 1\n    s = source.movedim(dim, -1)\n    i = index.movedim(dim, -1)\n    slices = tuple(slice(0, n) for n in i.shape[:-1]) + (slice(None),)\n    s = s[slices]\n    positions = torch.arange(s.shape[-1], device=index.device, dtype=index.dtype)\n    mask = i.unsqueeze(-1) == positions\n    values = torch.where(mask, s.unsqueeze(-2), torch.zeros((), dtype=source.dtype, device=source.device))\n    return values.sum(dim=-1, dtype=source.dtype).movedim(-1, dim)",
+  "id": 249,
+  "kind": "equivalent",
+  "name": "compare_select",
+  "op": "gather",
+  "proposal": "{\"description\": \"Implement gather without input-dependent addresses. Move the gather axis to the last dimension of both source and index. Restrict each other source dimension to the corresponding index extent. For each output index, compare it in parallel with all compile-time source-axis positions; select the corresponding source value using the resulting predicates and sum the selected values along that axis. Restore the original axis order. Indices must be valid nonnegative gather indices; the source-axis length is known from the source tensor shape when the kernel is compiled. No integer index is used for memory addressing.\", \"rel_err\": null}",
+  "proposed_by": 159
+ },
+ {
   "chain": "[{\"op\": \"direct_gather\", \"params\": {\"numel\": \"numel\", \"sel\": \"sel\"}}]",
   "check_detail": "not checked: there is no torch reference of gather here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of gather here to run the code against \u2014 the evaluation in the model decides",
   "check_ok": null,
@@ -2266,6 +2350,18 @@
   "op": "gather",
   "proposal": "{\"description\": \"Use a data-independent fixed representative: flatten the source and replicate its first element numel times.\", \"rel_err\": null}",
   "proposed_by": 79
+ },
+ {
+  "chain": "[{\"op\": \"linear_resample_source\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "not checked: there is no torch reference of gather here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of gather here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    import torch\n    import torch.nn.functional as F\n    x = inputs[0].reshape(1, 1, -1).to(torch.float32)\n    return F.interpolate(x, size=256, mode='linear', align_corners=True).reshape(-1)\n",
+  "id": 251,
+  "kind": "approximate",
+  "name": "linear_resample_estimate",
+  "op": "gather",
+  "proposal": "{\"description\": \"Ignore the unavailable indices and flatten the nonempty source. Linearly interpolate its flattened sequence to numel output positions, aligning the first and last source elements with the first and last outputs. For source length one, replicate that element. This is a locality-based estimate, not an indexed gather.\", \"rel_err\": null}",
+  "proposed_by": 159
  },
  {
   "chain": "[{\"op\": \"mean_estimate\", \"params\": {\"numel\": \"numel\"}}]",
@@ -2374,6 +2470,18 @@
   "op": "gather",
   "proposal": "{\"description\": \"Use the median of the source tensor as a robust representative and replicate it numel times.\", \"rel_err\": null}",
   "proposed_by": 85
+ },
+ {
+  "chain": "[{\"op\": \"midrange_representative\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "not checked: there is no torch reference of gather here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of gather here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    import torch\n    a = inputs[0].reshape(-1).to(torch.float32)\n    v = a.min() * 0.5 + a.max() * 0.5\n    return v.expand(256)\n",
+  "id": 252,
+  "kind": "approximate",
+  "name": "midrange_estimate",
+  "op": "gather",
+  "proposal": "{\"description\": \"Ignore the unavailable indices. Flatten the nonempty source, compute its minimum and maximum in float32, average these two extrema, and broadcast the result to numel output positions. This minimax constant estimate for a bounded source can be poor in mean-square error or when outliers are present.\", \"rel_err\": null}",
+  "proposed_by": 159
  },
  {
   "chain": "[{\"op\": \"rms_estimate\", \"params\": {\"numel\": \"numel\"}}]",

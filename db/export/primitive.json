@@ -160,6 +160,14 @@
   "tensors": null
  },
  {
+  "doc": "Flatten the source, adaptive-average-pool it to eight bins and repeat each bin mean numel/8 times; numel must be divisible by eight and the source nonempty.",
+  "name": "block8_representative",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    import torch.nn.functional as F\n    n = params['numel']\n    a = x.reshape(1, 1, -1).to(torch.float32)\n    return F.adaptive_avg_pool1d(a, 8).reshape(-1).repeat_interleave(n // 8)\n",
+  "tensors": null
+ },
+ {
   "doc": null,
   "name": "bmm",
   "origin": "builtin",
@@ -197,6 +205,14 @@
   "origin": "agent",
   "params": "[\"cin\", \"cout\", \"h\", \"w\", \"kh\", \"kw\"]",
   "reference": "def fn(x, cin, cout, h, w, kh, kw, weight=None):\n    import torch\n    M = weight[:, :, kh // 2, kw // 2]\n    b = x.reshape(-1, cin, h * w)\n    y = b.transpose(1, 2) @ M\n    return y.transpose(1, 2).reshape(x.shape[:-3] + (cout, h, w))",
+  "tensors": null
+ },
+ {
+  "doc": "Concatenate two float32 NCHW tensors (each [batch, channels, spatial] flattened to H*W=spatial) along the channel axis; exact copy.",
+  "name": "channel_cat2",
+  "origin": "agent",
+  "params": "[\"batch\", \"channels\", \"spatial\"]",
+  "reference": "import torch\n\ndef fn(x, batch, channels, spatial):\n    x0, x1 = x[0], x[1]\n    return torch.cat([x0, x1], dim=1)\n",
   "tensors": null
  },
  {
@@ -352,6 +368,14 @@
   "tensors": null
  },
  {
+  "doc": "Copy two contiguous float32 blocks of length block into adjacent halves of a buffer of length numel = 2*block (exact copy, no arithmetic).",
+  "name": "concat_two_blocks_flat",
+  "origin": "agent",
+  "params": "[\"numel\", \"block\"]",
+  "reference": "def fn(x, numel, block):\n    import torch\n    flat = x.reshape(-1).to(torch.float32)\n    out = torch.empty(numel, dtype=torch.float32)\n    out[:flat.numel()] = flat\n    return out\n",
+  "tensors": null
+ },
+ {
   "doc": null,
   "name": "conv2d",
   "origin": "builtin",
@@ -413,6 +437,14 @@
   "origin": "agent",
   "params": "[\"numel\"]",
   "reference": "def fn(x, **params):\n    import torch\n    return torch.round(x * 256.0) * (1.0 / 256.0)",
+  "tensors": null
+ },
+ {
+  "doc": "Reshape a flat float32 buffer holding two NCHW [1,256,28,28] blocks (channel-major, block-contiguous) into [1,512,28,28]; exact, no arithmetic.",
+  "name": "flat_pair_reshape",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "import torch\n\ndef fn(x, numel):\n    return x.reshape(1, 512, 28, 28)\n",
   "tensors": null
  },
  {
@@ -480,6 +512,14 @@
   "tensors": null
  },
  {
+  "doc": "Flatten a nonempty source and perform one-dimensional linear resampling to numel outputs with aligned endpoints.",
+  "name": "linear_resample_source",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    import torch.nn.functional as F\n    a = x.reshape(1, 1, -1).to(torch.float32)\n    return F.interpolate(a, size=params['numel'], mode='linear', align_corners=True).reshape(-1)\n",
+  "tensors": null
+ },
+ {
   "doc": "Create a one-hot matrix from token ids in float32. Input: ids of shape (tokens,). Output: matrix of shape (rows, cols) = (tokens, vocab) where O[t, i] = 1 if ids[t] == i else 0, in float32.",
   "name": "make_indicators",
   "origin": "agent",
@@ -541,6 +581,14 @@
   "origin": "agent",
   "params": "[\"numel\"]",
   "reference": "def fn(x, **params):\n    return x.reshape(-1).median().expand(params['numel'])",
+  "tensors": null
+ },
+ {
+  "doc": "Broadcast the midpoint of the minimum and maximum of a nonempty source to numel output positions.",
+  "name": "midrange_representative",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    a = x.reshape(-1).to(torch.float32)\n    v = a.min() * 0.5 + a.max() * 0.5\n    return v.expand(params['numel'])\n",
   "tensors": null
  },
  {
@@ -693,6 +741,14 @@
   "origin": "builtin",
   "params": null,
   "reference": null,
+  "tensors": null
+ },
+ {
+  "doc": "Gather by parallel equality comparisons against static positions, predicated select and reduction, without data-dependent addressing.",
+  "name": "static_compare_select",
+  "origin": "agent",
+  "params": "[\"numel\", \"sel\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    source, index = x\n    dim = params['sel']\n    s = source.movedim(dim, -1)\n    i = index.movedim(dim, -1)\n    slices = tuple(slice(0, n) for n in i.shape[:-1]) + (slice(None),)\n    s = s[slices]\n    positions = torch.arange(s.shape[-1], device=index.device, dtype=index.dtype)\n    mask = i.unsqueeze(-1) == positions\n    values = torch.where(mask, s.unsqueeze(-2), torch.zeros((), dtype=source.dtype, device=source.device))\n    return values.sum(dim=-1, dtype=source.dtype).movedim(-1, dim)",
   "tensors": null
  },
  {
