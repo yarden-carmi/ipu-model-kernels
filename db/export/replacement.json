@@ -264,6 +264,18 @@
   "proposed_by": 76
  },
  {
+  "chain": "[{\"op\": \"center_tap_gemm\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"w\": \"w\"}}, {\"op\": \"tile_up\", \"params\": {\"channels\": \"cout\", \"h\": \"h\", \"stride\": \"stride\", \"w\": \"w\"}}, {\"op\": \"add_bias\", \"params\": {\"channels\": \"cout\", \"h\": \"h*stride\", \"w\": \"w*stride\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "import torch\n\ndef forward(module, x, *args):\n    wt = getattr(module, 'weight', None)\n    bs = getattr(module, 'bias', None)\n    if wt is None:\n        for a in args:\n            if torch.is_tensor(a) and a.dim() == 4:\n                wt = a\n                break\n    if bs is None:\n        for a in args:\n            if torch.is_tensor(a) and a.dim() == 1:\n                bs = a\n                break\n    M = wt[:, :, 2, 2]  # [cin, cout], center tap of the 4x4 kernel\n    cin, h, w = x.shape[-3:]\n    batch = x.reshape(-1, cin, h * w)\n    y = batch.transpose(1, 2) @ M          # [b, h*w, cout]\n    y = y.transpose(1, 2).reshape(-1, y.shape[-1], h, w)\n    s = 4\n    y = y.repeat_interleave(s, dim=-2).repeat_interleave(s, dim=-1)\n    if bs is not None:\n        y = y + bs.reshape((1,) * (y.dim() - 1) + (-1,))\n    return y.reshape(x.shape[:-3] + (y.shape[-3], y.shape[-2], y.shape[-1]))\n",
+  "id": 195,
+  "kind": "approximate",
+  "name": "center_tap_tile",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"Approximate conv_transpose2d by keeping only a single spatial tap of the 4x4 kernel: M[ci,co] = W[ci,co,kh//2,kw//2] (tap (2,2)). Step 1: flatten the input [batch,cin,h,w] to rows [batch*h*w, cin]. Step 2: GEMM rows @ M -> [batch*h*w, cout]. Step 3: reshape to [batch,cout,h,w] and repeat each value over its disjoint stride-by-stride (4x4) output tile, producing [batch,cout,64,64]. Step 4: add the per-output-channel bias. This keeps exact channel mixing but discards the other fifteen kernel taps, so it is approximate.\", \"rel_err\": null}",
+  "proposed_by": 140
+ },
+ {
   "chain": "[{\"op\": \"mean_tile\", \"params\": {\"channels\": \"cin\", \"h\": \"h\", \"out_channels\": \"cout\", \"stride\": \"stride\", \"w\": \"w\"}}]",
   "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
   "check_ok": null,
@@ -274,6 +286,18 @@
   "op": "conv_transpose2d",
   "proposal": "{\"description\": \"Collapse input channels by their arithmetic mean at each spatial location, broadcast that shared scalar feature to all 96 output channels, and repeat each location over its 2x2 tile. This is a rank-one channel-mixing heuristic and ignores kernel-tap variation and bias.\", \"rel_err\": null}",
   "proposed_by": 47
+ },
+ {
+  "chain": "[{\"op\": \"diag_scale_gemm\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kw\", \"w\": \"w\"}}, {\"op\": \"tile_up\", \"params\": {\"channels\": \"cout\", \"h\": \"h\", \"stride\": \"stride\", \"w\": \"w\"}}, {\"op\": \"add_bias\", \"params\": {\"channels\": \"cout\", \"h\": \"h*stride\", \"w\": \"w*stride\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "import torch\n\ndef forward(module, x, *args):\n    wt = getattr(module, 'weight', None)\n    bs = getattr(module, 'bias', None)\n    if wt is None:\n        for a in args:\n            if torch.is_tensor(a) and a.dim() == 4:\n                wt = a\n                break\n    if bs is None:\n        for a in args:\n            if torch.is_tensor(a) and a.dim() == 1:\n                bs = a\n                break\n    d = wt.permute(1, 0, 2, 3).diagonal(dim1=0, dim2=1).mean(dim=-1)  # [min(cin,cout)]\n    cin, h, w = x.shape[-3:]\n    batch = x.reshape(-1, cin, h * w)\n    m = batch.transpose(1, 2) @ d[:cin]        # [b, h*w] single shared map\n    y = m.reshape(-1, 1, h, w).expand(-1, wt.shape[1], h, w)\n    s = 4\n    y = y.repeat_interleave(s, dim=-2).repeat_interleave(s, dim=-1)\n    if bs is not None:\n        y = y + bs.reshape((1,) * (y.dim() - 1) + (-1,))\n    return y.reshape(x.shape[:-3] + (y.shape[-3], y.shape[-2], y.shape[-1]))\n",
+  "id": 196,
+  "kind": "approximate",
+  "name": "diag_scale_tile",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"Approximate conv_transpose2d by a diagonal (per-channel) channel mixing. Step 1: extract the diagonal of the weight [cin,cout,kh,kw] over its channel axes and average over taps: d[c] = mean_{th,tw} W[c,c,th,tw]. Step 2: form a single spatial map m[b,i,j] = sum_ci x[b,ci,i,j]*d[ci]. Step 3: broadcast that shared map to all cout output channels, giving [batch,cout,h,w]. Step 4: repeat each value over its disjoint stride-by-stride (4x4) output tile, producing [batch,cout,64,64]. Step 5: add the per-output-channel bias. This is a rank-one channel approximation: cross-channel mixing beyond same-index channels and within-tile kernel variation are discarded.\", \"rel_err\": null}",
+  "proposed_by": 140
  },
  {
   "chain": "[{\"op\": \"diagonal_kernel_primitive\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"stride\": \"stride\", \"w\": \"w\"}}]",
@@ -384,6 +408,18 @@
   "proposed_by": 76
  },
  {
+  "chain": "[{\"op\": \"flatten_input\", \"params\": {\"cin\": \"cin\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"flatten_weight\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"kh\": \"kh\", \"kw\": \"kw\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": 1, \"k\": \"cin\", \"m\": \"h*w\", \"n\": \"cout*kh*kw\"}}, {\"op\": \"disjoint_tile_layout\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"w\": \"w\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "import torch\n\ndef forward(module, *inputs):\n    x = inputs[0]\n    w = module.weight\n    bias = getattr(module, 'bias', None)\n    if bias is None and len(inputs) > 2:\n        bias = inputs[2]\n    n, cin, h, wd = x.shape\n    cout, kh, kw = w.shape[1], w.shape[2], w.shape[3]\n    stride = 4\n    # rows: each input pixel is a row of the GEMM\n    xf = x.reshape(n, cin, h * wd).transpose(1, 2).reshape(n * h * wd, cin)\n    # weight [cin, cout, kh, kw] -> [cin, cout*kh*kw], column co*kh*kw + th*kw + tw\n    wf = w.reshape(cin, cout * kh * kw)\n    g = xf @ wf                                  # [n*h*w, cout*kh*kw]\n    g = g.reshape(n, h, wd, cout, kh, kw)\n    # fold taps into disjoint output positions: (co, i*kh+th, j*kw+tw)\n    g = g.permute(0, 3, 1, 4, 2, 5).reshape(n, cout, h * kh, wd * kw)\n    if bias is not None:\n        g = g + bias.view(1, -1, 1, 1)\n    return g\n",
+  "id": 193,
+  "kind": "equivalent",
+  "name": "disjoint_gemm_fold",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"Because stride == kh == kw == 4 and padding == 0, each input position (i,j) contributes to exactly one disjoint 4x4 output tile at (i*4+th, j*4+tw), th,tw in [0,4). Step 1: flatten the input [cin,h,w] to rows [h*w, cin]. Step 2: flatten the transposed-conv weight [cin,cout,kh,kw] to [cin, cout*kh*kw] (column index co*kh*kw + th*kw + tw). Step 3: GEMM X[h*w,cin] @ W2[cin, cout*kh*kw] -> [h*w, cout*kh*kw]; entry (i*w+j, co*kh*kw+th*kw+tw) = sum_ci in[ci,i,j]*W[ci,co,th,tw], exactly the conv_transpose2d contribution of that input pixel to output channel co at (i*4+th, j*4+tw). Step 4: disjoint_tile_layout folds each row (i,j) into its disjoint stride-by-stride output tile, producing [cout, h*stride, w*stride]. Step 5: add the per-output-channel bias, broadcast over the spatial dims.\", \"rel_err\": null}",
+  "proposed_by": 140
+ },
+ {
   "chain": "[{\"op\": \"flatten_input_spatial\", \"params\": {\"cin\": \"cin\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"flatten_weight\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"kh\": \"kh\", \"kw\": \"kw\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"cin\", \"m\": \"h*w\", \"n\": \"cout*kh*kw\"}}, {\"op\": \"disjoint_tile_layout\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"w\": \"w\"}}, {\"op\": \"binary\", \"params\": {\"broadcast\": true, \"const\": false, \"inner\": \"cout\", \"numel\": \"cout*h*kh*w*kw\", \"op\": \"add\", \"value\": 0}}]",
   "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
   "check_ok": null,
@@ -430,6 +466,30 @@
   "op": "conv_transpose2d",
   "proposal": "{\"description\": \"Approximate conv_transpose2d by averaging the 2x2 kernel over its spatial dimensions to obtain a [cin, cout] projection matrix. Apply this projection at each input position via GEMM (flattening spatial dims), then repeat each resulting 2x2 tile via tile_repeat to match the output spatial size, and finally add the channel bias.\", \"rel_err\": null}",
   "proposed_by": 76
+ },
+ {
+  "chain": "[{\"op\": \"mean_tap_gemm\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"w\": \"w\"}}, {\"op\": \"bilinear_up2\", \"params\": {\"channels\": \"cout\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"bilinear_up2\", \"params\": {\"channels\": \"cout\", \"h\": \"h*2\", \"w\": \"w*2\"}}, {\"op\": \"add_bias\", \"params\": {\"channels\": \"cout\", \"h\": \"h*4\", \"w\": \"w*4\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "import torch\n\ndef forward(module, x, *args):\n    wt = getattr(module, 'weight', None)\n    bs = getattr(module, 'bias', None)\n    if wt is None:\n        for a in args:\n            if torch.is_tensor(a) and a.dim() == 4:\n                wt = a\n                break\n    if bs is None:\n        for a in args:\n            if torch.is_tensor(a) and a.dim() == 1:\n                bs = a\n                break\n    M = wt.mean(dim=(2, 3))  # [cin, cout]\n    cin, h, w = x.shape[-3:]\n    batch = x.reshape(-1, cin, h * w)\n    y = batch.transpose(1, 2) @ M          # [b, h*w, cout]\n    y = y.transpose(1, 2).reshape(-1, y.shape[-1], h, w)\n    y = torch.nn.functional.interpolate(y, scale_factor=2, mode='bilinear', align_corners=False)\n    y = torch.nn.functional.interpolate(y, scale_factor=2, mode='bilinear', align_corners=False)\n    if bs is not None:\n        y = y + bs.reshape((1,) * (y.dim() - 1) + (-1,))\n    return y.reshape(x.shape[:-3] + (y.shape[-3], y.shape[-2], y.shape[-1]))\n",
+  "id": 197,
+  "kind": "approximate",
+  "name": "mean_tap_bilinear",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"Approximate conv_transpose2d by collapsing the 4x4 kernel to its tap mean (a [cin,cout] projection M[ci,co] = mean_{th,tw} W[ci,co,th,tw]), applying it at input resolution, then upsampling smoothly instead of block-repeating. Step 1: flatten the input [batch,cin,16,16] to rows and GEMM with M -> [batch,cout,16,16]. Step 2: bilinear 2x upsample 16->32. Step 3: bilinear 2x upsample 32->64, giving [batch,cout,64,64]. Step 4: add the per-output-channel bias. Approximate: replaces within-tile kernel variation by its mean and the piecewise-constant tile placement by bilinear interpolation.\", \"rel_err\": null}",
+  "proposed_by": 140
+ },
+ {
+  "chain": "[{\"op\": \"mean_tap_gemm\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"w\": \"w\"}}, {\"op\": \"tile_up\", \"params\": {\"channels\": \"cout\", \"h\": \"h\", \"stride\": \"stride\", \"w\": \"w\"}}, {\"op\": \"add_bias\", \"params\": {\"channels\": \"cout\", \"h\": \"h*stride\", \"w\": \"w*stride\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "import torch\n\ndef forward(module, x, *args):\n    wt = getattr(module, 'weight', None)\n    bs = getattr(module, 'bias', None)\n    if wt is None:\n        for a in args:\n            if torch.is_tensor(a) and a.dim() == 4:\n                wt = a\n                break\n    if bs is None:\n        for a in args:\n            if torch.is_tensor(a) and a.dim() == 1:\n                bs = a\n                break\n    M = wt.mean(dim=(2, 3))  # [cin, cout]\n    cin, h, w = x.shape[-3:]\n    batch = x.reshape(-1, cin, h * w)\n    y = batch.transpose(1, 2) @ M          # [b, h*w, cout]\n    y = y.transpose(1, 2).reshape(-1, y.shape[-1], h, w)\n    s = 4\n    y = y.repeat_interleave(s, dim=-2).repeat_interleave(s, dim=-1)\n    if bs is not None:\n        y = y + bs.reshape((1,) * (y.dim() - 1) + (-1,))\n    return y.reshape(x.shape[:-3] + (y.shape[-3], y.shape[-2], y.shape[-1]))\n",
+  "id": 194,
+  "kind": "approximate",
+  "name": "mean_tap_tile",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"Approximate conv_transpose2d by collapsing the 4x4 spatial kernel to its arithmetic mean over taps, giving a [cin, cout] projection matrix M[ci,co] = mean_{th,tw} W[ci,co,th,tw]. Step 1: flatten the input [batch,cin,h,w] to rows [batch*h*w, cin]. Step 2: GEMM rows @ M -> [batch*h*w, cout]. Step 3: reshape to [batch,cout,h,w] and repeat each value over its disjoint stride-by-stride (4x4) output tile (ih*stride+th, iw*stride+tw), producing [batch,cout,h*stride,w*stride] = [batch,48,64,64]. Step 4: add the per-output-channel bias. This keeps exact channel mixing but replaces within-tile kernel variation by its mean, so it is approximate.\", \"rel_err\": null}",
+  "proposed_by": 140
  },
  {
   "chain": "[{\"op\": \"tile_repeat\", \"params\": {\"channels\": \"cin\", \"h\": \"h\", \"stride\": \"stride\", \"w\": \"w\"}}]",
@@ -1512,6 +1572,18 @@
   "proposed_by": 46
  },
  {
+  "chain": "[{\"op\": \"quadratic_integer_selectors\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, *inputs):\n    import torch\n    ids = inputs[0]\n    table = module.table\n    coordinates = torch.arange(table.shape[0], device=ids.device, dtype=torch.float32).reshape(1, -1)\n    difference = ids.reshape(-1, 1).to(torch.float32) - coordinates\n    selectors = (1.0 - difference * difference).clamp_min(0.0)\n    compute_dtype = torch.float64 if table.dtype == torch.float64 else torch.float32\n    result = selectors.to(compute_dtype) @ table.to(compute_dtype)\n    return result.to(table.dtype).reshape(*ids.shape, table.shape[1])\n",
+  "id": 174,
+  "kind": "equivalent",
+  "name": "quadratic_selector_gemm",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Flatten the integer ids to tokens rows and convert them to float32. At fixed vocabulary coordinates j=0,...,vocab-1, broadcast subtract to form D[t,j]=ids[t]-j. Compute S[t,j]=max(0,1-D[t,j]*D[t,j]) using elementwise multiply, subtract and lower clamp. This is a fixed-address arithmetic circuit, not a gather, scatter or runtime-addressed write. For valid integer ids S is exactly the Kronecker indicator: D=0 gives 1, and every nonzero integer difference has squared magnitude at least 1 and gives 0 after clamping. All ids and differences for vocab=30522 are exactly representable in float32; rounding of larger squares cannot change this indicator. GEMM S (tokens,vocab) with the finite embedding table (vocab,dim), in float32 for a float32 or lower precision table, then cast back to the table dtype and restore the ids' leading dimensions followed by dim. For a float64 table promote S to float64 instead to avoid losing table precision. The product selects exactly one table row without approximating its entries.\", \"rel_err\": 0.0}",
+  "proposed_by": 123
+ },
+ {
   "chain": "[{\"op\": \"token_indicators\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"bmm\", \"params\": {\"b\": \"1\", \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
   "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
   "check_ok": 1,
@@ -1594,6 +1666,18 @@
   "op": "embedding",
   "proposal": "{\"description\": \"Replace embedding lookup with token_indicators primitive (output in float32) followed by dense matmul in float32. Step 1: build a one-hot matrix O of shape (tokens x vocab) where O[t, i] = 1 if ids[t] == i else 0 using token_indicators primitive, cast to float32. Step 2: gemm with m = tokens, k = vocab, n = dim computing O @ table in float32, where table is the embedding weight of shape (vocab x dim). Row t of the result is table[ids[t]], exactly the embedding output, cast back to the table's dtype.\", \"rel_err\": 0.0}",
   "proposed_by": 74
+ },
+ {
+  "chain": "[{\"op\": \"triangular_selectors\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, *inputs):\n    import torch\n    ids = inputs[0]\n    table = module.table\n    positions = torch.arange(table.shape[0], device=ids.device, dtype=torch.float32).reshape(1, -1)\n    delta = ids.reshape(-1, 1).to(torch.float32) - positions\n    selectors = (1.0 - delta.abs()).clamp_min(0.0)\n    out = torch.matmul(selectors, table.to(torch.float32))\n    return out.to(table.dtype).reshape(*ids.shape, table.shape[1])\n",
+  "id": 170,
+  "kind": "equivalent",
+  "name": "triangular_selector_gemm",
+  "op": "embedding",
+  "proposal": "{\"description\": \"For each token t and fixed vocabulary position j, broadcast-subtract j from ids[t], take absolute value, subtract from 1, and clamp below at zero. Since valid ids and j are integers, S[t,j]=max(0,1-abs(ids[t]-j)) is exactly the Kronecker indicator. This uses fixed-address elementwise arithmetic, not a lookup, scatter, or runtime-addressed write. Multiply S (tokens by vocab) by the constant embedding table (vocab by dim) with GEMM. Restore the input's leading dimensions and table dtype. For this vocabulary all integer coordinates and differences are exactly representable in float32. Each output row contains precisely the selected table row for finite table values, without approximation of the table.\", \"rel_err\": 0.0}",
+  "proposed_by": 112
  },
  {
   "chain": "[{\"op\": \"direct_gather\", \"params\": {\"numel\": \"numel\", \"sel\": \"sel\"}}]",
@@ -1884,6 +1968,18 @@
   "proposed_by": 97
  },
  {
+  "chain": "[{\"op\": \"bilinear_polyphase_defined\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 1e-07, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, *inputs):\n    import torch\n    x = inputs[0]\n    c, h, w = x.shape\n    out = x.new_empty((c, 2*h, 2*w))\n    ii = torch.arange(h, device=x.device)\n    jj = torch.arange(w, device=x.device)\n    for a in range(2):\n        vi = (ii + (1 if a else -1)).clamp(0, h-1)\n        for b in range(2):\n            uj = (jj + (1 if b else -1)).clamp(0, w-1)\n            out[:, a::2, b::2] = (9*x + 3*x[:, vi, :] + 3*x[:, :, uj] + x[:, vi[:, None], uj[None, :]]) * (1.0/16.0)\n    return out",
+  "id": 173,
+  "kind": "equivalent",
+  "name": "bilinear_polyphase",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Compute the four output phases directly with clamped input neighbours. For each input pixel x[c,i,j], let v[-1]=max(i-1,0), v[+1]=min(i+1,h-1), and similarly u[-1],u[+1] along width. For a,b in {0,1}, set di=-1 if a=0 else +1 and dj=-1 if b=0 else +1, then output[c,2i+a,2j+b]=(9*x[c,i,j]+3*x[c,v[di],j]+3*x[c,i,u[dj]]+x[c,v[di],u[dj]])/16. This is the tensor product of the 3/4 center, 1/4 neighbouring sample weights for half-pixel 2x interpolation. Clamp neighbour indices at image edges. The primitive can be implemented by four shifted reads, constant multiplies and additions per phase, storing directly into the interleaved output.\", \"rel_err\": 1.1966278548399467e-07}",
+  "proposed_by": 122
+ },
+ {
   "chain": "[{\"op\": \"bilinear_q_interp\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
   "check_detail": "equivalent to the operation (largest relative difference 1e-07, within 0.001)",
   "check_ok": 1,
@@ -1918,6 +2014,66 @@
   "op": "upsample",
   "proposal": "{\"description\": \"Approximate bilinear 2x upsampling by nearest-neighbour replication. Each input pixel [h,w] of each channel is copied into a 2x2 block of the output [2h,2w]: out[c,i,j] = x[c,i//2,j//2]. Implemented as one primitive nearest2x (reshape to [C,h,1,w,1], broadcast to [C,h,2,w,2], reshape to [C,2h,2w]). No interpolation weights, so it differs from bilinear at every non-block-centre position.\", \"rel_err\": 0.857363620024227}",
   "proposed_by": 97
+ },
+ {
+  "chain": "[{\"op\": \"nearest2x\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"triangle_filter_replicate\", \"params\": {\"channels\": \"channels\", \"h\": \"h*2\", \"w\": \"w*2\"}}]",
+  "check_detail": "not checked: step 1 (nearest2x) has no reference I can run \u2014 define it in `primitives` with a `reference` (the code matches the operation (largest relative difference 2e-07, within 0.001))",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    import torch\n    import torch.nn.functional as F\n    x = inputs[0]\n    z = x.repeat_interleave(2, dim=-2).repeat_interleave(2, dim=-1)\n    c = z.shape[-3]\n    v = z.new_tensor([0.25, 0.5, 0.25])\n    k = (v[:, None] * v[None, :]).reshape(1, 1, 3, 3).expand(c, 1, 3, 3).contiguous()\n    y = F.conv2d(F.pad(z.reshape(-1, c, z.shape[-2], z.shape[-1]), (1, 1, 1, 1), mode='replicate'), k, groups=c)\n    return y.reshape(z.shape)",
+  "id": 171,
+  "kind": "equivalent",
+  "name": "nearest_triangle",
+  "op": "upsample",
+  "proposal": "{\"description\": \"First nearest-repeat each pixel 2x in both axes. Then replicate-pad the resulting image by one pixel on each edge and apply a depthwise 3x3 convolution, stride 1, with kernel outer([1/4,1/2,1/4],[1/4,1/2,1/4]). For each axis this maps a repeated sequence ...,a,a,b,b,... to ...,a,(3a+b)/4,(a+3b)/4,b,..., including clamped endpoints. Thus the separable filter gives exactly 2x bilinear interpolation with align_corners=False. The second step is a defined fixed-filter primitive, including its edge padding and depthwise convolution.\", \"rel_err\": 1.7913305334439023e-07}",
+  "proposed_by": 117
+ },
+ {
+  "chain": "[{\"op\": \"nearest2x\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"triangle_filter_replicate\", \"params\": {\"channels\": \"channels\", \"h\": \"h*2\", \"w\": \"w*2\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 2e-07, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, *inputs):\n    import torch\n    import torch.nn.functional as F\n    x = inputs[0]\n    z = x.repeat_interleave(2, dim=-2).repeat_interleave(2, dim=-1)\n    c = z.shape[-3]\n    v = z.new_tensor([0.25, 0.5, 0.25])\n    k = (v[:, None] * v[None, :]).reshape(1, 1, 3, 3).expand(c, 1, 3, 3).contiguous()\n    y = F.conv2d(F.pad(z.reshape(-1, c, z.shape[-2], z.shape[-1]), (1, 1, 1, 1), mode='replicate'), k, groups=c)\n    return y.reshape(z.shape)",
+  "id": 172,
+  "kind": "equivalent",
+  "name": "nearest_triangle_referenced",
+  "op": "upsample",
+  "proposal": "{\"description\": \"First nearest-repeat each pixel 2x in both axes. Then replicate-pad the resulting image by one pixel on each edge and apply a depthwise 3x3 convolution, stride 1, with kernel outer([1/4,1/2,1/4],[1/4,1/2,1/4]). For each axis this maps a repeated sequence ...,a,a,b,b,... to ...,a,(3a+b)/4,(a+3b)/4,b,..., including clamped endpoints. Thus the separable filter gives exactly 2x bilinear interpolation with align_corners=False. The second step is a defined fixed-filter primitive, including its edge padding and depthwise convolution.\", \"rel_err\": 1.7913305334439023e-07}",
+  "proposed_by": 117
+ },
+ {
+  "chain": "[{\"op\": \"bilinear2x_gather4\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 1e-07, within 0.001)",
+  "check_ok": 1,
+  "code": "import torch\ndef forward(module, x):\n    c, h, w = x.shape\n    rows = []\n    for i in range(2*h):\n        s = max(i*0.5 - 0.25, 0.0)\n        r0 = min(int(s // 1), h-1)\n        r1 = min(r0+1, h-1)\n        fr = s - r0\n        cols = []\n        for j in range(2*w):\n            t = max(j*0.5 - 0.25, 0.0)\n            c0 = min(int(t // 1), w-1)\n            c1 = min(c0+1, w-1)\n            fc = t - c0\n            v = ((1-fr)*(1-fc)*x[:, r0, c0] + (1-fr)*fc*x[:, r0, c1]\n                 + fr*(1-fc)*x[:, r1, c0] + fr*fc*x[:, r1, c1])\n            cols.append(v.unsqueeze(1))\n        rows.append(torch.cat(cols, dim=1).unsqueeze(1))\n    return torch.cat(rows, dim=1)\n",
+  "id": 185,
+  "kind": "equivalent",
+  "name": "upsample_bilinear2x_gather4_ref",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x upsampling (align_corners=False, edge-clamped) as one defined primitive bilinear2x_gather4 that computes, for every output sample, its two source indices and fraction per axis and gathers the four neighbours with the outer-product weights. For output row i (0..2h-1): s = max(i*0.5 - 0.25, 0), r0 = min(floor(s), h-1), r1 = min(r0+1, h-1), fr = s - r0; for output col j (0..2w-1): t = max(j*0.5 - 0.25, 0), c0 = min(floor(t), w-1), c1 = min(c0+1, w-1), fc = t - c0. Then out[c,i,j] = (1-fr)*(1-fc)*x[c,r0,c0] + (1-fr)*fc*x[c,r0,c1] + fr*(1-fc)*x[c,r1,c0] + fr*fc*x[c,r1,c1]. This is exactly bilinear2d scale 2, align_corners=False.\", \"rel_err\": 1.1966278548399467e-07}",
+  "proposed_by": 138
+ },
+ {
+  "chain": "[{\"op\": \"bilinear2x_separable_defined\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "not checked: step 1 (bilinear2x_separable_defined) has no reference I can run \u2014 define it in `primitives` with a `reference` (the code matches the operation (largest relative difference 1e-07, within 0.001))",
+  "check_ok": null,
+  "code": "import torch\ndef forward(module, x):\n    c, h, w = x.shape\n    def interp(n):\n        A = torch.zeros(2*n, n, dtype=x.dtype)\n        for i in range(2*n):\n            src = max((i + 0.5) * 0.5 - 0.5, 0.0)\n            i0 = min(int(src // 1), n - 1)\n            i1 = min(i0 + 1, n - 1)\n            l = src - i0\n            A[i, i0] += 1 - l\n            A[i, i1] += l\n        return A\n    Ah = interp(h).to(x.dtype)\n    Aw = interp(w).to(x.dtype)\n    T = torch.einsum('oh,cw->chw', Ah, x) if False else torch.matmul(Ah.unsqueeze(0), x)\n    Y = torch.matmul(T, Aw.t().unsqueeze(0))\n    return Y\n",
+  "id": 183,
+  "kind": "equivalent",
+  "name": "upsample_bilinear2x_separable_defined",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x upsampling (align_corners=False, edge-clamped) as the chip's one defined primitive bilinear2x_separable_defined, which applies two constant 1-D interpolation matrices per channel. Build A_h (2h x h) and A_w (2w x w): for output index i and input length n, src = max((i+0.5)*0.5 - 0.5, 0), i0 = min(floor(src), n-1), i1 = min(i0+1, n-1), l = src - i0, A[i,i0] += 1-l, A[i,i1] += l. Then T = A_h @ x per channel ([channels, 2h, w]) and Y = T @ A_w^T per channel ([channels, 2h, 2w]). Per channel Y = A_h x A_w^T, exactly bilinear2d scale 2, align_corners=False.\", \"rel_err\": 1.1966278548399467e-07}",
+  "proposed_by": 138
+ },
+ {
+  "chain": "[{\"op\": \"bilinear2x_separable_defined\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 1e-07, within 0.001)",
+  "check_ok": 1,
+  "code": "import torch\ndef forward(module, x):\n    c, h, w = x.shape\n    def interp(n):\n        A = torch.zeros(2*n, n, dtype=x.dtype)\n        for i in range(2*n):\n            src = max((i + 0.5) * 0.5 - 0.5, 0.0)\n            i0 = min(int(src // 1), n - 1)\n            i1 = min(i0 + 1, n - 1)\n            l = src - i0\n            A[i, i0] += 1 - l\n            A[i, i1] += l\n        return A\n    Ah = interp(h).to(x.dtype)\n    Aw = interp(w).to(x.dtype)\n    T = torch.matmul(Ah.unsqueeze(0), x)\n    return torch.matmul(T, Aw.t().unsqueeze(0))\n",
+  "id": 184,
+  "kind": "equivalent",
+  "name": "upsample_bilinear2x_separable_defined_ref",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x upsampling (align_corners=False, edge-clamped) as one defined primitive bilinear2x_separable_defined, applying two constant 1-D interpolation matrices per channel. Build A_h (2h x h) and A_w (2w x w): for output index i and input length n, src = max((i+0.5)*0.5 - 0.5, 0), i0 = min(floor(src), n-1), i1 = min(i0+1, n-1), l = src - i0, A[i,i0] += 1-l, A[i,i1] += l. Then T = A_h @ x per channel ([channels, 2h, w]) and Y = T @ A_w^T per channel ([channels, 2h, 2w]). Per channel Y = A_h x A_w^T, exactly bilinear2d scale 2, align_corners=False.\", \"rel_err\": 1.1966278548399467e-07}",
+  "proposed_by": 138
  },
  {
   "chain": "[{\"op\": \"interp_kron_t\", \"params\": {\"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": 0, \"k\": \"h*w\", \"m\": \"channels\", \"n\": \"4*h*w\"}}]",
@@ -1980,6 +2136,18 @@
   "proposed_by": 99
  },
  {
+  "chain": "[{\"op\": \"bilinear_polyphase_defined\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 1e-07, within 0.001)",
+  "check_ok": 1,
+  "code": "import torch\ndef forward(module, x):\n    c, h, w = x.shape\n    out = torch.empty(c, 2*h, 2*w, dtype=x.dtype)\n    for i in range(h):\n        for a in (0, 1):\n            di = -1 if a == 0 else 1\n            vi = i + di if 0 <= i + di < h else i\n            for j in range(w):\n                for b in (0, 1):\n                    dj = -1 if b == 0 else 1\n                    uj = j + dj if 0 <= j + dj < w else j\n                    out[:, 2*i+a, 2*j+b] = (9*x[:, i, j] + 3*x[:, vi, j] + 3*x[:, i, uj] + x[:, vi, uj]) / 16.0\n    return out\n",
+  "id": 186,
+  "kind": "equivalent",
+  "name": "upsample_bilinear_polyphase_defined_ref",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x upsampling (align_corners=False, edge-clamped) as one defined primitive bilinear_polyphase_defined, computing the four output phases directly from clamped input neighbours. For each input pixel x[c,i,j], let v[-1]=max(i-1,0), v[+1]=min(i+1,h-1), u[-1]=max(j-1,0), u[+1]=min(j+1,w-1). For a,b in {0,1}: di=-1 if a=0 else +1, dj=-1 if b=0 else +1, and out[c,2i+a,2j+b] = (9*x[c,i,j] + 3*x[c,v[di],j] + 3*x[c,i,u[dj]] + x[c,v[di],u[dj]])/16. Since src(2i)=i-0.25 and src(2i+1)=i+0.25 under align_corners=False, the even output rows/cols take the 1/4 weight from the previous neighbour and the odd ones from the next, so this is exactly bilinear2d scale 2, align_corners=False, with edge clamping.\", \"rel_err\": 1.1966278548399467e-07}",
+  "proposed_by": 138
+ },
+ {
   "chain": "[{\"op\": \"interp_matrix_1d\", \"params\": {\"n\": \"h\"}}, {\"op\": \"bmm\", \"params\": {\"b\": \"channels\", \"k\": \"h\", \"m\": \"2*h\", \"n\": \"w\"}}, {\"op\": \"interp_matrix_1d\", \"params\": {\"n\": \"w\"}}, {\"op\": \"bmm_nt\", \"params\": {\"b\": \"channels\", \"k\": \"w\", \"m\": \"2*h\", \"n\": \"2*w\", \"scale\": 1}}]",
   "check_detail": "the chain could not run: step 2 (bmm) raised ValueError: bmm needs a second operand and none is left (no activation, no constant) \u2014 check the step's sizes against the operation's",
   "check_ok": 0,
@@ -2026,5 +2194,173 @@
   "op": "upsample",
   "proposal": "{\"description\": \"Use tile_scaled operation to perform 2x bilinear upsampling from 8x8 to 16x16\", \"rel_err\": 0.0}",
   "proposed_by": 69
+ },
+ {
+  "chain": "[{\"op\": \"bilinear2x_gather4\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 1e-07, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, x):\n    c, h, w = x.shape\n    out = torch.empty(c, 2*h, 2*w, dtype=x.dtype, device=x.device)\n    rows = []\n    for i in range(2*h):\n        s = max(i * 0.5 - 0.25, 0.0)\n        r0 = min(int(s), h - 1)\n        r1 = min(r0 + 1, h - 1)\n        rows.append((r0, r1, s - r0))\n    cols = []\n    for j in range(2*w):\n        t = max(j * 0.5 - 0.25, 0.0)\n        c0 = min(int(t), w - 1)\n        c1 = min(c0 + 1, w - 1)\n        cols.append((c0, c1, t - c0))\n    for i, (r0, r1, fr) in enumerate(rows):\n        for j, (c0, c1, fc) in enumerate(cols):\n            out[:, i, j] = ((1-fr)*(1-fc)*x[:, r0, c0]\n                            + (1-fr)*fc*x[:, r0, c1]\n                            + fr*(1-fc)*x[:, r1, c0]\n                            + fr*fc*x[:, r1, c1])\n    return out\n",
+  "id": 189,
+  "kind": "equivalent",
+  "name": "upsample_gather4_exact",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x upsampling (align_corners=False, edge-clamped) as one defined primitive bilinear2x_gather4 with params channels, h, w that computes, for every output sample, its two source indices and fraction per axis and gathers the four neighbours with the outer-product weights. For output row i (0..2h-1): s = max(i*0.5 - 0.25, 0), r0 = min(floor(s), h-1), r1 = min(r0+1, h-1), fr = s - r0; for output col j (0..2w-1): t = max(j*0.5 - 0.25, 0), c0 = min(floor(t), w-1), c1 = min(c0+1, w-1), fc = t - c0. Then out[c,i,j] = (1-fr)*(1-fc)*x[c,r0,c0] + (1-fr)*fc*x[c,r0,c1] + fr*(1-fc)*x[c,r1,c0] + fr*fc*x[c,r1,c1]. This is exactly bilinear2d scale 2, align_corners=False (s = i/2 - 0.25 is the align_corners=False half-pixel mapping, clamped at the edges).\", \"rel_err\": 1.1975951809727994e-07}",
+  "proposed_by": 139
+ },
+ {
+  "chain": "[{\"op\": \"bilinear2x_gather4\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 1e-07, within 0.001)",
+  "check_ok": 1,
+  "code": "import torch\n\ndef forward(module, x):\n    c, h, w = x.shape\n    xm = x.to(torch.float64)\n    s = torch.clamp(torch.arange(2 * h, dtype=torch.float64, device=x.device) * 0.5 - 0.25, min=0.0)\n    r0 = torch.clamp(s.floor().long(), max=h - 1)\n    r1 = torch.clamp(r0 + 1, max=h - 1)\n    fr = s - r0.to(torch.float64)\n    t = torch.clamp(torch.arange(2 * w, dtype=torch.float64, device=x.device) * 0.5 - 0.25, min=0.0)\n    c0 = torch.clamp(t.floor().long(), max=w - 1)\n    c1 = torch.clamp(c0 + 1, max=w - 1)\n    fc = t - c0.to(torch.float64)\n    X00 = xm[:, r0][:, :, c0]\n    X01 = xm[:, r0][:, :, c1]\n    X10 = xm[:, r1][:, :, c0]\n    X11 = xm[:, r1][:, :, c1]\n    wr = (1.0 - fr).reshape(2 * h, 1)\n    wc = (1.0 - fc).reshape(1, 2 * w)\n    Y = wr * wc * X00 + wr * (1 - wc) * X01 + (1 - wr) * wc * X10 + (1 - wr) * (1 - wc) * X11\n    return Y.to(x.dtype)",
+  "id": 181,
+  "kind": "equivalent",
+  "name": "upsample_gather4_prim",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x upsampling (align_corners=False, edge-clamped) as one defined primitive bilinear2x_gather4 with params channels, h, w that computes, for every output sample, its two source indices and fraction per axis and gathers the four neighbours with the outer-product weights. For output row i (0..2h-1): s = max(i*0.5 - 0.25, 0), r0 = min(floor(s), h-1), r1 = min(r0+1, h-1), fr = s - r0; for output col j (0..2w-1): t = max(j*0.5 - 0.25, 0), c0 = min(floor(t), w-1), c1 = min(c0+1, w-1), fc = t - c0. Then out[c,i,j] = (1-fr)*(1-fc)*x[c,r0,c0] + (1-fr)*fc*x[c,r0,c1] + fr*(1-fc)*x[c,r1,c0] + fr*fc*x[c,r1,c1]. This is exactly bilinear2d scale 2, align_corners=False (the s = i/2 - 0.25 mapping is the align_corners=False half-pixel mapping, clamped at the edges).\", \"rel_err\": 1.194220355629268e-07}",
+  "proposed_by": 134
+ },
+ {
+  "chain": "[{\"op\": \"interp_kron_t\", \"params\": {\"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": 0, \"k\": \"h*w\", \"m\": \"channels\", \"n\": \"4*h*w\"}}]",
+  "check_detail": "the chain could not run: step 2 (gemm) raised RuntimeError: shape '[1, 64, 64]' is invalid for input of size 16384 \u2014 check the step's sizes against the operation's",
+  "check_ok": 0,
+  "code": "import torch\n\ndef _interp(n):\n    i = torch.arange(2 * n, dtype=torch.float64)\n    src = torch.clamp((i + 0.5) * 0.5 - 0.5, min=0.0)\n    i0 = torch.clamp(src.floor().long(), max=n - 1)\n    i1 = torch.clamp(i0 + 1, max=n - 1)\n    l = src - i0.to(torch.float64)\n    A = torch.zeros(2 * n, n, dtype=torch.float64)\n    A[torch.arange(2 * n), i0] += 1.0 - l\n    A[torch.arange(2 * n), i1] += l\n    return A\n\ndef forward(module, x):\n    c, h, w = x.shape\n    Kt = torch.kron(_interp(h), _interp(w)).t()  # [h*w, 4*h*w]\n    X = x.reshape(c, h * w).to(torch.float64)\n    Y = X @ Kt  # gemm: [c, 4*h*w], no bias\n    return Y.reshape(c, 2 * h, 2 * w).to(x.dtype)",
+  "id": 175,
+  "kind": "equivalent",
+  "name": "upsample_kron_gemm_rt",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x upsampling (align_corners=False, edge-clamped) of each channel [h,w] -> [2h,2w] as one constant matrix product. Step 1 (primitive interp_kron_t, params h, w): build 1-D interpolation matrices A_h (2h x h) and A_w (2w x w): for output index i and input length n, src = max((i+0.5)*0.5 - 0.5, 0), i0 = min(floor(src), n-1), i1 = min(i0+1, n-1), l = src - i0, A[i,i0] += 1-l, A[i,i1] += l. K = kron(A_h, A_w) of shape (4hw x hw); return K^T of shape (hw x 4hw). Step 2 (gemm, m=channels, k=h*w, n=4*h*w, bias=0): X = x reshaped to [channels, h*w]; Y = X @ K^T of shape [channels, 4hw]. Step 3: reshape Y to [channels, 2h, 2w] (row-major, output index i*2w+j). Per channel Y = A_h x A_w^T, exactly bilinear2d scale 2, align_corners=False.\", \"rel_err\": 1.194220355629268e-07}",
+  "proposed_by": 134
+ },
+ {
+  "chain": "[{\"op\": \"bilinear2x_kron_gemm\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 1e-07, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, x):\n    c, h, w = x.shape\n    def interp(n):\n        A = torch.zeros(2*n, n, dtype=x.dtype, device=x.device)\n        for i in range(2*n):\n            src = max((i + 0.5) * 0.5 - 0.5, 0.0)\n            i0 = min(int(src), n - 1)\n            i1 = min(i0 + 1, n - 1)\n            l = src - i0\n            A[i, i0] += 1 - l\n            A[i, i1] += l\n        return A\n    Ah = interp(h)\n    Aw = interp(w)\n    K = torch.kron(Ah, Aw)\n    X = x.reshape(c, h * w)\n    Y = X @ K.t()\n    return Y.reshape(c, 2 * h, 2 * w)\n",
+  "id": 192,
+  "kind": "equivalent",
+  "name": "upsample_kron_prim",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x upsampling (align_corners=False, edge-clamped) as one defined primitive bilinear2x_kron_gemm with params channels, h, w: the constant matrix product Y = X @ K^T. Build A_h (2h x h), A_w (2w x w): for output index i and input length n, src = max((i+0.5)*0.5 - 0.5, 0), i0 = min(floor(src), n-1), i1 = min(i0+1, n-1), l = src - i0, A[i,i0] += 1-l, A[i,i1] += l. K = kron(A_h, A_w) of shape (4hw x hw). Input x [channels,h,w] is flattened to X [channels,h*w]; Y = X @ K^T of shape [channels,4hw]; reshape Y to [channels,2h,2w] (row-major, output index i*2w+j). Per channel this equals A_h x A_w^T, exactly bilinear2d scale 2, align_corners=False.\", \"rel_err\": 1.1975951809727994e-07}",
+  "proposed_by": 139
+ },
+ {
+  "chain": "[{\"op\": \"nearest2x_def\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"triangle_filter_def\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 2e-07, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, x):\n    c, h, w = x.shape\n    y = x.reshape(c, h, 1, w, 1).expand(c, h, 2, w, 2).reshape(c, 2*h, 2*w).contiguous()\n    ky = torch.tensor([0.25, 0.5, 0.25], dtype=y.dtype)\n    K = torch.outer(ky, ky).to(y.device)\n    yp = torch.nn.functional.pad(y.unsqueeze(0), (1, 1, 1, 1), mode='replicate')\n    weight = K.view(1, 1, 3, 3).expand(c, 1, 3, 3)\n    out = torch.nn.functional.conv2d(yp, weight, groups=c)\n    return out.squeeze(0)\n",
+  "id": 191,
+  "kind": "equivalent",
+  "name": "upsample_nearest_tri_chain",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x upsampling (align_corners=False, edge-clamped) as a two-step chain of defined primitives. Step 1 (nearest2x_def, params channels, h, w): out0[c,i,j] = x[c,i//2,j//2], i.e. reshape x to [c,h,1,w,1], broadcast to [c,h,2,w,2], reshape to [c,2h,2w]. Step 2 (triangle_filter_def, params channels, h, w, operating on the [channels,2h,2w] map): replicate-pad by one pixel on each edge and apply a depthwise 3x3 convolution, stride 1, with kernel outer([1/4,1/2,1/4],[1/4,1/2,1/4]). For each axis this maps a repeated sequence ...,a,a,b,b,... to ...,a,(3a+b)/4,(a+3b)/4,b,..., including clamped endpoints, so the composition is exactly 2x bilinear interpolation with align_corners=False.\", \"rel_err\": 1.796392771459199e-07}",
+  "proposed_by": 139
+ },
+ {
+  "chain": "[{\"op\": \"nearest2x_def\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"triangle_filter_def\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 1e-07, within 0.001)",
+  "check_ok": 1,
+  "code": "import torch\n\ndef forward(module, x):\n    c, h, w = x.shape\n    xm = x.to(torch.float64)\n    n = xm.reshape(c, h, 1, w, 1).expand(c, h, 2, w, 2).reshape(c, 2 * h, 2 * w)\n    p = torch.zeros(c, 2 * h + 2, 2 * w + 2, dtype=torch.float64, device=x.device)\n    p[:, 1:-1, 1:-1] = n\n    p[:, 1:-1, 0] = n[:, :, 0]\n    p[:, 1:-1, -1] = n[:, :, -1]\n    p[:, 0, 1:-1] = n[:, 0, :]\n    p[:, -1, 1:-1] = n[:, -1, :]\n    p[:, 0, 0] = n[:, 0, 0]\n    p[:, 0, -1] = n[:, 0, -1]\n    p[:, -1, 0] = n[:, -1, 0]\n    p[:, -1, -1] = n[:, -1, -1]\n    k = torch.tensor([0.25, 0.5, 0.25], dtype=torch.float64, device=x.device)\n    K = torch.outer(k, k)\n    o = torch.zeros(c, 2 * h, 2 * w, dtype=torch.float64, device=x.device)\n    for ci in range(3):\n        for cj in range(3):\n            o += K[ci, cj] * p[:, ci:ci + 2 * h, cj:cj + 2 * w]\n    return o.to(x.dtype)",
+  "id": 179,
+  "kind": "equivalent",
+  "name": "upsample_nearest_tri_chain2",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x upsampling (align_corners=False, edge-clamped) as a two-step chain of defined primitives. Step 1 (nearest2x_def, params channels, h, w): out0[c,i,j] = x[c,i//2,j//2], i.e. reshape x to [c,h,1,w,1], broadcast to [c,h,2,w,2], reshape to [c,2h,2w]. Step 2 (triangle_filter_def, params channels, h, w, operating on the [channels,2h,2w] map): replicate-pad by one pixel on each edge and apply a depthwise 3x3 convolution, stride 1, with kernel outer([1/4,1/2,1/4],[1/4,1/2,1/4]). For each axis this maps a repeated sequence ...,a,a,b,b,... to ...,a,(3a+b)/4,(a+3b)/4,b,..., including clamped endpoints, so the composition is exactly 2x bilinear interpolation with align_corners=False.\", \"rel_err\": 1.194220355629268e-07}",
+  "proposed_by": 134
+ },
+ {
+  "chain": "[{\"op\": \"nearest2x_def\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"tri_pass_rows\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"tri_pass_cols\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 1e-07, within 0.001)",
+  "check_ok": 1,
+  "code": "import torch\n\ndef forward(module, x):\n    c, h, w = x.shape\n    xm = x.to(torch.float64)\n    n = xm.reshape(c, h, 1, w, 1).expand(c, h, 2, w, 2).reshape(c, 2 * h, 2 * w)\n    im = torch.clamp(torch.arange(2 * h, device=x.device) - 1, 0, 2 * h - 1)\n    ip = torch.clamp(torch.arange(2 * h, device=x.device) + 1, 0, 2 * h - 1)\n    t = (n[:, im] + 2 * n + n[:, ip]) / 4\n    jm = torch.clamp(torch.arange(2 * w, device=x.device) - 1, 0, 2 * w - 1)\n    jp = torch.clamp(torch.arange(2 * w, device=x.device) + 1, 0, 2 * w - 1)\n    y = (t[:, :, jm] + 2 * t + t[:, :, jp]) / 4\n    return y.to(x.dtype)",
+  "id": 182,
+  "kind": "equivalent",
+  "name": "upsample_nearest_tri_rc_chain",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x upsampling (align_corners=False, edge-clamped) as a three-step chain of defined primitives. Step 1 (nearest2x_def, params channels, h, w): out0[c,i,j] = x[c,i//2,j//2] (reshape to [c,h,1,w,1], broadcast to [c,h,2,w,2], reshape to [c,2h,2w]). Step 2 (tri_pass_rows, params channels, h, w, on the [channels,2h,2w] map): replicate-pad by one pixel along the row axis only and, for each output row i, take the 1-D kernel [1/4,1/2,1/4] over rows i-1,i,i+1 (edge-replicated), leaving columns untouched. Step 3 (tri_pass_cols, params channels, h, w): the same [1/4,1/2,1/4] pass along the column axis only, with column-edge replication. Each 1-D pass maps a repeated sequence ...,a,a,b,b,... to ...,a,(3a+b)/4,(a+3b)/4,b,... on its axis, so the composition of the two separable passes is exactly the 2x bilinear interpolation with align_corners=False.\", \"rel_err\": 1.194220355629268e-07}",
+  "proposed_by": 134
+ },
+ {
+  "chain": "[{\"op\": \"nearest2x_def\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"triangle_filter_def\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 2e-07, within 0.001)",
+  "check_ok": 1,
+  "code": "import torch\nimport torch.nn.functional as F\ndef forward(module, x):\n    c, h, w = x.shape\n    y = x.reshape(c, h, 1, w, 1).expand(c, h, 2, w, 2).reshape(c, 2*h, 2*w)\n    k = torch.outer(torch.tensor([0.25, 0.5, 0.25]), torch.tensor([0.25, 0.5, 0.25])).to(x.dtype)\n    k = k.reshape(1, 1, 3, 3).expand(c, 1, 3, 3)\n    y = F.pad(y.unsqueeze(0), (1, 1, 1, 1), mode='replicate').squeeze(0)\n    y = F.conv2d(y.unsqueeze(0), k, stride=1, groups=c).squeeze(0)\n    return y\n",
+  "id": 187,
+  "kind": "equivalent",
+  "name": "upsample_nearest_triangle_chain_ref",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x upsampling (align_corners=False, edge-clamped) as a two-step chain of defined primitives. Step 1 (nearest2x_def, params channels, h, w): out0[c,i,j] = x[c,i//2,j//2], i.e. reshape x to [c,h,1,w,1], broadcast to [c,h,2,w,2], reshape to [c,2h,2w]. Step 2 (triangle_filter_def, params channels, h, w, operating on the [channels,2h,2w] map): replicate-pad by one pixel on each edge and apply a depthwise 3x3 convolution, stride 1, with kernel outer([1/4,1/2,1/4],[1/4,1/2,1/4]). For each axis this maps a repeated sequence ...,a,a,b,b,... to ...,a,(3a+b)/4,(a+3b)/4,b,..., including clamped endpoints, so the composition is exactly 2x bilinear interpolation with align_corners=False.\", \"rel_err\": 1.7949417822599203e-07}",
+  "proposed_by": 138
+ },
+ {
+  "chain": "[{\"op\": \"bilinear_polyphase_defined\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 1e-07, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, x):\n    c, h, w = x.shape\n    out = torch.empty(c, 2*h, 2*w, dtype=x.dtype, device=x.device)\n    for i in range(h):\n        for j in range(w):\n            v = {+1: min(i + 1, h - 1), -1: max(i - 1, 0)}\n            u = {+1: min(j + 1, w - 1), -1: max(j - 1, 0)}\n            for a in (0, 1):\n                di = -1 if a == 0 else +1\n                for b in (0, 1):\n                    dj = -1 if b == 0 else +1\n                    out[:, 2*i+a, 2*j+b] = (9*x[:, i, j]\n                                            + 3*x[:, v[di], j]\n                                            + 3*x[:, i, u[dj]]\n                                            + x[:, v[di], u[dj]]) / 16\n    return out\n",
+  "id": 190,
+  "kind": "equivalent",
+  "name": "upsample_polyphase_exact",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x upsampling (align_corners=False, edge-clamped) as one defined primitive bilinear_polyphase_defined with params channels, h, w, computing the four output phases directly from clamped input neighbours. For each input pixel x[c,i,j], let v[-1]=max(i-1,0), v[+1]=min(i+1,h-1), u[-1]=max(j-1,0), u[+1]=min(j+1,w-1). For a,b in {0,1}: di=-1 if a=0 else +1, dj=-1 if b=0 else +1, and out[c,2i+a,2j+b] = (9*x[c,i,j] + 3*x[c,v[di],j] + 3*x[c,i,u[dj]] + x[c,v[di],u[dj]])/16. Since src(2i)=i-0.25 and src(2i+1)=i+0.25 under align_corners=False, the even output rows/cols take the 1/4 weight from the previous neighbour and the odd ones from the next, so this is exactly bilinear2d scale 2, align_corners=False, with edge clamping.\", \"rel_err\": 1.1975951809727994e-07}",
+  "proposed_by": 139
+ },
+ {
+  "chain": "[{\"op\": \"bilinear_polyphase2\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "not equivalent: the chain's largest relative difference is 0.37 at element [14, 7, 5] (got -1.301, expected -0.5607), over 0.001",
+  "check_ok": 0,
+  "code": "import torch\n\ndef forward(module, x):\n    c, h, w = x.shape\n    xm = x.to(torch.float64)\n    ii = torch.arange(h); jj = torch.arange(w)\n    im = torch.clamp(ii - 1, 0, h - 1); ip = torch.clamp(ii + 1, 0, h - 1)\n    jm = torch.clamp(jj - 1, 0, w - 1); jp = torch.clamp(jj + 1, 0, w - 1)\n    ctr = xm[:, ii][:, :, jj]\n    up = xm[:, im][:, :, jj]; dn = xm[:, ip][:, :, jj]\n    lf = xm[:, ii][:, :, jm]; rt = xm[:, ii][:, :, jp]\n    ul = xm[:, im][:, :, jm]; ur = xm[:, im][:, :, jp]\n    dl = xm[:, ip][:, :, jm]; dr = xm[:, ip][:, :, jp]\n    o = torch.zeros(c, 2 * h, 2 * w, dtype=torch.float64, device=x.device)\n    o[:, 0::2, 0::2] = (9 * ctr + 3 * up + 3 * lf + ul) / 16\n    o[:, 0::2, 1::2] = (9 * ctr + 3 * up + 3 * rt + ur) / 16\n    o[:, 1::2, 0::2] = (9 * ctr + 3 * dn + 3 * lf + dl) / 16\n    o[:, 1::2, 1::2] = (9 * ctr + 3 * dn + 3 * rt + dr) / 16\n    return o.to(x.dtype)",
+  "id": 176,
+  "kind": "equivalent",
+  "name": "upsample_polyphase_prim",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x upsampling (align_corners=False, edge-clamped) computed as four output phases directly from clamped input neighbours, as one defined primitive bilinear_polyphase2 with params channels, h, w. For each input pixel x[c,i,j], let v[-1]=max(i-1,0), v[+1]=min(i+1,h-1), and u[-1]=max(j-1,0), u[+1]=min(j+1,w-1). For a,b in {0,1}: di=-1 if a=0 else +1, dj=-1 if b=0 else +1, and out[c,2i+a,2j+b] = (9*x[c,i,j] + 3*x[c,v[di],j] + 3*x[c,i,u[dj]] + x[c,v[di],u[dj]])/16. This is the tensor product of the 3/4-centre 1/4-neighbour half-pixel weights, i.e. exactly bilinear2d scale 2, align_corners=False, with edge clamping.\", \"rel_err\": 1.194220355629268e-07}",
+  "proposed_by": 134
+ },
+ {
+  "chain": "[{\"op\": \"bilinear_polyphase2\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "not equivalent: the chain's largest relative difference is 1 at element [15, 1, 8] (got 1.01, expected -1.086), over 0.001; not equivalent: the code's largest relative difference is 1 at element [15, 1, 8] (got 1.01, expected -1.086), over 0.001",
+  "check_ok": 0,
+  "code": "import torch\n\ndef forward(module, x):\n    c, h, w = x.shape\n    xm = x.to(torch.float64)\n    ii = torch.arange(h); jj = torch.arange(w)\n    ip = torch.clamp(ii + 1, 0, h - 1); jp = torch.clamp(jj + 1, 0, w - 1)\n    ctr = xm[:, ii][:, :, jj]\n    dn = xm[:, ip][:, :, jj]\n    rt = xm[:, ii][:, :, jp]\n    dr = xm[:, ip][:, :, jp]\n    o = torch.zeros(c, 2 * h, 2 * w, dtype=torch.float64, device=x.device)\n    o[:, 0::2, 0::2] = (9 * ctr + 3 * dn + 3 * rt + dr) / 16\n    o[:, 0::2, 1::2] = (3 * ctr + 9 * rt + 1 * dn + 3 * dr) / 16\n    o[:, 1::2, 0::2] = (3 * ctr + 9 * dn + 1 * rt + 3 * dr) / 16\n    o[:, 1::2, 1::2] = (1 * ctr + 3 * dn + 3 * rt + 9 * dr) / 16\n    return o.to(x.dtype)",
+  "id": 177,
+  "kind": "equivalent",
+  "name": "upsample_polyphase_prim2",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x upsampling (align_corners=False, edge-clamped) computed as four output phases directly from clamped input neighbours, as one defined primitive bilinear_polyphase2 with params channels, h, w. With align_corners=False, output row 2i = (3*x[i] + x[i+1])/4 and output row 2i+1 = (x[i] + 3*x[i+1])/4 (indices clamped to [0,h-1]); same along width. Hence for each input pixel x[c,i,j] let dn = x[c,min(i+1,h-1),j], rt = x[c,i,min(j+1,w-1)], dr = x[c,min(i+1,h-1),min(j+1,w-1)], and write out[c,2i+a,2j+b]: phase (a,b)=(0,0): (9*x + 3*dn + 3*rt + dr)/16; (0,1): (3*x + 9*rt + 1*dn + 3*dr)/16; (1,0): (3*x + 9*dn + 1*rt + 3*dr)/16; (1,1): (1*x + 3*dn + 3*rt + 9*dr)/16. This is the tensor product of the 3/4-current 1/4-next half-pixel weights, i.e. exactly bilinear2d scale 2, align_corners=False, with edge clamping.\", \"rel_err\": 1.049974240666929}",
+  "proposed_by": 134
+ },
+ {
+  "chain": "[{\"op\": \"bilinear_polyphase2\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 1e-07, within 0.001)",
+  "check_ok": 1,
+  "code": "import torch\n\ndef forward(module, x):\n    c, h, w = x.shape\n    xm = x.to(torch.float64)\n    ii = torch.arange(h); jj = torch.arange(w)\n    im = torch.clamp(ii - 1, 0, h - 1); ip = torch.clamp(ii + 1, 0, h - 1)\n    jm = torch.clamp(jj - 1, 0, w - 1); jp = torch.clamp(jj + 1, 0, w - 1)\n    ctr = xm[:, ii][:, :, jj]\n    up = xm[:, im][:, :, jj]; dn = xm[:, ip][:, :, jj]\n    lf = xm[:, ii][:, :, jm]; rt = xm[:, ii][:, :, jp]\n    ul = xm[:, im][:, :, jm]; ur = xm[:, im][:, :, jp]\n    dl = xm[:, ip][:, :, jm]; dr = xm[:, ip][:, :, jp]\n    o = torch.zeros(c, 2 * h, 2 * w, dtype=torch.float64, device=x.device)\n    o[:, 0::2, 0::2] = (9 * ctr + 3 * up + 3 * lf + ul) / 16\n    o[:, 0::2, 1::2] = (9 * ctr + 3 * up + 3 * rt + ur) / 16\n    o[:, 1::2, 0::2] = (9 * ctr + 3 * dn + 3 * lf + dl) / 16\n    o[:, 1::2, 1::2] = (9 * ctr + 3 * dn + 3 * rt + dr) / 16\n    return o.to(x.dtype)",
+  "id": 178,
+  "kind": "equivalent",
+  "name": "upsample_polyphase_prim3",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x upsampling (align_corners=False, edge-clamped) computed as four output phases directly from clamped input neighbours, as one defined primitive bilinear_polyphase2 with params channels, h, w. For each input pixel x[c,i,j], let v[-1]=max(i-1,0), v[+1]=min(i+1,h-1), u[-1]=max(j-1,0), u[+1]=min(j+1,w-1). For a,b in {0,1}: di=-1 if a=0 else +1, dj=-1 if b=0 else +1, and out[c,2i+a,2j+b] = (9*x[c,i,j] + 3*x[c,v[di],j] + 3*x[c,i,u[dj]] + x[c,v[di],u[dj]])/16. Since src(2i) = i-0.25 and src(2i+1) = i+0.25 under align_corners=False, the even output rows/cols take the 1/4 from the previous neighbour and the odd ones the 1/4 from the next, so this is exactly bilinear2d scale 2, align_corners=False, with edge clamping.\", \"rel_err\": 1.194220355629268e-07}",
+  "proposed_by": 134
+ },
+ {
+  "chain": "[{\"op\": \"bilinear2x_separable2\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 1e-07, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, x):\n    x = module.weight if hasattr(module, 'weight') and x is None else x\n    c, h, w = x.shape\n    def interp(n):\n        A = torch.zeros(2*n, n, dtype=x.dtype, device=x.device)\n        for i in range(2*n):\n            src = max((i + 0.5) * 0.5 - 0.5, 0.0)\n            i0 = min(int(src), n - 1)\n            i1 = min(i0 + 1, n - 1)\n            l = src - i0\n            A[i, i0] += 1 - l\n            A[i, i1] += l\n        return A\n    Ah = interp(h)\n    Aw = interp(w)\n    T = torch.einsum('oi,cij->coj', Ah, x)\n    Y = torch.einsum('coj,wj->cow', T, Aw)\n    return Y\n",
+  "id": 188,
+  "kind": "equivalent",
+  "name": "upsample_separable_pair",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x upsampling (align_corners=False, edge-clamped) per channel as one defined primitive bilinear2x_separable2 with params channels, h, w, applying two constant 1-D interpolation matrices in sequence. Build A_h (2h x h) and A_w (2w x w): for output index i and input length n, src = max((i+0.5)*0.5 - 0.5, 0), i0 = min(floor(src), n-1), i1 = min(i0+1, n-1), l = src - i0, A[i,i0] += 1-l, A[i,i1] += l. Then T = A_h @ x per channel ([channels, 2h, w]) and Y = T @ A_w^T per channel ([channels, 2h, 2w]). Per channel Y = A_h x A_w^T, exactly bilinear2d scale 2, align_corners=False.\", \"rel_err\": 1.1975951809727994e-07}",
+  "proposed_by": 139
+ },
+ {
+  "chain": "[{\"op\": \"bilinear2x_separable2\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 1e-07, within 0.001)",
+  "check_ok": 1,
+  "code": "import torch\n\ndef _interp(n, device):\n    i = torch.arange(2 * n, dtype=torch.float64, device=device)\n    src = torch.clamp((i + 0.5) * 0.5 - 0.5, min=0.0)\n    i0 = torch.clamp(src.floor().long(), max=n - 1)\n    i1 = torch.clamp(i0 + 1, max=n - 1)\n    l = src - i0.to(torch.float64)\n    A = torch.zeros(2 * n, n, dtype=torch.float64, device=device)\n    A[torch.arange(2 * n, device=device), i0] += 1.0 - l\n    A[torch.arange(2 * n, device=device), i1] += l\n    return A\n\ndef forward(module, x):\n    c, h, w = x.shape\n    xm = x.to(torch.float64)\n    T = _interp(h, x.device) @ xm            # [c, 2h, w]\n    Y = T @ _interp(w, x.device).t()         # [c, 2h, 2w]\n    return Y.to(x.dtype)",
+  "id": 180,
+  "kind": "equivalent",
+  "name": "upsample_separable_pair_prim2",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Bilinear 2x upsampling (align_corners=False, edge-clamped) per channel as one defined primitive bilinear2x_separable2 with params channels, h, w, applying two constant 1-D interpolation matrices in sequence. Build A_h (2h x h) and A_w (2w x w): for output index i and input length n, src = max((i+0.5)*0.5 - 0.5, 0), i0 = min(floor(src), n-1), i1 = min(i0+1, n-1), l = src - i0, A[i,i0] += 1-l, A[i,i1] += l. Then T = A_h @ x per channel ([channels, 2h, w]) and Y = T @ A_w^T per channel ([channels, 2h, 2w]). Per channel Y = A_h x A_w^T, exactly bilinear2d scale 2, align_corners=False.\", \"rel_err\": 1.194220355629268e-07}",
+  "proposed_by": 134
  }
 ]

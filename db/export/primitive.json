@@ -1,5 +1,21 @@
 [
  {
+  "doc": "Add a per-output-channel bias vector to [batch,channels,h,w].",
+  "name": "add_bias",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, channels, h, w):\n    return x",
+  "tensors": null
+ },
+ {
+  "doc": "Bilinear 2x upsampling by gathering the four clamped neighbours of each output sample with outer-product bilinear weights.",
+  "name": "bilinear2x_gather4",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, channels, h, w):\n    C, H, W = x.shape\n    rows = []\n    fracs = []\n    for i in range(2*H):\n        s = max(i * 0.5 - 0.25, 0.0)\n        r0 = min(int(s), H - 1)\n        r1 = min(r0 + 1, H - 1)\n        fr = s - r0\n        rows.append((r0, r1, fr))\n    cols = []\n    for j in range(2*W):\n        t = max(j * 0.5 - 0.25, 0.0)\n        c0 = min(int(t), W - 1)\n        c1 = min(c0 + 1, W - 1)\n        fc = t - c0\n        cols.append((c0, c1, fc))\n    out = torch.empty(C, 2*H, 2*W, dtype=x.dtype, device=x.device)\n    for i, (r0, r1, fr) in enumerate(rows):\n        for j, (c0, c1, fc) in enumerate(cols):\n            out[:, i, j] = ((1-fr)*(1-fc)*x[:, r0, c0]\n                            + (1-fr)*fc*x[:, r0, c1]\n                            + fr*(1-fc)*x[:, r1, c0]\n                            + fr*fc*x[:, r1, c1])\n    return out\n",
+  "tensors": null
+ },
+ {
   "doc": "Builds K^T = kron(A_h, A_w)^T for 2x bilinear upsampling (align_corners=False, edge clamp); shape (h*w, 4*h*w). The input's values are ignored; only its sizes are used.",
   "name": "bilinear2x_interp",
   "origin": "agent",
@@ -8,11 +24,11 @@
   "tensors": null
  },
  {
-  "doc": "Bilinear 2x upsampling of [channels,h,w] as X @ kron(A_h,A_w)^T with constant interpolation matrices (align_corners=False, edge-clamped).",
+  "doc": "Bilinear 2x upsampling as one constant matrix product: Y = X @ kron(A_h, A_w)^T, with X the channel-flattened input.",
   "name": "bilinear2x_kron_gemm",
   "origin": "agent",
   "params": "[\"channels\", \"h\", \"w\"]",
-  "reference": "def fn(x, channels, h, w):\n    import torch\n    def A(n):\n        M = torch.zeros(2 * n, n, dtype=torch.float64)\n        for i in range(2 * n):\n            src = max((i + 0.5) * 0.5 - 0.5, 0.0)\n            i0 = min(int(src // 1), n - 1)\n            i1 = min(i0 + 1, n - 1)\n            l = src - i0\n            M[i, i0] += 1 - l\n            M[i, i1] += l\n        return M.to(x.dtype)\n    K = torch.kron(A(h), A(w)).to(x.device)\n    X = x.reshape(channels, h * w)\n    return (X @ K.t()).reshape(channels, 2 * h, 2 * w)\n",
+  "reference": "def fn(x, channels, h, w):\n    def interp(n):\n        A = torch.zeros(2*n, n, dtype=x.dtype)\n        for i in range(2*n):\n            src = max((i + 0.5) * 0.5 - 0.5, 0.0)\n            i0 = min(int(src), n - 1)\n            i1 = min(i0 + 1, n - 1)\n            l = src - i0\n            A[i, i0] += 1 - l\n            A[i, i1] += l\n        return A\n    Ah = interp(h).to(x.device)\n    Aw = interp(w).to(x.device)\n    K = torch.kron(Ah, Aw)\n    X = x.reshape(channels, h * w)\n    Y = X @ K.t()\n    return Y.reshape(channels, 2 * h, 2 * w)\n",
   "tensors": null
  },
  {
@@ -24,11 +40,19 @@
   "tensors": null
  },
  {
-  "doc": "Per-channel bilinear 2x upsampling, align_corners=False, edge-clamped, via constant separable interpolation matrices.",
+  "doc": "Bilinear 2x upsampling via two constant 1-D interpolation matrices per channel: T = A_h @ x, Y = T @ A_w^T.",
+  "name": "bilinear2x_separable2",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, channels, h, w):\n    def interp(n):\n        A = torch.zeros(2*n, n, dtype=x.dtype)\n        for i in range(2*n):\n            src = max((i + 0.5) * 0.5 - 0.5, 0.0)\n            i0 = min(int(src), n - 1)\n            i1 = min(i0 + 1, n - 1)\n            l = src - i0\n            A[i, i0] += 1 - l\n            A[i, i1] += l\n        return A\n    Ah = interp(h).to(x.device)\n    Aw = interp(w).to(x.device)\n    T = torch.einsum('oi,cij->coj', Ah, x)\n    Y = torch.einsum('coj,wj->cow', T, Aw)\n    return Y\n",
+  "tensors": null
+ },
+ {
+  "doc": "Per-channel Y = A_h @ x @ A_w^T with constant half-pixel 1-D interpolation matrices A (2n x n): src=max((i+0.5)*0.5-0.5,0), i0=min(floor(src),n-1), i1=min(i0+1,n-1), l=src-i0, A[i,i0]+=1-l, A[i,i1]+=l. Equals bilinear2d scale 2, align_corners=False.",
   "name": "bilinear2x_separable_defined",
   "origin": "agent",
   "params": "[\"channels\", \"h\", \"w\"]",
-  "reference": "def fn(x, channels, h, w):\n    import torch\n    def mat(n):\n        A = torch.zeros(2 * n, n, dtype=x.dtype, device=x.device)\n        for i in range(2 * n):\n            src = max((i + 0.5) * 0.5 - 0.5, 0.0)\n            i0 = min(int(src // 1), n - 1)\n            i1 = min(i0 + 1, n - 1)\n            l = src - i0\n            A[i, i0] += 1 - l\n            A[i, i1] += l\n        return A\n    Ah = mat(h)\n    Aw = mat(w)\n    return torch.matmul(torch.matmul(Ah, x), Aw.t())\n",
+  "reference": "import torch\ndef fn(x, channels, h, w):\n    def interp(n):\n        A = torch.zeros(2*n, n, dtype=x.dtype)\n        for i in range(2*n):\n            src = max((i + 0.5) * 0.5 - 0.5, 0.0)\n            i0 = min(int(src // 1), n - 1)\n            i1 = min(i0 + 1, n - 1)\n            l = src - i0\n            A[i, i0] += 1 - l\n            A[i, i1] += l\n        return A\n    Ah = interp(h).to(x.dtype)\n    Aw = interp(w).to(x.dtype)\n    T = torch.matmul(Ah.unsqueeze(0), x)\n    return torch.matmul(T, Aw.t().unsqueeze(0))\n",
   "tensors": null
  },
  {
@@ -40,11 +64,35 @@
   "tensors": null
  },
  {
+  "doc": "Four-phase bilinear 2x upsampling (align_corners=False): out[2i] = (3*x[i] + x[i-1])/4, out[2i+1] = (3*x[i] + x[i+1])/4, per axis with indices clamped to [0,n-1]; the four phases combine row and column weights 9/3/3/1. Equals bilinear2d scale 2, align_corners=False.",
+  "name": "bilinear_polyphase2",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, channels, h, w):\n    import torch\n    c = x.shape[0]\n    xm = x.to(torch.float64)\n    ii = torch.arange(h)\n    jj = torch.arange(w)\n    im = torch.clamp(ii - 1, 0, h - 1)\n    ip = torch.clamp(ii + 1, 0, h - 1)\n    jm = torch.clamp(jj - 1, 0, w - 1)\n    jp = torch.clamp(jj + 1, 0, w - 1)\n    ctr = xm[:, ii][:, :, jj]\n    up = xm[:, im][:, :, jj]\n    dn = xm[:, ip][:, :, jj]\n    lf = xm[:, ii][:, :, jm]\n    rt = xm[:, ii][:, :, jp]\n    ul = xm[:, im][:, :, jm]\n    ur = xm[:, im][:, :, jp]\n    dl = xm[:, ip][:, :, jm]\n    dr = xm[:, ip][:, :, jp]\n    o = torch.zeros(c, 2 * h, 2 * w, dtype=torch.float64)\n    o[:, 0::2, 0::2] = (9 * ctr + 3 * up + 3 * lf + ul) / 16\n    o[:, 0::2, 1::2] = (9 * ctr + 3 * up + 3 * rt + ur) / 16\n    o[:, 1::2, 0::2] = (9 * ctr + 3 * dn + 3 * lf + dl) / 16\n    o[:, 1::2, 1::2] = (9 * ctr + 3 * dn + 3 * rt + dr) / 16\n    return o.to(x.dtype)",
+  "tensors": null
+ },
+ {
+  "doc": "Bilinear 2x upsampling computed as four output phases from clamped input neighbours with 9/16, 3/16, 3/16, 1/16 outer-product weights; even phases take the previous neighbour, odd phases the next.",
+  "name": "bilinear_polyphase_defined",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, channels, h, w):\n    C, H, W = x.shape\n    out = torch.empty(C, 2*H, 2*W, dtype=x.dtype, device=x.device)\n    for i in range(H):\n        for j in range(W):\n            v = {+1: min(i + 1, H - 1), -1: max(i - 1, 0)}\n            u = {+1: min(j + 1, W - 1), -1: max(j - 1, 0)}\n            for a in (0, 1):\n                di = -1 if a == 0 else +1\n                for b in (0, 1):\n                    dj = -1 if b == 0 else +1\n                    out[:, 2*i+a, 2*j+b] = (9*x[:, i, j]\n                                            + 3*x[:, v[di], j]\n                                            + 3*x[:, i, u[dj]]\n                                            + x[:, v[di], u[dj]]) / 16\n    return out\n",
+  "tensors": null
+ },
+ {
   "doc": "Bilinear 2x upsampling (align_corners=False, edge-clamped) of [channels, h, w] to [channels, 2h, 2w] with interpolation fractions rounded to a 1/4 grid.",
   "name": "bilinear_q_interp",
   "origin": "agent",
   "params": "[\"channels\", \"h\", \"w\"]",
   "reference": "def fn(x, channels, h, w):\n    import torch\n    def mat(n):\n        A = torch.zeros(2 * n, n, dtype=x.dtype)\n        for i in range(2 * n):\n            src = max((i + 0.5) * 0.5 - 0.5, 0.0)\n            i0 = min(int(src), n - 1)\n            i1 = min(i0 + 1, n - 1)\n            l = round((src - i0) * 4) / 4\n            A[i, i0] += 1 - l\n            A[i, i1] += l\n        return A\n    Ah = mat(h)\n    Aw = mat(w)\n    return torch.einsum('ih,chw,jw->cij', Ah, x, Aw)",
+  "tensors": null
+ },
+ {
+  "doc": "Bilinear 2x upsample of [batch,channels,h,w] to [batch,channels,2h,2w] (align_corners=False).",
+  "name": "bilinear_up2",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, channels, h, w):\n    import torch\n    return torch.nn.functional.interpolate(x, scale_factor=2, mode='bilinear', align_corners=False)",
   "tensors": null
  },
  {
@@ -85,6 +133,14 @@
   "origin": "agent",
   "params": "[\"cin\", \"cout\", \"kh\", \"kw\"]",
   "reference": "def center_kernel_primitive(weight, cin, cout, kh, kw):\n    th = kh // 2\n    tw = kw // 2\n    return weight[:, :, th, tw]",
+  "tensors": null
+ },
+ {
+  "doc": "Project [batch,cin,h,w] to [batch,cout,h,w] using the single center tap of the transposed-conv weight [cin,cout,kh,kw]: M[ci,co]=W[ci,co,kh//2,kw//2]; y[b,co,i,j] = sum_ci x[b,ci,i,j]*M[ci,co].",
+  "name": "center_tap_gemm",
+  "origin": "agent",
+  "params": "[\"cin\", \"cout\", \"h\", \"w\", \"kh\", \"kw\"]",
+  "reference": "def fn(x, cin, cout, h, w, kh, kw, weight=None):\n    import torch\n    M = weight[:, :, kh // 2, kw // 2]\n    b = x.reshape(-1, cin, h * w)\n    y = b.transpose(1, 2) @ M\n    return y.transpose(1, 2).reshape(x.shape[:-3] + (cout, h, w))",
   "tensors": null
  },
  {
@@ -133,6 +189,14 @@
   "origin": "builtin",
   "params": null,
   "reference": null,
+  "tensors": null
+ },
+ {
+  "doc": "Scale each input channel by the tap-mean of its weight diagonal and sum channels: d[c]=mean_{th,tw} W[c,c,th,tw]; y[b,c,i,j] = broadcast of sum_ci x[b,ci,i,j]*d[ci] to all cout channels.",
+  "name": "diag_scale_gemm",
+  "origin": "agent",
+  "params": "[\"cin\", \"cout\", \"h\", \"w\", \"kh\"]",
+  "reference": "def fn(x, cin, cout, h, w, kh, weight=None):\n    import torch\n    d = weight.permute(1, 0, 2, 3).diagonal(dim1=0, dim2=1).mean(dim=-1)  # [n]\n    b = x.reshape(-1, cin, h * w)\n    m = torch.einsum('bcm,c->bm', b, d[:cin])\n    return m.reshape(x.shape[:-3] + (h, w)).unsqueeze(-3).expand(x.shape[:-3] + (cout, h, w))",
   "tensors": null
  },
  {
@@ -216,11 +280,11 @@
   "tensors": null
  },
  {
-  "doc": "Transposed Kronecker interpolation matrix K^T (h*w x 4*h*w) for bilinear 2x upsampling, align_corners=False, edge-clamped.",
+  "doc": "Build the transposed Kronecker product of the 1-D bilinear 2x interpolation matrices: K = kron(A_h, A_w) with A (2n x n) defined by src=max((i+0.5)*0.5-0.5,0), i0=min(floor(src),n-1), i1=min(i0+1,n-1), l=src-i0, A[i,i0]+=1-l, A[i,i1]+=l; returns K^T of shape (h*w, 4*h*w). Only the sizes of x are used.",
   "name": "interp_kron_t",
   "origin": "agent",
   "params": "[\"h\", \"w\"]",
-  "reference": "def fn(x, h, w):\n    import torch\n    def A(n):\n        M = torch.zeros(2 * n, n, dtype=torch.float64)\n        for i in range(2 * n):\n            src = max((i + 0.5) * 0.5 - 0.5, 0.0)\n            i0 = min(int(src // 1), n - 1)\n            i1 = min(i0 + 1, n - 1)\n            l = src - i0\n            M[i, i0] += 1 - l\n            M[i, i1] += l\n        return M\n    K = torch.kron(A(h), A(w))\n    return K.t().to(torch.float32)\n",
+  "reference": "def fn(x, h, w):\n    import torch\n    def interp(n):\n        i = torch.arange(2 * n, dtype=torch.float64)\n        src = torch.clamp((i + 0.5) * 0.5 - 0.5, min=0.0)\n        i0 = torch.clamp(src.floor().long(), max=n - 1)\n        i1 = torch.clamp(i0 + 1, max=n - 1)\n        l = src - i0.to(torch.float64)\n        A = torch.zeros(2 * n, n, dtype=torch.float64)\n        A[torch.arange(2 * n), i0] += 1.0 - l\n        A[torch.arange(2 * n), i1] += l\n        return A\n    K = torch.kron(interp(h), interp(w))\n    return K.t().contiguous()",
   "tensors": null
  },
  {
@@ -272,6 +336,14 @@
   "tensors": null
  },
  {
+  "doc": "Project [batch,cin,h,w] to [batch,cout,h,w] with the tap-mean of the transposed-conv weight [cin,cout,kh,kw]: M[ci,co]=mean over (th,tw); y[b,co,i,j] = sum_ci x[b,ci,i,j]*M[ci,co].",
+  "name": "mean_tap_gemm",
+  "origin": "agent",
+  "params": "[\"cin\", \"cout\", \"h\", \"w\", \"kh\", \"kw\"]",
+  "reference": "def fn(x, cin, cout, h, w, kh, kw, weight=None):\n    import torch\n    M = weight.mean(dim=(2, 3))\n    b = x.reshape(-1, cin, h * w)\n    y = b.transpose(1, 2) @ M\n    return y.transpose(1, 2).reshape(x.shape[:-3] + (cout, h, w))",
+  "tensors": null
+ },
+ {
   "doc": "Average channels at each pixel, broadcast to output channels, and repeat over disjoint stride tiles.",
   "name": "mean_tile",
   "origin": "agent",
@@ -288,11 +360,19 @@
   "tensors": null
  },
  {
-  "doc": "2x nearest-neighbour upsampling of [channels, h, w] to [channels, 2h, 2w].",
+  "doc": "Repeat each input pixel twice on each spatial axis.",
   "name": "nearest2x",
   "origin": "agent",
   "params": "[\"channels\", \"h\", \"w\"]",
-  "reference": "def fn(x, channels, h, w):\n    return x.reshape(channels, h, 1, w, 1).expand(channels, h, 2, w, 2).reshape(channels, 2 * h, 2 * w)",
+  "reference": "def fn(x, **params):\n    return x.repeat_interleave(2, dim=-2).repeat_interleave(2, dim=-1)",
+  "tensors": null
+ },
+ {
+  "doc": "Nearest-neighbour 2x upsampling: each input pixel is copied into a 2x2 output block.",
+  "name": "nearest2x_def",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, channels, h, w):\n    c, H, W = x.shape\n    return x.reshape(c, H, 1, W, 1).expand(c, H, 2, W, 2).reshape(c, 2*H, 2*W).contiguous()\n",
   "tensors": null
  },
  {
@@ -344,6 +424,14 @@
   "tensors": null
  },
  {
+  "doc": "Fixed-coordinate broadcast subtraction, squaring, subtracting from one and clamping below at zero. Returns exact float32 integer equality indicators without data-dependent addressing for valid ids and vocab=30522.",
+  "name": "quadratic_integer_selectors",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    ids = x.reshape(params['tokens'], 1).to(torch.float32)\n    coordinates = torch.arange(params['vocab'], device=x.device, dtype=torch.float32).reshape(1, params['vocab'])\n    difference = ids - coordinates\n    return (1.0 - difference * difference).clamp_min(0.0)\n",
+  "tensors": null
+ },
+ {
   "doc": null,
   "name": "reduce_rows",
   "origin": "builtin",
@@ -392,11 +480,59 @@
   "tensors": null
  },
  {
+  "doc": "Repeat each spatial value over a stride-by-stride tile: [batch,channels,h,w] -> [batch,channels,h*stride,w*stride].",
+  "name": "tile_up",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\", \"stride\"]",
+  "reference": "def fn(x, channels, h, w, stride):\n    return x.repeat_interleave(stride, dim=-2).repeat_interleave(stride, dim=-1)",
+  "tensors": null
+ },
+ {
   "doc": "Create a one-hot matrix from token ids in float32. Input: ids of shape (tokens,). Output: matrix of shape (rows, cols) = (tokens, vocab) where O[t, i] = 1 if ids[t] == i else 0, in float32.",
   "name": "token_indicators",
   "origin": "agent",
   "params": "[\"rows\", \"cols\"]",
   "reference": "def fn(ids, rows, cols):\n    import torch\n    O = torch.zeros(rows * cols, dtype=torch.float32, device=ids.device)\n    for t in range(rows):\n        idx = ids[t].item()\n        if 0 <= idx < cols:\n            O[t * cols + idx] = 1\n    return O.view(rows, cols)",
+  "tensors": null
+ },
+ {
+  "doc": "1-D triangle smoothing along the column axis of a [channels,2h,2w] map: replicate-pad columns by one and set out[c,i,j] = (x[c,i,j-1] + 2*x[c,i,j] + x[c,i,j+1])/4 with column indices clamped to [0,2w-1].",
+  "name": "tri_pass_cols",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, channels, h, w):\n    import torch\n    xm = x.to(torch.float64)\n    c, H, W = xm.shape\n    jm = torch.clamp(torch.arange(W) - 1, 0, W - 1)\n    jp = torch.clamp(torch.arange(W) + 1, 0, W - 1)\n    return (xm[:, :, jm] + 2 * xm + xm[:, :, jp]) / 4",
+  "tensors": null
+ },
+ {
+  "doc": "1-D triangle smoothing along the row axis of a [channels,2h,2w] map: replicate-pad rows by one and set out[c,i,j] = (x[c,i-1,j] + 2*x[c,i,j] + x[c,i+1,j])/4 with row indices clamped to [0,2h-1].",
+  "name": "tri_pass_rows",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, channels, h, w):\n    import torch\n    xm = x.to(torch.float64)\n    c, H, W = xm.shape\n    im = torch.clamp(torch.arange(H) - 1, 0, H - 1)\n    ip = torch.clamp(torch.arange(H) + 1, 0, H - 1)\n    return (xm[:, im] + 2 * xm + xm[:, ip]) / 4",
+  "tensors": null
+ },
+ {
+  "doc": "Replicate-pad by one pixel on each edge, then depthwise 3x3 convolution stride 1 with kernel outer([1/4,1/2,1/4],[1/4,1/2,1/4]).",
+  "name": "triangle_filter_def",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(y, channels, h, w):\n    C, H, W = y.shape\n    ky = torch.tensor([0.25, 0.5, 0.25], dtype=y.dtype)\n    kx = torch.tensor([0.25, 0.5, 0.25], dtype=y.dtype)\n    K = torch.outer(ky, kx).to(y.device)\n    yp = torch.nn.functional.pad(y.unsqueeze(0), (1, 1, 1, 1), mode='replicate')\n    weight = K.view(1, 1, 3, 3).expand(C, 1, 3, 3)\n    out = torch.nn.functional.conv2d(yp, weight, groups=C)\n    return out.squeeze(0)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Replicate-pad by one then depthwise convolve with the fixed separable triangle kernel [1,2,1] outer product divided by 16.",
+  "name": "triangle_filter_replicate",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    import torch.nn.functional as F\n    c = x.shape[-3]\n    v = x.new_tensor([0.25, 0.5, 0.25])\n    k = (v[:, None] * v[None, :]).reshape(1, 1, 3, 3).expand(c, 1, 3, 3).contiguous()\n    z = x.reshape(-1, c, x.shape[-2], x.shape[-1])\n    y = F.conv2d(F.pad(z, (1, 1, 1, 1), mode='replicate'), k, groups=c)\n    return y.reshape(x.shape)",
+  "tensors": null
+ },
+ {
+  "doc": "Fixed-address broadcast subtraction followed by abs, reverse subtraction from one, and lower clamp at zero. For valid integer vocabulary IDs produces exact float32 indicator rows; no runtime indexing is used.",
+  "name": "triangular_selectors",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    ids = x.reshape(params['tokens'], 1).to(torch.float32)\n    positions = torch.arange(params['vocab'], device=x.device, dtype=torch.float32).reshape(1, params['vocab'])\n    return (1.0 - (ids - positions).abs()).clamp_min(0.0)\n",
   "tensors": null
  },
  {
