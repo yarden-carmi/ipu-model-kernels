@@ -128,11 +128,11 @@
   "tensors": null
  },
  {
-  "doc": "Convert token ids to one-hot float32 indicators of shape (tokens, vocab).",
+  "doc": "Convert token ids to one-hot indicator matrix in float32",
   "name": "one_hot",
   "origin": "agent",
-  "params": "[\"tokens\", \"vocab\"]",
-  "reference": "def fn(x, tokens, vocab):\n    import torch\n    return torch.nn.functional.one_hot(x.long(), num_classes=vocab).to(torch.float32)",
+  "params": "[\"vocab\"]",
+  "reference": "def fn(x, vocab):\n    return torch.nn.functional.one_hot(x.long(), num_classes=vocab).to(torch.float32)",
   "tensors": null
  },
  {
