@@ -265,6 +265,34 @@
    "sim_ppl": 14.586750030517578,
    "sim_top1": null,
    "sqnr_db": 27.524901345190095
+  },
+  {
+   "agreement": 1.0,
+   "at": 1794684869.2326276,
+   "cosine": 0.9999999478668384,
+   "mode": "full",
+   "nonfinite": 0,
+   "precision": "tf32",
+   "purpose": "candidate",
+   "ref_ppl": 14.362287521362305,
+   "ref_top1": null,
+   "sim_ppl": 14.361945152282715,
+   "sim_top1": null,
+   "sqnr_db": 69.81613698828728
+  },
+  {
+   "agreement": 0.958904109589041,
+   "at": 1794684869.246699,
+   "cosine": 0.9991156083362279,
+   "mode": "quantized",
+   "nonfinite": 0,
+   "precision": "nx8",
+   "purpose": "candidate",
+   "ref_ppl": 14.362287521362305,
+   "ref_top1": null,
+   "sim_ppl": 14.586750030517578,
+   "sim_top1": null,
+   "sqnr_db": 27.524901345190095
   }
  ],
  "category": "fill-mask",
@@ -396,10 +424,19 @@
      "check_ok": 1,
      "kind": "equivalent",
      "loss_db": null,
-     "mode": null,
-     "model_sqnr_db": null,
+     "mode": "full",
+     "model_sqnr_db": 69.81613698828728,
      "name": "eq_select_gemm_fp32",
-     "op_sqnr_db": null
+     "op_sqnr_db": 74.04175682956097
+    },
+    {
+     "check_ok": 1,
+     "kind": "equivalent",
+     "loss_db": 0.0,
+     "mode": "quantized",
+     "model_sqnr_db": 27.524901345190095,
+     "name": "eq_select_gemm_fp32",
+     "op_sqnr_db": Infinity
     },
     {
      "check_ok": 1,
@@ -1902,7 +1939,7 @@
    "q_sqnr": 28.7419782546104,
    "role": "main",
    "seq": 56,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -1927,7 +1964,7 @@
    "q_sqnr": 28.7419782546104,
    "role": "chained",
    "seq": 57,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -1952,7 +1989,7 @@
    "q_sqnr": 23.7125723266455,
    "role": "chained",
    "seq": 58,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -1978,7 +2015,7 @@
    "q_sqnr": 24.146827349540978,
    "role": "chained",
    "seq": 59,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2004,7 +2041,7 @@
    "q_sqnr": 23.433672912157554,
    "role": "chained",
    "seq": 60,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2029,7 +2066,7 @@
    "q_sqnr": 27.164270297627464,
    "role": "chained",
    "seq": 61,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2055,7 +2092,7 @@
    "q_sqnr": 28.15492384968803,
    "role": "chained",
    "seq": 62,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2081,7 +2118,7 @@
    "q_sqnr": 33.357851387937785,
    "role": "chained",
    "seq": 63,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2104,7 +2141,7 @@
    "q_sqnr": 24.682637529924346,
    "role": "folded_store",
    "seq": 64,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2130,7 +2167,7 @@
    "q_sqnr": 24.085825058144053,
    "role": "chained",
    "seq": 65,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2155,7 +2192,7 @@
    "q_sqnr": 28.041467476319962,
    "role": "chained",
    "seq": 66,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2181,7 +2218,7 @@
    "q_sqnr": 27.074940303840904,
    "role": "chained",
    "seq": 67,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2207,7 +2244,7 @@
    "q_sqnr": 30.16182741805022,
    "role": "chained",
    "seq": 68,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2233,7 +2270,7 @@
    "q_sqnr": 30.0456480688735,
    "role": "chained",
    "seq": 69,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2259,7 +2296,7 @@
    "q_sqnr": 27.031504773037867,
    "role": "chained",
    "seq": 70,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2285,7 +2322,7 @@
    "q_sqnr": 30.372196276926292,
    "role": "main",
    "seq": 71,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2310,7 +2347,7 @@
    "q_sqnr": 30.372196276926292,
    "role": "chained",
    "seq": 72,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2335,7 +2372,7 @@
    "q_sqnr": 25.287055244223048,
    "role": "chained",
    "seq": 73,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2361,7 +2398,7 @@
    "q_sqnr": 23.238626669508072,
    "role": "chained",
    "seq": 74,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2387,7 +2424,7 @@
    "q_sqnr": 22.70917424234831,
    "role": "chained",
    "seq": 75,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2412,7 +2449,7 @@
    "q_sqnr": 26.631220913131735,
    "role": "chained",
    "seq": 76,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2438,7 +2475,7 @@
    "q_sqnr": 27.88776099136672,
    "role": "chained",
    "seq": 77,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2464,7 +2501,7 @@
    "q_sqnr": 32.82402049163902,
    "role": "chained",
    "seq": 78,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2487,7 +2524,7 @@
    "q_sqnr": 23.905415922866222,
    "role": "folded_store",
    "seq": 79,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2513,7 +2550,7 @@
    "q_sqnr": 23.166106930341087,
    "role": "chained",
    "seq": 80,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2538,7 +2575,7 @@
    "q_sqnr": 27.553300711558478,
    "role": "chained",
    "seq": 81,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2564,7 +2601,7 @@
    "q_sqnr": 26.67297557719086,
    "role": "chained",
    "seq": 82,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2590,7 +2627,7 @@
    "q_sqnr": 30.29451193134232,
    "role": "chained",
    "seq": 83,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2616,7 +2653,7 @@
    "q_sqnr": 30.382739938685553,
    "role": "chained",
    "seq": 84,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2642,7 +2679,7 @@
    "q_sqnr": 26.177989183940976,
    "role": "chained",
    "seq": 85,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2668,7 +2705,7 @@
    "q_sqnr": 31.10638946433424,
    "role": "main",
    "seq": 86,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2693,7 +2730,7 @@
    "q_sqnr": 31.10638946433424,
    "role": "chained",
    "seq": 87,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2718,7 +2755,7 @@
    "q_sqnr": 24.312221651998136,
    "role": "chained",
    "seq": 88,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2744,7 +2781,7 @@
    "q_sqnr": 22.01395543925177,
    "role": "chained",
    "seq": 89,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2770,7 +2807,7 @@
    "q_sqnr": 21.29123454723121,
    "role": "chained",
    "seq": 90,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2795,7 +2832,7 @@
    "q_sqnr": 25.94656940841581,
    "role": "chained",
    "seq": 91,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2821,7 +2858,7 @@
    "q_sqnr": 27.195828328589457,
    "role": "chained",
    "seq": 92,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2847,7 +2884,7 @@
    "q_sqnr": 32.30795916616841,
    "role": "chained",
    "seq": 93,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2870,7 +2907,7 @@
    "q_sqnr": 23.61603080247891,
    "role": "folded_store",
    "seq": 94,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2896,7 +2933,7 @@
    "q_sqnr": 22.868813760339876,
    "role": "chained",
    "seq": 95,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2921,7 +2958,7 @@
    "q_sqnr": 26.913588868287416,
    "role": "chained",
    "seq": 96,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2947,7 +2984,7 @@
    "q_sqnr": 26.099011715611798,
    "role": "chained",
    "seq": 97,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2973,7 +3010,7 @@
    "q_sqnr": 29.689273725857706,
    "role": "chained",
    "seq": 98,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -2999,7 +3036,7 @@
    "q_sqnr": 29.698729973420924,
    "role": "chained",
    "seq": 99,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3025,7 +3062,7 @@
    "q_sqnr": 25.567261484924035,
    "role": "chained",
    "seq": 100,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3051,7 +3088,7 @@
    "q_sqnr": 30.527467460330968,
    "role": "main",
    "seq": 101,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3076,7 +3113,7 @@
    "q_sqnr": 30.527467460330968,
    "role": "chained",
    "seq": 102,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3101,7 +3138,7 @@
    "q_sqnr": 26.06695619081311,
    "role": "chained",
    "seq": 103,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3127,7 +3164,7 @@
    "q_sqnr": 21.874863794587746,
    "role": "chained",
    "seq": 104,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3153,7 +3190,7 @@
    "q_sqnr": 21.598979765649187,
    "role": "chained",
    "seq": 105,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3178,7 +3215,7 @@
    "q_sqnr": 25.682403683775384,
    "role": "chained",
    "seq": 106,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3204,7 +3241,7 @@
    "q_sqnr": 26.64721444934731,
    "role": "chained",
    "seq": 107,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3230,7 +3267,7 @@
    "q_sqnr": 31.90115295848042,
    "role": "chained",
    "seq": 108,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3253,7 +3290,7 @@
    "q_sqnr": 23.19826302153231,
    "role": "folded_store",
    "seq": 109,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3279,7 +3316,7 @@
    "q_sqnr": 22.39474470416181,
    "role": "chained",
    "seq": 110,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3304,7 +3341,7 @@
    "q_sqnr": 26.46204283941117,
    "role": "chained",
    "seq": 111,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3330,7 +3367,7 @@
    "q_sqnr": 25.54462588171562,
    "role": "chained",
    "seq": 112,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3356,7 +3393,7 @@
    "q_sqnr": 29.366917704948413,
    "role": "chained",
    "seq": 113,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3382,7 +3419,7 @@
    "q_sqnr": 29.394932268591774,
    "role": "chained",
    "seq": 114,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3408,7 +3445,7 @@
    "q_sqnr": 24.580070573070294,
    "role": "chained",
    "seq": 115,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3434,7 +3471,7 @@
    "q_sqnr": 29.09573222323545,
    "role": "main",
    "seq": 116,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3459,7 +3496,7 @@
    "q_sqnr": 29.09573222323545,
    "role": "chained",
    "seq": 117,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3484,7 +3521,7 @@
    "q_sqnr": 25.323147838681074,
    "role": "chained",
    "seq": 118,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3510,7 +3547,7 @@
    "q_sqnr": 21.265319336107055,
    "role": "chained",
    "seq": 119,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3536,7 +3573,7 @@
    "q_sqnr": 21.341603257613002,
    "role": "chained",
    "seq": 120,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3561,7 +3598,7 @@
    "q_sqnr": 25.192015417913463,
    "role": "chained",
    "seq": 121,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3587,7 +3624,7 @@
    "q_sqnr": 26.315823495194234,
    "role": "chained",
    "seq": 122,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3613,7 +3650,7 @@
    "q_sqnr": 31.4512835309868,
    "role": "chained",
    "seq": 123,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3636,7 +3673,7 @@
    "q_sqnr": 23.332126979658064,
    "role": "folded_store",
    "seq": 124,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3662,7 +3699,7 @@
    "q_sqnr": 22.53988873203731,
    "role": "chained",
    "seq": 125,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3687,7 +3724,7 @@
    "q_sqnr": 26.20662927131358,
    "role": "chained",
    "seq": 126,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3713,7 +3750,7 @@
    "q_sqnr": 25.41400364663761,
    "role": "chained",
    "seq": 127,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3739,7 +3776,7 @@
    "q_sqnr": 28.66723110345908,
    "role": "chained",
    "seq": 128,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3765,7 +3802,7 @@
    "q_sqnr": 28.716114368190013,
    "role": "chained",
    "seq": 129,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3791,7 +3828,7 @@
    "q_sqnr": 25.08353825712199,
    "role": "chained",
    "seq": 130,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3817,7 +3854,7 @@
    "q_sqnr": 28.658737815892597,
    "role": "main",
    "seq": 131,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3842,7 +3879,7 @@
    "q_sqnr": 28.658737815892597,
    "role": "chained",
    "seq": 132,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3867,7 +3904,7 @@
    "q_sqnr": 20.85998989837558,
    "role": "chained",
    "seq": 133,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3893,7 +3930,7 @@
    "q_sqnr": 19.48589590270027,
    "role": "chained",
    "seq": 134,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3919,7 +3956,7 @@
    "q_sqnr": 18.959506792470844,
    "role": "chained",
    "seq": 135,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3944,7 +3981,7 @@
    "q_sqnr": 24.565901664451502,
    "role": "chained",
    "seq": 136,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3970,7 +4007,7 @@
    "q_sqnr": 25.67294059738306,
    "role": "chained",
    "seq": 137,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -3996,7 +4033,7 @@
    "q_sqnr": 30.54289717832227,
    "role": "chained",
    "seq": 138,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4019,7 +4056,7 @@
    "q_sqnr": 22.560152243758953,
    "role": "folded_store",
    "seq": 139,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4045,7 +4082,7 @@
    "q_sqnr": 24.264434538101163,
    "role": "chained",
    "seq": 140,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4070,7 +4107,7 @@
    "q_sqnr": 25.689347732767818,
    "role": "chained",
    "seq": 141,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4096,7 +4133,7 @@
    "q_sqnr": 24.53675869622737,
    "role": "chained",
    "seq": 142,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4122,7 +4159,7 @@
    "q_sqnr": 26.802209217367405,
    "role": "chained",
    "seq": 143,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4148,7 +4185,7 @@
    "q_sqnr": 26.51604637315595,
    "role": "chained",
    "seq": 144,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4174,7 +4211,7 @@
    "q_sqnr": 24.019782086367705,
    "role": "chained",
    "seq": 145,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4200,7 +4237,7 @@
    "q_sqnr": 25.597887970804724,
    "role": "main",
    "seq": 146,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4225,7 +4262,7 @@
    "q_sqnr": 25.597887970804724,
    "role": "chained",
    "seq": 147,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4250,7 +4287,7 @@
    "q_sqnr": 23.638687034379284,
    "role": "chained",
    "seq": 148,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4276,7 +4313,7 @@
    "q_sqnr": 19.497170960063684,
    "role": "chained",
    "seq": 149,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4302,7 +4339,7 @@
    "q_sqnr": 19.285526978837012,
    "role": "chained",
    "seq": 150,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4327,7 +4364,7 @@
    "q_sqnr": 23.99272152520784,
    "role": "chained",
    "seq": 151,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4353,7 +4390,7 @@
    "q_sqnr": 24.580812154391293,
    "role": "chained",
    "seq": 152,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4379,7 +4416,7 @@
    "q_sqnr": 30.37621526822797,
    "role": "chained",
    "seq": 153,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4402,7 +4439,7 @@
    "q_sqnr": 25.140906294245227,
    "role": "folded_store",
    "seq": 154,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4428,7 +4465,7 @@
    "q_sqnr": 27.333292955667623,
    "role": "chained",
    "seq": 155,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4453,7 +4490,7 @@
    "q_sqnr": 26.82268594862626,
    "role": "chained",
    "seq": 156,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4479,7 +4516,7 @@
    "q_sqnr": 24.045610599749395,
    "role": "chained",
    "seq": 157,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4505,7 +4542,7 @@
    "q_sqnr": 25.971416306113596,
    "role": "chained",
    "seq": 158,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4531,7 +4568,7 @@
    "q_sqnr": 25.96245315801773,
    "role": "chained",
    "seq": 159,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4557,7 +4594,7 @@
    "q_sqnr": 23.116142562151154,
    "role": "chained",
    "seq": 160,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4583,7 +4620,7 @@
    "q_sqnr": 28.10861379502734,
    "role": "main",
    "seq": 161,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4608,7 +4645,7 @@
    "q_sqnr": 28.10861379502734,
    "role": "chained",
    "seq": 162,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4633,7 +4670,7 @@
    "q_sqnr": 21.343496036141104,
    "role": "chained",
    "seq": 163,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4659,7 +4696,7 @@
    "q_sqnr": 20.540531198737174,
    "role": "chained",
    "seq": 164,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4685,7 +4722,7 @@
    "q_sqnr": 20.07023164453704,
    "role": "chained",
    "seq": 165,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4710,7 +4747,7 @@
    "q_sqnr": 23.72221718627141,
    "role": "chained",
    "seq": 166,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4736,7 +4773,7 @@
    "q_sqnr": 24.163265381506438,
    "role": "chained",
    "seq": 167,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4762,7 +4799,7 @@
    "q_sqnr": 29.279749252275078,
    "role": "chained",
    "seq": 168,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4785,7 +4822,7 @@
    "q_sqnr": 24.522970609177342,
    "role": "folded_store",
    "seq": 169,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4811,7 +4848,7 @@
    "q_sqnr": 25.20878407841736,
    "role": "chained",
    "seq": 170,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4836,7 +4873,7 @@
    "q_sqnr": 25.206170828204726,
    "role": "chained",
    "seq": 171,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4862,7 +4899,7 @@
    "q_sqnr": 24.102495417578194,
    "role": "chained",
    "seq": 172,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4888,7 +4925,7 @@
    "q_sqnr": 26.238603455769297,
    "role": "chained",
    "seq": 173,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4914,7 +4951,7 @@
    "q_sqnr": 25.772003639358097,
    "role": "chained",
    "seq": 174,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4940,7 +4977,7 @@
    "q_sqnr": 22.39681415403226,
    "role": "chained",
    "seq": 175,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4966,7 +5003,7 @@
    "q_sqnr": 28.905497550216023,
    "role": "main",
    "seq": 176,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -4991,7 +5028,7 @@
    "q_sqnr": 28.905497550216023,
    "role": "chained",
    "seq": 177,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -5016,7 +5053,7 @@
    "q_sqnr": 22.44645281638451,
    "role": "chained",
    "seq": 178,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -5042,7 +5079,7 @@
    "q_sqnr": 19.83919566820876,
    "role": "chained",
    "seq": 179,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -5068,7 +5105,7 @@
    "q_sqnr": 19.722090125341268,
    "role": "chained",
    "seq": 180,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -5093,7 +5130,7 @@
    "q_sqnr": 23.684828022078616,
    "role": "chained",
    "seq": 181,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -5119,7 +5156,7 @@
    "q_sqnr": 25.213090572431177,
    "role": "chained",
    "seq": 182,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -5145,7 +5182,7 @@
    "q_sqnr": 27.41272625238619,
    "role": "chained",
    "seq": 183,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -5168,7 +5205,7 @@
    "q_sqnr": 19.2673688723849,
    "role": "folded_store",
    "seq": 184,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -5194,7 +5231,7 @@
    "q_sqnr": 19.534973060339848,
    "role": "chained",
    "seq": 185,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -5219,7 +5256,7 @@
    "q_sqnr": 23.643123736053298,
    "role": "chained",
    "seq": 186,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -5245,7 +5282,7 @@
    "q_sqnr": 21.210709928068873,
    "role": "chained",
    "seq": 187,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -5271,7 +5308,7 @@
    "q_sqnr": 25.403280573956295,
    "role": "chained",
    "seq": 188,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -5294,7 +5331,7 @@
    "q_sqnr": 25.160093400211345,
    "role": "folded_store",
    "seq": 189,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -5320,7 +5357,7 @@
    "q_sqnr": 18.401850420199107,
    "role": "chained",
    "seq": 190,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   },
@@ -5346,7 +5383,7 @@
    "q_sqnr": 27.2725144677584,
    "role": "chained",
    "seq": 191,
-   "status": "not_tried",
+   "status": "building",
    "version": null,
    "why": null
   }
@@ -5377,7 +5414,7 @@
   "nodes_ops_on_chip": 0,
   "pct_calls": 0.0,
   "pct_macs": 0.0,
-  "plan_id": 282,
+  "plan_id": 346,
   "status": "active"
  }
 }

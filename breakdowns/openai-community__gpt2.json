@@ -209,6 +209,104 @@
    "sim_ppl": 50.735626220703125,
    "sim_top1": null,
    "sqnr_db": 30.736680348359503
+  },
+  {
+   "agreement": 0.998046875,
+   "at": 1794685149.6011474,
+   "cosine": 0.9999996150772513,
+   "mode": "full",
+   "nonfinite": 0,
+   "precision": "tf32",
+   "purpose": "candidate",
+   "ref_ppl": 47.02376937866211,
+   "ref_top1": null,
+   "sim_ppl": 47.03031539916992,
+   "sim_top1": null,
+   "sqnr_db": 61.13452614592693
+  },
+  {
+   "agreement": 0.7451171875,
+   "at": 1794685149.6105254,
+   "cosine": 0.9995316344088834,
+   "mode": "quantized",
+   "nonfinite": 0,
+   "precision": "nx8",
+   "purpose": "candidate",
+   "ref_ppl": 47.02376937866211,
+   "ref_top1": null,
+   "sim_ppl": 51.461002349853516,
+   "sim_top1": null,
+   "sqnr_db": 30.27993188763049
+  },
+  {
+   "agreement": 0.13720703125,
+   "at": 1794685149.6270332,
+   "cosine": 0.9503029091816468,
+   "mode": "full",
+   "nonfinite": 0,
+   "precision": "tf32",
+   "purpose": "candidate",
+   "ref_ppl": 47.02376937866211,
+   "ref_top1": null,
+   "sim_ppl": 1101.159423828125,
+   "sim_top1": null,
+   "sqnr_db": 9.95518526936295
+  },
+  {
+   "agreement": 0.1474609375,
+   "at": 1794685149.6349564,
+   "cosine": 0.94967635211482,
+   "mode": "quantized",
+   "nonfinite": 0,
+   "precision": "nx8",
+   "purpose": "candidate",
+   "ref_ppl": 47.02376937866211,
+   "ref_top1": null,
+   "sim_ppl": 1082.3349609375,
+   "sim_top1": null,
+   "sqnr_db": 9.71751824810293
+  },
+  {
+   "agreement": 0.1474609375,
+   "at": 1794685149.642943,
+   "cosine": 0.94967635211482,
+   "mode": "quantized",
+   "nonfinite": 0,
+   "precision": "nx8",
+   "purpose": "candidate",
+   "ref_ppl": 47.02376937866211,
+   "ref_top1": null,
+   "sim_ppl": 1082.3349609375,
+   "sim_top1": null,
+   "sqnr_db": 9.71751824810293
+  },
+  {
+   "agreement": 0.99951171875,
+   "at": 1794685149.650768,
+   "cosine": 0.9999998872861343,
+   "mode": "full",
+   "nonfinite": 0,
+   "precision": "tf32",
+   "purpose": "candidate",
+   "ref_ppl": 47.02376937866211,
+   "ref_top1": null,
+   "sim_ppl": 47.02333068847656,
+   "sim_top1": null,
+   "sqnr_db": 66.46257479630297
+  },
+  {
+   "agreement": 0.74365234375,
+   "at": 1794685149.658651,
+   "cosine": 0.9995792656968676,
+   "mode": "quantized",
+   "nonfinite": 0,
+   "precision": "nx8",
+   "purpose": "candidate",
+   "ref_ppl": 47.02376937866211,
+   "ref_top1": null,
+   "sim_ppl": 50.735626220703125,
+   "sim_top1": null,
+   "sqnr_db": 30.736680348359503
   }
  ],
  "category": "text-generation",
@@ -222,7 +320,7 @@
  "operations": [
   {
    "calls": 1.0,
-   "class": "equivalent",
+   "class": "approximate",
    "cycles": null,
    "fp_sqnr": 73.83168251148633,
    "group_seq": 0,
@@ -247,6 +345,69 @@
      "mode": "quantized",
      "model_sqnr_db": 30.736680348359503,
      "name": "abs_clamp_gemm",
+     "op_sqnr_db": Infinity
+    },
+    {
+     "check_ok": null,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "onehot_pointwise_conv",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": 0,
+     "kind": "approximate",
+     "loss_db": null,
+     "mode": "full",
+     "model_sqnr_db": 61.13452614592693,
+     "name": "rowwise_int8_embedding",
+     "op_sqnr_db": 38.7144817833392
+    },
+    {
+     "check_ok": 0,
+     "kind": "approximate",
+     "loss_db": 0.4567484607290133,
+     "mode": "quantized",
+     "model_sqnr_db": 30.27993188763049,
+     "name": "rowwise_int8_embedding",
+     "op_sqnr_db": 38.720239606294285
+    },
+    {
+     "check_ok": 0,
+     "kind": "approximate",
+     "loss_db": null,
+     "mode": "full",
+     "model_sqnr_db": 9.95518526936295,
+     "name": "pair_centroid_embedding",
+     "op_sqnr_db": 3.9501579752787475
+    },
+    {
+     "check_ok": 0,
+     "kind": "approximate",
+     "loss_db": 21.019162100256573,
+     "mode": "quantized",
+     "model_sqnr_db": 9.71751824810293,
+     "name": "pair_centroid_embedding",
+     "op_sqnr_db": 3.9498588576306863
+    },
+    {
+     "check_ok": 0,
+     "kind": "approximate",
+     "loss_db": null,
+     "mode": "full",
+     "model_sqnr_db": 66.46257479630297,
+     "name": "tail_mean_embedding",
+     "op_sqnr_db": 73.83168251148633
+    },
+    {
+     "check_ok": 0,
+     "kind": "approximate",
+     "loss_db": 0.0,
+     "mode": "quantized",
+     "model_sqnr_db": 30.736680348359503,
+     "name": "tail_mean_embedding",
      "op_sqnr_db": Infinity
     }
    ],
@@ -4832,15 +4993,15 @@
   "macs_total": 32832159744.0,
   "model_id": 215,
   "n_1to1": 179,
-  "n_approximate": 0,
-  "n_equivalent": 1,
+  "n_approximate": 1,
+  "n_equivalent": 0,
   "n_failed": 0,
   "nodes": 180,
   "nodes_on_chip": 4,
   "nodes_ops_on_chip": 0,
   "pct_calls": 2.2222222222222223,
   "pct_macs": 0.0,
-  "plan_id": 186,
+  "plan_id": 352,
   "status": "active"
  }
 }
