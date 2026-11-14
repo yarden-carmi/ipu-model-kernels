@@ -289,6 +289,18 @@
  },
  {
   "chain": "[{\"op\": \"channel_concat_pair\", \"params\": {\"batch\": 1, \"channels\": 256, \"spatial\": 196}}]",
+  "check_detail": "the chain could not run: step 1's reference (channel_concat_pair) raised IndexError: index 1 is out of bounds for dimension 0 with size 1 \u2014 check its parameter names against the step's params",
+  "check_ok": 0,
+  "code": "def forward(module, x0, x1):\n    return torch.cat([x0, x1], dim=1)\n",
+  "id": 229,
+  "kind": "equivalent",
+  "name": "channel_concat_pair_direct",
+  "op": "aten",
+  "proposal": "{\"description\": \"Concatenate x0 and x1 (each [1,256,14,14] float32, NCHW) along the channel axis (dim 1) into a [1,512,14,14] float32 output. Step 1 (channel_concat_pair, both inputs in order) copies x0 into output channels 0..255 and x1 into channels 256..511, keeping all 14x14 spatial positions (196 per channel). Pure data movement, no arithmetic, so the result is bit-identical to aten::concat along dim 1.\", \"rel_err\": 0.0}",
+  "proposed_by": 154
+ },
+ {
+  "chain": "[{\"op\": \"channel_concat_pair\", \"params\": {\"batch\": 1, \"channels\": 256, \"spatial\": 196}}]",
   "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
   "check_ok": 1,
   "code": "import torch\ndef forward(module, x0, x1):\n    return torch.cat((x0, x1), dim=1)\n",
@@ -468,6 +480,18 @@
   "proposed_by": 146
  },
  {
+  "chain": "[{\"op\": \"channel_concat_pair\", \"params\": {\"batch\": 1, \"channels\": 256, \"spatial\": 196}}, {\"op\": \"clamp4_7\", \"params\": {\"numel\": 100352}}]",
+  "check_detail": "the chain could not run: step 1's reference (channel_concat_pair) raised ValueError: SHAPE (1, 256, 14, 14) torch.float32 \u2014 check its parameter names against the step's params",
+  "check_ok": 0,
+  "code": "import torch\n\ndef forward(module, x0, x1):\n    y = torch.cat([x0, x1], dim=1)\n    return torch.clamp(y, -4.0, 4.0)\n",
+  "id": 232,
+  "kind": "approximate",
+  "name": "concat_clamp4_approx",
+  "op": "aten",
+  "proposal": "{\"description\": \"Approximate aten::concat along dim 1 for x0, x1 of shape [1,256,14,14] float32. Step 1: channel_concat_pair with batch=1, channels=256, spatial=196 places x0 in output channels 0..255 and x1 in channels 256..511 (exact copy). Step 2: clamp every output element to [-4,4] (clamp4_7 over numel=100352); NaNs remain NaNs. Output shape [1,512,14,14] float32. Values with magnitude above 4 are altered, so this is a lossy approximation for inputs with large activations.\", \"rel_err\": 0.0}",
+  "proposed_by": 154
+ },
+ {
   "chain": "[{\"op\": \"concat_clip_primitive\", \"params\": {\"elements\": \"numel\"}}]",
   "check_detail": "the chain could not run: step 1's reference (concat_clip_primitive) raised ValueError: too many values to unpack (expected 2) \u2014 check its parameter names against the step's params",
   "check_ok": 0,
@@ -478,6 +502,42 @@
   "op": "aten",
   "proposal": "{\"description\": \"Concatenate the two NCHW tensors along channels in their original order, then clamp each output value to the interval [-4,4]. Values within the interval are unchanged; outliers are saturated.\", \"rel_err\": 0.0}",
   "proposed_by": 143
+ },
+ {
+  "chain": "[{\"op\": \"channel_concat_pair\", \"params\": {\"batch\": 1, \"channels\": 256, \"spatial\": 196}}, {\"op\": \"fixed256_7\", \"params\": {\"numel\": 100352}}]",
+  "check_detail": "the chain could not run: step 1's reference (channel_concat_pair) raised ValueError: SHAPE (1, 256, 14, 14) torch.float32 \u2014 check its parameter names against the step's params",
+  "check_ok": 0,
+  "code": "import torch\n\ndef forward(module, x0, x1):\n    y = torch.cat([x0, x1], dim=1)\n    return torch.round(y * 256.0) / 256.0\n",
+  "id": 233,
+  "kind": "approximate",
+  "name": "concat_fixed256_approx",
+  "op": "aten",
+  "proposal": "{\"description\": \"Approximate aten::concat along dim 1 for x0, x1 of shape [1,256,14,14] float32. Step 1: channel_concat_pair with batch=1, channels=256, spatial=196 places x0 in output channels 0..255 and x1 in channels 256..511 (exact copy). Step 2: quantize to a Q*.8 fixed-point grid: multiply by 256, round to nearest integer with ties-to-even, multiply by 1/256, no saturation (fixed256_7 over numel=100352). Output shape [1,512,14,14] float32. Absolute error per element is at most 2^-9.\", \"rel_err\": 0.0009765757715270464}",
+  "proposed_by": 154
+ },
+ {
+  "chain": "[{\"op\": \"channel_concat_pair\", \"params\": {\"batch\": 1, \"channels\": 256, \"spatial\": 196}}, {\"op\": \"round_fp16_7\", \"params\": {\"numel\": 100352}}]",
+  "check_detail": "the chain could not run: step 1's reference (channel_concat_pair) raised ValueError: SHAPE (1, 256, 14, 14) torch.float32 \u2014 check its parameter names against the step's params",
+  "check_ok": 0,
+  "code": "import torch\n\ndef forward(module, x0, x1):\n    y = torch.cat([x0, x1], dim=1)\n    return y.to(torch.float16).to(torch.float32)\n",
+  "id": 231,
+  "kind": "approximate",
+  "name": "concat_fp16_approx",
+  "op": "aten",
+  "proposal": "{\"description\": \"Approximate aten::concat along dim 1 for x0, x1 of shape [1,256,14,14] float32. Step 1: channel_concat_pair with batch=1, channels=256, spatial=196 places x0 in output channels 0..255 and x1 in channels 256..511 (exact copy). Step 2: round every output element to IEEE binary16 (round-to-nearest, ties-to-even) and back to float32 (round_fp16_7 over numel=100352). Output shape [1,512,14,14] float32. Values beyond the binary16 range overflow to signed infinity; relative error per element is at most about 2^-11.\", \"rel_err\": 0.0002441439428817616}",
+  "proposed_by": 154
+ },
+ {
+  "chain": "[{\"op\": \"concat_14_blocks\", \"params\": {\"numel\": 100352}}, {\"op\": \"round_fp16_7\", \"params\": {\"numel\": 100352}}]",
+  "check_detail": "not checked: step 1 (concat_14_blocks) has no reference I can run \u2014 define it in `primitives` with a `reference` (the code matches the operation (largest relative difference 0.0002, within 0.001))",
+  "check_ok": null,
+  "code": "import torch\n\ndef forward(module, x0, x1):\n    y = torch.cat([x0, x1], dim=1)\n    return y.to(torch.float16).to(torch.float32)\n",
+  "id": 234,
+  "kind": "approximate",
+  "name": "concat_fp16_blocks_approx",
+  "op": "aten",
+  "proposal": "{\"description\": \"Approximate aten::concat along dim 1 for x0, x1 of shape [1,256,14,14] float32. Step 1: concat_14_blocks copies x0 into output elements 0..50175 and x1 into 50176..100351 of a [1,512,14,14] buffer (exact copy). Step 2: round every element to IEEE binary16 (round-to-nearest, ties-to-even) and back to float32 (round_fp16_7 over numel=100352). Relative error per element is at most about 2^-11; overflow becomes signed infinity.\", \"rel_err\": 0.0002441439428817616}",
+  "proposed_by": 154
  },
  {
   "chain": "[{\"op\": \"concat_half_round_primitive\", \"params\": {\"elements\": \"numel\"}}]",
@@ -502,6 +562,18 @@
   "op": "aten",
   "proposal": "{\"description\": \"Concatenate the two channel blocks in order, multiply each float32 output element by 256, round to nearest integer with ties to even, then multiply by 1/256. This is fixed-step quantization without saturation.\", \"rel_err\": 0.0009765644790644817}",
   "proposed_by": 143
+ },
+ {
+  "chain": "[{\"op\": \"channel_concat_pair\", \"params\": {\"batch\": 1, \"channels\": 256, \"spatial\": 196}}]",
+  "check_detail": "the chain could not run: step 1's reference (channel_concat_pair) raised ValueError: SHAPE (1, 256, 14, 14) torch.float32 \u2014 check its parameter names against the step's params",
+  "check_ok": 0,
+  "code": "def forward(module, x0, x1):\n    return torch.cat([x0, x1], dim=1)\n",
+  "id": 230,
+  "kind": "equivalent",
+  "name": "probe_shape",
+  "op": "aten",
+  "proposal": "{\"description\": \"Probe: report input shape of channel_concat_pair reference.\", \"rel_err\": 0.0}",
+  "proposed_by": 154
  },
  {
   "chain": "[{\"op\": \"center_kernel_primitive\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"stride\": \"stride\", \"w\": \"w\"}}]",
