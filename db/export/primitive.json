@@ -40,11 +40,11 @@
   "tensors": null
  },
  {
-  "doc": "Produce a (tokens, vocab) indicator matrix; row t has a one at ids[t] and zeros elsewhere.",
+  "doc": "Create a vocabulary-width one-hot vector for each integer id.",
   "name": "make_one_hot",
   "origin": "agent",
-  "params": "[\"tokens\", \"vocab\"]",
-  "reference": "def make_one_hot(x, **params):\n    import torch\n    return torch.nn.functional.one_hot(x.to(torch.int64), num_classes=params['vocab'])",
+  "params": "[\"vocab\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    return torch.nn.functional.one_hot(x.to(torch.int64), num_classes=params['vocab'])",
   "tensors": null
  },
  {
