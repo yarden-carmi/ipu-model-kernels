@@ -125,199 +125,52 @@
    "sim_ppl": null,
    "sim_top1": null,
    "sqnr_db": null
+  },
+  {
+   "agreement": null,
+   "at": 1794681824.2942739,
+   "cosine": null,
+   "mode": "full",
+   "nonfinite": null,
+   "precision": "tf32",
+   "purpose": "baseline",
+   "ref_ppl": null,
+   "ref_top1": null,
+   "sim_ppl": null,
+   "sim_top1": null,
+   "sqnr_db": null
+  },
+  {
+   "agreement": 1.0,
+   "at": 1794681824.3009207,
+   "cosine": 0.9996909001938437,
+   "mode": "quantized",
+   "nonfinite": 0,
+   "precision": "nx8",
+   "purpose": "baseline",
+   "ref_ppl": null,
+   "ref_top1": null,
+   "sim_ppl": null,
+   "sim_top1": null,
+   "sqnr_db": 31.71388492374809
+  },
+  {
+   "agreement": 1.0,
+   "at": 1794681865.0329247,
+   "cosine": 0.999882727364588,
+   "mode": "quantized",
+   "nonfinite": 0,
+   "precision": "nx8",
+   "purpose": "formats",
+   "ref_ppl": null,
+   "ref_top1": null,
+   "sim_ppl": null,
+   "sim_top1": null,
+   "sqnr_db": 35.669744467560285
   }
  ],
  "category": "question-answering",
- "failed": [
-  {
-   "calls": 1.0,
-   "class": "failed",
-   "cycles": null,
-   "fp_sqnr": null,
-   "group_seq": null,
-   "kernel": null,
-   "lut": 0,
-   "macs": 0,
-   "op": "cumsum",
-   "options": [],
-   "params": {
-    "numel": 256,
-    "out": 256
-   },
-   "path": "roberta.embeddings",
-   "q_forced": 0,
-   "q_sqnr": null,
-   "role": null,
-   "seq": 1,
-   "status": "failed",
-   "version": null,
-   "why": "no replacement passed (\u00a74.6)"
-  },
-  {
-   "calls": 1.0,
-   "class": "failed",
-   "cycles": null,
-   "fp_sqnr": null,
-   "group_seq": null,
-   "kernel": null,
-   "lut": 0,
-   "macs": 0,
-   "op": "aten",
-   "options": [],
-   "params": {
-    "call": "{\"args\":[{\"dtype\":\"int64\",\"shape\":[1,256]},{\"dtype\":\"int32\",\"shape\":[1,256]}],\"kwargs\":{}}",
-    "numel": 256,
-    "schema": "aten::type_as"
-   },
-   "path": "roberta.embeddings",
-   "q_forced": 0,
-   "q_sqnr": null,
-   "role": null,
-   "seq": 2,
-   "status": "failed",
-   "version": null,
-   "why": "no replacement passed (\u00a74.6)"
-  },
-  {
-   "calls": 1.0,
-   "class": "failed",
-   "cycles": null,
-   "fp_sqnr": null,
-   "group_seq": null,
-   "kernel": null,
-   "lut": 0,
-   "macs": 0,
-   "op": "add",
-   "options": [],
-   "params": {
-    "broadcast": "scalar",
-    "inner": 0,
-    "numel": 256
-   },
-   "path": "roberta.embeddings",
-   "q_forced": 0,
-   "q_sqnr": null,
-   "role": null,
-   "seq": 3,
-   "status": "failed",
-   "version": null,
-   "why": "no replacement passed (\u00a74.6)"
-  },
-  {
-   "calls": 1.0,
-   "class": "failed",
-   "cycles": null,
-   "fp_sqnr": null,
-   "group_seq": null,
-   "kernel": null,
-   "lut": 0,
-   "macs": 0,
-   "op": "mul",
-   "options": [],
-   "params": {
-    "broadcast": "none",
-    "inner": 0,
-    "numel": 256
-   },
-   "path": "roberta.embeddings",
-   "q_forced": 0,
-   "q_sqnr": null,
-   "role": null,
-   "seq": 4,
-   "status": "failed",
-   "version": null,
-   "why": "no replacement passed (\u00a74.6)"
-  },
-  {
-   "calls": 1.0,
-   "class": "failed",
-   "cycles": null,
-   "fp_sqnr": null,
-   "group_seq": null,
-   "kernel": null,
-   "lut": 0,
-   "macs": 0,
-   "op": "add",
-   "options": [
-    {
-     "check_ok": null,
-     "kind": "equivalent",
-     "loss_db": null,
-     "mode": null,
-     "model_sqnr_db": null,
-     "name": "binary_add-3",
-     "op_sqnr_db": null
-    },
-    {
-     "check_ok": null,
-     "kind": "approximate",
-     "loss_db": null,
-     "mode": "full",
-     "model_sqnr_db": null,
-     "name": "scale_down_and_add",
-     "op_sqnr_db": null
-    },
-    {
-     "check_ok": null,
-     "kind": "approximate",
-     "loss_db": null,
-     "mode": "quantized",
-     "model_sqnr_db": null,
-     "name": "scale_down_and_add",
-     "op_sqnr_db": null
-    },
-    {
-     "check_ok": null,
-     "kind": "approximate",
-     "loss_db": null,
-     "mode": "full",
-     "model_sqnr_db": null,
-     "name": "zero_second_add_first",
-     "op_sqnr_db": null
-    },
-    {
-     "check_ok": null,
-     "kind": "approximate",
-     "loss_db": null,
-     "mode": "quantized",
-     "model_sqnr_db": null,
-     "name": "zero_second_add_first",
-     "op_sqnr_db": null
-    },
-    {
-     "check_ok": null,
-     "kind": "approximate",
-     "loss_db": null,
-     "mode": "full",
-     "model_sqnr_db": null,
-     "name": "unary_abs_offset",
-     "op_sqnr_db": null
-    },
-    {
-     "check_ok": null,
-     "kind": "approximate",
-     "loss_db": null,
-     "mode": "quantized",
-     "model_sqnr_db": null,
-     "name": "unary_abs_offset",
-     "op_sqnr_db": null
-    }
-   ],
-   "params": {
-    "broadcast": "scalar",
-    "inner": 0,
-    "numel": 256
-   },
-   "path": "roberta.embeddings",
-   "q_forced": 0,
-   "q_sqnr": null,
-   "role": null,
-   "seq": 5,
-   "status": "failed",
-   "version": null,
-   "why": "no replacement passed (\u00a74.6)"
-  }
- ],
+ "failed": [],
  "formats": {
   "fp8_e1m6": 48,
   "fp8_e2m5": 293,
@@ -327,7 +180,7 @@
  "operations": [
   {
    "calls": 1.0,
-   "class": "failed",
+   "class": null,
    "cycles": null,
    "fp_sqnr": null,
    "group_seq": null,
@@ -345,13 +198,13 @@
    "q_sqnr": null,
    "role": null,
    "seq": 1,
-   "status": "failed",
+   "status": "in_replacement",
    "version": null,
-   "why": "no replacement passed (\u00a74.6)"
+   "why": "an integer index computed from the input"
   },
   {
    "calls": 1.0,
-   "class": "failed",
+   "class": null,
    "cycles": null,
    "fp_sqnr": null,
    "group_seq": null,
@@ -370,13 +223,13 @@
    "q_sqnr": null,
    "role": null,
    "seq": 2,
-   "status": "failed",
+   "status": "in_replacement",
    "version": null,
-   "why": "no replacement passed (\u00a74.6)"
+   "why": "an integer index computed from the input"
   },
   {
    "calls": 1.0,
-   "class": "failed",
+   "class": null,
    "cycles": null,
    "fp_sqnr": null,
    "group_seq": null,
@@ -395,13 +248,13 @@
    "q_sqnr": null,
    "role": null,
    "seq": 3,
-   "status": "failed",
+   "status": "in_replacement",
    "version": null,
-   "why": "no replacement passed (\u00a74.6)"
+   "why": "an integer index computed from the input"
   },
   {
    "calls": 1.0,
-   "class": "failed",
+   "class": null,
    "cycles": null,
    "fp_sqnr": null,
    "group_seq": null,
@@ -420,13 +273,13 @@
    "q_sqnr": null,
    "role": null,
    "seq": 4,
-   "status": "failed",
+   "status": "in_replacement",
    "version": null,
-   "why": "no replacement passed (\u00a74.6)"
+   "why": "an integer index computed from the input"
   },
   {
    "calls": 1.0,
-   "class": "failed",
+   "class": null,
    "cycles": null,
    "fp_sqnr": null,
    "group_seq": null,
@@ -434,71 +287,7 @@
    "lut": 0,
    "macs": 0,
    "op": "add",
-   "options": [
-    {
-     "check_ok": null,
-     "kind": "equivalent",
-     "loss_db": null,
-     "mode": null,
-     "model_sqnr_db": null,
-     "name": "binary_add-3",
-     "op_sqnr_db": null
-    },
-    {
-     "check_ok": null,
-     "kind": "approximate",
-     "loss_db": null,
-     "mode": "full",
-     "model_sqnr_db": null,
-     "name": "scale_down_and_add",
-     "op_sqnr_db": null
-    },
-    {
-     "check_ok": null,
-     "kind": "approximate",
-     "loss_db": null,
-     "mode": "quantized",
-     "model_sqnr_db": null,
-     "name": "scale_down_and_add",
-     "op_sqnr_db": null
-    },
-    {
-     "check_ok": null,
-     "kind": "approximate",
-     "loss_db": null,
-     "mode": "full",
-     "model_sqnr_db": null,
-     "name": "zero_second_add_first",
-     "op_sqnr_db": null
-    },
-    {
-     "check_ok": null,
-     "kind": "approximate",
-     "loss_db": null,
-     "mode": "quantized",
-     "model_sqnr_db": null,
-     "name": "zero_second_add_first",
-     "op_sqnr_db": null
-    },
-    {
-     "check_ok": null,
-     "kind": "approximate",
-     "loss_db": null,
-     "mode": "full",
-     "model_sqnr_db": null,
-     "name": "unary_abs_offset",
-     "op_sqnr_db": null
-    },
-    {
-     "check_ok": null,
-     "kind": "approximate",
-     "loss_db": null,
-     "mode": "quantized",
-     "model_sqnr_db": null,
-     "name": "unary_abs_offset",
-     "op_sqnr_db": null
-    }
-   ],
+   "options": [],
    "params": {
     "broadcast": "scalar",
     "inner": 0,
@@ -509,9 +298,9 @@
    "q_sqnr": null,
    "role": null,
    "seq": 5,
-   "status": "failed",
+   "status": "in_replacement",
    "version": null,
-   "why": "no replacement passed (\u00a74.6)"
+   "why": "an integer index computed from the input"
   },
   {
    "calls": 1.0,
@@ -523,80 +312,7 @@
    "lut": 0,
    "macs": 0,
    "op": "gather",
-   "options": [
-    {
-     "check_ok": null,
-     "kind": "equivalent",
-     "loss_db": null,
-     "mode": null,
-     "model_sqnr_db": null,
-     "name": "direct_gather-3",
-     "op_sqnr_db": null
-    },
-    {
-     "check_ok": null,
-     "kind": "approximate",
-     "loss_db": null,
-     "mode": null,
-     "model_sqnr_db": null,
-     "name": "rms_broadcast",
-     "op_sqnr_db": null
-    },
-    {
-     "check_ok": null,
-     "kind": "approximate",
-     "loss_db": null,
-     "mode": null,
-     "model_sqnr_db": null,
-     "name": "trimmed_broadcast",
-     "op_sqnr_db": null
-    },
-    {
-     "check_ok": null,
-     "kind": "approximate",
-     "loss_db": null,
-     "mode": null,
-     "model_sqnr_db": null,
-     "name": "median_broadcast",
-     "op_sqnr_db": null
-    },
-    {
-     "check_ok": null,
-     "kind": "equivalent",
-     "loss_db": null,
-     "mode": null,
-     "model_sqnr_db": null,
-     "name": "direct_gather-4",
-     "op_sqnr_db": null
-    },
-    {
-     "check_ok": null,
-     "kind": "approximate",
-     "loss_db": null,
-     "mode": null,
-     "model_sqnr_db": null,
-     "name": "mean_estimate_cand",
-     "op_sqnr_db": null
-    },
-    {
-     "check_ok": null,
-     "kind": "approximate",
-     "loss_db": null,
-     "mode": null,
-     "model_sqnr_db": null,
-     "name": "rms_estimate_cand",
-     "op_sqnr_db": null
-    },
-    {
-     "check_ok": null,
-     "kind": "approximate",
-     "loss_db": null,
-     "mode": null,
-     "model_sqnr_db": null,
-     "name": "median_fill_cand",
-     "op_sqnr_db": null
-    }
-   ],
+   "options": [],
    "params": {
     "numel": 256,
     "sel": 1
@@ -751,6 +467,7 @@
    "options": [],
    "params": {
     "channels": 768,
+    "eps": 1e-05,
     "layout": "channels_last",
     "tokens": 256
    },
@@ -1007,6 +724,7 @@
    "options": [],
    "params": {
     "channels": 768,
+    "eps": 1e-05,
     "layout": "channels_last",
     "tokens": 256
    },
@@ -1132,6 +850,7 @@
    "options": [],
    "params": {
     "channels": 768,
+    "eps": 1e-05,
     "layout": "channels_last",
     "tokens": 256
    },
@@ -1388,6 +1107,7 @@
    "options": [],
    "params": {
     "channels": 768,
+    "eps": 1e-05,
     "layout": "channels_last",
     "tokens": 256
    },
@@ -1513,6 +1233,7 @@
    "options": [],
    "params": {
     "channels": 768,
+    "eps": 1e-05,
     "layout": "channels_last",
     "tokens": 256
    },
@@ -1769,6 +1490,7 @@
    "options": [],
    "params": {
     "channels": 768,
+    "eps": 1e-05,
     "layout": "channels_last",
     "tokens": 256
    },
@@ -1894,6 +1616,7 @@
    "options": [],
    "params": {
     "channels": 768,
+    "eps": 1e-05,
     "layout": "channels_last",
     "tokens": 256
    },
@@ -2150,6 +1873,7 @@
    "options": [],
    "params": {
     "channels": 768,
+    "eps": 1e-05,
     "layout": "channels_last",
     "tokens": 256
    },
@@ -2275,6 +1999,7 @@
    "options": [],
    "params": {
     "channels": 768,
+    "eps": 1e-05,
     "layout": "channels_last",
     "tokens": 256
    },
@@ -2531,6 +2256,7 @@
    "options": [],
    "params": {
     "channels": 768,
+    "eps": 1e-05,
     "layout": "channels_last",
     "tokens": 256
    },
@@ -2656,6 +2382,7 @@
    "options": [],
    "params": {
     "channels": 768,
+    "eps": 1e-05,
     "layout": "channels_last",
     "tokens": 256
    },
@@ -2912,6 +2639,7 @@
    "options": [],
    "params": {
     "channels": 768,
+    "eps": 1e-05,
     "layout": "channels_last",
     "tokens": 256
    },
@@ -3037,6 +2765,7 @@
    "options": [],
    "params": {
     "channels": 768,
+    "eps": 1e-05,
     "layout": "channels_last",
     "tokens": 256
    },
@@ -3293,6 +3022,7 @@
    "options": [],
    "params": {
     "channels": 768,
+    "eps": 1e-05,
     "layout": "channels_last",
     "tokens": 256
    },
@@ -3418,6 +3148,7 @@
    "options": [],
    "params": {
     "channels": 768,
+    "eps": 1e-05,
     "layout": "channels_last",
     "tokens": 256
    },
@@ -3674,6 +3405,7 @@
    "options": [],
    "params": {
     "channels": 768,
+    "eps": 1e-05,
     "layout": "channels_last",
     "tokens": 256
    },
@@ -3799,6 +3531,7 @@
    "options": [],
    "params": {
     "channels": 768,
+    "eps": 1e-05,
     "layout": "channels_last",
     "tokens": 256
    },
@@ -4055,6 +3788,7 @@
    "options": [],
    "params": {
     "channels": 768,
+    "eps": 1e-05,
     "layout": "channels_last",
     "tokens": 256
    },
@@ -4180,6 +3914,7 @@
    "options": [],
    "params": {
     "channels": 768,
+    "eps": 1e-05,
     "layout": "channels_last",
     "tokens": 256
    },
@@ -4436,6 +4171,7 @@
    "options": [],
    "params": {
     "channels": 768,
+    "eps": 1e-05,
     "layout": "channels_last",
     "tokens": 256
    },
@@ -4561,6 +4297,7 @@
    "options": [],
    "params": {
     "channels": 768,
+    "eps": 1e-05,
     "layout": "channels_last",
     "tokens": 256
    },
@@ -4817,6 +4554,7 @@
    "options": [],
    "params": {
     "channels": 768,
+    "eps": 1e-05,
     "layout": "channels_last",
     "tokens": 256
    },
@@ -4942,6 +4680,7 @@
    "options": [],
    "params": {
     "channels": 768,
+    "eps": 1e-05,
     "layout": "channels_last",
     "tokens": 256
    },
@@ -5198,6 +4937,7 @@
    "options": [],
    "params": {
     "channels": 768,
+    "eps": 1e-05,
     "layout": "channels_last",
     "tokens": 256
    },
@@ -5323,6 +5063,7 @@
    "options": [],
    "params": {
     "channels": 768,
+    "eps": 1e-05,
     "layout": "channels_last",
     "tokens": 256
    },
@@ -5365,10 +5106,10 @@
  "params": 124056578,
  "summary": {
   "base_fp_q_delta": 0.0,
-  "blockers_failed": 5,
+  "blockers_failed": 0,
   "blockers_kernel": 184,
   "blockers_layout": 0,
-  "blockers_replacement": 4,
+  "blockers_replacement": 9,
   "cycles": null,
   "cycles_measured_share": null,
   "final_fp_q_delta": null,
@@ -5382,13 +5123,13 @@
   "n_1to1": 184,
   "n_approximate": 0,
   "n_equivalent": 0,
-  "n_failed": 5,
+  "n_failed": 0,
   "nodes": 193,
   "nodes_on_chip": 0,
   "nodes_ops_on_chip": 0,
   "pct_calls": 0.0,
   "pct_macs": 0.0,
-  "plan_id": 40,
-  "status": "partial"
+  "plan_id": 168,
+  "status": "active"
  }
 }

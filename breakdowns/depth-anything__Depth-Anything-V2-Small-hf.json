@@ -965,6 +965,48 @@
    "sim_ppl": null,
    "sim_top1": null,
    "sqnr_db": 26.415481753474307
+  },
+  {
+   "agreement": null,
+   "at": 1794681559.3574946,
+   "cosine": null,
+   "mode": "full",
+   "nonfinite": null,
+   "precision": "tf32",
+   "purpose": "baseline",
+   "ref_ppl": null,
+   "ref_top1": null,
+   "sim_ppl": null,
+   "sim_top1": null,
+   "sqnr_db": null
+  },
+  {
+   "agreement": null,
+   "at": 1794681559.3653986,
+   "cosine": 0.9973631155931347,
+   "mode": "quantized",
+   "nonfinite": 0,
+   "precision": "nx8",
+   "purpose": "baseline",
+   "ref_ppl": null,
+   "ref_top1": null,
+   "sim_ppl": null,
+   "sim_top1": null,
+   "sqnr_db": 22.420607061945745
+  },
+  {
+   "agreement": null,
+   "at": 1794681644.2559779,
+   "cosine": 0.9992437537086756,
+   "mode": "quantized",
+   "nonfinite": 0,
+   "precision": "nx8",
+   "purpose": "formats",
+   "ref_ppl": null,
+   "ref_top1": null,
+   "sim_ppl": null,
+   "sim_top1": null,
+   "sqnr_db": 26.415481753474307
   }
  ],
  "category": "depth-estimation",
@@ -6452,7 +6494,53 @@
    "lut": 0,
    "macs": 150994944,
    "op": "conv_transpose2d",
-   "options": [],
+   "options": [
+    {
+     "check_ok": null,
+     "kind": "equivalent",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "disjoint_gemm_fold4",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": null,
+     "kind": "approximate",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "mean_tw_tile",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": null,
+     "kind": "approximate",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "mean_th_tile",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": null,
+     "kind": "approximate",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "diag_tap_tile",
+     "op_sqnr_db": null
+    },
+    {
+     "check_ok": null,
+     "kind": "approximate",
+     "loss_db": null,
+     "mode": null,
+     "model_sqnr_db": null,
+     "name": "rank16_svd_tile",
+     "op_sqnr_db": null
+    }
+   ],
    "params": {
     "bias": true,
     "cin": 48,

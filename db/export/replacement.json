@@ -228,6 +228,42 @@
   "proposed_by": 83
  },
  {
+  "chain": "[{\"op\": \"flat_pair_copy\", \"params\": {\"numel\": \"numel\"}}, {\"op\": \"reshape_nchw\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, x0, x1):\n    return torch.cat([x0, x1], dim=1)\n",
+  "id": 270,
+  "kind": "equivalent",
+  "name": "cat14_flat_copy_reshape",
+  "op": "aten",
+  "proposal": "{\"description\": \"Exact aten::concat(x0, x1, dim=1) for two [1,256,14,14] float32 tensors. Step 1 (flat_pair_copy): the two inputs already lie back-to-back as one contiguous buffer of numel=100352 float32 values, x0 at offsets [0,50176) and x1 at [50176,100352); copy them in order into a flat buffer (bit-preserving, no arithmetic). Step 2 (reshape_nchw): reinterpret the flat buffer as [1,512,14,14], which for batch size 1 and contiguous NCHW storage is exactly the channel concatenation. No arithmetic anywhere, so the result is bit-identical.\", \"rel_err\": 0.0}",
+  "proposed_by": 165
+ },
+ {
+  "chain": "[{\"op\": \"cat_pair_exact\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, x0, x1):\n    return torch.cat([x0, x1], dim=1)\n",
+  "id": 269,
+  "kind": "equivalent",
+  "name": "cat14_pair_exact",
+  "op": "aten",
+  "proposal": "{\"description\": \"Exact aten::concat(x0, x1, dim=1) for two [1,256,14,14] float32 tensors. Step 1 (cat_pair_exact): allocate a [1,512,14,14] float32 output and copy x0 bit-for-bit into channels 0..255 and x1 into channels 256..511, preserving the 14x14 spatial layout. No arithmetic is performed, so every output element equals the corresponding input element exactly.\", \"rel_err\": 0.0}",
+  "proposed_by": 165
+ },
+ {
+  "chain": "[{\"op\": \"channel_cat2\", \"params\": {\"batch\": \"numel // 401408\", \"channels\": \"numel // 1568\", \"spatial\": \"numel // 512\"}}]",
+  "check_detail": "the chain could not run: step 1's reference (channel_cat2) raised IndexError: index 1 is out of bounds for dimension 0 with size 1 \u2014 check its parameter names against the step's params",
+  "check_ok": 0,
+  "code": "def forward(module, x0, x1):\n    return torch.cat([x0, x1], dim=1)\n",
+  "id": 259,
+  "kind": "equivalent",
+  "name": "channel_cat2_exact",
+  "op": "aten",
+  "proposal": "{\"description\": \"Concatenate x0 [1,256,28,28] and x1 [1,256,28,28] (float32, NCHW) along dim 1 with the chip's channel_cat2 operation. Sizes: batch=1, channels=256 per input, spatial=784. Step 1 copies x0 into output channels 0..255 and x1 into channels 256..511 of a [1,512,28,28] float32 buffer. No arithmetic is performed, so the result is bit-identical to aten::concat along dim 1.\", \"rel_err\": 0.0}",
+  "proposed_by": 163
+ },
+ {
   "chain": "[{\"op\": \"channel_concat_pair\", \"params\": {\"batch\": 1, \"channels\": 256, \"spatial\": \"numel // (2 * 256)\"}}]",
   "check_detail": "not checked: step 1 (channel_concat_pair) has no reference I can run \u2014 define it in `primitives` with a `reference` (the code matches the operation (largest relative difference 0, within 0.001))",
   "check_ok": null,
@@ -396,6 +432,66 @@
   "proposed_by": 146
  },
  {
+  "chain": "[{\"op\": \"cat_pair_exact\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "not checked: step 1 (cat_pair_exact) has no reference I can run \u2014 define it in `primitives` with a `reference` (the code matches the operation (largest relative difference 0, within 0.001))",
+  "check_ok": null,
+  "code": "def forward(module, x0, x1):\n    import torch\n    out = torch.empty((1, 768, 14, 14), dtype=x0.dtype, device=x0.device)\n    out[:, :384].copy_(x0)\n    out[:, 384:].copy_(x1)\n    return out\n",
+  "id": 275,
+  "kind": "equivalent",
+  "name": "concat384_builtin",
+  "op": "aten",
+  "proposal": "{\"description\": \"Use cat_pair_exact to place x0 followed by x1 in the output channel dimension. For the specified batch-one inputs, copy 75264 float32 elements per input to the corresponding channel blocks of the [1,768,14,14] output, without arithmetic.\", \"rel_err\": 0.0}",
+  "proposed_by": 171
+ },
+ {
+  "chain": "[{\"op\": \"cat_pair_exact\", \"params\": {\"numel\": \"numel\"}}, {\"op\": \"clip4_concat384\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "not checked: step 1 (cat_pair_exact) has no reference I can run \u2014 define it in `primitives` with a `reference` (the code matches the operation (largest relative difference 0, within 0.001))",
+  "check_ok": null,
+  "code": "def forward(module, x0, x1):\n    import torch\n    y = torch.cat((x0, x1), dim=1)\n    return torch.clamp(y, -4.0, 4.0)\n",
+  "id": 277,
+  "kind": "approximate",
+  "name": "concat384_clip",
+  "op": "aten",
+  "proposal": "{\"description\": \"Copy x0 then x1 into the channel blocks of a [1,768,14,14] float32 tensor using cat_pair_exact. Clamp each output element to [-4,4], preserving NaNs. Elements within the interval are unchanged; larger magnitudes saturate.\", \"rel_err\": 0.0}",
+  "proposed_by": 171
+ },
+ {
+  "chain": "[{\"op\": \"copy_channel_pair_384\", \"params\": {\"channels\": \"numel // (2 * 14 * 14)\", \"height\": 14, \"width\": 14}}]",
+  "check_detail": "the chain could not run: step 1's reference (copy_channel_pair_384) raised ValueError: not enough values to unpack (expected 2, got 1) \u2014 check its parameter names against the step's params",
+  "check_ok": 0,
+  "code": "def forward(module, x0, x1):\n    import torch\n    c = x0.shape[1]\n    out = torch.empty((1, 2*c, x0.shape[2], x0.shape[3]), dtype=x0.dtype, device=x0.device)\n    out[:, :c].copy_(x0)\n    out[:, c:].copy_(x1)\n    return out\n",
+  "id": 274,
+  "kind": "equivalent",
+  "name": "concat384_copy",
+  "op": "aten",
+  "proposal": "{\"description\": \"Copy the two inputs in logical NCHW order into a newly allocated float32 output of shape [1,768,14,14]: x0 goes to channels 0 through 383 and x1 to channels 384 through 767. Each block contains 75264 elements. This is a bit-preserving copy, including for noncontiguous inputs, and does no arithmetic.\", \"rel_err\": 0.0}",
+  "proposed_by": 171
+ },
+ {
+  "chain": "[{\"op\": \"cat_pair_exact\", \"params\": {\"numel\": \"numel\"}}, {\"op\": \"fixed256_concat384\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "not checked: step 1 (cat_pair_exact) has no reference I can run \u2014 define it in `primitives` with a `reference` (the code matches the operation (largest relative difference 0.001, within 0.001))",
+  "check_ok": null,
+  "code": "def forward(module, x0, x1):\n    import torch\n    y = torch.cat((x0, x1), dim=1)\n    return torch.round(y * 256.0) * (1.0 / 256.0)\n",
+  "id": 278,
+  "kind": "approximate",
+  "name": "concat384_fixed256",
+  "op": "aten",
+  "proposal": "{\"description\": \"Copy x0 then x1 into the channel blocks of a [1,768,14,14] float32 tensor using cat_pair_exact. Multiply each value by 256, round to the nearest integer with ties to even, and multiply by 1/256. This quantizes finite values to a 1/256 grid without intentional clipping; rounding and scaling use float32.\", \"rel_err\": 0.0009765757715270464}",
+  "proposed_by": 171
+ },
+ {
+  "chain": "[{\"op\": \"cat_pair_exact\", \"params\": {\"numel\": \"numel\"}}, {\"op\": \"round16_concat384\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "not checked: step 1 (cat_pair_exact) has no reference I can run \u2014 define it in `primitives` with a `reference` (the code matches the operation (largest relative difference 0.0002, within 0.001))",
+  "check_ok": null,
+  "code": "def forward(module, x0, x1):\n    import torch\n    y = torch.cat((x0, x1), dim=1)\n    return y.to(torch.float16).to(torch.float32)\n",
+  "id": 276,
+  "kind": "approximate",
+  "name": "concat384_fp16",
+  "op": "aten",
+  "proposal": "{\"description\": \"Copy x0 then x1 into the channel blocks of a [1,768,14,14] float32 tensor using cat_pair_exact. Round each value to IEEE binary16 with round-to-nearest ties-to-even and convert back to float32. This preserves the layout but can underflow small values or overflow values beyond binary16 range.\", \"rel_err\": 0.0002441439428817616}",
+  "proposed_by": 171
+ },
+ {
   "chain": "[{\"op\": \"channel_concat\", \"params\": {\"batch\": 1, \"channels\": 256, \"spatial\": 49}}, {\"op\": \"clamp4_7\", \"params\": {\"numel\": \"numel\"}}]",
   "check_detail": "not checked: step 1 (channel_concat) has no reference I can run \u2014 define it in `primitives` with a `reference` (the code matches the operation (largest relative difference 0, within 0.001))",
   "check_ok": null,
@@ -528,6 +624,18 @@
   "proposed_by": 160
  },
  {
+  "chain": "[{\"op\": \"channel_cat2\", \"params\": {\"batch\": \"numel // 401408\", \"channels\": \"numel // 1568\", \"spatial\": \"numel // 512\"}}, {\"op\": \"clamp4_7\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "the chain could not run: step 1's reference (channel_cat2) raised IndexError: index 1 is out of bounds for dimension 0 with size 1 \u2014 check its parameter names against the step's params",
+  "check_ok": 0,
+  "code": "import torch\n\ndef forward(module, x0, x1):\n    y = torch.cat([x0, x1], dim=1)\n    return torch.clamp(y, -4.0, 4.0)\n",
+  "id": 262,
+  "kind": "approximate",
+  "name": "concat_clamp4-2",
+  "op": "aten",
+  "proposal": "{\"description\": \"Approximate aten::concat along dim 1 of x0, x1 [1,256,28,28] float32 into [1,512,28,28]. Step 1 (channel_cat2, batch=1, channels=256, spatial=784): copy x0 into output channels 0..255 and x1 into channels 256..511 (exact copy). Step 2 (clamp4_7, numel=401408): clamp every element to [-4, 4]; NaNs remain NaNs. Lossy for inputs with magnitude above 4.\", \"rel_err\": 0.0}",
+  "proposed_by": 163
+ },
+ {
   "chain": "[{\"op\": \"concat_two_blocks_28\", \"params\": {\"block\": \"numel // 2\"}}, {\"op\": \"clamp4_7\", \"params\": {\"numel\": 401408}}]",
   "check_detail": "not checked: step 1 (concat_two_blocks_28) has no reference I can run \u2014 define it in `primitives` with a `reference` (the code matches the operation (largest relative difference 0, within 0.001))",
   "check_ok": null,
@@ -600,6 +708,18 @@
   "proposed_by": 160
  },
  {
+  "chain": "[{\"op\": \"channel_cat2\", \"params\": {\"batch\": \"numel // 401408\", \"channels\": \"numel // 1568\", \"spatial\": \"numel // 512\"}}, {\"op\": \"fixed256_7\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "the chain could not run: step 1's reference (channel_cat2) raised IndexError: index 1 is out of bounds for dimension 0 with size 1 \u2014 check its parameter names against the step's params",
+  "check_ok": 0,
+  "code": "import torch\n\ndef forward(module, x0, x1):\n    y = torch.cat([x0, x1], dim=1)\n    return torch.round(y * 256.0) / 256.0\n",
+  "id": 261,
+  "kind": "approximate",
+  "name": "concat_fixed256_quant-2",
+  "op": "aten",
+  "proposal": "{\"description\": \"Approximate aten::concat along dim 1 of x0, x1 [1,256,28,28] float32 into [1,512,28,28]. Step 1 (channel_cat2, batch=1, channels=256, spatial=784): copy x0 into output channels 0..255 and x1 into channels 256..511 (exact copy). Step 2 (fixed256_7, numel=401408): quantize to a Q*.8 fixed-point grid: multiply by 256, round to nearest integer with ties-to-even, multiply by 1/256; no saturation. Absolute error per element at most 2^-9 for values in the representable range.\", \"rel_err\": 0.0009765644790644817}",
+  "proposed_by": 163
+ },
+ {
   "chain": "[{\"op\": \"concat_two_blocks_28\", \"params\": {\"block\": \"numel // 2\"}}, {\"op\": \"round_fp16_7\", \"params\": {\"numel\": 401408}}]",
   "check_detail": "not checked: step 1 (concat_two_blocks_28) has no reference I can run \u2014 define it in `primitives` with a `reference` (the code matches the operation (largest relative difference 0.0002, within 0.001))",
   "check_ok": null,
@@ -637,6 +757,18 @@
  },
  {
   "chain": "[{\"op\": \"flat_pair_reshape\", \"params\": {\"numel\": \"numel\"}}, {\"op\": \"round_fp16_7\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "not checked: step 1 (flat_pair_reshape) has no reference I can run \u2014 define it in `primitives` with a `reference` (the code matches the operation (largest relative difference 0.0002, within 0.001))",
+  "check_ok": null,
+  "code": "import torch\n\ndef forward(module, x0, x1):\n    flat = torch.cat([x0.reshape(-1), x1.reshape(-1)])\n    y = flat.reshape(1, 512, 28, 28)\n    return y.to(torch.float16).to(torch.float32)\n",
+  "id": 263,
+  "kind": "approximate",
+  "name": "concat_fp16_flat",
+  "op": "aten",
+  "proposal": "{\"description\": \"Approximate aten::concat along dim 1 of x0, x1 [1,256,28,28] float32 into [1,512,28,28]. Step 1 (flat_pair_reshape, numel=401408): lay the two operands out as one flat buffer, x0 at offsets [0,200704) and x1 at [200704,401408) (exact copy), and reshape it to [1,512,28,28], the channel concatenation. Step 2 (round_fp16_7, numel=401408): round every element to IEEE binary16 (round-to-nearest, ties-to-even) and back to float32. Relative error per element at most about 2^-11; values beyond the binary16 range overflow to signed infinity.\", \"rel_err\": 0.00024414111976612043}",
+  "proposed_by": 163
+ },
+ {
+  "chain": "[{\"op\": \"flat_pair_reshape\", \"params\": {\"numel\": \"numel\"}}, {\"op\": \"round_fp16_7\", \"params\": {\"numel\": \"numel\"}}]",
   "check_detail": "the chain could not run: step 1's reference (flat_pair_reshape) raised RuntimeError: shape '[1, 512, 28, 28]' is invalid for input of size 200704 \u2014 check its parameter names against the step's params",
   "check_ok": 0,
   "code": "import torch\n\ndef forward(module, x0, x1):\n    y = torch.cat([x0, x1], dim=1)\n    return y.to(torch.float16).to(torch.float32)\n",
@@ -646,6 +778,18 @@
   "op": "aten",
   "proposal": "{\"description\": \"Approximate aten::concat along dim 1 of x0, x1 [1,256,28,28] float32 into [1,512,28,28]. Step 1 (flat_pair_reshape): the two operands are laid out as one flat buffer of numel=401408 values, x0 in offsets [0,200704) and x1 in [200704,401408) (exact copy); reshape it to [1,512,28,28], which is the channel concatenation. Step 2: round every element to IEEE binary16 (round-to-nearest, ties-to-even) and back to float32 (round_fp16_7, numel=401408). Relative error per element at most about 2^-11; values beyond the binary16 range overflow to signed infinity.\", \"rel_err\": 0.00024414111976612043}",
   "proposed_by": 160
+ },
+ {
+  "chain": "[{\"op\": \"channel_cat2\", \"params\": {\"batch\": \"numel // 401408\", \"channels\": \"numel // 1568\", \"spatial\": \"numel // 512\"}}, {\"op\": \"round_fp16_7\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "the chain could not run: step 1's reference (channel_cat2) raised IndexError: index 1 is out of bounds for dimension 0 with size 1 \u2014 check its parameter names against the step's params",
+  "check_ok": 0,
+  "code": "import torch\n\ndef forward(module, x0, x1):\n    y = torch.cat([x0, x1], dim=1)\n    return y.to(torch.float16).to(torch.float32)\n",
+  "id": 260,
+  "kind": "approximate",
+  "name": "concat_fp16_round-2",
+  "op": "aten",
+  "proposal": "{\"description\": \"Approximate aten::concat along dim 1 of x0, x1 [1,256,28,28] float32 into [1,512,28,28]. Step 1 (channel_cat2, batch=1, channels=256, spatial=784): copy x0 into output channels 0..255 and x1 into channels 256..511 (exact copy). Step 2 (round_fp16_7, numel=401408): round every element to IEEE binary16 (round-to-nearest, ties-to-even) and back to float32. Relative error per element at most about 2^-11; values beyond the binary16 range overflow to signed infinity.\", \"rel_err\": 0.00024414111976612043}",
+  "proposed_by": 163
  },
  {
   "chain": "[{\"op\": \"concat_half_round_primitive\", \"params\": {\"elements\": \"numel\"}}]",
@@ -780,6 +924,18 @@
   "proposed_by": 140
  },
  {
+  "chain": "[{\"op\": \"spatial_rows\", \"params\": {\"cin\": \"cin\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"weight_diag_taps\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"kh\": \"kh\", \"kw\": \"kw\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"cin\", \"m\": \"h*w\", \"n\": \"cout*kh*kw\"}}, {\"op\": \"disjoint_tile_layout\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"w\": \"w\"}}, {\"op\": \"add_bias\", \"params\": {\"channels\": \"cout\", \"h\": \"h*kh\", \"w\": \"w*kw\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    import torch\n    x = inputs[0]\n    W = module.weight\n    b = getattr(module, 'bias', None)\n    squeeze = False\n    if x.dim() == 3:\n        x = x.unsqueeze(0)\n        squeeze = True\n    B, C, H, Wd = x.shape\n    cin, cout, kh, kw = W.shape\n    eye = torch.eye(cin, cout, device=W.device, dtype=W.dtype)\n    Wd2 = W * eye.reshape(cin, cout, 1, 1)\n    rows = x.permute(0, 2, 3, 1).reshape(B * H * Wd, cin)\n    W2 = Wd2.reshape(cin, cout * kh * kw)\n    y = rows @ W2.t()\n    y = y.reshape(B, H, Wd, cout, kh, kw).permute(0, 3, 1, 4, 2, 5).reshape(B, cout, H * kh, Wd * kw)\n    if b is not None:\n        y = y + b.reshape(1, -1, 1, 1)\n    return y.squeeze(0) if squeeze else y",
+  "id": 267,
+  "kind": "approximate",
+  "name": "diag_tap_tile",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"Approximate conv_transpose2d by zeroing all off-diagonal entries of the weight over its channel axes, keeping the FULL 4x4 tap structure for same-index channels. Step 1: spatial_rows lays the input [cin,h,w] out spatial-major as rows [h*w, cin]. Step 2: weight_diag_taps multiplies the weight [cin,cout,kh,kw] by a channel identity mask (W'[ci,co,th,tw] = W[ci,co,th,tw] if ci==co else 0) and flattens to [cin, cout*kh*kw] (column co*kh*kw+th*kw+tw). Step 3: gemm rows @ W'2 -> [h*w, cout*kh*kw]; entry (i*w+j, co*kh*kw+th*kw+tw) = x[co,i,j]*W[co,co,th,tw], the transposed-conv contribution of pixel (i,j) to channel co at tap (th,tw) using only the same-index input channel. Step 4: disjoint_tile_layout folds each row into its disjoint stride-by-stride output tile, producing [cout, h*kh, w*kw] = [cout, 64, 64]. Step 5: add_bias adds the per-output-channel bias, broadcast over the spatial dims. Keeps exact within-tile kernel variation but is a rank-one (per-channel) approximation of the channel mixing.\", \"rel_err\": null}",
+  "proposed_by": 158
+ },
+ {
   "chain": "[{\"op\": \"diagonal_kernel_primitive\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"stride\": \"stride\", \"w\": \"w\"}}]",
   "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
   "check_ok": null,
@@ -898,6 +1054,18 @@
   "op": "conv_transpose2d",
   "proposal": "{\"description\": \"Because stride == kh == kw == 4 and padding == 0, each input position (i,j) contributes to exactly one disjoint 4x4 output tile at (i*4+th, j*4+tw), th,tw in [0,4). Step 1: flatten the input [cin,h,w] to rows [h*w, cin]. Step 2: flatten the transposed-conv weight [cin,cout,kh,kw] to [cin, cout*kh*kw] (column index co*kh*kw + th*kw + tw). Step 3: GEMM X[h*w,cin] @ W2[cin, cout*kh*kw] -> [h*w, cout*kh*kw]; entry (i*w+j, co*kh*kw+th*kw+tw) = sum_ci in[ci,i,j]*W[ci,co,th,tw], exactly the conv_transpose2d contribution of that input pixel to output channel co at (i*4+th, j*4+tw). Step 4: disjoint_tile_layout folds each row (i,j) into its disjoint stride-by-stride output tile, producing [cout, h*stride, w*stride]. Step 5: add the per-output-channel bias, broadcast over the spatial dims.\", \"rel_err\": null}",
   "proposed_by": 140
+ },
+ {
+  "chain": "[{\"op\": \"flatten_input\", \"params\": {\"cin\": \"cin\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"flatten_weight\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"kh\": \"kh\", \"kw\": \"kw\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"cin\", \"m\": \"h*w\", \"n\": \"cout*kh*kw\"}}, {\"op\": \"disjoint_tile_layout\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"w\": \"w\"}}, {\"op\": \"add_bias\", \"params\": {\"channels\": \"cout\", \"h\": \"h*stride\", \"w\": \"w*stride\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    import torch\n    x = inputs[0]\n    w = module.weight\n    bias = getattr(module, 'bias', None)\n    if w.dim() == 3:\n        w = w.unsqueeze(0)\n    cin, cout, kh, kw = w.shape\n    batch = 1\n    if x.dim() == 4:\n        batch, cin2, h, ww = x.shape\n    else:\n        cin2, h, ww = x.shape\n    stride = 4\n    x2 = x.reshape(batch, cin2, h * ww).permute(0, 2, 1).reshape(batch * h * ww, cin2)\n    w2 = w.reshape(cin, cout * kh * kw)\n    g = x2 @ w2\n    g = g.reshape(batch, h, ww, cout, kh, kw)\n    g = g.permute(0, 3, 1, 4, 2, 5).reshape(batch, cout, h * kh, ww * kw)\n    if bias is not None:\n        g = g + bias.reshape(1, cout, 1, 1)\n    return g\n",
+  "id": 264,
+  "kind": "equivalent",
+  "name": "disjoint_gemm_fold4",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"Because stride == kh == kw == 4 and padding == 0 and dilation == 1, each input position (i,j) contributes to exactly one disjoint 4x4 output tile at (i*4+th, j*4+tw), th,tw in [0,4). Step 1: flatten_input lays the input [cin,h,w] out spatial-major as rows [h*w, cin]. Step 2: flatten_weight flattens the transposed-conv weight [cin,cout,kh,kw] to [cin, cout*kh*kw] (column index co*kh*kw + th*kw + tw). Step 3: gemm X[h*w,cin] @ W2[cin, cout*kh*kw] -> [h*w, cout*kh*kw]; entry (i*w+j, co*kh*kw+th*kw+tw) = sum_ci in[ci,i,j]*W[ci,co,th,tw], exactly the conv_transpose2d contribution of input pixel (i,j) to output channel co at (i*4+th, j*4+tw). Step 4: disjoint_tile_layout folds each row (i,j) into its disjoint stride-by-stride output tile, producing [cout, h*stride, w*stride] = [cout, 64, 64]. Step 5: add_bias adds the per-output-channel bias, broadcast over the spatial dims.\", \"rel_err\": null}",
+  "proposed_by": 158
  },
  {
   "chain": "[{\"op\": \"flatten_input\", \"params\": {\"cin\": \"cin\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"cin\", \"m\": \"h*w\", \"n\": \"cout*kh*kw\"}}, {\"op\": \"tile_scatter\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"stride\": \"stride\", \"w\": \"w\"}}, {\"op\": \"add_bias\", \"params\": {\"channels\": \"cout\", \"h\": \"h*stride\", \"w\": \"w*stride\"}}]",
@@ -1020,6 +1188,42 @@
   "proposed_by": 140
  },
  {
+  "chain": "[{\"op\": \"spatial_rows\", \"params\": {\"cin\": \"cin\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"weight_mean_th\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"kh\": \"kh\", \"kw\": \"kw\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"cin\", \"m\": \"h*w\", \"n\": \"cout*kw\"}}, {\"op\": \"tile_fold_mean_th\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"w\": \"w\"}}, {\"op\": \"add_bias\", \"params\": {\"channels\": \"cout\", \"h\": \"h*kh\", \"w\": \"w*kw\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    import torch\n    x = inputs[0]\n    W = module.weight\n    b = getattr(module, 'bias', None)\n    squeeze = False\n    if x.dim() == 3:\n        x = x.unsqueeze(0)\n        squeeze = True\n    B, C, H, Wd = x.shape\n    cin, cout, kh, kw = W.shape\n    Wm = W.mean(dim=2)\n    rows = x.permute(0, 2, 3, 1).reshape(B * H * Wd, cin)\n    W2 = Wm.reshape(cin, cout * kw)\n    y = rows @ W2.t()\n    y = y.reshape(B, H, Wd, cout, kw).permute(0, 3, 1, 2, 4).reshape(B, cout, H, Wd * kw)\n    y = y.repeat_interleave(kh, dim=2)\n    if b is not None:\n        y = y + b.reshape(1, -1, 1, 1)\n    return y.squeeze(0) if squeeze else y",
+  "id": 266,
+  "kind": "approximate",
+  "name": "mean_th_tile",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"Approximate conv_transpose2d by averaging the 4x4 kernel over the vertical tap index th only, keeping the horizontal tap structure. Step 1: spatial_rows lays the input [cin,h,w] out spatial-major as rows [h*w, cin]. Step 2: weight_mean_th averages the weight [cin,cout,kh,kw] over th, giving Wm[cin,cout,kw] flattened to [cin, cout*kw] (column co*kw+tw). Step 3: gemm rows @ Wm2 -> [h*w, cout*kw]; entry (i*w+j, co*kw+tw) = sum_ci x[ci,i,j]*mean_th W[ci,co,th,tw], the th-averaged transposed-conv contribution of pixel (i,j) to channel co at horizontal tap tw. Step 4: tile_fold_mean_th folds each row into its disjoint stride-by-stride output tile at [co, i*kh+th, j*kw+tw], repeating each value across the kh vertical taps (which now share one averaged weight), producing [cout, h*kh, w*kw] = [cout, 64, 64]. Step 5: add_bias adds the per-output-channel bias, broadcast over the spatial dims. Exact channel mixing and exact horizontal tap variation; vertical tap variation replaced by its mean.\", \"rel_err\": null}",
+  "proposed_by": 158
+ },
+ {
+  "chain": "[{\"op\": \"spatial_rows\", \"params\": {\"cin\": \"cin\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"weight_mean_tw\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"kh\": \"kh\", \"kw\": \"kw\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"cin\", \"m\": \"h*w\", \"n\": \"cout*kh\"}}, {\"op\": \"tile_fold_mean_tw\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"w\": \"w\"}}, {\"op\": \"add_bias\", \"params\": {\"channels\": \"cout\", \"h\": \"h*kh\", \"w\": \"w*kw\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    import torch\n    x = inputs[0]\n    W = module.weight\n    b = getattr(module, 'bias', None)\n    squeeze = False\n    if x.dim() == 3:\n        x = x.unsqueeze(0)\n        squeeze = True\n    B, C, H, Wd = x.shape\n    cin, cout, kh, kw = W.shape\n    Wm = W.mean(dim=3)\n    rows = x.permute(0, 2, 3, 1).reshape(B * H * Wd, cin)\n    W2 = Wm.reshape(cin, cout * kh)\n    y = rows @ W2.t()\n    y = y.reshape(B, H, Wd, cout, kh).permute(0, 3, 1, 4, 2).reshape(B, cout, H * kh, Wd)\n    y = y.repeat_interleave(kw, dim=3)\n    if b is not None:\n        y = y + b.reshape(1, -1, 1, 1)\n    return y.squeeze(0) if squeeze else y",
+  "id": 265,
+  "kind": "approximate",
+  "name": "mean_tw_tile",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"Approximate conv_transpose2d by averaging the 4x4 kernel over the horizontal tap index tw only, keeping the vertical tap structure. Step 1: spatial_rows lays the input [cin,h,w] out spatial-major as rows [h*w, cin]. Step 2: weight_mean_tw averages the weight [cin,cout,kh,kw] over tw, giving Wm[cin,cout,kh] flattened to [cin, cout*kh] (column co*kh+th). Step 3: gemm rows @ Wm2 -> [h*w, cout*kh]; entry (i*w+j, co*kh+th) = sum_ci x[ci,i,j]*mean_tw W[ci,co,th,tw], the tw-averaged transposed-conv contribution of pixel (i,j) to channel co at vertical tap th. Step 4: tile_fold_mean_tw folds each row into its disjoint stride-by-stride output tile at [co, i*kh+th, j*kw+tw], repeating each value across the kw horizontal taps (which now share one averaged weight), producing [cout, h*kh, w*kw] = [cout, 64, 64]. Step 5: add_bias adds the per-output-channel bias, broadcast over the spatial dims. Exact channel mixing and exact vertical tap variation; horizontal tap variation replaced by its mean.\", \"rel_err\": null}",
+  "proposed_by": 158
+ },
+ {
+  "chain": "[{\"op\": \"spatial_rows\", \"params\": {\"cin\": \"cin\", \"h\": \"h\", \"w\": \"w\"}}, {\"op\": \"weight_rank_r\", \"params\": {\"cin\": \"cin\", \"cout\": \"cout\", \"kh\": \"kh\", \"kw\": \"kw\", \"rank\": 16}}, {\"op\": \"gemm\", \"params\": {\"k\": \"cin\", \"m\": \"h*w\", \"n\": \"cout*kh*kw\"}}, {\"op\": \"disjoint_tile_layout\", \"params\": {\"cout\": \"cout\", \"h\": \"h\", \"kh\": \"kh\", \"kw\": \"kw\", \"w\": \"w\"}}, {\"op\": \"add_bias\", \"params\": {\"channels\": \"cout\", \"h\": \"h*kh\", \"w\": \"w*kw\"}}]",
+  "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    import torch\n    x = inputs[0]\n    W = module.weight\n    b = getattr(module, 'bias', None)\n    squeeze = False\n    if x.dim() == 3:\n        x = x.unsqueeze(0)\n        squeeze = True\n    B, C, H, Wd = x.shape\n    cin, cout, kh, kw = W.shape\n    W2 = W.permute(1, 2, 3, 0).reshape(cout * kh * kw, cin).t()\n    u, s, vh = torch.linalg.svd(W2, full_matrices=False)\n    r = min(16, s.shape[0])\n    W2r = (u[:, :r] * s[:r]) @ vh[:r, :]\n    rows = x.permute(0, 2, 3, 1).reshape(B * H * Wd, cin)\n    y = rows @ W2r.t()\n    y = y.reshape(B, H, Wd, cout, kh, kw).permute(0, 3, 1, 4, 2, 5).reshape(B, cout, H * kh, Wd * kw)\n    if b is not None:\n        y = y + b.reshape(1, -1, 1, 1)\n    return y.squeeze(0) if squeeze else y",
+  "id": 268,
+  "kind": "approximate",
+  "name": "rank16_svd_tile",
+  "op": "conv_transpose2d",
+  "proposal": "{\"description\": \"Approximate conv_transpose2d by a rank-16 truncated SVD of the flattened kernel. Step 1: spatial_rows lays the input [cin,h,w] out spatial-major as rows [h*w, cin]. Step 2: weight_rank_r flattens the weight [cin,cout,kh,kw] to W2[cin, cout*kh*kw] (column co*kh*kw+th*kw+tw), computes its truncated SVD of rank r=16 (W2 ~= U_r S_r V_r^T with U_r [cin,16], S_r [16], V_r [16, cout*kh*kw]) and returns the reconstructed W2r of rank 16. Step 3: gemm rows @ W2r -> [h*w, cout*kh*kw]; entry (i*w+j, co*kh*kw+th*kw+tw) = sum_ci x[ci,i,j]*W2r[ci,co,th,tw], the low-rank approximation of the transposed-conv contribution of pixel (i,j) to channel co at tap (th,tw). Step 4: disjoint_tile_layout folds each row into its disjoint stride-by-stride output tile, producing [cout, h*kh, w*kw] = [cout, 64, 64]. Step 5: add_bias adds the per-output-channel bias, broadcast over the spatial dims. Keeps the exact tile placement and full tap structure; only the channel mixing matrix is approximated by its best rank-16 (Frobenius) approximation.\", \"rel_err\": null}",
+  "proposed_by": 158
+ },
+ {
   "chain": "[{\"op\": \"tile_repeat\", \"params\": {\"channels\": \"cin\", \"h\": \"h\", \"stride\": \"stride\", \"w\": \"w\"}}]",
   "check_detail": "not checked: there is no torch reference of conv_transpose2d here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of conv_transpose2d here to run the code against \u2014 the evaluation in the model decides",
   "check_ok": null,
@@ -1056,6 +1260,18 @@
   "proposed_by": 53
  },
  {
+  "chain": "[{\"op\": \"abs_clamp_indicators\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, *inputs):\n    import torch\n    ids = inputs[0]\n    table = module.table\n    dtype = torch.float64 if table.dtype == torch.float64 else torch.float32\n    j = torch.arange(table.shape[0], device=ids.device, dtype=torch.float32)\n    d = ids.reshape(-1, 1).to(torch.float32) - j.reshape(1, -1)\n    s = (1.0 - d.abs()).clamp(0.0, 1.0).to(dtype)\n    out = s @ table.to(dtype)\n    return out.to(table.dtype).reshape(*ids.shape, table.shape[1])\n",
+  "id": 273,
+  "kind": "equivalent",
+  "name": "abs_clamp_gemm",
+  "op": "embedding",
+  "proposal": "{\"description\": \"For each flattened valid integer token id and each fixed vocabulary coordinate j, form S=clamp(1-abs(float32(id)-float32(j)),0,1). All ids and differences are exactly representable for this vocabulary, so S is exactly one at the matching coordinate and zero elsewhere. Compute S @ table by GEMM and restore the ids shape with the embedding dimension appended. All coordinates and memory accesses are fixed. Use float64 for a float64 table and float32 otherwise, casting the result to the table dtype. This is mathematically identical for finite weights; as with any zero-multiply GEMM, unselected nonfinite weights and signed zeros need not match direct copying.\", \"rel_err\": 0.0}",
+  "proposed_by": 170
+ },
+ {
   "chain": "[{\"op\": \"one_hot\", \"params\": {\"numel\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
   "check_detail": "not equivalent: the code's largest relative difference is 0.0019 at element [0, 289] (got 1.641, expected 1.645), over 0.001",
   "check_ok": 0,
@@ -1066,6 +1282,18 @@
   "op": "embedding",
   "proposal": "{\"description\": \"Form a one-hot indicator for each token, convert the indicator and embedding table to bfloat16, perform the dense product, and restore the table dtype. This trades mantissa precision for lower arithmetic cost and storage; the selected coefficient remains exactly one.\", \"rel_err\": 0.0019460441900589595}",
   "proposed_by": 73
+ },
+ {
+  "chain": "[{\"op\": \"bit_product_indicators\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, *inputs):\n    import torch\n    ids = inputs[0]\n    table = module.table\n    vocab, dim = table.shape\n    flat = ids.reshape(-1, 1).to(torch.int64)\n    j = torch.arange(vocab, device=ids.device, dtype=torch.int64).reshape(1, -1)\n    dtype = torch.float64 if table.dtype == torch.float64 else torch.float32\n    s = torch.ones((flat.shape[0], vocab), device=ids.device, dtype=dtype)\n    for b in range((vocab-1).bit_length()):\n        s = s * (((flat >> b) & 1) == ((j >> b) & 1)).to(dtype)\n    return (s @ table.to(dtype)).to(table.dtype).reshape(*ids.shape, dim)\n",
+  "id": 272,
+  "kind": "equivalent",
+  "name": "bit_product_gemm",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Build a fixed-address selector from the binary digits of each valid id and every constant vocabulary coordinate j. Initialize S[t,j]=1; for bit positions 0 through ceil(log2(vocab))-1 multiply S[t,j] by 1 if the corresponding bits of id[t] and j match and by 0 otherwise. The bit comparisons are broadcast elementwise operations on fixed coordinate arrays; there is no data-dependent addressing. GEMM the resulting tokens-by-vocab matrix with the vocab-by-dim embedding table. Each valid id has exactly one matching binary representation, so S is exactly one-hot and GEMM returns its row for finite table entries. Use float32 for float32 or narrower tables and float64 for float64 tables. Restore the ids shape followed by dim and cast to the table dtype. As with ordinary one-hot GEMM, unselected nonfinite entries and signed zeros may behave differently from a direct copy.\", \"rel_err\": 0.0}",
+  "proposed_by": 168
  },
  {
   "chain": "[{\"op\": \"one_hot\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"probe\", \"params\": {}}]",
@@ -1474,6 +1702,18 @@
   "op": "embedding",
   "proposal": "{\"description\": \"Use radix 1024 and H=ceil(vocab/1024). For each valid integer id form two fixed-address indicator vectors L[t,r]=[id%1024==r] and Q[t,h]=[id//1024==h], using elementwise integer arithmetic and comparisons to constant ranges, never runtime addressing. Pad the table with zero rows to H*1024, reshape it as (H,1024,dim), transpose its first two axes and flatten to (1024,H*dim). GEMM L against this fixed-layout matrix; reshape the result to (tokens,H,dim). Batched GEMM Q[:,None,:] against that result yields (tokens,1,dim). Remove the singleton and restore ids shape followed by dim. All layout changes and padding are fixed, independent of ids. Both selectors are exact for integer ids; for finite table entries each output is exactly the selected row in real arithmetic. Use float32 for selectors and products when the table is float32 or narrower, and float64 for a float64 table; cast the result back to table dtype.\", \"rel_err\": 0.0}",
   "proposed_by": 155
+ },
+ {
+  "chain": "[{\"op\": \"fixed_mux_tree_select\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
+  "check_detail": "the chain could not run: step 1's reference (fixed_mux_tree_select) raised ValueError: not enough values to unpack (expected 2, got 1) \u2014 check its parameter names against the step's params",
+  "check_ok": 0,
+  "code": "def forward(module, *inputs):\n    import torch\n    ids = inputs[0]\n    table = module.table\n    vocab, dim = table.shape\n    p = 1 << (vocab - 1).bit_length()\n    rows = torch.cat((table, table.new_zeros((p-vocab, dim))), dim=0)\n    rows = rows.unsqueeze(0).expand(ids.numel(), -1, -1)\n    flat_ids = ids.reshape(-1).to(torch.int64)\n    for b in range((p-1).bit_length()):\n        predicate = ((flat_ids >> b) & 1).bool().reshape(-1, 1, 1)\n        rows = torch.where(predicate, rows[:, 1::2, :], rows[:, 0::2, :])\n    return rows[:, 0, :].reshape(*ids.shape, dim)\n",
+  "id": 271,
+  "kind": "equivalent",
+  "name": "fixed_mux_tree",
+  "op": "embedding",
+  "proposal": "{\"description\": \"For each token, select from the fixed table using a balanced binary multiplexer tree. Pad the vocabulary axis to the next power of two with fixed zero rows. At level b, pair adjacent blocks: for every fixed pair and embedding coordinate select the second value if bit b of the id is 1, otherwise the first. The id bits are broadcast to all pairs, and all table accesses and intermediate writes use fixed addresses. Process bits from least to most significant. After ceil(log2(vocab)) levels the sole remaining row is the selected row. Conditional selection copies values rather than multiplying by zero, so unselected NaNs and infinities do not contaminate the result, and selected values including signed zero are preserved. Valid ids are in [0,vocab).\", \"rel_err\": 0.0}",
+  "proposed_by": 168
  },
  {
   "chain": "[{\"op\": \"one_hot\", \"params\": {\"numel\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
@@ -2134,6 +2374,18 @@
   "op": "embedding",
   "proposal": "{\"description\": \"Flatten the integer ids to tokens rows and convert them to float32. At fixed vocabulary coordinates j=0,...,vocab-1, broadcast subtract to form D[t,j]=ids[t]-j. Compute S[t,j]=max(0,1-D[t,j]*D[t,j]) using elementwise multiply, subtract and lower clamp. This is a fixed-address arithmetic circuit, not a gather, scatter or runtime-addressed write. For valid integer ids S is exactly the Kronecker indicator: D=0 gives 1, and every nonzero integer difference has squared magnitude at least 1 and gives 0 after clamping. All ids and differences for vocab=30522 are exactly representable in float32; rounding of larger squares cannot change this indicator. GEMM S (tokens,vocab) with the finite embedding table (vocab,dim), in float32 for a float32 or lower precision table, then cast back to the table dtype and restore the ids' leading dimensions followed by dim. For a float64 table promote S to float64 instead to avoid losing table precision. The product selects exactly one table row without approximating its entries.\", \"rel_err\": 0.0}",
   "proposed_by": 123
+ },
+ {
+  "chain": "[{\"op\": \"relu_second_difference_indicators\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, *inputs):\n    import torch\n    ids = inputs[0]\n    table = module.table\n    j = torch.arange(table.shape[0], device=ids.device, dtype=torch.float32)\n    d = ids.reshape(-1).to(torch.float32)[:, None] - j[None, :]\n    s = torch.relu(d + 1) - 2 * torch.relu(d) + torch.relu(d - 1)\n    dtype = torch.float64 if table.dtype == torch.float64 else torch.float32\n    out = s.to(dtype) @ table.to(dtype)\n    return out.to(table.dtype).reshape(*ids.shape, table.shape[1])\n",
+  "id": 258,
+  "kind": "equivalent",
+  "name": "relu_second_difference",
+  "op": "embedding",
+  "proposal": "{\"description\": \"For each token and fixed vocabulary coordinate j, compute d=float32(id)-j and S=relu(d+1)-2*relu(d)+relu(d-1). The second finite difference of ReLU is exactly 1 at integer d=0 and 0 at every other integer d. All intermediate integers, including twice the ReLU value, are exactly representable for this vocabulary. This is fixed-address broadcast arithmetic, without runtime lookup or scatter. Multiply the selector matrix by the embedding table using GEMM, in float32 for table types up to float32 or float64 for float64 tables, then restore the input shape and table dtype. For finite table entries the result equals the embedding in real arithmetic; GEMM can differ on signed zeros or nonfinite unselected entries.\", \"rel_err\": 0.0}",
+  "proposed_by": 162
  },
  {
   "chain": "[{\"op\": \"token_indicators\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"bmm\", \"params\": {\"b\": \"1\", \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",

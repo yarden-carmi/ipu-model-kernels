@@ -23380,5 +23380,473 @@
   "parent_id": 2579,
   "path": "model.rotary_emb",
   "repeat": 1
+ },
+ {
+  "capture_id": 62,
+  "class": null,
+  "first_seq": 0,
+  "id": 2600,
+  "parent_id": 2599,
+  "path": "(input)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 62,
+  "class": "RobertaForQuestionAnswering",
+  "first_seq": 0,
+  "id": 2599,
+  "parent_id": null,
+  "path": "(top)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 62,
+  "class": "Linear",
+  "first_seq": 194,
+  "id": 2601,
+  "parent_id": 2599,
+  "path": "qa_outputs",
+  "repeat": 1
+ },
+ {
+  "capture_id": 62,
+  "class": "RobertaModel",
+  "first_seq": 1,
+  "id": 2602,
+  "parent_id": 2599,
+  "path": "roberta",
+  "repeat": 1
+ },
+ {
+  "capture_id": 62,
+  "class": "RobertaEmbeddings",
+  "first_seq": 1,
+  "id": 2603,
+  "parent_id": 2602,
+  "path": "roberta.embeddings",
+  "repeat": 1
+ },
+ {
+  "capture_id": 62,
+  "class": "LayerNorm",
+  "first_seq": 13,
+  "id": 2605,
+  "parent_id": 2603,
+  "path": "roberta.embeddings.LayerNorm",
+  "repeat": 1
+ },
+ {
+  "capture_id": 62,
+  "class": "Embedding",
+  "first_seq": 11,
+  "id": 2606,
+  "parent_id": 2603,
+  "path": "roberta.embeddings.position_embeddings",
+  "repeat": 1
+ },
+ {
+  "capture_id": 62,
+  "class": "Embedding",
+  "first_seq": 9,
+  "id": 2607,
+  "parent_id": 2603,
+  "path": "roberta.embeddings.token_type_embeddings",
+  "repeat": 1
+ },
+ {
+  "capture_id": 62,
+  "class": "Embedding",
+  "first_seq": 7,
+  "id": 2608,
+  "parent_id": 2603,
+  "path": "roberta.embeddings.word_embeddings",
+  "repeat": 1
+ },
+ {
+  "capture_id": 62,
+  "class": "RobertaEncoder",
+  "first_seq": 14,
+  "id": 2604,
+  "parent_id": 2602,
+  "path": "roberta.encoder",
+  "repeat": 1
+ },
+ {
+  "capture_id": 62,
+  "class": "ModuleList",
+  "first_seq": 14,
+  "id": 2609,
+  "parent_id": 2604,
+  "path": "roberta.encoder.layer",
+  "repeat": 1
+ },
+ {
+  "capture_id": 62,
+  "class": "RobertaLayer",
+  "first_seq": 14,
+  "id": 2610,
+  "parent_id": 2609,
+  "path": "roberta.encoder.layer.*",
+  "repeat": 12
+ },
+ {
+  "capture_id": 62,
+  "class": "RobertaAttention",
+  "first_seq": 14,
+  "id": 2611,
+  "parent_id": 2610,
+  "path": "roberta.encoder.layer.*.attention",
+  "repeat": 12
+ },
+ {
+  "capture_id": 62,
+  "class": "RobertaSelfOutput",
+  "first_seq": 21,
+  "id": 2614,
+  "parent_id": 2611,
+  "path": "roberta.encoder.layer.*.attention.output",
+  "repeat": 12
+ },
+ {
+  "capture_id": 62,
+  "class": "LayerNorm",
+  "first_seq": 23,
+  "id": 2620,
+  "parent_id": 2614,
+  "path": "roberta.encoder.layer.*.attention.output.LayerNorm",
+  "repeat": 12
+ },
+ {
+  "capture_id": 62,
+  "class": "Linear",
+  "first_seq": 21,
+  "id": 2621,
+  "parent_id": 2614,
+  "path": "roberta.encoder.layer.*.attention.output.dense",
+  "repeat": 12
+ },
+ {
+  "capture_id": 62,
+  "class": "RobertaSelfAttention",
+  "first_seq": 14,
+  "id": 2615,
+  "parent_id": 2611,
+  "path": "roberta.encoder.layer.*.attention.self",
+  "repeat": 12
+ },
+ {
+  "capture_id": 62,
+  "class": "Linear",
+  "first_seq": 15,
+  "id": 2622,
+  "parent_id": 2615,
+  "path": "roberta.encoder.layer.*.attention.self.key",
+  "repeat": 12
+ },
+ {
+  "capture_id": 62,
+  "class": "Linear",
+  "first_seq": 14,
+  "id": 2623,
+  "parent_id": 2615,
+  "path": "roberta.encoder.layer.*.attention.self.query",
+  "repeat": 12
+ },
+ {
+  "capture_id": 62,
+  "class": "Linear",
+  "first_seq": 16,
+  "id": 2624,
+  "parent_id": 2615,
+  "path": "roberta.encoder.layer.*.attention.self.value",
+  "repeat": 12
+ },
+ {
+  "capture_id": 62,
+  "class": "RobertaIntermediate",
+  "first_seq": 24,
+  "id": 2612,
+  "parent_id": 2610,
+  "path": "roberta.encoder.layer.*.intermediate",
+  "repeat": 12
+ },
+ {
+  "capture_id": 62,
+  "class": "Linear",
+  "first_seq": 24,
+  "id": 2616,
+  "parent_id": 2612,
+  "path": "roberta.encoder.layer.*.intermediate.dense",
+  "repeat": 12
+ },
+ {
+  "capture_id": 62,
+  "class": "GELUActivation",
+  "first_seq": 25,
+  "id": 2617,
+  "parent_id": 2612,
+  "path": "roberta.encoder.layer.*.intermediate.intermediate_act_fn",
+  "repeat": 12
+ },
+ {
+  "capture_id": 62,
+  "class": "RobertaOutput",
+  "first_seq": 26,
+  "id": 2613,
+  "parent_id": 2610,
+  "path": "roberta.encoder.layer.*.output",
+  "repeat": 12
+ },
+ {
+  "capture_id": 62,
+  "class": "LayerNorm",
+  "first_seq": 28,
+  "id": 2618,
+  "parent_id": 2613,
+  "path": "roberta.encoder.layer.*.output.LayerNorm",
+  "repeat": 12
+ },
+ {
+  "capture_id": 62,
+  "class": "Linear",
+  "first_seq": 26,
+  "id": 2619,
+  "parent_id": 2613,
+  "path": "roberta.encoder.layer.*.output.dense",
+  "repeat": 12
+ },
+ {
+  "capture_id": 63,
+  "class": null,
+  "first_seq": 0,
+  "id": 2626,
+  "parent_id": 2625,
+  "path": "(input)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 63,
+  "class": "RobertaForTokenClassification",
+  "first_seq": 0,
+  "id": 2625,
+  "parent_id": null,
+  "path": "(top)",
+  "repeat": 1
+ },
+ {
+  "capture_id": 63,
+  "class": "Linear",
+  "first_seq": 194,
+  "id": 2627,
+  "parent_id": 2625,
+  "path": "classifier",
+  "repeat": 1
+ },
+ {
+  "capture_id": 63,
+  "class": "RobertaModel",
+  "first_seq": 1,
+  "id": 2628,
+  "parent_id": 2625,
+  "path": "roberta",
+  "repeat": 1
+ },
+ {
+  "capture_id": 63,
+  "class": "RobertaEmbeddings",
+  "first_seq": 1,
+  "id": 2629,
+  "parent_id": 2628,
+  "path": "roberta.embeddings",
+  "repeat": 1
+ },
+ {
+  "capture_id": 63,
+  "class": "LayerNorm",
+  "first_seq": 13,
+  "id": 2631,
+  "parent_id": 2629,
+  "path": "roberta.embeddings.LayerNorm",
+  "repeat": 1
+ },
+ {
+  "capture_id": 63,
+  "class": "Embedding",
+  "first_seq": 11,
+  "id": 2632,
+  "parent_id": 2629,
+  "path": "roberta.embeddings.position_embeddings",
+  "repeat": 1
+ },
+ {
+  "capture_id": 63,
+  "class": "Embedding",
+  "first_seq": 9,
+  "id": 2633,
+  "parent_id": 2629,
+  "path": "roberta.embeddings.token_type_embeddings",
+  "repeat": 1
+ },
+ {
+  "capture_id": 63,
+  "class": "Embedding",
+  "first_seq": 7,
+  "id": 2634,
+  "parent_id": 2629,
+  "path": "roberta.embeddings.word_embeddings",
+  "repeat": 1
+ },
+ {
+  "capture_id": 63,
+  "class": "RobertaEncoder",
+  "first_seq": 14,
+  "id": 2630,
+  "parent_id": 2628,
+  "path": "roberta.encoder",
+  "repeat": 1
+ },
+ {
+  "capture_id": 63,
+  "class": "ModuleList",
+  "first_seq": 14,
+  "id": 2635,
+  "parent_id": 2630,
+  "path": "roberta.encoder.layer",
+  "repeat": 1
+ },
+ {
+  "capture_id": 63,
+  "class": "RobertaLayer",
+  "first_seq": 14,
+  "id": 2636,
+  "parent_id": 2635,
+  "path": "roberta.encoder.layer.*",
+  "repeat": 12
+ },
+ {
+  "capture_id": 63,
+  "class": "RobertaAttention",
+  "first_seq": 14,
+  "id": 2637,
+  "parent_id": 2636,
+  "path": "roberta.encoder.layer.*.attention",
+  "repeat": 12
+ },
+ {
+  "capture_id": 63,
+  "class": "RobertaSelfOutput",
+  "first_seq": 21,
+  "id": 2640,
+  "parent_id": 2637,
+  "path": "roberta.encoder.layer.*.attention.output",
+  "repeat": 12
+ },
+ {
+  "capture_id": 63,
+  "class": "LayerNorm",
+  "first_seq": 23,
+  "id": 2646,
+  "parent_id": 2640,
+  "path": "roberta.encoder.layer.*.attention.output.LayerNorm",
+  "repeat": 12
+ },
+ {
+  "capture_id": 63,
+  "class": "Linear",
+  "first_seq": 21,
+  "id": 2647,
+  "parent_id": 2640,
+  "path": "roberta.encoder.layer.*.attention.output.dense",
+  "repeat": 12
+ },
+ {
+  "capture_id": 63,
+  "class": "RobertaSelfAttention",
+  "first_seq": 14,
+  "id": 2641,
+  "parent_id": 2637,
+  "path": "roberta.encoder.layer.*.attention.self",
+  "repeat": 12
+ },
+ {
+  "capture_id": 63,
+  "class": "Linear",
+  "first_seq": 15,
+  "id": 2648,
+  "parent_id": 2641,
+  "path": "roberta.encoder.layer.*.attention.self.key",
+  "repeat": 12
+ },
+ {
+  "capture_id": 63,
+  "class": "Linear",
+  "first_seq": 14,
+  "id": 2649,
+  "parent_id": 2641,
+  "path": "roberta.encoder.layer.*.attention.self.query",
+  "repeat": 12
+ },
+ {
+  "capture_id": 63,
+  "class": "Linear",
+  "first_seq": 16,
+  "id": 2650,
+  "parent_id": 2641,
+  "path": "roberta.encoder.layer.*.attention.self.value",
+  "repeat": 12
+ },
+ {
+  "capture_id": 63,
+  "class": "RobertaIntermediate",
+  "first_seq": 24,
+  "id": 2638,
+  "parent_id": 2636,
+  "path": "roberta.encoder.layer.*.intermediate",
+  "repeat": 12
+ },
+ {
+  "capture_id": 63,
+  "class": "Linear",
+  "first_seq": 24,
+  "id": 2642,
+  "parent_id": 2638,
+  "path": "roberta.encoder.layer.*.intermediate.dense",
+  "repeat": 12
+ },
+ {
+  "capture_id": 63,
+  "class": "GELUActivation",
+  "first_seq": 25,
+  "id": 2643,
+  "parent_id": 2638,
+  "path": "roberta.encoder.layer.*.intermediate.intermediate_act_fn",
+  "repeat": 12
+ },
+ {
+  "capture_id": 63,
+  "class": "RobertaOutput",
+  "first_seq": 26,
+  "id": 2639,
+  "parent_id": 2636,
+  "path": "roberta.encoder.layer.*.output",
+  "repeat": 12
+ },
+ {
+  "capture_id": 63,
+  "class": "LayerNorm",
+  "first_seq": 28,
+  "id": 2644,
+  "parent_id": 2639,
+  "path": "roberta.encoder.layer.*.output.LayerNorm",
+  "repeat": 12
+ },
+ {
+  "capture_id": 63,
+  "class": "Linear",
+  "first_seq": 26,
+  "id": 2645,
+  "parent_id": 2639,
+  "path": "roberta.encoder.layer.*.output.dense",
+  "repeat": 12
  }
 ]
