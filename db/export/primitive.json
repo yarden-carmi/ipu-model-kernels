@@ -8,6 +8,14 @@
   "tensors": null
  },
  {
+  "doc": "Float32 abs-max reduction, adaptive symmetric 8-bit rounding/dequantization, followed by static contiguous tile stores. No value-dependent addressing.",
+  "name": "adaptive_int8_tile_v1",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    numel = int(params['numel'])\n    v = x.reshape(-1).float()\n    n = v.numel()\n    a = v.abs().amax()\n    s = torch.where(a > 0, a / 127.0, torch.ones_like(a))\n    z = (torch.clamp(torch.round(v / s), -127, 127) * s).to(x.dtype)\n    y = x.new_empty((numel,))\n    for start in range(0, numel, n):\n        length = min(n, numel - start)\n        y[start:start + length].copy_(z[:length])\n    return y\n",
+  "tensors": null
+ },
+ {
   "doc": "Add a per-output-channel bias vector to [batch,channels,h,w].",
   "name": "add_bias",
   "origin": "agent",
@@ -392,11 +400,27 @@
   "tensors": null
  },
  {
+  "doc": "Build exact float32 one-hot rows using XOR and fixed shift-OR bit folding on nonnegative int64 IDs and fixed vocabulary indices.",
+  "name": "bitfold_selector_rows",
+  "origin": "agent",
+  "params": "[\"rows\", \"cols\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    j = torch.arange(params['cols'], device=x.device, dtype=torch.int64)\n    d = torch.bitwise_xor(x.reshape(params['rows'], 1).to(torch.int64), j.reshape(1, -1))\n    for s in (32, 16, 8, 4, 2, 1):\n        d = torch.bitwise_or(d, torch.bitwise_right_shift(d, s))\n    return torch.bitwise_xor(torch.bitwise_and(d, 1), 1).to(torch.float32)",
+  "tensors": null
+ },
+ {
   "doc": "Fixed-address 32-row block mux followed by a fixed-address block mux; table is supplied as a parameter.",
   "name": "block32_mux_select",
   "origin": "agent",
   "params": "[\"tokens\", \"vocab\", \"dim\"]",
   "reference": "def fn(x, **params):\n    import torch\n    tokens, vocab, dim = params['tokens'], params['vocab'], params['dim']\n    table = params['table']\n    blocks = (vocab + 31) // 32\n    pad = blocks * 32 - vocab\n    if pad:\n        table = torch.cat((table, table.new_zeros((pad, dim))), dim=0)\n    ids = x.reshape(tokens).to(torch.int64)\n    v = table.reshape(1, blocks, 32, dim).expand(tokens, -1, -1, -1)\n    for bit in range(5):\n        v = v.reshape(tokens, blocks, -1, 2, dim)\n        mask = ((ids >> bit) & 1).bool().reshape(tokens, 1, 1, 1)\n        v = torch.where(mask, v[:, :, :, 1, :], v[:, :, :, 0, :])\n    v = v.reshape(tokens, blocks, dim)\n    result = v[:, 0, :]\n    for b in range(1, blocks):\n        result = torch.where((ids // 32 == b).reshape(tokens, 1), v[:, b, :], result)\n    return result",
+  "tensors": null
+ },
+ {
+  "doc": "Fixed groups of five: float32 local sum divided by group size, scalar broadcast to the same positions, then static tiled copy.",
+  "name": "block5_centroid_tile_v1",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    numel = int(params['numel'])\n    v = x.reshape(-1)\n    n = v.numel()\n    z = torch.empty_like(v)\n    for i in range(0, n, 5):\n        end = min(i + 5, n)\n        mu = v[i:end].float().sum() / (end - i)\n        z[i:end] = mu.to(x.dtype)\n    y = x.new_empty((numel,))\n    for start in range(0, numel, n):\n        length = min(n, numel - start)\n        y[start:start + length].copy_(z[:length])\n    return y\n",
   "tensors": null
  },
  {
@@ -1176,6 +1200,22 @@
   "tensors": null
  },
  {
+  "doc": "Round integer elements down to multiples of two and copy the resulting flat vector in whole tiles, trimming to numel; position-derived addresses only.",
+  "name": "floor2_tile_ids_prim",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, numel):\n    x = x.reshape(-1)\n    q = (x // 2) * 2\n    return q.repeat((numel + x.numel() - 1) // x.numel())[:numel]\n",
+  "tensors": null
+ },
+ {
+  "doc": "Round integer elements down to multiples of four, tile the flat vector, and trim to numel using position-derived addressing.",
+  "name": "floor4_tile_ids_prim",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, numel):\n    x = x.reshape(-1)\n    q = (x // 4) * 4\n    return q.repeat((numel + x.numel() - 1) // x.numel())[:numel]\n",
+  "tensors": null
+ },
+ {
   "doc": "Build exact float32 indicators by integer floor division of 1 by 1 plus the absolute difference between each integer ID and each fixed vocabulary index.",
   "name": "floor_recip_distance_selector",
   "origin": "agent",
@@ -1240,6 +1280,14 @@
   "tensors": null
  },
  {
+  "doc": "Separable twofold half-pixel bilinear interpolation with edge replication, using quarter differences.",
+  "name": "half_pixel_difference_2x_prim",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    l = torch.cat((x[..., :1], x[..., :-1]), dim=-1)\n    r = torch.cat((x[..., 1:], x[..., -1:]), dim=-1)\n    t = torch.stack((x + (l-x)*0.25, x + (r-x)*0.25), dim=-1).flatten(-2)\n    u = torch.cat((t[..., :1, :], t[..., :-1, :]), dim=-2)\n    d = torch.cat((t[..., 1:, :], t[..., -1:, :]), dim=-2)\n    return torch.stack((t + (u-t)*0.25, t + (d-t)*0.25), dim=-2).flatten(-3, -2)",
+  "tensors": null
+ },
+ {
   "doc": "Clamp half-pixel coordinates and gather four input pixels per output pixel; horizontally then vertically interpolate.",
   "name": "half_pixel_gather_7_4",
   "origin": "agent",
@@ -1248,11 +1296,35 @@
   "tensors": null
  },
  {
+  "doc": "Half-pixel edge-clamped bilinear interpolation to the given output height and width.",
+  "name": "half_pixel_output_resize_defined",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, **params):\n    import torch.nn.functional as F\n    return F.interpolate(x.unsqueeze(0), size=(params['h'], params['w']), mode='bilinear', align_corners=False).squeeze(0)",
+  "tensors": null
+ },
+ {
+  "doc": "Edge-clamped half-pixel bilinear 2x interpolation of a CHW image.",
+  "name": "half_pixel_phase_14_kernel",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    H, W = x.shape[-2:]\n    i = torch.arange(H, device=x.device)\n    j = torch.arange(W, device=x.device)\n    out = x.new_empty((*x.shape[:-2], 2*H, 2*W))\n    for p in range(2):\n        r = (i + 2*p - 1).clamp(0, H-1)\n        for q in range(2):\n            s = (j + 2*q - 1).clamp(0, W-1)\n            out[..., p::2, q::2] = (9*x + 3*x[..., r, :] + 3*x[..., :, s] + x[..., r[:, None], s[None, :]]) / 16\n    return out",
+  "tensors": null
+ },
+ {
   "doc": "Separable half-pixel 2x bilinear interpolation with clamped edges on a CHW tensor.",
   "name": "half_pixel_separable_32_prim",
   "origin": "agent",
   "params": "[\"channels\", \"h\", \"w\"]",
   "reference": "def fn(x, **params):\n    import torch\n    left = torch.cat((x[..., :1], x[..., :-1]), dim=-1)\n    right = torch.cat((x[..., 1:], x[..., -1:]), dim=-1)\n    t = torch.stack(((3*x+left)*0.25, (3*x+right)*0.25), dim=-1).flatten(-2)\n    top = torch.cat((t[..., :1, :], t[..., :-1, :]), dim=-2)\n    bottom = torch.cat((t[..., 1:, :], t[..., -1:, :]), dim=-2)\n    return torch.stack(((3*t+top)*0.25, (3*t+bottom)*0.25), dim=-2).flatten(-3, -2)",
+  "tensors": null
+ },
+ {
+  "doc": "Static midpoint comparison and bit-preserving mux tree implementing gather on valid indices; input is the tuple of source and indices (optionally with dim between them).",
+  "name": "hierarchical_range_mux_primitive",
+  "origin": "agent",
+  "params": "[\"numel\", \"sel\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    source, index = x[0], x[-1]\n    d = params['sel'] % source.ndim\n    if index.numel() == 0:\n        return source.new_empty(index.shape)\n    slices = tuple(slice(None) if a == d else slice(0, index.shape[a]) for a in range(source.ndim))\n    source = source[slices]\n    k = source.shape[d]\n    def tree(lo, hi):\n        if hi - lo == 1:\n            return source.narrow(d, lo, 1).expand(index.shape)\n        mid = (lo + hi) // 2\n        return torch.where(index < mid, tree(lo, mid), tree(mid, hi))\n    return tree(0, k)\n",
   "tensors": null
  },
  {
@@ -1392,11 +1464,27 @@
   "tensors": null
  },
  {
+  "doc": "Compare valid integer token IDs to a static vocabulary ramp using integer subtract, absolute value, clamp-to-one, and float32 power-of-two exponent scaling. Return exact float32 one-hot rows; all memory positions are static or sequential.",
+  "name": "ldexp_zero_distance_indicators",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    tokens = int(params['tokens'])\n    vocab = int(params['vocab'])\n    ids = x.reshape(tokens).to(torch.int64)\n    ramp = torch.arange(vocab, device=x.device, dtype=torch.int64)\n    distance = (ids[:, None] - ramp[None, :]).abs()\n    exponent = (-256 * distance.clamp(max=1)).to(torch.int32)\n    return torch.ldexp(torch.ones((tokens, vocab), device=x.device, dtype=torch.float32), exponent)\n",
+  "tensors": null
+ },
+ {
   "doc": "Flatten a nonempty source and perform one-dimensional linear resampling to numel outputs with aligned endpoints.",
   "name": "linear_resample_source",
   "origin": "agent",
   "params": "[\"numel\"]",
   "reference": "def fn(x, **params):\n    import torch\n    import torch.nn.functional as F\n    a = x.reshape(1, 1, -1).to(torch.float32)\n    return F.interpolate(a, size=params['numel'], mode='linear', align_corners=True).reshape(-1)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Static three-lane median and equality-gated selection.",
+  "name": "local_median3_static_prim",
+  "origin": "agent",
+  "params": "[\"numel\", \"sel\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    X, I = x[0], x[-1]\n    d = params['sel'] % X.ndim\n    if I.numel() == 0: return X.new_empty(I.shape)\n    X = X[tuple(slice(None) if a == d else slice(0,I.shape[a]) for a in range(X.ndim))].movedim(d,-1)\n    J = I.movedim(d,-1)\n    K = X.shape[-1]\n    Y = torch.zeros(J.shape, dtype=torch.float32, device=X.device)\n    for j in range(K):\n        a = X[..., max(j-1,0):max(j-1,0)+1].float()\n        b = X[..., j:j+1].float()\n        c = X[..., min(j+1,K-1):min(j+1,K-1)+1].float()\n        r = torch.maximum(torch.minimum(a,b), torch.minimum(torch.maximum(a,b),c))\n        Y = torch.where(J == j, r, Y)\n    return Y.to(X.dtype).movedim(-1,d)",
   "tensors": null
  },
  {
@@ -1597,6 +1685,14 @@
   "origin": "agent",
   "params": "[\"cout\", \"h\", \"w\", \"stride\"]",
   "reference": "def fn(x, cout, h, w, stride):\n    x = x.repeat_interleave(stride, dim=-2).repeat_interleave(stride, dim=-1)\n    return x[:, :h*stride, :w*stride]",
+  "tensors": null
+ },
+ {
+  "doc": "Round valid nonnegative IDs to nearest multiple of four with ties upward, clamp to 1028, then tile and trim using position-derived addresses.",
+  "name": "nearest4_tile_ids_prim",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, numel):\n    x = x.reshape(-1)\n    q = (((x + 2) // 4) * 4).clamp(max=1028)\n    return q.repeat((numel + x.numel() - 1) // x.numel())[:numel]\n",
   "tensors": null
  },
  {
@@ -1816,6 +1912,14 @@
   "tensors": null
  },
  {
+  "doc": "Static adjacent-pair mean with interval predicates, no runtime-addressed loads.",
+  "name": "pair_mean_static_prim",
+  "origin": "agent",
+  "params": "[\"numel\", \"sel\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    X, I = x[0], x[-1]\n    d = params['sel'] % X.ndim\n    if I.numel() == 0: return X.new_empty(I.shape)\n    X = X[tuple(slice(None) if a == d else slice(0, I.shape[a]) for a in range(X.ndim))].movedim(d, -1)\n    J = I.movedim(d, -1)\n    K = X.shape[-1]\n    Y = torch.zeros(J.shape, device=X.device, dtype=torch.float32)\n    for s in range(0, K, 2):\n        r = X[..., s:min(s+2,K)].float().mean(dim=-1, keepdim=True)\n        Y = torch.where((J >= s) & (J < min(s+2,K)), r, Y)\n    return Y.to(X.dtype).movedim(-1, d)",
+  "tensors": null
+ },
+ {
   "doc": "Average adjacent input-channel weight slices and flatten output-channel and phase axes.",
   "name": "pair_mean_weight_4",
   "origin": "agent",
@@ -1829,6 +1933,14 @@
   "origin": "agent",
   "params": "[\"numel\"]",
   "reference": "def fn(x, x1, **params):\n    import torch\n    n, c, h, w = x.shape\n    y = torch.empty((n, c+x1.shape[1], h, w), dtype=x.dtype, device=x.device)\n    y[:, :c].copy_(x)\n    y[:, c:].copy_(x1)\n    return y",
+  "tensors": null
+ },
+ {
+  "doc": "Per-pair sigmoid-space centroid selected by interval predicates.",
+  "name": "pair_sigmoid_centroid_static_prim",
+  "origin": "agent",
+  "params": "[\"numel\", \"sel\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    X, I = x[0], x[-1]\n    d = params['sel'] % X.ndim\n    if I.numel() == 0: return X.new_empty(I.shape)\n    X = X[tuple(slice(None) if a == d else slice(0,I.shape[a]) for a in range(X.ndim))].movedim(d,-1)\n    J = I.movedim(d,-1)\n    K = X.shape[-1]\n    Y = torch.zeros(J.shape, dtype=torch.float32, device=X.device)\n    for s in range(0,K,2):\n        p = torch.sigmoid(X[...,s:min(s+2,K)].float()).mean(dim=-1,keepdim=True).clamp(1e-6,1-1e-6)\n        r = torch.log(p)-torch.log1p(-p)\n        Y = torch.where((J>=s)&(J<min(s+2,K)),r,Y)\n    return Y.to(X.dtype).movedim(-1,d)",
   "tensors": null
  },
  {
@@ -2432,6 +2544,14 @@
   "tensors": null
  },
  {
+  "doc": "Two float32 projections onto fixed constant and centered linear positional bases, affine reconstruction, then shape-controlled tile copies.",
+  "name": "rank_affine_tile_v1",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    numel = int(params['numel'])\n    v = x.reshape(-1).float()\n    n = v.numel()\n    t = torch.arange(n, device=x.device, dtype=torch.float32) - (n - 1) / 2.0\n    mu = v.sum() / n\n    beta = (t * v).sum() / (t * t).sum() if n > 1 else torch.zeros_like(mu)\n    z = (mu + beta * t).to(x.dtype)\n    y = x.new_empty((numel,))\n    for start in range(0, numel, n):\n        length = min(n, numel - start)\n        y[start:start + length].copy_(z[:length])\n    return y\n",
+  "tensors": null
+ },
+ {
   "doc": "Build an exact float32 one-hot selector using floor(reciprocal(1+abs(id-j))) on a static vocabulary ramp. No comparison, gather, scatter, or runtime-controlled address. Valid integer IDs are required.",
   "name": "reciprocal_floor_indicators",
   "origin": "agent",
@@ -2656,6 +2776,14 @@
   "tensors": null
  },
  {
+  "doc": "Exact float32 one-hot rows from bounded integer right shifts of the integer constant one. Every ramp position is fixed; no dynamic indexing is used.",
+  "name": "shift_unit_indicators",
+  "origin": "agent",
+  "params": "[\"rows\", \"cols\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    ids = x.reshape(params['rows'], 1).to(torch.int64)\n    ramp = torch.arange(params['cols'], device=x.device, dtype=torch.int64).reshape(1, params['cols'])\n    shifts = (ids - ramp).abs().clamp(max=63)\n    return torch.bitwise_right_shift(torch.ones_like(shifts), shifts).to(torch.float32)\n",
+  "tensors": null
+ },
+ {
   "doc": "Turns sigmoid(L) into the exact 0/1 selector by dividing by the constant row maximum sigmoid(-1) = 0.2689414213632877 (identical in every row): a multiply by 1/sigmoid(-1) broadcast over the whole matrix. The non-peak entries are already exactly 0.0, so the result is bit-exactly 1 at i = ids[t] and 0 elsewhere.",
   "name": "sigmoid_selector_scale",
   "origin": "agent",
@@ -2736,6 +2864,14 @@
   "tensors": null
  },
  {
+  "doc": "Copy a flattened input into numel/input.numel() consecutive disjoint output blocks. Compile-time shape-derived loop bounds and fixed-offset load/store only; no value-derived integer index or arithmetic on payload values. Requires nonempty input and a whole number of tiles.",
+  "name": "static_repeat_block_copy_v1",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    n = x.numel()\n    N = int(params['numel'])\n    if n == 0 or N % n != 0:\n        raise ValueError('whole-array repeat requires a nonempty input and an integral tile count')\n    source = x.reshape(-1)\n    out = torch.empty((N,), dtype=x.dtype, device=x.device)\n    for block in range(N // n):\n        out.narrow(0, block * n, n).copy_(source)\n    return out\n",
+  "tensors": null
+ },
+ {
   "doc": "Exact one-hot selector as the adjacent difference of two step matrices: S[t, j] = (ids[t] >= j) for the constant ramp j = 0..vocab, O[t, i] = S[t, i] - S[t, i + 1], float32, shape (tokens, vocab). Only a broadcast comparison against a constant ramp and a shift-subtract; no equality op, no data addressing.",
   "name": "stepdiff_selector",
   "origin": "agent",
@@ -2765,6 +2901,14 @@
   "origin": "agent",
   "params": "[\"numel\"]",
   "reference": "def fn(x, numel):\n    import torch\n    v = x.reshape(-1)\n    assert numel % v.numel() == 0\n    return v.to(torch.bfloat16).to(x.dtype).repeat(numel // v.numel())\n",
+  "tensors": null
+ },
+ {
+  "doc": "Tile a flattened tensor to the requested divisible output length by bitwise copies.",
+  "name": "tile_bitcopy_dynamic_prim",
+  "origin": "agent",
+  "params": "[\"numel\"]",
+  "reference": "def fn(x, **params):\n    n = x.numel()\n    assert n > 0 and params['numel'] % n == 0\n    return x.reshape(-1).repeat(params['numel'] // n)\n",
   "tensors": null
  },
  {
@@ -2976,6 +3120,14 @@
   "tensors": null
  },
  {
+  "doc": "Construct a float32 one-hot matrix using an integer-distance triangular tent.",
+  "name": "triangle_unit_selector",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(x, **params):\n    import torch\n    ids = x.reshape(-1).to(torch.float32)\n    ramp = torch.arange(params['vocab'], device=x.device, dtype=torch.float32)\n    return (1.0 - (ids[:, None] - ramp[None, :]).abs()).clamp_min(0.0)\n",
+  "tensors": null
+ },
+ {
   "doc": "Fixed-address broadcast subtraction followed by abs, reverse subtraction from one, and lower clamp at zero. For valid integer vocabulary IDs produces exact float32 indicator rows; no runtime indexing is used.",
   "name": "triangular_selectors",
   "origin": "agent",
@@ -3021,6 +3173,54 @@
   "origin": "agent",
   "params": "[\"numel\"]",
   "reference": "def fn(x, x1, **params):\n    import torch\n    return torch.cat((torch.round(x * 1024.0) / 1024.0, torch.round(x1 * 1024.0) / 1024.0), dim=1)",
+  "tensors": null
+ },
+ {
+  "doc": "L[t, i] = -4096 * |ids[t] - i| over the constant ramp i = 0..vocab-1.",
+  "name": "vocab1_negabs_scaled",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(x, tokens, vocab):\n    import torch\n    ids = x.reshape(tokens).to(torch.float32)\n    ramp = torch.arange(vocab, device=ids.device, dtype=torch.float32).reshape(1, vocab)\n    return -4096.0 * torch.abs(ids.reshape(tokens, 1) - ramp)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Exact one-hot selector O[t, i] = 1 if ids[t] == i else 0 via broadcast comparison against a compile-time constant ramp.",
+  "name": "vocab1_one_hot",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(x, tokens, vocab):\n    import torch\n    ids = x.reshape(tokens)\n    ramp = torch.arange(vocab, device=ids.device, dtype=ids.dtype).reshape(1, vocab)\n    return (ids.reshape(tokens, 1) == ramp).to(torch.float32)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Constant all-ones selector of shape (tokens, vocab), the exact one-hot when vocab == 1.",
+  "name": "vocab1_ones",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(x, tokens, vocab):\n    import torch\n    return torch.ones((tokens, vocab), dtype=torch.float32, device=x.device)\n",
+  "tensors": null
+ },
+ {
+  "doc": "L[t, i] = -4096 * |ids[t] - i| over the constant ramp i = 0..vocab-1.",
+  "name": "vocab1_ramp_negabs_scaled",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(x, tokens, vocab):\n    import torch\n    ids = x.reshape(tokens).to(torch.float32)\n    ramp = torch.arange(vocab, device=ids.device, dtype=torch.float32).reshape(1, vocab)\n    return -4096.0 * torch.abs(ids.reshape(tokens, 1) - ramp)\n",
+  "tensors": null
+ },
+ {
+  "doc": "Expand the single (vocab=1) table row to (tokens, dim) by a compile-time static row copy.",
+  "name": "vocab1_static_expand",
+  "origin": "agent",
+  "params": "[\"tokens\", \"dim\"]",
+  "reference": "def fn(x, tokens, dim):\n    import torch\n    row = x.reshape(-1, dim)[0]\n    return row.reshape(1, dim).expand(tokens, dim).to(torch.float32).contiguous()\n",
+  "tensors": null
+ },
+ {
+  "doc": "Exact one-hot selector O[t, i] = 1 if ids[t] == i else 0 via broadcast comparison against a compile-time constant ramp.",
+  "name": "vocab1_static_selector",
+  "origin": "agent",
+  "params": "[\"tokens\", \"vocab\"]",
+  "reference": "def fn(x, tokens, vocab):\n    import torch\n    ids = x.reshape(tokens)\n    ramp = torch.arange(vocab, device=ids.device, dtype=ids.dtype).reshape(1, vocab)\n    return (ids.reshape(tokens, 1) == ramp).to(torch.float32)\n",
   "tensors": null
  },
  {

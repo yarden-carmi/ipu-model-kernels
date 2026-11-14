@@ -2712,6 +2712,18 @@
   "proposed_by": 174
  },
  {
+  "chain": "[{\"op\": \"bitfold_selector_rows\", \"params\": {\"cols\": \"vocab\", \"rows\": \"tokens\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, *inputs):\n    import torch\n    ids = inputs[0]\n    table = module.table\n    j = torch.arange(table.shape[0], device=ids.device, dtype=torch.int64)\n    d = torch.bitwise_xor(ids.reshape(-1, 1).to(torch.int64), j.reshape(1, -1))\n    for s in (32, 16, 8, 4, 2, 1):\n        d = torch.bitwise_or(d, torch.bitwise_right_shift(d, s))\n    selector = torch.bitwise_xor(torch.bitwise_and(d, 1), 1).to(torch.float32)\n    out = selector @ table.to(torch.float32)\n    return out.to(table.dtype).reshape(*ids.shape, table.shape[1])",
+  "id": 582,
+  "kind": "equivalent",
+  "name": "bitfold_selector_gemm",
+  "op": "embedding",
+  "proposal": "{\"description\": \"For each valid integer ID and each static vocabulary index j, compute d = id XOR j. Fold all bits of d into its low bit by successively ORing with right shifts by 32, 16, 8, 4, 2, and 1. The low bit is zero exactly when d is zero. XOR it with 1 and cast to float32 to obtain an exact one-hot selector. Multiply this (tokens,vocab) selector by the float32 table using GEMM, then cast to the table dtype and reshape to ids.shape + (dim,). This uses fixed index comparisons expressed as bitwise operations, not data-dependent addressing. For finite float32 or narrower weights and a GEMM that preserves float32 inputs, the selected numerical value is exact; signed-zero bits need not be preserved. IDs must be in range.\", \"rel_err\": 0.0}",
+  "proposed_by": 298
+ },
+ {
   "chain": "[{\"op\": \"block32_mux_select\", \"params\": {\"dim\": \"dim\", \"tokens\": \"tokens\", \"vocab\": \"vocab\"}}]",
   "check_detail": "the chain could not run: step 1's reference (block32_mux_select) raised KeyError: 'fn' \u2014 check its parameter names against the step's params",
   "check_ok": 0,
@@ -3574,6 +3586,18 @@
   "op": "embedding",
   "proposal": "{\"description\": \"Build the one-hot selector as a Kronecker product of two small digit one-hots, using only fixed broadcast arithmetic. Write the id as id = 256*hi + lo with hi in [0, (vocab+255)//256) and lo in [0, 256). Form O_hi (tokens x ceil(vocab/256)) with O_hi[t, h] = 1 iff hi(t) == h, and O_lo (tokens x 256) with O_lo[t, l] = 1 iff lo(t) == l (primitive 'kron_onehot', float64). The full selector is S[t, h*256 + l] = O_hi[t, h] * O_lo[t, l], exactly one-hot because each valid id has a unique (hi, lo) decomposition. GEMM S with the vocab-by-dim table in float64 (m = tokens, k = vocab, n = dim; exact accumulation for a one-hot operand), then restore the ids shape followed by dim and cast to the table dtype. No data-dependent addressing is used; for finite table entries the result equals the selected row in real arithmetic, with the usual GEMM caveats on signed zeros and unselected nonfinite entries.\", \"rel_err\": 0.0}",
   "proposed_by": 174
+ },
+ {
+  "chain": "[{\"op\": \"ldexp_zero_distance_indicators\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "import torch\n\ndef forward(module, *inputs):\n    ids = inputs[0]\n    table = module.table\n    vocab, dim = table.shape\n    flat = ids.reshape(-1).to(torch.int64)\n    ramp = torch.arange(vocab, device=ids.device, dtype=torch.int64)\n    distance = (flat[:, None] - ramp[None, :]).abs()\n    exponent = (-256 * distance.clamp(max=1)).to(torch.int32)\n    selector = torch.ldexp(torch.ones(distance.shape, device=ids.device, dtype=torch.float32), exponent)\n    old_tf32 = torch.backends.cuda.matmul.allow_tf32\n    try:\n        torch.backends.cuda.matmul.allow_tf32 = False\n        result = torch.matmul(selector, table.to(torch.float32))\n    finally:\n        torch.backends.cuda.matmul.allow_tf32 = old_tf32\n    return result.to(table.dtype).reshape(tuple(ids.shape) + (dim,))\n",
+  "id": 605,
+  "kind": "equivalent",
+  "name": "ldexp_underflow_selector_gemm",
+  "op": "embedding",
+  "proposal": "{\"description\": \"For valid integer IDs in [0,vocab), flatten ids and broadcast-subtract the static int64 ramp j=0,...,vocab-1. Compute d=abs(ids-j), c=clamp(d,max=1), and the int32 exponent e=-256*c. Form S=ldexp(float32(1),e). The only exponents are 0 and -256: ldexp(1,0)=1 exactly and 2^-256 rounds to exactly zero in float32, including with gradual underflow (the smallest subnormal is 2^-149). Thus S is exactly the one-hot selector, with no transcendental approximation or runtime table addressing. GEMM S[tokens,vocab] with the unchanged table[vocab,dim], accumulating in float32 with TF32 disabled. Restore the table dtype and ids.shape+(dim,). This is exact numerical selection for finite float32-or-narrower table entries, subject to the usual GEMM handling of subnormals; unselected NaN or infinity entries can propagate, as in other dense one-hot contractions. It changes selector instruction mix, not table traffic or GEMM complexity. Runtime exponent scaling is implemented with ldexp, not an exp approximation.\", \"rel_err\": 0.0}",
+  "proposed_by": 308
  },
  {
   "chain": "[{\"op\": \"make_indicators\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"bmm\", \"params\": {\"b\": \"1\", \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
@@ -4872,6 +4896,18 @@
   "proposed_by": 232
  },
  {
+  "chain": "[{\"op\": \"shift_unit_indicators\", \"params\": {\"cols\": \"vocab\", \"rows\": \"tokens\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, *inputs):\n    import torch\n    ids = inputs[0]\n    table = module.table\n    rows = ids.numel()\n    cols, dim = table.shape\n    ramp = torch.arange(cols, device=ids.device, dtype=torch.int64).reshape(1, cols)\n    shifts = (ids.reshape(rows, 1).to(torch.int64) - ramp).abs().clamp(max=63)\n    selector = torch.bitwise_right_shift(torch.ones_like(shifts), shifts).to(torch.float32)\n    out = torch.mm(selector, table.to(torch.float32))\n    return out.to(table.dtype).reshape(tuple(ids.shape) + (dim,))\n",
+  "id": 591,
+  "kind": "equivalent",
+  "name": "shift_unit_selector_gemm",
+  "op": "embedding",
+  "proposal": "{\"description\": \"For valid integer IDs, flatten ids and broadcast against the static int64 ramp j=0,...,vocab-1. Compute d=abs(ids-j), s=clamp(d,max=63), and O=(int64(1) >> s), then cast O to float32. The shift count is always in [0,63], so no oversized-shift behavior is assumed. At d=0 the result is one; at every positive distance it is zero. This gives the exact one-hot matrix without equality, division, transcendental functions, or runtime memory addressing. Multiply O of shape (tokens,vocab) by the unchanged table of shape (vocab,dim) with float32 GEMM, no bias, and restore ids.shape+(dim,) and the table dtype. Use a GEMM mode preserving float32 operand precision, not TF32 truncation. As with other dense selector contractions, exact selection assumes finite float32 or narrower embedding weights; nonselected NaN/Inf entries would not be masked by multiplication. The algorithm scans fixed table locations and is an alternative integer instruction mix, not a claimed GEMM speedup.\", \"rel_err\": 0.0}",
+  "proposed_by": 297
+ },
+ {
   "chain": "[{\"op\": \"ramp_negabs_sig\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"unary\", \"params\": {\"fn\": \"sigmoid\", \"numel\": \"tokens*vocab\", \"operand\": 0}}, {\"op\": \"sigmoid_selector_scale\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
   "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
   "check_ok": 1,
@@ -5076,6 +5112,18 @@
   "proposed_by": 174
  },
  {
+  "chain": "[{\"op\": \"triangle_unit_selector\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"bmm\", \"params\": {\"b\": 1, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, *inputs):\n    import torch\n    ids = inputs[0]\n    table = module.table\n    ramp = torch.arange(table.shape[0], device=ids.device, dtype=torch.float32)\n    selector = (1.0 - (ids.reshape(-1).to(torch.float32)[:, None] - ramp[None, :]).abs()).clamp_min(0.0)\n    result = torch.bmm(selector.unsqueeze(0), table.to(torch.float32).unsqueeze(0)).squeeze(0)\n    return result.to(table.dtype).reshape(*ids.shape, table.shape[1])\n",
+  "id": 596,
+  "kind": "equivalent",
+  "name": "triangle_unit_bmm",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Flatten the 256 valid integer IDs and compare each to the constant vocabulary ramp without a comparison: S[t,j] = max(0, 1 - abs(float32(ids[t]) - float32(j))). The integer differences are exactly representable, so S is exactly one-hot for IDs in [0,vocab). View S as (1,tokens,vocab), the embedding table as (1,vocab,dim), and perform float32 bmm. Reshape to ids.shape + (dim,) and cast to the table dtype. For finite table entries the result equals the selected row numerically; as with other dense one-hot formulations, NaNs or infinities in unselected rows can propagate.\", \"rel_err\": 0.0}",
+  "proposed_by": 303
+ },
+ {
   "chain": "[{\"op\": \"triangular_selectors\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
   "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
   "check_ok": 1,
@@ -5086,6 +5134,102 @@
   "op": "embedding",
   "proposal": "{\"description\": \"For each token t and fixed vocabulary position j, broadcast-subtract j from ids[t], take absolute value, subtract from 1, and clamp below at zero. Since valid ids and j are integers, S[t,j]=max(0,1-abs(ids[t]-j)) is exactly the Kronecker indicator. This uses fixed-address elementwise arithmetic, not a lookup, scatter, or runtime-addressed write. Multiply S (tokens by vocab) by the constant embedding table (vocab by dim) with GEMM. Restore the input's leading dimensions and table dtype. For this vocabulary all integer coordinates and differences are exactly representable in float32. Each output row contains precisely the selected table row for finite table values, without approximation of the table.\", \"rel_err\": 0.0}",
   "proposed_by": 112
+ },
+ {
+  "chain": "[{\"op\": \"vocab1_negabs_scaled\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"unary\", \"params\": {\"fn\": \"exp\", \"numel\": \"tokens*vocab\", \"operand\": 0}}, {\"op\": \"bmm_nt\", \"params\": {\"b\": 1, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\", \"scale\": 1.0}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "import torch\n\n\ndef forward(module, ids):\n    table = module.table\n    tokens = ids.shape[0]\n    vocab = table.shape[0]\n    dim = table.shape[1]\n    ids_flat = ids.reshape(tokens).to(torch.float32)\n    ramp = torch.arange(vocab, device=ids.device, dtype=torch.float32).reshape(1, vocab)\n    logits = -4096.0 * torch.abs(ids_flat.reshape(tokens, 1) - ramp)\n    sel = torch.exp(logits)\n    a = sel.reshape(1, tokens, vocab)\n    b = table.to(torch.float32).reshape(1, dim, vocab)\n    out = torch.bmm(a, b.transpose(1, 2)).reshape(tokens, dim)\n    return out.to(table.dtype).reshape(ids.shape + (dim,))\n",
+  "id": 590,
+  "kind": "equivalent",
+  "name": "vocab1_exp_bmm_nt",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Embedding lookup with the selector made by one exponential pass and contracted through the transposed-operand batched matmul: only elementwise and bmm_nt hardware, no equality op, no softmax reduction, no addressing. Step 1 (primitive vocab1_negabs_scaled): flatten the ids to (tokens,) as float32 and subtract the constant ramp i = 0..vocab-1 by broadcast; L[t, i] = -4096 * |ids[t] - i| (integers below 2^24 subtract exactly, 4096 = 2^12 scales exactly, magnitude below 2^29). Step 2 (unary, fn = exp, numel = tokens*vocab): E[t, i] = exp(L[t, i]) is exactly 1.0 where i == ids[t] (exp(0) = 1) and exactly 0.0 elsewhere, because |L| >= 4096 is far past the float32 underflow point of exp (about -104); E is already the one-hot selector, no row sum or division needed. Step 3 (bmm_nt, b = 1, m = tokens, k = vocab, n = dim, scale = 1.0): A = E viewed as (1, tokens, vocab), B = table viewed as (1, dim, vocab) (a stride change of the same storage); the unit computes A @ B^T in float32, and a selector row with a single 1 and exact zeros gives bit-exactly table[ids[t]]. The scale 1.0 is the identity multiply. Squeeze the batch dimension, cast to the table dtype and reshape to ids.shape + (dim,). The table arrives as module.table (also module.weight); ids is the runtime input.\", \"rel_err\": 0.0}",
+  "proposed_by": 291
+ },
+ {
+  "chain": "[{\"op\": \"vocab1_one_hot\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"bmm\", \"params\": {\"b\": 1, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "import torch\n\n\ndef forward(module, ids):\n    table = module.table\n    tokens = ids.shape[0]\n    vocab = table.shape[0]\n    dim = table.shape[1]\n    ids_flat = ids.reshape(tokens)\n    ramp = torch.arange(vocab, device=ids.device, dtype=torch.float32).reshape(1, vocab)\n    onehot = (ids_flat.reshape(tokens, 1).to(torch.float32) == ramp).to(torch.float32)\n    a = onehot.reshape(1, tokens, vocab)\n    b = table.to(torch.float32).reshape(1, vocab, dim)\n    out = torch.bmm(a, b).reshape(tokens, dim)\n    return out.to(table.dtype).reshape(ids.shape + (dim,))\n",
+  "id": 585,
+  "kind": "equivalent",
+  "name": "vocab1_onehot_bmm",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Embedding lookup as a one-hot selector contracted by a batched matmul. Step 1 (primitive vocab1_one_hot): flatten the ids to (tokens,) and compare against the constant ramp i = 0..vocab-1 by broadcast, O[t, i] = 1.0 if ids[t] == i else 0.0, float32, shape (tokens, vocab). Step 2 (bmm, b = 1, m = tokens, k = vocab, n = dim): view O as (1, tokens, vocab) and the table (vocab, dim) as (1, vocab, dim) (a layout change only) and contract in float32; each selector row has a single 1 and exact zeros, so row t of the product is bit-exactly table[ids[t]]. Squeeze the batch dimension, cast to the table dtype and reshape to ids.shape + (dim,). The table arrives as module.table (also module.weight); ids is the runtime input.\", \"rel_err\": 0.0}",
+  "proposed_by": 291
+ },
+ {
+  "chain": "[{\"op\": \"vocab1_one_hot\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"bmm_nt\", \"params\": {\"b\": 1, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\", \"scale\": 1.0}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "import torch\n\n\ndef forward(module, ids):\n    table = module.table\n    tokens = ids.shape[0]\n    vocab = table.shape[0]\n    dim = table.shape[1]\n    ids_flat = ids.reshape(tokens)\n    ramp = torch.arange(vocab, device=ids.device, dtype=torch.float32).reshape(1, vocab)\n    onehot = (ids_flat.reshape(tokens, 1).to(torch.float32) == ramp).to(torch.float32)\n    a = onehot.reshape(1, tokens, vocab)\n    b = table.to(torch.float32).reshape(1, dim, vocab)\n    out = torch.bmm(a, b.transpose(1, 2)).reshape(tokens, dim)\n    return out.to(table.dtype).reshape(ids.shape + (dim,))\n",
+  "id": 586,
+  "kind": "equivalent",
+  "name": "vocab1_onehot_bmm_nt",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Embedding lookup as a one-hot selector contracted by a transposed-operand batched matmul (A @ B^T). Step 1 (primitive vocab1_one_hot): flatten the ids to (tokens,) and compare against the constant ramp i = 0..vocab-1 by broadcast, O[t, i] = 1.0 if ids[t] == i else 0.0, float32, shape (tokens, vocab). Step 2 (bmm_nt, b = 1, m = tokens, k = vocab, n = dim, scale = 1.0): A = O viewed as (1, tokens, vocab), B = the table (vocab, dim) viewed as (1, dim, vocab) (a stride change of the same storage, no copy), the unit computes A @ B^T in float32; each selector row has a single 1 and exact zeros, so row t of the result is bit-exactly table[ids[t]]. The scale 1.0 is the identity multiply. Squeeze the batch dimension, cast to the table dtype and reshape to ids.shape + (dim,). The table arrives as module.table (also module.weight); ids is the runtime input.\", \"rel_err\": 0.0}",
+  "proposed_by": 291
+ },
+ {
+  "chain": "[{\"op\": \"vocab1_one_hot\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "import torch\n\n\ndef forward(module, ids):\n    table = module.table\n    tokens = ids.shape[0]\n    vocab = table.shape[0]\n    dim = table.shape[1]\n    ids_flat = ids.reshape(tokens)\n    ramp = torch.arange(vocab, device=ids.device, dtype=torch.float32).reshape(1, vocab)\n    onehot = (ids_flat.reshape(tokens, 1).to(torch.float32) == ramp).to(torch.float32)\n    out = torch.matmul(onehot, table.to(torch.float32))\n    return out.to(table.dtype).reshape(ids.shape + (dim,))\n",
+  "id": 583,
+  "kind": "equivalent",
+  "name": "vocab1_onehot_gemm",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Embedding lookup replaced by an exact one-hot selector followed by a dense matmul. Step 1 (primitive vocab1_one_hot): flatten the ids to (tokens,) and compare them against the constant ramp i = 0..vocab-1 by broadcast, O[t, i] = 1.0 if ids[t] == i else 0.0, float32, shape (tokens, vocab). With vocab = 1 this is the all-ones vector, but the construction is the general exact one-hot. Step 2 (gemm, m = tokens, k = vocab, n = dim, bias = false): contract O with the table (vocab, dim) in float32; every selector row has a single 1 and exact zeros, so row t of O @ table is bit-exactly table[ids[t]]. Cast the output back to the table dtype and reshape to ids.shape + (dim,). The table arrives as module.table (also module.weight); ids is the runtime input. No comparison against a runtime-chosen address and no gather: the only comparison is against a compile-time constant ramp.\", \"rel_err\": 0.0}",
+  "proposed_by": 291
+ },
+ {
+  "chain": "[{\"op\": \"vocab1_ones\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "import torch\n\n\ndef forward(module, ids):\n    table = module.table\n    tokens = ids.shape[0]\n    vocab = table.shape[0]\n    dim = table.shape[1]\n    onehot = torch.ones((tokens, vocab), dtype=torch.float32, device=ids.device)\n    out = torch.matmul(onehot, table.to(torch.float32))\n    return out.to(table.dtype).reshape(ids.shape + (dim,))\n",
+  "id": 584,
+  "kind": "equivalent",
+  "name": "vocab1_ones_gemm",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Embedding lookup for a single-entry vocabulary needs no selector at all: the only table row is row 0, so the output is that row repeated for every token. Step 1 (primitive vocab1_ones): flatten the ids to (tokens,) and return the constant all-ones float32 matrix of shape (tokens, vocab) (every ids value is 0, the sole valid index). No equality, no comparison, no addressing, no use of the ids beyond their count. Step 2 (gemm, m = tokens, k = vocab, n = dim, bias = false): contract the all-ones selector with the table (vocab, dim) in float32; row t of the product is 1 * table[0, :] plus exact zeros, hence bit-exactly table[ids[t]]. Cast the output back to the table dtype and reshape to ids.shape + (dim,). The table arrives as module.table (also module.weight); ids is the runtime input.\", \"rel_err\": 0.0}",
+  "proposed_by": 291
+ },
+ {
+  "chain": "[{\"op\": \"vocab1_ramp_negabs_scaled\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"row_softmax\", \"params\": {\"n\": \"vocab\", \"rows\": \"tokens\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "import torch\n\n\ndef forward(module, ids):\n    table = module.table\n    tokens = ids.shape[0]\n    vocab = table.shape[0]\n    dim = table.shape[1]\n    ids_flat = ids.reshape(tokens).to(torch.float32)\n    ramp = torch.arange(vocab, device=ids.device, dtype=torch.float32).reshape(1, vocab)\n    logits = -4096.0 * torch.abs(ids_flat.reshape(tokens, 1) - ramp)\n    onehot = torch.softmax(logits, dim=1)\n    out = torch.matmul(onehot, table.to(torch.float32))\n    return out.to(table.dtype).reshape(ids.shape + (dim,))\n",
+  "id": 588,
+  "kind": "equivalent",
+  "name": "vocab1_softsel_gemm",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Exact softmax selector with the temperature folded into the elementwise pass that builds it. Step 1 (primitive vocab1_ramp_negabs_scaled): with the ids flattened to (tokens,) against the constant ramp i = 0..vocab-1 compute L[t, i] = -4096 * |ids[t] - i|, float32, shape (tokens, vocab): broadcast subtract of two integer-valued float32 vectors (exact, both below 2^24), absolute value, then multiply by 4096 = 2^12 (exact power-of-two scaling; magnitude stays below 2^29). No comparison and no addressing. Step 2 (row_softmax, rows = tokens, n = vocab): the row maximum is 0 at i = ids[t]; every other entry is <= -4096, far past the float32 underflow point of exp (about -104), so those exponentials are exactly 0.0, the peak term is exp(0) = 1.0 and the row sum is 1.0: the softmax output is bit-exactly the one-hot selector. Step 3 (gemm, m = tokens, k = vocab, n = dim, bias = false): out = O @ table in float32; a row with a single 1 and exact zeros gives bit-exactly table[ids[t]]. Cast back to the table dtype and reshape to ids.shape + (dim,). The table arrives as module.table (also module.weight); ids is the runtime input.\", \"rel_err\": 0.0}",
+  "proposed_by": 291
+ },
+ {
+  "chain": "[{\"op\": \"vocab1_static_selector\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "import torch\n\n\ndef forward(module, ids):\n    table = module.table\n    tokens = ids.shape[0]\n    vocab = table.shape[0]\n    dim = table.shape[1]\n    ids_flat = ids.reshape(tokens)\n    ramp = torch.arange(vocab, device=ids.device, dtype=torch.float32).reshape(1, vocab)\n    onehot = (ids_flat.reshape(tokens, 1).to(torch.float32) == ramp).to(torch.float32)\n    out = torch.matmul(onehot, table.to(torch.float32))\n    return out.to(table.dtype).reshape(ids.shape + (dim,))\n",
+  "id": 589,
+  "kind": "equivalent",
+  "name": "vocab1_static_expand",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Embedding lookup as an exact one-hot selector contracted with the table. Because the chip's first operand is the runtime ids, the selector is built from the ids against a compile-time constant ramp and the static table read is done by the matmul. Step 1 (primitive vocab1_static_selector): flatten the ids to (tokens,) and compare against the constant ramp i = 0..vocab-1 by broadcast, O[t, i] = 1.0 if ids[t] == i else 0.0, float32, shape (tokens, vocab); with vocab = 1 this is the constant all-ones vector. The selected table row index is fixed by the parameters (0), never chosen by a runtime address. Step 2 (gemm, m = tokens, k = vocab, n = dim, bias = false): contract O with the table (vocab, dim) in float32; a row with a single 1 and exact zeros gives bit-exactly table[ids[t]]. Cast the output back to the table dtype and reshape to ids.shape + (dim,). The table arrives as module.table (also module.weight); ids is the runtime input.\", \"rel_err\": 0.0}",
+  "proposed_by": 291
+ },
+ {
+  "chain": "[{\"op\": \"vocab1_one_hot\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"bmm\", \"params\": {\"b\": \"tokens//128\", \"k\": \"vocab\", \"m\": 128, \"n\": \"dim\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "import torch\n\n\ndef forward(module, ids):\n    table = module.table\n    tokens = ids.shape[0]\n    vocab = table.shape[0]\n    dim = table.shape[1]\n    nt = tokens // 128\n    ids_flat = ids.reshape(tokens)\n    ramp = torch.arange(vocab, device=ids.device, dtype=torch.float32).reshape(1, vocab)\n    onehot = (ids_flat.reshape(tokens, 1).to(torch.float32) == ramp).to(torch.float32)\n    a = onehot.reshape(nt, 128, vocab)\n    b = table.to(torch.float32).reshape(vocab, dim).expand(nt, vocab, dim)\n    out = torch.bmm(a, b).reshape(tokens, dim)\n    return out.to(table.dtype).reshape(ids.shape + (dim,))\n",
+  "id": 587,
+  "kind": "equivalent",
+  "name": "vocab1_tile_bmm",
+  "op": "embedding",
+  "proposal": "{\"description\": \"Embedding lookup computed as a batched matmul over token tiles: the tokens are split into tiles of 128 (b = tokens//128) so each matmul slice carries only 128 selector rows and one output tile, while the single (vocab, dim) table row is read by every tile. Step 1 (primitive vocab1_one_hot): flatten the ids to (tokens,), compare against the constant ramp i = 0..vocab-1 by broadcast, O[t, i] = 1.0 if ids[t] == i else 0.0, float32 (tokens, vocab), then re-view as (tokens//128, 128, vocab), a pure layout change. Step 2 (bmm, b = tokens//128, m = 128, k = vocab, n = dim): the second operand is the table (vocab, dim) applied to every tile (batch stride 0, the usual weight reuse), accumulation in float32; in each tile the contracted selector row has a single 1 and exact zeros, so out[h, t, :] = table[ids[h*128 + t], :] bit-exactly. Reshape the (tokens//128, 128, dim) result to (tokens, dim), cast to the table dtype and reshape to ids.shape + (dim,). Mathematically identical to the single gemm; it just tiles the m axis so the live selector and output tiles stay small. The table arrives as module.table (also module.weight); ids is the runtime input.\", \"rel_err\": 0.0}",
+  "proposed_by": 291
  },
  {
   "chain": "[{\"op\": \"xor_highbit_indicator_prim\", \"params\": {\"tokens\": \"tokens\", \"vocab\": \"vocab\"}}, {\"op\": \"gemm\", \"params\": {\"k\": \"vocab\", \"m\": \"tokens\", \"n\": \"dim\"}}]",
@@ -5412,6 +5556,18 @@
   "proposed_by": 79
  },
  {
+  "chain": "[{\"op\": \"hierarchical_range_mux_primitive\", \"params\": {\"numel\": \"numel\", \"sel\": \"sel\"}}]",
+  "check_detail": "not checked: there is no torch reference of gather here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of gather here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    import torch\n    source, index = inputs[0], inputs[-1]\n    d = 1 % source.ndim\n    if index.numel() == 0:\n        return source.new_empty(index.shape)\n    slices = tuple(slice(None) if a == d else slice(0, index.shape[a]) for a in range(source.ndim))\n    source = source[slices]\n    def tree(lo, hi):\n        if hi - lo == 1:\n            return source.narrow(d, lo, 1).expand(index.shape)\n        mid = (lo + hi) // 2\n        return torch.where(index < mid, tree(lo, mid), tree(mid, hi))\n    return tree(0, source.shape[d])\n",
+  "id": 577,
+  "kind": "equivalent",
+  "name": "hierarchical_range_mux",
+  "op": "gather",
+  "proposal": "{\"description\": \"For gather axis sel, statically crop each other source dimension to the index extent. Recursively split the source-axis interval [0,K) at its midpoint until each interval is a single fixed source lane. Broadcast every leaf lane to the index shape; at each internal node use where(index < midpoint, left, right). All slices and tree connections are shape-dependent only, and the index controls gates rather than addresses. Return the root in index shape. For valid indices this routes exactly the selected value, including NaNs, infinities and signed zeros. An empty index returns an empty tensor of the index shape and source dtype; nonempty output requires K>0.\", \"rel_err\": null}",
+  "proposed_by": 289
+ },
+ {
   "chain": "[{\"op\": \"iqr_mean_broadcast\", \"params\": {\"numel\": \"numel\"}}]",
   "check_detail": "not checked: there is no torch reference of gather here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of gather here to run the code against \u2014 the evaluation in the model decides",
   "check_ok": null,
@@ -5434,6 +5590,18 @@
   "op": "gather",
   "proposal": "{\"description\": \"Ignore the unavailable indices and flatten the nonempty source. Linearly interpolate its flattened sequence to numel output positions, aligning the first and last source elements with the first and last outputs. For source length one, replicate that element. This is a locality-based estimate, not an indexed gather.\", \"rel_err\": null}",
   "proposed_by": 159
+ },
+ {
+  "chain": "[{\"op\": \"local_median3_static_prim\", \"params\": {\"numel\": \"numel\", \"sel\": \"sel\"}}]",
+  "check_detail": "not checked: there is no torch reference of gather here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of gather here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    import torch\n    X, I = inputs[0], inputs[-1]\n    d = 1 % X.ndim\n    if I.numel() == 0: return X.new_empty(I.shape)\n    X = X[tuple(slice(None) if a == d else slice(0,I.shape[a]) for a in range(X.ndim))].movedim(d,-1)\n    J = I.movedim(d,-1)\n    K = X.shape[-1]\n    Y = torch.zeros(J.shape, dtype=torch.float32, device=X.device)\n    for j in range(K):\n        a = X[..., max(j-1,0):max(j-1,0)+1].float()\n        b = X[..., j:j+1].float()\n        c = X[..., min(j+1,K-1):min(j+1,K-1)+1].float()\n        r = torch.maximum(torch.minimum(a,b), torch.minimum(torch.maximum(a,b),c))\n        Y = torch.where(J == j, r, Y)\n    return Y.to(X.dtype).movedim(-1,d)",
+  "id": 579,
+  "kind": "approximate",
+  "name": "local_median3_select",
+  "op": "gather",
+  "proposal": "{\"description\": \"For every static lane j compute the median in float32 of lanes max(j-1,0), j, and min(j+1,K-1), with replicated boundaries. Broadcast each representative and use I==j gates to select it; crop non-selected axes to index extents. Restore axis and source dtype. This preserves a monotone local triple and suppresses isolated impulses, but is not exact on general inputs. Requires finite floating-point values and valid indices. All source slices are fixed; index values only control predicates.\", \"rel_err\": null}",
+  "proposed_by": 289
  },
  {
   "chain": "[{\"op\": \"mean_estimate\", \"params\": {\"numel\": \"numel\"}}]",
@@ -5554,6 +5722,30 @@
   "op": "gather",
   "proposal": "{\"description\": \"Ignore the unavailable indices. Flatten the nonempty source, compute its minimum and maximum in float32, average these two extrema, and broadcast the result to numel output positions. This minimax constant estimate for a bounded source can be poor in mean-square error or when outliers are present.\", \"rel_err\": null}",
   "proposed_by": 159
+ },
+ {
+  "chain": "[{\"op\": \"pair_mean_static_prim\", \"params\": {\"numel\": \"numel\", \"sel\": \"sel\"}}]",
+  "check_detail": "not checked: there is no torch reference of gather here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of gather here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    import torch\n    X, I = inputs[0], inputs[-1]\n    d = 1 % X.ndim\n    if I.numel() == 0: return X.new_empty(I.shape)\n    X = X[tuple(slice(None) if a == d else slice(0, I.shape[a]) for a in range(X.ndim))].movedim(d, -1)\n    J = I.movedim(d, -1)\n    K = X.shape[-1]\n    Y = torch.zeros(J.shape, device=X.device, dtype=torch.float32)\n    for s in range(0, K, 2):\n        r = X[..., s:min(s+2,K)].float().mean(dim=-1, keepdim=True)\n        Y = torch.where((J >= s) & (J < min(s+2,K)), r, Y)\n    return Y.to(X.dtype).movedim(-1, d)",
+  "id": 578,
+  "kind": "approximate",
+  "name": "pair_mean_select",
+  "op": "gather",
+  "proposal": "{\"description\": \"For each fixed pair of adjacent lanes on axis sel, compute its arithmetic mean in float32 (the final singleton is unchanged). For each output index, compare it to the fixed pair's half-open interval and predicate-select the corresponding broadcast mean. Crop all other axes to the index shape. Restore the source dtype. Static lane slices only; indices control predicates, not addresses. Assumes finite floating-point source values and valid indices. Pair-constant fibers are preserved up to rounding; otherwise the error is half the pair difference.\", \"rel_err\": null}",
+  "proposed_by": 289
+ },
+ {
+  "chain": "[{\"op\": \"pair_sigmoid_centroid_static_prim\", \"params\": {\"numel\": \"numel\", \"sel\": \"sel\"}}]",
+  "check_detail": "not checked: there is no torch reference of gather here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of gather here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    import torch\n    X, I = inputs[0], inputs[-1]\n    d = 1 % X.ndim\n    if I.numel() == 0: return X.new_empty(I.shape)\n    X = X[tuple(slice(None) if a == d else slice(0,I.shape[a]) for a in range(X.ndim))].movedim(d,-1)\n    J = I.movedim(d,-1)\n    K = X.shape[-1]\n    Y = torch.zeros(J.shape, dtype=torch.float32, device=X.device)\n    for s in range(0,K,2):\n        p = torch.sigmoid(X[...,s:min(s+2,K)].float()).mean(dim=-1,keepdim=True).clamp(1e-6,1-1e-6)\n        r = torch.log(p)-torch.log1p(-p)\n        Y = torch.where((J>=s)&(J<min(s+2,K)),r,Y)\n    return Y.to(X.dtype).movedim(-1,d)",
+  "id": 580,
+  "kind": "approximate",
+  "name": "pair_sigmoid_centroid",
+  "op": "gather",
+  "proposal": "{\"description\": \"Crop non-gather axes to index extents and move sel last. For each fixed adjacent pair (or final singleton), calculate p as the float32 mean of sigmoid of its lanes, clamp p to [1e-6,1-1e-6], and calculate log(p)-log1p(-p). Broadcast and select this representative using static interval predicates on the index. Restore axis and dtype. No runtime-indexed source load. Under uniform selection within a pair this minimizes expected squared error after sigmoid before clamping and rounding; it is not an exact gather and saturation is clipped. Assumes finite floating-point input and valid indices.\", \"rel_err\": null}",
+  "proposed_by": 289
  },
  {
   "chain": "[{\"op\": \"positional_nearest_resample\", \"params\": {\"numel\": \"numel\"}}]",
@@ -5856,6 +6048,30 @@
   "proposed_by": 234
  },
  {
+  "chain": "[{\"op\": \"static_repeat_block_copy_v1\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "not checked: there is no torch reference of repeat here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of repeat here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    import torch\n    x = inputs[0]\n    n = x.numel()\n    N = int(getattr(module, 'numel', 1200))\n    if n == 0 or N % n != 0:\n        raise ValueError('whole-array repeat requires a nonempty input and an integral tile count')\n    source = x.reshape(-1)\n    out = torch.empty((N,), dtype=x.dtype, device=x.device)\n    for block in range(N // n):\n        out.narrow(0, block * n, n).copy_(source)\n    return out\n",
+  "id": 592,
+  "kind": "equivalent",
+  "name": "static_block_replication",
+  "op": "repeat",
+  "proposal": "{\"description\": \"Implement flat whole-array repeat by direct block copies, not by arithmetic replication. Let n be the input tensor's number of elements and N=numel. Require n>0 and N divisible by n, as holds here for n=300, N=1200. Allocate N output elements of the input dtype. For each statically determined block b=0,...,N/n-1, copy the n input elements to output offset b*n. Thus y[b*n+i]=x.flatten()[i]. For this node there are exactly four disjoint 300-element destination blocks. All addresses depend only on tensor shapes and the numel parameter, never on tensor values. Copies preserve signed zeros, infinities, NaNs, and integer values without multiplication or accumulation. This implements torch repeat's whole-array tiling order, not repeat_interleave order.\", \"rel_err\": null}",
+  "proposed_by": 293
+ },
+ {
+  "chain": "[{\"op\": \"adaptive_int8_tile_v1\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "not checked: there is no torch reference of repeat here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of repeat here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "import torch\ndef forward(module, *inputs):\n    x = inputs[0]\n    numel = int(module.numel)\n    v = x.reshape(-1).float()\n    n = v.numel()\n    a = v.abs().amax()\n    s = torch.where(a > 0, a / 127.0, torch.ones_like(a))\n    z = (torch.clamp(torch.round(v / s), -127, 127) * s).to(x.dtype)\n    y = x.new_empty((numel,))\n    for start in range(0, numel, n):\n        length = min(n, numel - start)\n        y[start:start + length].copy_(z[:length])\n    return y\n",
+  "id": 593,
+  "kind": "approximate",
+  "name": "tile_adaptive_int8",
+  "op": "repeat",
+  "proposal": "{\"description\": \"Assume flat whole-array tile semantics and finite floating inputs. Flatten x to n elements. Compute a=max(abs(x)) in float32 and s=a/127, substituting s=1 when a=0. Compute q=clamp(round-to-nearest-even(x/s),-127,127), then z=q*s, cast to the original dtype. For each statically determined destination block b copy z to output[b*n:(b+1)*n], trimming only the last block if needed to reach numel. Here n=300 and there are four complete blocks. Indices depend exclusively on shapes. Before output casting the quantization absolute error is at most a/254, apart from floating arithmetic rounding; this is not a bound on relative error near zero. This trades value precision for a 255-level representation, without assuming sorted input. Nonfinite and nonfloating inputs are outside the intended domain.\", \"rel_err\": null}",
+  "proposed_by": 293
+ },
+ {
   "chain": "[{\"op\": \"tile_additive_broadcast_prim\", \"params\": {\"numel\": \"numel\"}}]",
   "check_detail": "not checked: there is no torch reference of repeat here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of repeat here to run the code against \u2014 the evaluation in the model decides",
   "check_ok": null,
@@ -5878,6 +6094,30 @@
   "op": "repeat",
   "proposal": "{\"description\": \"Flatten the input, round each value to bfloat16 and convert back to its original dtype, then place four whole copies in output order. Assumes the 300-element topk result and tile-repeat semantics. Rounding is lossy for floating values; no input-value-derived indices are used.\", \"rel_err\": null}",
   "proposed_by": 280
+ },
+ {
+  "chain": "[{\"op\": \"tile_bitcopy_dynamic_prim\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "not checked: there is no torch reference of repeat here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of repeat here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    x = inputs[0]\n    n = x.numel()\n    return x.reshape(-1).repeat(24000 // n)\n",
+  "id": 598,
+  "kind": "equivalent",
+  "name": "tile_bitcopy_dynamic",
+  "op": "repeat",
+  "proposal": "{\"description\": \"For a flat input of n elements with numel divisible by n, copy the entire input numel/n times in order. For each output position j, copy input element j modulo n using only position-derived addressing. Copies preserve the input bits, including integer indices. The repeat count is determined from tensor shape and the output size, never from input values.\", \"rel_err\": null}",
+  "proposed_by": 300
+ },
+ {
+  "chain": "[{\"op\": \"block5_centroid_tile_v1\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "not checked: there is no torch reference of repeat here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of repeat here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "import torch\ndef forward(module, *inputs):\n    x = inputs[0]\n    numel = int(module.numel)\n    v = x.reshape(-1)\n    n = v.numel()\n    z = torch.empty_like(v)\n    for i in range(0, n, 5):\n        end = min(i + 5, n)\n        mu = v[i:end].float().sum() / (end - i)\n        z[i:end] = mu.to(x.dtype)\n    y = x.new_empty((numel,))\n    for start in range(0, numel, n):\n        length = min(n, numel - start)\n        y[start:start + length].copy_(z[:length])\n    return y\n",
+  "id": 594,
+  "kind": "approximate",
+  "name": "tile_block5_centroids",
+  "op": "repeat",
+  "proposal": "{\"description\": \"Assume flat whole-array repeat order. Partition the flattened input into contiguous groups of five, using a smaller final group if necessary. Reduce each group in float32 to its arithmetic mean, cast it to the input dtype, and fill all positions of that group with that mean. Statically copy this approximated input into consecutive output blocks until numel entries have been written. For n=300 this uses 60 means and four 300-element output blocks. The arithmetic mean minimizes squared reconstruction error within each fixed group; error equals within-group variation, plus rounding. Sorted topk values may have small local variation, but sorted order is not guaranteed and a sharp boundary can cause substantial error. No sorting, comparisons on addresses, or input-value-derived indices are needed.\", \"rel_err\": null}",
+  "proposed_by": 293
  },
  {
   "chain": "[{\"op\": \"tile_ones_gemm\", \"params\": {\"numel\": \"numel\"}}]",
@@ -5928,6 +6168,30 @@
   "proposed_by": 286
  },
  {
+  "chain": "[{\"op\": \"floor2_tile_ids_prim\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "not checked: there is no torch reference of repeat here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of repeat here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    x = inputs[0].reshape(-1)\n    q = (x // 2) * 2\n    return q.repeat((24000 + x.numel() - 1) // x.numel())[:24000]\n",
+  "id": 599,
+  "kind": "approximate",
+  "name": "tile_floor2_ids",
+  "op": "repeat",
+  "proposal": "{\"description\": \"Flatten the input top-k IDs. Round each integer ID down to the nearest multiple of 2 using integer arithmetic, then form ceil(numel/n) whole copies and trim to numel. For this node n=300 and the output has 80 tiles. All addressing is based on tensor positions, not ID values; each ID is underestimated by at most one. Assumes flat whole-array tile ordering.\", \"rel_err\": null}",
+  "proposed_by": 300
+ },
+ {
+  "chain": "[{\"op\": \"floor4_tile_ids_prim\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "not checked: there is no torch reference of repeat here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of repeat here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    x = inputs[0].reshape(-1)\n    q = (x // 4) * 4\n    return q.repeat((24000 + x.numel() - 1) // x.numel())[:24000]\n",
+  "id": 600,
+  "kind": "approximate",
+  "name": "tile_floor4_ids",
+  "op": "repeat",
+  "proposal": "{\"description\": \"Flatten the top-k ID vector; clear its two least significant bits by rounding each integer downward to a multiple of four. Tile the quantized vector ceil(numel/n) times and trim to numel. For n=300, 80 tiles are required. This uses fixed-position copies, never input-derived addresses; each ID is underestimated by at most three. Assumes whole-array tile ordering.\", \"rel_err\": null}",
+  "proposed_by": 300
+ },
+ {
   "chain": "[{\"op\": \"bf16_round_prim\", \"params\": {\"numel\": \"numel\"}}, {\"op\": \"gemm\", \"params\": {\"bias\": false, \"k\": \"1\", \"m\": \"numel//300\", \"n\": \"300\"}}]",
   "check_detail": "not checked: there is no torch reference of repeat here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of repeat here to run the code against \u2014 the evaluation in the model decides",
   "check_ok": null,
@@ -5976,6 +6240,18 @@
   "proposed_by": 286
  },
  {
+  "chain": "[{\"op\": \"nearest4_tile_ids_prim\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "not checked: there is no torch reference of repeat here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of repeat here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "def forward(module, *inputs):\n    x = inputs[0].reshape(-1)\n    q = (((x + 2) // 4) * 4).clamp(max=1028)\n    return q.repeat((24000 + x.numel() - 1) // x.numel())[:24000]\n",
+  "id": 601,
+  "kind": "approximate",
+  "name": "tile_nearest4_ids",
+  "op": "repeat",
+  "proposal": "{\"description\": \"Flatten the top-k ID vector and round each nonnegative ID to the nearest multiple of four, ties upward, using ((x+2)//4)*4. Clamp to 1028, the maximum valid ID for the 1029-element top-k source. Tile the quantized vector ceil(numel/n) times, then trim to numel. With n=300 there are 80 tiles. For valid IDs the error is at most two and all outputs remain valid gather indices. Assumes whole-array tile ordering.\", \"rel_err\": null}",
+  "proposed_by": 300
+ },
+ {
   "chain": "[{\"op\": \"tile_pair_mean_prim\", \"params\": {\"numel\": \"numel\"}}]",
   "check_detail": "not checked: there is no torch reference of repeat here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of repeat here to run the code against \u2014 the evaluation in the model decides",
   "check_ok": null,
@@ -5986,6 +6262,18 @@
   "op": "repeat",
   "proposal": "{\"description\": \"Flatten the 300 input values and replace each adjacent pair with its arithmetic mean in the input floating dtype; put the mean in both positions, then concatenate four copies. This exploits possible local similarity in sorted topk values but can blur sharp transitions. It assumes whole-array tile semantics and uses only fixed positional pairings.\", \"rel_err\": null}",
   "proposed_by": 280
+ },
+ {
+  "chain": "[{\"op\": \"rank_affine_tile_v1\", \"params\": {\"numel\": \"numel\"}}]",
+  "check_detail": "not checked: there is no torch reference of repeat here to run the chain against \u2014 the evaluation in the model decides; not checked: there is no torch reference of repeat here to run the code against \u2014 the evaluation in the model decides",
+  "check_ok": null,
+  "code": "import torch\ndef forward(module, *inputs):\n    x = inputs[0]\n    numel = int(module.numel)\n    v = x.reshape(-1).float()\n    n = v.numel()\n    t = torch.arange(n, device=x.device, dtype=torch.float32) - (n - 1) / 2.0\n    mu = v.sum() / n\n    beta = (t * v).sum() / (t * t).sum() if n > 1 else torch.zeros_like(mu)\n    z = (mu + beta * t).to(x.dtype)\n    y = x.new_empty((numel,))\n    for start in range(0, numel, n):\n        length = min(n, numel - start)\n        y[start:start + length].copy_(z[:length])\n    return y\n",
+  "id": 595,
+  "kind": "approximate",
+  "name": "tile_rank_affine_fit",
+  "op": "repeat",
+  "proposal": "{\"description\": \"Approximate the flattened n-element input by an affine function of its static position, then tile that fitted sequence in whole-array order. Form t_i=i-(n-1)/2. In float32 compute mu=sum(x_i)/n and beta=sum(t_i*x_i)/sum(t_i*t_i); for n=1 set beta=0. Generate z_i=mu+beta*t_i and cast to the input dtype. Copy z to each consecutive n-element destination block, trimming the last if needed. Here n=300 and numel=1200 gives four copies of one fitted 300-element ramp. This is the least-squares projection onto constant and linear positional basis functions in exact arithmetic. It retains a topk rank trend when present, but loses curvature, outliers and unordered detail; no small-error guarantee is claimed. All positional coefficients and output addresses are static, with only two data-dependent reductions and scalar arithmetic.\", \"rel_err\": null}",
+  "proposed_by": 293
  },
  {
   "chain": "[{\"op\": \"tile_ones_gemm\", \"params\": {\"numel\": \"numel\"}}]",
@@ -6204,6 +6492,42 @@
   "proposed_by": 194
  },
  {
+  "chain": "[{\"op\": \"half_pixel_difference_2x_prim\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 1e-07, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, *inputs):\n    import torch\n    import torch.nn.functional as F\n    x = inputs[0]\n    if tuple(module.size) != (2*x.shape[-2], 2*x.shape[-1]):\n        return F.interpolate(x.unsqueeze(0), size=module.size, mode='bilinear', align_corners=False).squeeze(0)\n    l = torch.cat((x[..., :1], x[..., :-1]), dim=-1)\n    r = torch.cat((x[..., 1:], x[..., -1:]), dim=-1)\n    t = torch.stack((x + (l-x)*0.25, x + (r-x)*0.25), dim=-1).flatten(-2)\n    u = torch.cat((t[..., :1, :], t[..., :-1, :]), dim=-2)\n    d = torch.cat((t[..., 1:, :], t[..., -1:, :]), dim=-2)\n    return torch.stack((t + (u-t)*0.25, t + (d-t)*0.25), dim=-2).flatten(-3, -2)",
+  "id": 597,
+  "kind": "equivalent",
+  "name": "half_pixel_difference_2x",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Two separable half-pixel interpolation passes using difference form. For each input column j, form left and right phases x[j]+(x[max(j-1,0)]-x[j])/4 and x[j]+(x[min(j+1,w-1)]-x[j])/4 and interleave them. Apply the same construction to rows of the intermediate, clamping the row index at the edges. This yields [channels,2h,2w], equal in exact arithmetic to align_corners=False bilinear 2x interpolation with replicated edges.\", \"rel_err\": 1.193417396063489e-07}",
+  "proposed_by": 302
+ },
+ {
+  "chain": "[{\"op\": \"half_pixel_phase_14_kernel\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "not equivalent: the chain gives 200704 elements, upsample gives 50176 \u2014 check the last step's sizes",
+  "check_ok": 0,
+  "code": "def forward(module, *inputs):\n    import torch\n    import torch.nn.functional as F\n    x = inputs[0]\n    H, W = x.shape[-2:]\n    size = module.size\n    if isinstance(size, int):\n        size = (size, size)\n    if size is not None and tuple(size) != (2*H, 2*W):\n        return F.interpolate(x.unsqueeze(0), size=size, mode='bilinear', align_corners=False).squeeze(0)\n    i = torch.arange(H, device=x.device)\n    j = torch.arange(W, device=x.device)\n    out = x.new_empty((*x.shape[:-2], 2*H, 2*W))\n    for p in range(2):\n        r = (i + 2*p - 1).clamp(0, H-1)\n        for q in range(2):\n            s = (j + 2*q - 1).clamp(0, W-1)\n            out[..., p::2, q::2] = (9*x + 3*x[..., r, :] + 3*x[..., :, s] + x[..., r[:, None], s[None, :]]) / 16\n    return out",
+  "id": 602,
+  "kind": "equivalent",
+  "name": "half_pixel_existing_kernel",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Apply the existing half_pixel_phase_14_kernel to each CHW image. For input x[c,i,j] and p,q in {0,1}, set r=clamp(i+2p-1,0,H-1), s=clamp(j+2q-1,0,W-1), and emit y[c,2i+p,2j+q]=(9*x[c,i,j]+3*x[c,r,j]+3*x[c,i,s]+x[c,r,s])/16. This is edge-clamped, half-pixel bilinear interpolation at exactly 2x. The dimensions h,w describe the output; the reference derives the actual input size from x. For model invocations of another output size, use the general half-pixel bilinear resize to module.size.\", \"rel_err\": 0.0}",
+  "proposed_by": 309
+ },
+ {
+  "chain": "[{\"op\": \"half_pixel_phase_14_kernel\", \"params\": {\"channels\": \"channels\", \"h\": \"h//2\", \"w\": \"w//2\"}}]",
+  "check_detail": "not equivalent: the chain gives 200704 elements, upsample gives 50176 \u2014 check the last step's sizes",
+  "check_ok": 0,
+  "code": "def forward(module, *inputs):\n    import torch\n    import torch.nn.functional as F\n    x = inputs[0]\n    H, W = x.shape[-2:]\n    size = module.size\n    if isinstance(size, int):\n        size = (size, size)\n    if size is not None and tuple(size) != (2*H, 2*W):\n        return F.interpolate(x.unsqueeze(0), size=size, mode='bilinear', align_corners=False).squeeze(0)\n    i = torch.arange(H, device=x.device)\n    j = torch.arange(W, device=x.device)\n    out = x.new_empty((*x.shape[:-2], 2*H, 2*W))\n    for p in range(2):\n        r = (i + 2*p - 1).clamp(0, H-1)\n        for q in range(2):\n            s = (j + 2*q - 1).clamp(0, W-1)\n            out[..., p::2, q::2] = (9*x + 3*x[..., r, :] + 3*x[..., :, s] + x[..., r[:, None], s[None, :]]) / 16\n    return out",
+  "id": 603,
+  "kind": "equivalent",
+  "name": "half_pixel_existing_kernel_fixed",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Apply the existing half_pixel_phase_14_kernel to each CHW image. For input x[c,i,j] and p,q in {0,1}, set r=clamp(i+2p-1,0,H-1), s=clamp(j+2q-1,0,W-1), and emit y[c,2i+p,2j+q]=(9*x[c,i,j]+3*x[c,r,j]+3*x[c,i,s]+x[c,r,s])/16. This is edge-clamped, half-pixel bilinear interpolation at exactly 2x. The dimensions h,w describe the output; the reference derives the actual input size from x. For model invocations of another output size, use the general half-pixel bilinear resize to module.size.\", \"rel_err\": 0.0}",
+  "proposed_by": 309
+ },
+ {
   "chain": "[{\"op\": \"bilinear2x_interp\", \"params\": {\"h\": \"h\", \"w\": \"w\"}}]",
   "check_detail": "equivalent to the operation (largest relative difference 1e-07, within 0.001)",
   "check_ok": 1,
@@ -6214,6 +6538,30 @@
   "op": "upsample",
   "proposal": "{\"description\": \"For each channel and input coordinate (i,j), produce four interleaved output phases p,q in {0,1}. Let r=clamp(i+2p-1,0,h-1), s=clamp(j+2q-1,0,w-1). Output (2i+p,2j+q) equals (9*x[i,j]+3*x[r,j]+3*x[i,s]+x[r,s])/16. This is exact half-pixel bilinear interpolation with replicated edges. The existing bilinear2x_interp operation performs this gather and interpolation; its reference is supplied for checking. In the model honor the requested module.size; the 2x kernel applies when both dimensions double.\", \"rel_err\": 0.0}",
   "proposed_by": 269
+ },
+ {
+  "chain": "[{\"op\": \"half_pixel_output_resize_defined\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 0, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, *inputs):\n    import torch.nn.functional as F\n    x = inputs[0]\n    return F.interpolate(x.unsqueeze(0), size=module.size, mode='bilinear', align_corners=False).squeeze(0)",
+  "id": 604,
+  "kind": "equivalent",
+  "name": "half_pixel_output_size_exact",
+  "op": "upsample",
+  "proposal": "{\"description\": \"Resize each CHW image to the requested output h by w using half-pixel coordinates and edge clamping. For output index u, the source coordinate is max((u+0.5)*input_length/output_length-0.5,0); interpolate between its floor and the next index, clamping both to the last input index. Apply this separably to height and width. For the specified 14x14 to 28x28 node this is the exact 2x 9:3:3:1 bilinear stencil. The primitive is a defined resampling kernel, with output dimensions given explicitly.\", \"rel_err\": 0.0}",
+  "proposed_by": 309
+ },
+ {
+  "chain": "[{\"op\": \"half_pixel_phase_14_kernel\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
+  "check_detail": "equivalent to the operation (largest relative difference 1e-07, within 0.001)",
+  "check_ok": 1,
+  "code": "def forward(module, *inputs):\n    import torch\n    import torch.nn.functional as F\n    x = inputs[0]\n    if tuple(module.size) != (2*x.shape[-2], 2*x.shape[-1]):\n        return F.interpolate(x.unsqueeze(0), size=module.size, mode='bilinear', align_corners=False).squeeze(0)\n    left = torch.cat((x[..., :1], x[..., :-1]), dim=-1)\n    right = torch.cat((x[..., 1:], x[..., -1:]), dim=-1)\n    horizontal = torch.stack(((3*x + left)*0.25, (3*x + right)*0.25), dim=-1).flatten(-2)\n    up = torch.cat((horizontal[..., :1, :], horizontal[..., :-1, :]), dim=-2)\n    down = torch.cat((horizontal[..., 1:, :], horizontal[..., -1:, :]), dim=-2)\n    return torch.stack(((3*horizontal + up)*0.25, (3*horizontal + down)*0.25), dim=-2).flatten(-3, -2)",
+  "id": 581,
+  "kind": "equivalent",
+  "name": "half_pixel_phase_14_exact",
+  "op": "upsample",
+  "proposal": "{\"description\": \"For each channel and input pixel (i,j), clamp neighbors i-1,i+1 to [0,h-1] and j-1,j+1 to [0,w-1]. First produce horizontal phases H[2j]=(3*x[j]+x[j-1])/4 and H[2j+1]=(3*x[j]+x[j+1])/4. Then produce vertical phases Y[2i]=(3*H[i]+H[i-1])/4 and Y[2i+1]=(3*H[i]+H[i+1])/4, clamping the row neighbors. This is separable half-pixel bilinear interpolation, with replicated edges and output [channels,2h,2w].\", \"rel_err\": 1.193417396063489e-07}",
+  "proposed_by": 299
  },
  {
   "chain": "[{\"op\": \"phase_select_half_pixel\", \"params\": {\"channels\": \"channels\", \"h\": \"h\", \"w\": \"w\"}}]",
