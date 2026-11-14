@@ -1040,6 +1040,14 @@
   "tensors": null
  },
  {
+  "doc": "Bijectively map phase channels [co,a,b] to spatial coordinates [2*i+a,2*j+b], preserving arbitrary leading batch dimensions.",
+  "name": "phase_shuffle_exact",
+  "origin": "agent",
+  "params": "[\"channels\", \"h\", \"w\", \"kh\", \"kw\"]",
+  "reference": "def fn(x, **params):\n    c, h, w, kh, kw = (params[k] for k in ('channels', 'h', 'w', 'kh', 'kw'))\n    lead = x.shape[:-3]\n    z = x.reshape(*lead, c, kh, kw, h, w)\n    n = len(lead)\n    z = z.permute(*range(n), n, n+3, n+1, n+4, n+2)\n    return z.reshape(*lead, c, h*kh, w*kw)",
+  "tensors": null
+ },
+ {
   "doc": "Replicate-pad spatially, evaluate four bilinear polyphase stencils, and interleave them.",
   "name": "phase_stencil_replicate_op",
   "origin": "agent",
