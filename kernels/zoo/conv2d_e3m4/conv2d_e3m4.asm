@@ -28,7 +28,7 @@
 {%- for ky in range(kh) -%}{%- for kx in range(kw) -%}{%- for ib in range(nbi) -%}
 {%- set _ = offs.append(ky * wpr + kx * nbi + ib) -%}
 {%- endfor -%}{%- endfor -%}{%- endfor -%}
-{% if cin == 3 and padding == 0 and not bias %}
+{% if cin == 3 and padding == 0 %}
 {% set blocks = (kh * kw * cin + 127) // 128 %}
 {% set ho = (h-kh)//stride+1 %}
 {% set wo = (w-kw)//stride+1 %}
@@ -86,6 +86,11 @@ dot_y:
     LD.MULT R0 LR5 {{ cr.pad }} ;;
     MULT.RC.VV LR0 R0 0 LR0 CR15.L {{ cr.qf }}.L ; AGG.SUM LR3 CR15.L ; INC LR5 1 ; INC LR8 1 ;;
 {% endfor %}
+{% if bias %}
+    LD.MULT.CYCLIC LR8 {{ cr.weights }} LR0 ;;
+    NOP ;;
+    MULT.RC.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf }}.L ; AGG.SUM LR3 {{ cr.ds1 }}.L ;;
+{% endif %}
     {{ inc('LR5', (wo-1)*blocks) }}
     INC LR3 1 ;;
     BLT.S LR3 {{ cr.ho }} dot_y ;;
@@ -94,7 +99,7 @@ dot_y:
     {{ inc('LR7', blocks) }}
     INC LR11 1 ;;
     BLT.S LR11 {{ cr.wo }} dot_x ;;
-    {{ inc('LR9', blocks) }}
+    {{ inc('LR9', blocks + (1 if bias else 0)) }}
     INC LR10 1 ;;
     BLT.S LR10 {{ cr.cout }} dot_co ;;
     HALT ;;

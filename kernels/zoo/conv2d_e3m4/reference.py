@@ -21,9 +21,11 @@ def reference(**kw):
                 lanes = min(128, cin - ib * 128)
                 weight[:, ib * 128:ib * 128 + lanes, ky, kx] = wf[:, s, :lanes]
     bias = wf[:, taps, 0].clone() if kw.get('bias') else None  # bias row: lane 0 of row taps
-    if cin == 3 and padding == 0 and not kw.get('bias'):
+    if cin == 3 and padding == 0:
         blocks = (kh * kwd * cin + 127) // 128
-        weight = kw['weights'].reshape(-1)[:cout * blocks * 128].reshape(cout, blocks * 128)[:, :kh * kwd * cin].reshape(cout, kh, kwd, cin).permute(0, 3, 1, 2)
+        packed = kw['weights'].reshape(-1)[:cout * (blocks + int(bool(kw.get('bias')))) * 128].reshape(cout, -1)
+        weight = packed[:, :kh * kwd * cin].reshape(cout, kh, kwd, cin).permute(0, 3, 1, 2)
+        bias = packed[:, blocks * 128] if kw.get('bias') else None
     y = F.conv2d(x, weight, bias, stride=stride, padding=padding)[0]  # (cout, ho, wo)
     ho, wo = y.shape[1], y.shape[2]
     out = torch.zeros(cout, wo, 128, dtype=torch.float64)
