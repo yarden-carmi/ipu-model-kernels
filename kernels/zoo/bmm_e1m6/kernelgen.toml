@@ -1,0 +1,4 @@
+chain = ["bmm"]
+chain_in = ["in0", "in1"]
+chain_out = ["out0"]
+notes = "Both runtime operands carry k along lanes: in0 [b,1,m,k_padded], in1 [b,1,n,k_padded]. Reduce each dot into one output n-lane, then store each complete output tile in e1. Supports k <= 128, m <= 256, b <= 12, n=128 or 256."
