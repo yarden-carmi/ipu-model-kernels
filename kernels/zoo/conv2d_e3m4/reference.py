@@ -23,6 +23,6 @@ def reference(**kw):
     bias = wf[:, taps, 0].clone() if kw.get('bias') else None  # bias row: lane 0 of row taps
     y = F.conv2d(x, weight, bias, stride=stride, padding=padding)[0]  # (cout, ho, wo)
     ho, wo = y.shape[1], y.shape[2]
-    out = torch.zeros(cout, ho, 128, dtype=torch.float64)
-    out[:, :, :wo] = y
-    return {'out0': out.reshape(cout * ho, 128)}
+    out = torch.zeros(cout, wo, 128, dtype=torch.float64)
+    out[:, :, :ho] = y.transpose(1, 2)
+    return {'out0': out.reshape(cout * wo, 128)}

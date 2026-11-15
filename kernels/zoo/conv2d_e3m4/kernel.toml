@@ -15,7 +15,7 @@ default = 8
 [params.cout]
 type = "int"
 min = 1
-max = 512
+max = 768
 default = 4
 
 [params.groups]
@@ -39,13 +39,13 @@ default = 6
 [params.kh]
 type = "int"
 min = 1
-max = 3
+max = 32
 default = 3
 
 [params.kw]
 type = "int"
 min = 1
-max = 3
+max = 32
 default = 3
 
 [params.padding]
@@ -57,7 +57,7 @@ default = 1
 [params.stride]
 type = "int"
 min = 1
-max = 2
+max = 32
 default = 1
 
 [derived]
@@ -70,10 +70,11 @@ ho = "(h + 2 * padding - kh) // stride + 1"
 wo = "(w + 2 * padding - kw) // stride + 1"
 wrows = "cout * Sall"
 pad_rows = "(h + 2 * padding) * wp * nbi"
-out_rows = "cout * ho"
-dsout0 = "ds(wo)"
+out_rows = "cout * wo"
+dsout0 = "ds(ho)"
 ds_tail = "ds(cin - (nbi - 1) * 128)"
 ds1 = "ds(1)"
+ystep = "stride * wpr"
 
 [inputs.in0]
 shape = ["h * w * nbi", 128]
@@ -101,7 +102,9 @@ cout = "CR10"
 h = "CR11"
 w = "CR12"
 ds_tail = "CR13"
+kh = "LR14"
 ds1 = "CR14"
+ystep = "LR15"
 
 [golden]
 tolerance = { e3 = "NX8_STEP" }
@@ -122,17 +125,6 @@ cin = 3
 cout = 4
 h = 9
 w = 9
-kh = 3
-kw = 3
-stride = 2
-padding = 1
-bias = false
-
-[cases.cin128_s2]
-cin = 128
-cout = 3
-h = 6
-w = 6
 kh = 3
 kw = 3
 stride = 2
@@ -160,3 +152,14 @@ kw = 3
 stride = 2
 padding = 1
 bias = true
+
+[cases.patch32]
+cin = 3
+cout = 2
+h = 96
+w = 64
+kh = 32
+kw = 32
+stride = 32
+padding = 0
+bias = false
