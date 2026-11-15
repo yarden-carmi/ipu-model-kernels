@@ -1,0 +1,142 @@
+[kernel]
+op = "fixed_eq_selector_30522__gemm__row_norm_layernorm"
+formats = ["e2"]
+[params.s0_tokens]
+type = "int"
+min = 1
+max = 256
+default = 2
+[params.s0_vocab]
+type = "int"
+min = 1
+max = 30522
+default = 9
+[params.s1_m]
+type = "int"
+min = 1
+max = 256
+default = 2
+[params.s1_k]
+type = "int"
+min = 1
+max = 30522
+default = 9
+[params.s1_n]
+type = "int"
+min = 128
+max = 1024
+multiple_of = 128
+default = 128
+[params.s1_bias]
+type = "bool"
+default = false
+[params.s2_rows]
+type = "int"
+min = 1
+max = 256
+default = 2
+[params.s2_channels]
+type = "int"
+min = 128
+max = 1024
+multiple_of = 128
+default = 128
+[params.s2_kind]
+type = "str"
+choices = ["layernorm"]
+default = "layernorm"
+[params.s2_eps]
+type = "float"
+min = 0.0
+max = 1.0
+default = 1e-12
+[params.compare_scale]
+type = "float"
+default = 1048576.0
+[params.compare_mid]
+type = "float"
+default = 33554432.0
+[params.compare_high]
+type = "float"
+default = 1073741824.0
+[params.half]
+type = "float"
+default = 0.5
+[derived]
+qf = "case_qf"
+tb = "ceil(s0_tokens / 128)"
+nb = "s1_n // 128"
+memrows = "34 + tb * s0_vocab + 3 * s1_m * nb + 40"
+crowaddr = "base(crow)"
+epsaddr = "base(epsilon)"
+[inputs.in0]
+shape = [1, "tb * 128"]
+range = [0, 30522]
+[inputs.weights]
+shape = ["s1_k", "s1_n"]
+range = [-1, 1]
+[inputs.add0]
+shape = [1, "s1_m", "s1_n"]
+range = [-1, 1]
+[inputs.add1]
+shape = [1, "s1_m", "s1_n"]
+range = [-1, 1]
+[inputs.gamma]
+shape = ["s2_channels"]
+range = [-2, 2]
+[inputs.beta]
+shape = ["s2_channels"]
+range = [-2, 2]
+[scratch.mem]
+shape = ["memrows", 128]
+fill = 1
+[scratch.crow]
+shape = [128]
+fill = "1 / s2_channels"
+[scratch.epsilon]
+shape = [128]
+fill = "s2_eps"
+[outputs.out0]
+shape = [1, "s2_rows", "s2_channels"]
+[abi]
+in0 = "CR2"
+weights = "CR3"
+add0 = "CR4"
+add1 = "CR5"
+gamma = "CR6"
+beta = "CR7"
+out0 = "CR8"
+mem = "CR9"
+qf = "CR10"
+compare_scale = "CR11"
+compare_mid = "CR12"
+compare_high = "CR13"
+half = "CR14"
+crowaddr = "LR15"
+epsaddr = "LR14"
+[golden]
+tolerance = { e2 = "NX8_STEP" }
+[cases.default]
+[cases.selected]
+s0_vocab = 73
+s1_k = 73
+[cases.full_vocab]
+s0_vocab = 30522
+s1_k = 30522
+s0_tokens = 3
+s1_m = 3
+s2_rows = 3
+[cases.full_wide]
+s0_vocab = 30522
+s1_k = 30522
+s0_tokens = 3
+s1_m = 3
+s2_rows = 3
+s1_n = 1024
+s2_channels = 1024
+[cases.two_token_blocks]
+s0_vocab = 30522
+s1_k = 30522
+s0_tokens = 129
+s1_m = 129
+s2_rows = 129
