@@ -1,0 +1,108 @@
+[kernel]
+op = "conv2d_gelu"
+formats = ["e1"]
+[params.bias]
+type = "bool"
+default = true
+[params.cin]
+type = "int"
+min = 128
+max = 1280
+multiple_of = 128
+default = 128
+[params.cout]
+type = "int"
+min = 128
+max = 1280
+multiple_of = 128
+default = 128
+[params.groups]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.h]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.w]
+type = "int"
+min = 1
+max = 3000
+default = 5
+[params.kh]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.kw]
+type = "int"
+min = 3
+max = 3
+default = 3
+[params.padding]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.stride]
+type = "int"
+min = 1
+max = 2
+default = 1
+[derived]
+qf = "case_qf"
+nbi = "cin // 128"
+nbo = "cout // 128"
+wp = "w + 2 * padding"
+wpr = "wp * nbi"
+ho = "(h + 2 * padding - kh) // stride + 1"
+wo = "(w + 2 * padding - kw) // stride + 1"
+start = "padding * wpr + padding * nbi"
+dsfull = "ds(128)"
+[inputs.in0]
+shape = ["h", "w", "cin"]
+range = [-2, 2]
+[inputs.weights]
+shape = ["kh * kw * cin", "cout"]
+range = [-1, 1]
+[inputs.bias_vec]
+shape = ["cout"]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[scratch.pad]
+shape = ["h + 2 * padding", "wp", "cin"]
+[outputs.out0]
+shape = ["ho", "wo", "cout"]
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+weights = "CR4"
+bias_vec = "CR5"
+lut = "CR6"
+qf = "CR7"
+pad = "CR8"
+w = "CR9"
+ho = "CR10"
+wo = "CR11"
+nbo = "CR12"
+wpr = "CR13"
+start = "CR14"
+dsfull = "CR15"
+[golden]
+tolerance = { e1 = "NX8_STEP" }
+[cases.default]
+w = 5
+[cases.stride2]
+cin = 256
+cout = 256
+w = 7
+stride = 2
+[cases.full_channels]
+cin = 1280
+cout = 1280
+w = 1
+stride = 2
