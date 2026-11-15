@@ -28,6 +28,77 @@
 {%- for ky in range(kh) -%}{%- for kx in range(kw) -%}{%- for ib in range(nbi) -%}
 {%- set _ = offs.append(ky * wpr + kx * nbi + ib) -%}
 {%- endfor -%}{%- endfor -%}{%- endfor -%}
+{% if cin == 3 and padding == 0 and not bias %}
+{% set blocks = (kh * kw * cin + 127) // 128 %}
+{% set ho = (h-kh)//stride+1 %}
+{% set wo = (w-kw)//stride+1 %}
+    SET LR0 CR0 ;;
+    SET LR1 CR0 ;;
+    SET LR7 CR0 ;;
+    SET LR10 CR0 ;;
+    SET LR15 CR0 ;;
+    INC LR15 128 ; SET LR6 CR0 ;;
+    INC LR6 3 ; SET LR8 CR0 ;;
+    INC LR8 {{ kw }} ;;
+pack_y:
+    ADD LR4 LR7 CR0 ; SET LR11 CR0 ;;
+pack_x:
+    ADD LR5 LR4 CR0 ; SET LR13 CR0 ; SET LR3 CR0 ;;
+    MULT.VE LR0 CR0 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD.FIRST ;;
+pack_tap:
+    SET LR9 CR0 ;;
+pack_kx:
+    LD.MULT R0 LR5 {{ cr.in0 }} ; SET LR2 CR0 ;;
+pack_chan:
+    MULT.EE LR2 CR1 0 LR0 CR15.L {{ cr.qf }}.L ; AGG.SUM LR3 {{ cr.ds1 }}.L ;;
+    INC LR2 1 ; INC LR3 1 ;;
+    BLT.S LR3 LR15 pack_no_store ;;
+    ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf }}.L {{ cr.pad }} LR1 ;;
+    INC LR1 1 ;;
+    SET LR3 CR0 ; MULT.VE LR0 CR0 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD.FIRST ;;
+pack_no_store:
+    BLT.S LR2 LR6 pack_chan ;;
+    INC LR5 1 ; INC LR9 1 ;;
+    BLT.S LR9 LR8 pack_kx ;;
+    {{ inc('LR5', w-kw) }}
+    INC LR13 1 ;;
+    BLT.S LR13 LR14 pack_tap ;;
+    {% if (kh*kw*cin)%128 %}
+    ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf }}.L {{ cr.pad }} LR1 ;;
+    INC LR1 1 ;;
+    {% endif %}
+    {{ inc('LR4', stride) }}
+    INC LR11 1 ;;
+    BLT.S LR11 {{ cr.wo }} pack_x ;;
+    {{ inc('LR7', stride*w) }}
+    INC LR10 1 ;;
+    BLT.S LR10 {{ cr.ho }} pack_y ;;
+    SET LR9 CR0 ; SET LR10 CR0 ;;
+dot_co:
+    SET LR7 CR0 ; SET LR11 CR0 ;;
+dot_x:
+    SET LR3 CR0 ; ADD LR5 LR7 CR0 ;;
+    MULT.VE LR0 CR0 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD.FIRST ;;
+dot_y:
+    ADD LR8 LR9 CR0 ;;
+{% for b in range(blocks) %}
+    LD.MULT.CYCLIC LR8 {{ cr.weights }} LR0 ;;
+    LD.MULT R0 LR5 {{ cr.pad }} ;;
+    MULT.RC.VV LR0 R0 0 LR0 CR15.L {{ cr.qf }}.L ; AGG.SUM LR3 CR15.L ; INC LR5 1 ; INC LR8 1 ;;
+{% endfor %}
+    {{ inc('LR5', (wo-1)*blocks) }}
+    INC LR3 1 ;;
+    BLT.S LR3 {{ cr.ho }} dot_y ;;
+    ACTIVATE.QUANTIZE identity {{ cr.dsout0 }}.L {{ cr.qf }}.L {{ cr.out0 }} LR12 ;;
+    INC LR12 1 ;;
+    {{ inc('LR7', blocks) }}
+    INC LR11 1 ;;
+    BLT.S LR11 {{ cr.wo }} dot_x ;;
+    {{ inc('LR9', blocks) }}
+    INC LR10 1 ;;
+    BLT.S LR10 {{ cr.cout }} dot_co ;;
+    HALT ;;
+{% else %}
     SET LR0 CR0 ;;
     SET LR2 CR0 ;;
     SET LR4 CR0 ;;
@@ -124,4 +195,5 @@ ky_top:
     INC LR10 1 ;;
     BLT.S LR10 {{ cr.cout }} co_top ;;
     HALT ;;
+{% endif %}
 {% endif %}

@@ -9,6 +9,13 @@ def fold(module, **params):
     nbi = (cin + 127) // 128
     taps = kh * kw * nbi
     rows = torch.zeros(cout, taps + 1, 128, dtype=torch.float64)
+    if cin == 3 and params.get('padding', 0) == 0 and not params.get('bias'):
+        packed = w.permute(0, 2, 3, 1).reshape(cout, -1)
+        blocks = (kh * kw * cin + 127) // 128
+        out = torch.zeros(cout, blocks * 128, dtype=torch.float64)
+        out[:, :packed.shape[1]] = packed
+        rows.reshape(-1)[:out.numel()] = out.reshape(-1)
+        return {'weights': rows.reshape(-1, 128)}
     for co in range(cout):
         for ky in range(kh):
             for kx in range(kw):

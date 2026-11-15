@@ -15,7 +15,7 @@ default = 8
 [params.cout]
 type = "int"
 min = 1
-max = 768
+max = 1024
 default = 4
 
 [params.groups]
@@ -84,7 +84,7 @@ range = [-2.0, 2.0]
 shape = ["wrows", 128]
 
 [scratch.pad]
-shape = ["pad_rows", 128]
+shape = ["max(pad_rows, ho * wo * ceil(kh * kw * cin / 128))", 128]
 
 [outputs.out0]
 shape = ["out_rows", 128]
@@ -153,13 +153,13 @@ stride = 2
 padding = 1
 bias = true
 
-[cases.patch32]
+[cases.patch14]
 cin = 3
-cout = 2
-h = 96
-w = 64
-kh = 32
-kw = 32
-stride = 32
+cout = 4
+h = 28
+w = 28
+kh = 14
+kw = 14
+stride = 14
 padding = 0
 bias = false
