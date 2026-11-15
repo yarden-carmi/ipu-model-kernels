@@ -1,0 +1,54 @@
+[kernel]
+op = "mean_embedding"
+formats = ["e2"]
+
+[params.dim]
+type = "int"
+min = 128
+max = 4096
+multiple_of = 128
+default = 1536
+
+[params.tokens]
+type = "int"
+min = 1
+max = 65536
+default = 256
+
+[params.vocab]
+type = "int"
+min = 1
+max = 200000
+default = 151936
+
+[derived]
+qf = "case_qf"
+blocks = "dim // 128"
+rows = "tokens * blocks"
+
+[inputs.in0]
+shape = [1, "ceil(tokens / 128) * 128"]
+range = [0.0, 1.0]
+
+[inputs.mean]
+shape = ["blocks", 128]
+range = [0.0, 0.0]
+
+[outputs.out0]
+shape = ["rows", 128]
+
+[abi]
+in0 = "CR2"
+mean = "CR3"
+out0 = "CR4"
+qf = "CR5"
+rows = "CR6"
+blocks = "CR7"
+
+[golden]
+tolerance = { e2 = "NX8_STEP" }
+
+[cases.default]
+dim = 256
+tokens = 4
+vocab = 32
