@@ -1,3 +1,5 @@
+{# Contiguous dimension-2 lane layout: add matching physical rows in FP32,
+   then round once to e2. The final store zeros inactive tail lanes. #}
     SET LR0 CR0 ;;
     SET LR1 CR0 ;;
     SET LR2 CR0 ;;
