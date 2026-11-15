@@ -1,0 +1,122 @@
+[kernel]
+op = "ramp_selector_embedding_position_exp_layernorm"
+formats = ["e2"]
+[params]
+s0_tokens = {type="int", min=128, max=256, multiple_of=128, default=128}
+s0_vocab = {type="int", min=1, max=250002, default=9}
+s1_bias = {type="bool", default=false}
+s1_k = {type="int", min=1, max=250002, default=9}
+s1_m = {type="int", min=128, max=256, multiple_of=128, default=128}
+s1_n = {type="int", min=128, max=1024, multiple_of=128, default=128}
+s2_broadcast = {type="str", choices=["scalar"], default="scalar"}
+s2_inner = {type="int", min=0, max=0, default=0}
+s2_numel = {type="int", min=128, max=256, multiple_of=128, default=128}
+s2_op = {type="str", choices=["add"], default="add"}
+s3_numel = {type="int", min=128, max=256, multiple_of=128, default=128}
+s4_tokens = {type="int", min=128, max=256, multiple_of=128, default=128}
+s4_vocab = {type="int", min=9, max=514, default=514}
+s5_bias = {type="bool", default=false}
+s5_k = {type="int", min=9, max=514, default=514}
+s5_m = {type="int", min=128, max=256, multiple_of=128, default=128}
+s5_n = {type="int", min=128, max=1024, multiple_of=128, default=128}
+s6_numel = {type="int", min=128, max=256, multiple_of=128, default=128}
+s6_sel = {type="int", min=1, max=1, default=1}
+s7_tokens = {type="int", min=128, max=256, multiple_of=128, default=128}
+s8_fn = {type="str", choices=["exp"], default="exp"}
+s8_numel = {type="int", min=128, max=256, multiple_of=128, default=128}
+s9_bias = {type="bool", default=false}
+s9_k = {type="int", min=1, max=1, default=1}
+s9_m = {type="int", min=128, max=256, multiple_of=128, default=128}
+s9_n = {type="int", min=128, max=1024, multiple_of=128, default=128}
+s10_broadcast = {type="str", choices=["none"], default="none"}
+s10_inner = {type="int", min=0, max=0, default=0}
+s10_numel = {type="int", min=128, max=262144, multiple_of=128, default=16384}
+s10_op = {type="str", choices=["add"], default="add"}
+s11_broadcast = {type="str", choices=["none"], default="none"}
+s11_inner = {type="int", min=0, max=0, default=0}
+s11_numel = {type="int", min=128, max=262144, multiple_of=128, default=16384}
+s11_op = {type="str", choices=["add"], default="add"}
+s12_channels = {type="int", min=128, max=1024, multiple_of=128, default=128}
+s12_eps = {type="float", default=0.00001}
+s12_kind = {type="str", choices=["layernorm"], default="layernorm"}
+s12_rows = {type="int", min=128, max=256, multiple_of=128, default=128}
+sharp = {type="float", default=65536.0}
+half = {type="float", default=0.5}
+[derived]
+qf = "case_qf + ds(128) * 65536"
+K = "s12_channels // 128"
+M = "s12_rows * K"
+[inputs.in0]
+shape = [1,"s0_tokens"]
+range = [0,7]
+[inputs.in1]
+shape = [1,"s4_tokens"]
+range = [-2,7]
+[inputs.w0]
+shape = ["s1_k","s1_n"]
+range = [-2,2]
+[inputs.w1]
+shape = ["s5_k","s5_n"]
+range = [-2,2]
+[inputs.w2]
+shape = [1,"s9_n"]
+range = [0.5,2]
+[inputs.lut]
+shape = [5,128]
+range = [0,0]
+[inputs.g]
+shape = [2,"s12_channels"]
+range = [-2,2]
+[scratch.space]
+shape = ["64 + 17 * s0_tokens // 128 + 3 * M",128]
+fill = 1
+[scratch.c]
+shape = [128]
+fill = "1 / s12_channels"
+[scratch.epsilon]
+shape = [128]
+fill = "s12_eps"
+[outputs.out0]
+shape = [1,"s12_rows","s12_channels"]
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+w0 = "CR4"
+w1 = "CR5"
+w2 = "CR6"
+lut = "CR7"
+g = "CR8"
+out0 = "CR9"
+space = "CR10"
+c = "CR11"
+epsilon = "CR12"
+sharp = "CR13"
+qf = "CR14"
+half = "CR15"
+[golden]
+tolerance = {e2="NX8_STEP"}
+[cases.default]
+[cases.wide]
+s1_n = 1024
+s5_n = 1024
+s9_n = 1024
+s12_channels = 1024
+s10_numel = 131072
+s11_numel = 131072
+[cases.two_blocks]
+s0_tokens = 256
+s1_m = 256
+s2_numel = 256
+s3_numel = 256
+s4_tokens = 256
+s5_m = 256
+s6_numel = 256
+s7_tokens = 256
+s8_numel = 256
+s9_m = 256
+s12_rows = 256
+s10_numel = 32768
+s11_numel = 32768
+[cases.short_vocab]
+s0_vocab = 3
+s1_k = 3
