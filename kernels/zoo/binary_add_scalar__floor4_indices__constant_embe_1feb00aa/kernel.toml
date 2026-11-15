@@ -1,0 +1,115 @@
+[kernel]
+op = "constant_embedding_scan_indicator_gemm"
+formats = ["e2"]
+[params.s0_broadcast]
+type = "str"
+choices = ["scalar"]
+default = "scalar"
+[params.s0_inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.s0_numel]
+type = "int"
+min = 1
+max = 256
+default = 256
+[params.s0_op]
+type = "str"
+choices = ["add"]
+default = "add"
+[params.s1_numel]
+type = "int"
+min = 1
+max = 256
+default = 256
+[params.s2_dim]
+type = "int"
+min = 128
+max = 1024
+multiple_of = 128
+default = 1024
+[params.s2_tokens]
+type = "int"
+min = 1
+max = 256
+default = 256
+[params.s3_numel]
+type = "int"
+min = 1
+max = 256
+default = 256
+[params.s3_sel]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s4_tokens]
+type = "int"
+min = 1
+max = 256
+default = 256
+[params.s4_vocab]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s5_bias]
+type = "bool"
+default = false
+[params.s5_k]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s5_m]
+type = "int"
+min = 1
+max = 256
+default = 256
+[params.s5_n]
+type = "int"
+min = 128
+max = 1024
+multiple_of = 128
+default = 1024
+[derived]
+qf = "case_qf"
+rows0 = "s2_tokens * s2_dim // 128"
+rows1 = "s5_m * s5_n // 128"
+blocks = "s5_n // 128"
+[inputs.in0]
+shape = ["s0_numel", "s2_dim"]
+range = [0, 7]
+[inputs.w]
+shape = ["s5_k", "s5_n"]
+range = [-2, 2]
+[scratch.prior]
+shape = [1, 128]
+fill = 0.01
+[outputs.out0]
+shape = [1, "s2_tokens", "s2_dim"]
+[outputs.out1]
+shape = [1, "s5_m", "s5_n"]
+[abi]
+in0 = "CR2"
+w = "CR3"
+prior = "CR4"
+out0 = "CR5"
+out1 = "CR6"
+qf = "CR7"
+rows0 = "CR8"
+rows1 = "CR9"
+blocks = "CR10"
+[golden]
+tolerance = { e2 = "EXACT" }
+[cases.default]
+s0_numel = 4
+s1_numel = 4
+s2_tokens = 4
+s2_dim = 128
+s3_numel = 4
+s4_tokens = 4
+s5_m = 4
+s5_n = 128
