@@ -1,0 +1,4 @@
+chain = ["fixed_id_decode", "gemm"]
+chain_in = ["in0"]
+chain_out = ["out0"]
+notes = "Fixed-address integer equality scan (tokens truncated to int64 against the vocabulary ramp) built as relu6/max threshold selector rows in scratch, then GEMM against vocabulary-major [k, n] weights with per-lane scalars; the two home-folded add constants and the optional bias row are accumulated in FP32 before the identity store. Input range [0,7] keeps the selector to its first eight vocabulary columns; tokens=m, vocab=k and n divisible by 128."
