@@ -2,6 +2,13 @@
 op = "one_hot_gemm"
 formats = ["e2"]
 
+[params.s0_tokens]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 256
+
 [params.s0_vocab]
 type = "int"
 min = 1
@@ -84,14 +91,21 @@ six = "CR10"
 tolerance = { e2 = "NX8_STEP" }
 
 [cases.default]
+s0_tokens = 128
+s0_vocab = 9
+s1_k = 9
+s1_m = 128
+s1_n = 128
 
 [cases.small]
+s0_tokens = 128
 s0_vocab = 9
 s1_k = 9
 s1_m = 128
 s1_n = 128
 
 [cases.two_channels]
+s0_tokens = 128
 s0_vocab = 8
 s1_k = 8
 s1_m = 128
