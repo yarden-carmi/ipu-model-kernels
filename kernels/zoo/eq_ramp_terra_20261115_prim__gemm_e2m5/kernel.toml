@@ -1,0 +1,109 @@
+[kernel]
+op = "eq_ramp_terra_gemm"
+formats = ["e2"]
+
+[params.s0_tokens]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 256
+
+[params.s0_vocab]
+type = "int"
+min = 1
+max = 250002
+default = 250002
+
+[params.s1_bias]
+type = "bool"
+default = false
+
+[params.s1_k]
+type = "int"
+min = 1
+max = 250002
+default = 250002
+
+[params.s1_m]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 256
+
+[params.s1_n]
+type = "int"
+min = 128
+max = 768
+multiple_of = 128
+default = 768
+
+[params.sharp]
+type = "float"
+default = 1024.0
+
+[derived]
+qf = "case_qf"
+tokenblocks = "ceil(s0_tokens / 128)"
+nb = "s1_n // 128"
+nk = "448"
+ 
+v6 = "nb * s1_k"
+
+[inputs.in0]
+shape = [1, "tokenblocks * 128"]
+range = [0.0, 7.0]
+
+[inputs.weights]
+shape = ["s1_k", "s1_n"]
+range = [-1.0, 1.0]
+
+[inputs.ones]
+shape = [1, 128]
+range = [1.0, 1.0]
+
+[outputs.out0]
+shape = [1, "s1_m", "s1_n"]
+
+[scratch.sel]
+shape = ["tokenblocks * nk", 128]
+
+[scratch.ktab]
+shape = ["nk + 1", 128]
+
+[scratch.work]
+shape = [4, 128]
+fill = 1024.0
+
+[abi]
+sharp = "CR10"
+in0 = "CR2"
+weights = "CR3"
+out0 = "CR4"
+sel = "CR5"
+work = "CR6"
+ones = "CR7"
+ktab = "CR8"
+qf = "CR9"
+nk = "CR11"
+nb = "CR12"
+tokenblocks = "CR13"
+s1_m = "CR14"
+
+[golden]
+tolerance = { e2 = "NX8_STEP" }
+
+[cases.default]
+s0_tokens = 128
+s1_m = 128
+s0_vocab = 37
+s1_k = 37
+s1_n = 128
+
+[cases.wide]
+s0_tokens = 256
+s1_m = 256
+s0_vocab = 1057
+s1_k = 1057
+s1_n = 256

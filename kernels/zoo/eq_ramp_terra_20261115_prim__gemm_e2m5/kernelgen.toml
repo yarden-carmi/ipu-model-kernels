@@ -1,0 +1,4 @@
+chain = ["eq_ramp_terra_20261115_prim", "gemm"]
+chain_in = ["in0"]
+chain_out = ["out0"]
+notes = "One-hot selector over candidate vocabulary indices (integers with at most 6 significant bits, the only ones e2m5 tokens can equal), built per token block with relu6 clipping of both signed differences, then GEMM over the candidate rows of weights with the selector scalar per token lane. Candidate k values come from the ktab constant; the address of each weight row comes from LR arithmetic (k*6+nb, step doubling per stage)."
