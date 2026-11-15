@@ -1,0 +1,73 @@
+[kernel]
+op = "static_integer_tent_decode__gemm"
+formats = ["e2"]
+[params.s0_tokens]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s0_vocab]
+type = "int"
+min = 1
+max = 30522
+default = 9
+[params.s1_m]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s1_k]
+type = "int"
+min = 1
+max = 30522
+default = 9
+[params.s1_n]
+type = "int"
+min = 128
+max = 768
+multiple_of = 128
+default = 128
+[params.s1_bias]
+type = "bool"
+default = false
+[derived]
+qf = "case_qf"
+ntb = "s0_tokens // 128"
+ke = "min(s0_vocab, 8)"
+[inputs.in0]
+shape = [1, "s0_tokens"]
+range = [0.0, 7.0]
+[inputs.w]
+shape = ["s1_k", "s1_n"]
+range = [-2.0, 2.0]
+[scratch.ones]
+shape = [1, 128]
+fill = 1.0
+[scratch.work]
+shape = [2, 128]
+[scratch.selectors]
+shape = ["ntb", "ke", 128]
+[outputs.out0]
+shape = [1, "s1_m", "s1_n"]
+[abi]
+in0 = "CR2"
+w = "CR3"
+ones = "CR4"
+work = "CR5"
+selectors = "CR6"
+out0 = "CR7"
+qf = "CR9"
+[golden]
+tolerance = { e2 = "EXACT" }
+[cases.default]
+[cases.two_blocks]
+s0_tokens = 256
+s1_m = 256
+s0_vocab = 20
+s1_k = 20
+s1_n = 256
+[cases.short_vocab]
+s0_vocab = 3
+s1_k = 3
