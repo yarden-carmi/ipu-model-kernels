@@ -1,0 +1,4 @@
+chain = ["eq_static_terra_new_prim", "gemm"]
+chain_in = ["in0"]
+chain_out = ["out0"]
+notes = "ids==ramp one-hot selector rows (relu6/max trick, ids < 8 by input range) kept in scratch, then multiply-accumulate against W rows with per-lane scalars; the two home-computed add constants are added to each output row before the store."
