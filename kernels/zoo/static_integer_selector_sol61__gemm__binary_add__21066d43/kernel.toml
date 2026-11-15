@@ -1,0 +1,197 @@
+[kernel]
+op = "static_integer_selector_sol61__gemm__binary_add"
+formats = ["e2"]
+[params.s0_tokens]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s0_vocab]
+type = "int"
+min = 1
+max = 50265
+default = 9
+[params.s1_m]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s1_k]
+type = "int"
+min = 1
+max = 50265
+default = 9
+[params.s1_n]
+type = "int"
+min = 128
+max = 768
+multiple_of = 128
+default = 128
+[params.s1_bias]
+type = "bool"
+default = false
+[params.s2_broadcast]
+type = "str"
+choices = ["scalar"]
+default = "scalar"
+[params.s2_inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.s2_numel]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s2_op]
+type = "str"
+choices = ["add"]
+default = "add"
+[params.s3_tokens]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s3_vocab]
+type = "int"
+min = 1
+max = 514
+default = 9
+[params.s4_bias]
+type = "bool"
+default = false
+[params.s4_k]
+type = "int"
+min = 1
+max = 514
+default = 9
+[params.s4_m]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s4_n]
+type = "int"
+min = 128
+max = 768
+multiple_of = 128
+default = 128
+[params.s5_numel]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s5_sel]
+type = "int"
+min = 0
+max = 127
+default = 1
+[params.s6_tokens]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s6_vocab]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s7_bias]
+type = "bool"
+default = false
+[params.s7_k]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s7_m]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s7_n]
+type = "int"
+min = 128
+max = 768
+multiple_of = 128
+default = 128
+[params.sharp]
+type = "float"
+default = 1024.0
+[params.edge]
+type = "float"
+default = 16.0
+[derived]
+qf = "case_qf + ds(128) * 65536"
+[inputs.in0]
+shape = [1,"s0_tokens"]
+range = [0,7]
+[inputs.in1]
+shape = [1,"s4_n","s2_numel"]
+range = [-2,7]
+[inputs.w]
+shape = ["s1_k","s1_n"]
+range = [-2,2]
+[inputs.u]
+shape = ["s4_k","s4_n"]
+range = [-2,2]
+[inputs.v]
+shape = [1,"s7_n"]
+range = [0.5,2]
+[scratch.ones]
+shape = [1,128]
+fill = 1
+[scratch.work]
+shape = [6,128]
+[scratch.selectors]
+shape = ["s0_tokens // 128",9,128]
+[outputs.out0]
+shape = [1,"s1_m","s1_n"]
+[outputs.out1]
+shape = [1,"s4_m","s4_n"]
+[outputs.out2]
+shape = [1,"s7_m","s7_n"]
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+w = "CR4"
+u = "CR5"
+v = "CR6"
+ones = "CR7"
+work = "CR8"
+selectors = "CR9"
+out0 = "CR10"
+out1 = "CR11"
+out2 = "CR12"
+sharp = "CR13"
+edge = "CR14"
+qf = "CR15"
+[golden]
+tolerance = {e2 = "EXACT"}
+[cases.default]
+[cases.two_blocks]
+s0_tokens = 256
+s1_m = 256
+s2_numel = 256
+s3_tokens = 256
+s4_m = 256
+s5_numel = 256
+s6_tokens = 256
+s7_m = 256
+s1_n = 256
+s4_n = 256
+s7_n = 256
+[cases.short_vocab]
+s0_vocab = 3
+s1_k = 3
+s3_vocab = 3
+s4_k = 3
