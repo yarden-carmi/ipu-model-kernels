@@ -1,4 +1,4 @@
 chain = ["binary"]
 chain_in = ["in0"]
 chain_out = ["out0"]
-notes = "Elementwise add with the offline operand in1, matching contiguous dimension-2 lane layout. FP32 accumulation and e2 store."
+notes = "Elementwise addition with offline operand in1. The task supplies only numel, so tensors use the flattened element order, as in the dimension-1-lane e1 sibling; no multidimensional extents are available. FP32 addition followed by one e2 store per row."
