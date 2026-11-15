@@ -1,0 +1,4 @@
+chain = ["static_delta_decode", "gemm", "row_norm"]
+chain_in = ["in0"]
+chain_out = ["out0"]
+notes = "Fixed-address selector for the declared input domain [0,15], FP32 GEMM with two row-dependent folded additions, and layer normalization with gamma/beta. Multi-part scratch retains arithmetic residuals; reciprocal-square-root refinement includes a quadratic correction. No bias in task calls. IDs outside the declared input range are not supported."
