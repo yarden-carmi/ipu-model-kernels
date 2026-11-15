@@ -1,0 +1,66 @@
+[kernel]
+op = "gemm_relu"
+formats = ["e1"]
+
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 576
+default = 16
+[params.m]
+type = "int"
+min = 1
+max = 784
+default = 1
+[params.n]
+type = "int"
+min = 1
+max = 144
+default = 8
+
+[derived]
+qf = "case_qf"
+tail_ds = "ds(n - (ceil(n / 128) - 1) * 128)"
+
+[inputs.in0]
+shape = ["m", "ceil(k / 128) * 128"]
+range = [-1.0, 1.0]
+[inputs.w]
+shape = ["k", "ceil(n / 128) * 128"]
+range = [-1.0, 1.0]
+[inputs.bias_vec]
+shape = ["ceil(n / 128)", 128]
+range = [-1.0, 1.0]
+[outputs.out0]
+shape = ["m", "ceil(n / 128) * 128"]
+
+[abi]
+in0 = "CR2"
+w = "CR3"
+bias_vec = "CR4"
+out0 = "CR5"
+qf = "CR6"
+tail_ds = "CR7"
+k = "CR8"
+m = "CR9"
+
+[golden]
+tolerance = { e1 = "NX8_STEP" }
+
+[cases.default]
+k = 16
+m = 1
+n = 8
+bias = true
+
+[cases.rows]
+k = 24
+m = 3
+n = 88
+[cases.chunks]
+k = 144
+m = 2
+n = 144
