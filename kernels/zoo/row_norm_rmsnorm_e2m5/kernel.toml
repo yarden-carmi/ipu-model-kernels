@@ -1,0 +1,64 @@
+[kernel]
+op = "row_norm"
+formats = ["e2"]
+
+[params.kind]
+type = "str"
+choices = ["rmsnorm"]
+default = "rmsnorm"
+[params.channels]
+type = "int"
+min = 64
+max = 2048
+multiple_of = 64
+default = 128
+[params.rows]
+type = "int"
+min = 1
+max = 9216
+multiple_of = 1
+default = 4
+[params.eps]
+type = "float"
+default = 0.000001
+[derived]
+qf = "case_qf"
+K = "ceil(channels / 128)"
+M = "rows * K"
+valid = "ds(min(channels, 128))"
+[inputs.in0]
+shape = ["rows", "K * 128"]
+range = [-2.0, 2.0]
+[inputs.gamma]
+shape = ["K * 128"]
+range = [-2.0, 2.0]
+[outputs.out0]
+shape = ["rows", "K * 128"]
+[scratch.tmp]
+shape = [8, 128]
+[scratch.recip]
+shape = [128]
+fill = "1 / channels"
+[scratch.epsilon]
+shape = [128]
+fill = "eps"
+[abi]
+in0 = "CR2"
+gamma = "CR3"
+out0 = "CR4"
+tmp = "CR5"
+recip = "CR6"
+epsilon = "CR7"
+K = "CR8"
+M = "CR9"
+qf = "CR14"
+valid = "CR15"
+[golden]
+tolerance = { e2 = "NX8_STEP" }
+[cases.default]
+channels = 128
+rows = 4
+[cases.widths]
+channels = [64, 768, 1536, 2048]
+rows = 4
+eps = 0.00001
