@@ -1,0 +1,4 @@
+chain = ["vocab_compare_selector_defined", "gemm"]
+chain_in = ["in0"]
+chain_out = ["out0"]
+notes = "Fixed-address vocabulary equality, then GEMM with weights transposed to [k,n] so n runs along lanes. The two folded additive constants are added in FP32 before the final store. Selector construction uses radix-32 exact index digits and two clipped signed differences; no data-dependent addresses. GEMM skips only integer indices impossible to represent in fixed e3 (five significant binary bits), whose selector columns are identically zero for every input and row scale. Requires matching selector/GEMM dimensions."
