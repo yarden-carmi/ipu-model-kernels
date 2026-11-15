@@ -1,0 +1,126 @@
+[kernel]
+op = "integer_hat_decode_30522__gemm__row_norm"
+formats = ["e3"]
+[params.s0_tokens]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s0_vocab]
+type = "int"
+min = 1
+max = 30522
+default = 9
+[params.s1_m]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s1_k]
+type = "int"
+min = 1
+max = 30522
+default = 9
+[params.s1_n]
+type = "int"
+min = 128
+max = 384
+multiple_of = 128
+default = 384
+[params.s1_bias]
+type = "bool"
+default = false
+[params.s2_rows]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s2_channels]
+type = "int"
+min = 128
+max = 384
+multiple_of = 128
+default = 384
+[params.s2_kind]
+type = "str"
+choices = ["layernorm"]
+default = "layernorm"
+[params.s2_eps]
+type = "float"
+min = 1e-12
+max = 1e-12
+default = 1e-12
+[params.sharp]
+type = "float"
+default = 1024.0
+[params.six]
+type = "float"
+default = 0.25
+[params.neg1]
+type = "float"
+default = -1.0
+[params.half]
+type = "float"
+default = 0.5
+[derived]
+qf = "case_qf + ds(128) * 65536"
+ntb = "s0_tokens // 128"
+ke = "min(s0_vocab, 8)"
+[inputs.in0]
+shape = [1, "s0_tokens"]
+range = [0.0, 7.0]
+[inputs.w]
+shape = ["s1_k", "s1_n"]
+range = [-2.0, 2.0]
+[inputs.add0]
+shape = [1, "s1_m", "s1_n"]
+range = [-1.0, 1.0]
+[inputs.add1]
+shape = [1, "s1_m", "s1_n"]
+range = [-1.0, 1.0]
+[inputs.gamma]
+shape = ["s2_channels"]
+range = [-2.0, 2.0]
+[inputs.beta]
+shape = ["s2_channels"]
+range = [-2.0, 2.0]
+[scratch.ones]
+shape = [128]
+fill = 1.0
+[scratch.c]
+shape = [128]
+fill = "1 / s2_channels"
+[scratch.clo]
+shape = [128]
+fill = "(s2_channels - 128) * (s2_channels - 256) / 32768 / s2_channels / 64"
+[scratch.scr]
+shape = ["(3 * ke + 2) * ntb + 64", 128]
+[outputs.out0]
+shape = [1, "s2_rows", "s2_channels"]
+[abi]
+in0 = "CR2"
+w = "CR3"
+ones = "CR4"
+scr = "CR5"
+out0 = "CR6"
+qf = "CR7"
+sharp = "CR8"
+neg1 = "CR9"
+six = "CR10"
+add0 = "CR11"
+add1 = "CR12"
+gamma = "CR13"
+beta = "CR14"
+c = "CR15"
+clo = "LR14"
+[golden]
+tolerance = { e3 = "NX8_STEP" }
+[cases.default]
+[cases.short]
+s0_vocab = 3
+s1_k = 3
+s1_n = 128
+s2_channels = 128
