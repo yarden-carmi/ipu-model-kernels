@@ -1,0 +1,4 @@
+chain = ["conv2d"]
+chain_in = ["in0"]
+chain_out = ["out0"]
+notes = "conv2d, channels on lanes in, output width on lanes out. Each output row (co, oy) is built lane by lane: lane ox = AGG.SUM over input channels of weight-row x pixel-row products, summed over taps and channel blocks, plus bias as one more step. Input is first copied into a zero-padded scratch. Weights are folded (fold.py) to rows of 128 channels. Stored as fp8_e3m4 with ds(wo)."
