@@ -1,0 +1,4 @@
+chain = ["sign_or_selector_20261115", "gemm"]
+chain_in = ["in0"]
+chain_out = ["out0"]
+notes = "sign selector (one-hot of token ids, via sign of d|-d) feeding gemm with the weights. Ids are declared in [0, 8) by the input range: indicator rows for vocab 0..7 are built with relu6/max steps and gathered by multiply-accumulate against W rows. Folded mul/add are in the constants; not applied here."
