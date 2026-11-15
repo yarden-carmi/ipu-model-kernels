@@ -6,9 +6,9 @@ type = "bool"
 default = true
 [params.cin]
 type = "int"
-min = 128
+min = 1
 max = 1280
-multiple_of = 128
+multiple_of = 1
 default = 128
 [params.cout]
 type = "int"
@@ -53,7 +53,8 @@ max = 2
 default = 1
 [derived]
 qf = "case_qf"
-nbi = "cin // 128"
+nbi = "ceil(cin / 128)"
+cip = "nbi * 128"
 nbo = "cout // 128"
 wp = "w + 2 * padding"
 wpr = "wp * nbi"
@@ -62,10 +63,10 @@ wo = "(w + 2 * padding - kw) // stride + 1"
 start = "padding * wpr + padding * nbi"
 dsfull = "ds(128)"
 [inputs.in0]
-shape = ["h", "w", "cin"]
+shape = ["h", "w", "cip"]
 range = [-2, 2]
 [inputs.weights]
-shape = ["kh * kw * cin", "cout"]
+shape = ["kh * kw * cip", "cout"]
 range = [-1, 1]
 [inputs.bias_vec]
 shape = ["cout"]
@@ -74,7 +75,7 @@ range = [-1, 1]
 shape = [5, 128]
 range = [0, 0]
 [scratch.pad]
-shape = ["h + 2 * padding", "wp", "cin"]
+shape = ["h + 2 * padding", "wp", "cip"]
 [outputs.out0]
 shape = ["ho", "wo", "cout"]
 [abi]
@@ -96,9 +97,11 @@ dsfull = "CR15"
 tolerance = { e1 = "NX8_STEP" }
 [cases.default]
 w = 5
+cin = 80
+cout = 512
 [cases.stride2]
-cin = 256
-cout = 256
+cin = 512
+cout = 512
 w = 7
 stride = 2
 [cases.full_channels]

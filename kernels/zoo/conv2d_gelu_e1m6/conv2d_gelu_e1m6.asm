@@ -1,4 +1,4 @@
-{% set nbi = cin // 128 %}
+{% set nbi = (cin + 127) // 128 %}
 {% set nbo = cout // 128 %}
     SET LR0 CR0 ;;
 {% for i in range(5) %}
@@ -43,14 +43,19 @@ ob:
     LD.MULT R0 LR5 {{ cr.pad }} ;;
     SET LR9 CR0 ;;
     SET LR7 CR0 ;;
-    INC LR7 128 ;;
+    INC LR7 {{ [128, cin - ib * 128]|min }} ;;
 ic_{{ tap }}_{{ ib }}:
-{% for u in range(8) %}
+{% for u in range(8 if (cin - ib * 128) >= 128 else 1) %}
     LD.MULT.CYCLIC LR8 {{ cr.weights }} LR0 ;;
     MULT.RC.VE LR0 LR9 0 LR0 {{ cr.dsfull }}.L {{ cr.qf }}.L ; ACC.ADD ;;
     INC LR8 {{ nbo }} ; INC LR9 1 ;;
 {% endfor %}
     BLT.S LR9 LR7 ic_{{ tap }}_{{ ib }} ;;
+{% if cin - ib * 128 < 128 %}
+{% for skip in range(0, (128 - (cin - ib * 128)) * nbo, 255) %}
+    INC LR8 {{ [255, (128 - (cin - ib * 128)) * nbo - skip]|min }} ;;
+{% endfor %}
+{% endif %}
     INC LR5 1 ;;
 {% endfor %}
 {% endfor %}
