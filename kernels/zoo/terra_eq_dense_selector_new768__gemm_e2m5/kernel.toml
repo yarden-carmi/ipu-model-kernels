@@ -1,0 +1,89 @@
+[kernel]
+op = "equality_gemm"
+formats = ["e2"]
+[params.s0_tokens]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 256
+[params.s0_vocab]
+type = "int"
+min = 1
+max = 50265
+default = 50265
+[params.s1_k]
+type = "int"
+min = 1
+max = 50265
+default = 50265
+[params.s1_m]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 256
+[params.s1_n]
+type = "int"
+min = 128
+max = 768
+multiple_of = 128
+default = 768
+[params.s1_bias]
+type = "bool"
+default = false
+[params.sharp]
+type = "float"
+default = 1024.0
+[params.neg1]
+type = "float"
+default = -1.0
+[derived]
+qf = "case_qf"
+ntb = "s0_tokens // 128"
+ke = "min(s0_vocab, 8)"
+[inputs.in0]
+shape = [1, "s0_tokens"]
+range = [0.0, 7.0]
+[inputs.w]
+shape = ["s1_k", "s1_n"]
+range = [-2.0, 2.0]
+[inputs.ones]
+shape = [1,128]
+range = [1.0,1.0]
+[scratch.tmp]
+shape = [1,128]
+[scratch.sel]
+shape = ["ke * ntb",128]
+[outputs.out0]
+shape = [1,"s1_m","s1_n"]
+[abi]
+in0 = "CR2"
+w = "CR3"
+ones = "CR4"
+tmp = "CR5"
+sel = "CR6"
+out0 = "CR7"
+qf = "CR8"
+sharp = "CR9"
+neg1 = "CR10"
+[golden]
+tolerance = { e2 = "NX8_STEP" }
+[cases.default]
+s0_tokens = 128
+s1_m = 128
+s0_vocab = 9
+s1_k = 9
+s1_n = 128
+[cases.blocks]
+s0_tokens = 256
+s1_m = 256
+s0_vocab = 8
+s1_k = 8
+s1_n = 256
+[cases.short_vocab]
+s0_tokens = 128
+s1_m = 128
+s0_vocab = 3
+s1_k = 3
+s1_n = 128
