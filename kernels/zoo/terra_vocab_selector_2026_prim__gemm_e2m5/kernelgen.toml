@@ -1,0 +1,4 @@
+chain = ["terra_vocab_selector_2026_prim", "gemm"]
+chain_in = ["in0"]
+chain_out = ["out0"]
+notes = "Exact vocabulary equality followed by GEMM for declared input range [0,7]. Only k<min(vocab,8) can match. Equality is encoded as signed -1/+1 to avoid the NX8 all-zero-row decode artifact; folded weights are half-scaled [k,n], and paired products w*s+w reconstruct the selected original weight. Fractional and out-of-vocabulary IDs select nothing. Input and output use the task's lane layouts. Requires matching token/m and vocab/k dimensions, with no bias."

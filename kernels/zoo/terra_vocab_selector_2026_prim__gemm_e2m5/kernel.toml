@@ -1,0 +1,99 @@
+[kernel]
+op = "terra_selector_gemm"
+formats = ["e2"]
+[params.s0_tokens]
+type = "int"
+min = 1
+max = 256
+default = 3
+[params.s0_vocab]
+type = "int"
+min = 1
+max = 151936
+default = 37
+[params.s1_m]
+type = "int"
+min = 1
+max = 256
+default = 3
+[params.s1_k]
+type = "int"
+min = 1
+max = 151936
+default = 37
+[params.s1_n]
+type = "int"
+min = 128
+max = 1536
+multiple_of = 128
+default = 128
+[params.s1_bias]
+type = "bool"
+default = false
+[params.scale]
+type = "float"
+default = 1024.0
+[params.mid]
+type = "float"
+default = 1.0
+[params.high]
+type = "float"
+default = -1024.0
+[params.negone]
+type = "float"
+default = -1.0
+[derived]
+qf = "case_qf"
+tb = "ceil(s0_tokens / 128)"
+nb = "s1_n // 128"
+[inputs.in0]
+shape = [1, "tb * 128"]
+range = [0, 7]
+[inputs.w]
+shape = ["s1_k", "s1_n"]
+range = [-1, 1]
+[outputs.out0]
+shape = [1, "s1_m", "s1_n"]
+[inputs.ones]
+shape = [1, 128]
+range = [1, 1]
+[scratch.work]
+shape = [2, 128]
+[scratch.selectors]
+shape = ["min(s0_vocab, 8)", "tb", 128]
+[abi]
+in0 = "CR2"
+w = "CR3"
+out0 = "CR6"
+ones = "CR4"
+work = "CR5"
+selectors = "CR11"
+scale = "CR8"
+mid = "CR9"
+high = "CR10"
+negone = "CR13"
+qf = "CR7"
+s0_tokens = "LR12"
+tb = "LR13"
+nb = "LR14"
+s0_vocab = "LR15"
+[golden]
+reference = "reference.py:reference"
+tolerance = { e2 = "EXACT" }
+[cases.default]
+[cases.tiny]
+s0_tokens = 1
+s1_m = 1
+s0_vocab = 1
+s1_k = 1
+[cases.boundary]
+s0_tokens = 129
+s1_m = 129
+s0_vocab = 137
+s1_k = 137
+[cases.multi]
+s0_tokens = 256
+s1_m = 256
+s0_vocab = 257
+s1_k = 257
+s1_n = 256
