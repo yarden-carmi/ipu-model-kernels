@@ -1,0 +1,107 @@
+[kernel]
+op = "embedding_chain_layernorm"
+formats = ["e2"]
+[params]
+s0_tokens = {type="int", min=128, max=256, multiple_of=128, default=128}
+s0_vocab = {type="int", min=9, max=50265, default=9}
+s1_bias = {type="bool", default=false}
+s1_k = {type="int", min=9, max=50265, default=9}
+s1_m = {type="int", min=128, max=256, multiple_of=128, default=128}
+s1_n = {type="int", min=128, max=768, multiple_of=128, default=128}
+s2_numel = {type="int", min=128, max=256, multiple_of=128, default=128}
+s3_tokens = {type="int", min=128, max=256, multiple_of=128, default=128}
+s3_vocab = {type="int", min=9, max=514, default=9}
+s4_bias = {type="bool", default=false}
+s4_k = {type="int", min=9, max=514, default=9}
+s4_m = {type="int", min=128, max=256, multiple_of=128, default=128}
+s4_n = {type="int", min=128, max=768, multiple_of=128, default=128}
+s5_numel = {type="int", min=128, max=256, multiple_of=128, default=128}
+s5_sel = {type="int", min=1, max=1, default=1}
+s6_tokens = {type="int", min=128, max=256, multiple_of=128, default=128}
+s6_vocab = {type="int", min=1, max=1, default=1}
+s7_k = {type="int", min=1, max=1, default=1}
+s7_m = {type="int", min=128, max=256, multiple_of=128, default=128}
+s7_n = {type="int", min=128, max=768, multiple_of=128, default=128}
+s8_broadcast = {type="str", choices=["none"], default="none"}
+s8_inner = {type="int", min=0, max=0, default=0}
+s8_numel = {type="int", min=16384, max=196608, default=16384}
+s8_op = {type="str", choices=["add"], default="add"}
+s9_broadcast = {type="str", choices=["none"], default="none"}
+s9_inner = {type="int", min=0, max=0, default=0}
+s9_numel = {type="int", min=16384, max=196608, default=16384}
+s9_op = {type="str", choices=["add"], default="add"}
+s10_channels = {type="int", min=128, max=768, multiple_of=128, default=128}
+s10_rows = {type="int", min=128, max=256, multiple_of=128, default=128}
+s10_kind = {type="str", choices=["layernorm"], default="layernorm"}
+s10_eps = {type="float", min=0.0, max=1.0, default=0.00001}
+sharp = {type="float", default=1024.0}
+half = {type="float", default=0.5}
+[derived]
+qf = "case_qf"
+[inputs.in0]
+shape = [1, "s0_tokens"]
+range = [0, 7]
+[inputs.in1]
+shape = [1, 128]
+range = [1, 1]
+[inputs.w0]
+shape = ["s1_k", "s1_n"]
+range = [-2, 2]
+[inputs.w4]
+shape = ["s4_k", "s4_n"]
+range = [-2, 2]
+[inputs.aux]
+shape = [1, "s7_n"]
+range = [-2, 2]
+[inputs.gamma]
+shape = ["s10_channels"]
+range = [-2, 2]
+[inputs.beta]
+shape = ["s10_channels"]
+range = [-2, 2]
+[scratch.tmp]
+shape = [40, 128]
+fill = 1
+[scratch.selectors]
+shape = ["s0_tokens // 128", 17, 128]
+[scratch.data]
+shape = [2, "s10_rows", "s10_channels"]
+[scratch.crow]
+shape = [128]
+fill = "1 / s10_channels"
+[scratch.crowC]
+shape = [128]
+fill = "s10_channels"
+[scratch.epsilon]
+shape = [128]
+fill = "s10_eps"
+[outputs.out0]
+shape = [1, "s10_rows", "s10_channels"]
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+w0 = "CR4"
+w4 = "CR5"
+aux = "CR6"
+gamma = "CR7"
+beta = "CR8"
+tmp = "CR9"
+data = "CR10"
+out0 = "CR11"
+qf = "CR12"
+sharp = "CR13"
+half = "CR14"
+selectors = "LR15"
+crow = "LR10"
+crowC = "LR11"
+epsilon = "LR13"
+[golden]
+tolerance = { e2 = "NX8_STEP" }
+[cases.default]
+[cases.wide]
+s1_n = 384
+s4_n = 384
+s7_n = 384
+s10_channels = 384
+s8_numel = 49152
+s9_numel = 49152
