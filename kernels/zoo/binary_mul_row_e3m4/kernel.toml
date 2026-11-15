@@ -1,0 +1,58 @@
+[kernel]
+op = "binary_mul_row"
+formats = ["e3"]
+[params.broadcast]
+type = "str"
+choices = ["row"]
+default = "row"
+[params.const]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.inner]
+type = "int"
+min = 128
+max = 32768
+multiple_of = 128
+default = 256
+[params.numel]
+type = "int"
+min = 128
+max = 524288
+multiple_of = 128
+default = 768
+[params.op]
+type = "str"
+choices = ["mul"]
+default = "mul"
+[inputs.in0]
+shape = ["max(numel, 524288)"]
+range = [-2.0, 2.0]
+[inputs.operand]
+shape = ["inner"]
+range = [-2.0, 2.0]
+[outputs.out0]
+shape = ["numel"]
+[derived]
+qf = "case_qf"
+rows = "numel / 128"
+period = "inner / 128"
+[abi]
+in0 = "CR2"
+operand = "CR3"
+out0 = "CR4"
+qf = "CR5"
+rows = "CR6"
+period = "CR7"
+[golden]
+tolerance = { e3 = "EXACT" }
+[cases.default]
+numel = 768
+inner = 256
+[cases.single]
+numel = 128
+inner = 128
+[cases.real_inner]
+numel = 65536
+inner = 32768
