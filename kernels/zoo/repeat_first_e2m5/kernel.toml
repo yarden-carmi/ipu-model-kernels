@@ -1,0 +1,50 @@
+[kernel]
+op = "repeat_first"
+formats = ["e2"]
+
+[params.channels]
+type = "int"
+min = 128
+max = 1024
+multiple_of = 128
+
+[params.rows]
+type = "int"
+min = 1
+max = 256
+
+[inputs.in0]
+shape = [1, "channels"]
+range = [-1, 1]
+
+[outputs.out0]
+shape = [4, "rows", "channels"]
+
+[derived]
+qf = "case_qf"
+ds = "ds(128)"
+chunks = "channels // 128"
+total_rows = "4 * rows"
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+total_rows = "CR4"
+chunks = "CR5"
+qf = "CR14"
+ds = "CR15"
+
+[cases.default]
+channels = 256
+rows = 3
+
+[cases.single]
+channels = 128
+rows = 1
+
+[cases.wide]
+channels = 1024
+rows = 4
+
+[golden]
+tolerance = { e2 = "EXACT" }
