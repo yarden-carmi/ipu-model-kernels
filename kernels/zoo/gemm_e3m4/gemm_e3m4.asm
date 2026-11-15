@@ -26,7 +26,7 @@ kb_loop:
     LD.MULT.CYCLIC LR4 {{ cr.w }} LR2 ; ADD LR4 LR4 {{ cr.NB }} ; INC.MODP2 LR2 {{ cr.c128 }} 9 ;;
     LD.MULT.CYCLIC LR4 {{ cr.w }} LR2 ; ADD LR4 LR4 {{ cr.NB }} ; INC.MODP2 LR2 {{ cr.c128 }} 9 ;;
     LD.MULT.CYCLIC LR4 {{ cr.w }} LR2 ; ADD LR4 LR4 {{ cr.NB }} ; INC.MODP2 LR2 {{ cr.c128 }} 9 ;;
-{% for i in range(124) %}
+{% for i in range((64 if k == 64 else 128) - 4) %}
     MULT.RC.VE LR2 LR3 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD ; LD.MULT.CYCLIC LR4 {{ cr.w }} LR2 ; ADD LR4 LR4 {{ cr.NB }} ; INC LR3 1 ; INC.MODP2 LR2 {{ cr.c128 }} 9 ;;
 {% endfor %}
 {% for i in range(4) %}

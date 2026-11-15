@@ -4,7 +4,7 @@ import torch
 def reference(**kw):
     m, k, n = int(kw["m"]), int(kw["k"]), int(kw["n"])
     no = ((n + 127) // 128) * 128
-    x = kw["in0"].to(torch.float64).reshape(m, k)
+    x = kw["in0"].to(torch.float64).reshape(m, -1)[:, :k]
     w = kw["w"].to(torch.float64).reshape(k, no)[:, :n]
     result = x @ w
     if kw["bias"]:

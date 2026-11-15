@@ -5,17 +5,17 @@ formats = ["e3"]
 [params.m]
 type = "int"
 min = 1
-max = 256
+max = 3136
 default = 1
 [params.k]
 type = "int"
-min = 128
+min = 64
 max = 4096
-multiple_of = 128
+multiple_of = 64
 default = 128
 [params.n]
 type = "int"
-min = 128
+min = 4
 max = 50264
 default = 128
 [params.bias]
@@ -24,7 +24,7 @@ default = false
 
 [derived]
 qf = "case_qf"
-K = "k // 128"
+K = "ceil(k / 128)"
 NB = "ceil(n / 128)"
 c128 = "128"
 tail = "ds(n - (NB - 1) * 128)"
@@ -72,8 +72,13 @@ m = 2
 k = 384
 n = 256
 bias = true
-[cases.tail]
-m = 2
-k = 256
-n = 200
+[cases.k64]
+m = 3
+k = 64
+n = 64
 bias = false
+[cases.small_n]
+m = 3
+k = 256
+n = 4
+bias = true
