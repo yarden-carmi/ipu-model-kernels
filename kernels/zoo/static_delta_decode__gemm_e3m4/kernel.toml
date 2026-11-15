@@ -1,0 +1,81 @@
+[kernel]
+op = "static_delta_decode__gemm"
+formats = ["e3"]
+[params.s0_tokens]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s0_vocab]
+type = "int"
+min = 1
+max = 30522
+default = 9
+[params.s1_m]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s1_k]
+type = "int"
+min = 1
+max = 30522
+default = 9
+[params.s1_n]
+type = "int"
+min = 128
+max = 384
+multiple_of = 128
+default = 128
+[params.s1_bias]
+type = "bool"
+default = false
+[params.sharp]
+type = "float"
+default = 1024.0
+[params.neg1]
+type = "float"
+default = -1.0
+[params.six]
+type = "float"
+default = 6.0
+[derived]
+qf = "case_qf"
+ntb = "s0_tokens // 128"
+ke = "min(s0_vocab, 8)"
+nscr = "(3 * ke + 2) * ntb"
+[inputs.in0]
+shape = [1, "s0_tokens"]
+range = [0, 7]
+[inputs.w]
+shape = ["s0_vocab", "s1_n"]
+range = [-2, 2]
+[scratch.ones]
+shape = [1, 128]
+fill = 1
+[scratch.scr]
+shape = ["nscr", 128]
+[outputs.out0]
+shape = [1, "s1_m", "s1_n"]
+[abi]
+in0 = "CR2"
+w = "CR3"
+ones = "CR4"
+scr = "CR5"
+out0 = "CR6"
+qf = "CR7"
+sharp = "CR8"
+neg1 = "CR9"
+six = "CR10"
+[golden]
+tolerance = { e3 = "EXACT" }
+[cases.default]
+[cases.short]
+s0_vocab = 3
+s1_k = 3
+[cases.wide]
+s0_tokens = 256
+s1_m = 256
+s1_n = 384
