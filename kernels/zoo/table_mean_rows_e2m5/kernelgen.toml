@@ -1,0 +1,4 @@
+chain = ["table_mean_rows"]
+chain_in = ["in0"]
+chain_out = ["out0"]
+notes = "Fold computes the componentwise mean of module.table across the entire vocabulary offline; the kernel broadcasts this constant to all rows, ignoring IDs. Mean is quantized once as a constant in e2, and copied exactly to each output row. Channels must be multiples of 128."
