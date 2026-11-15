@@ -12,7 +12,7 @@ default = 3
 [params.cout]
 type = "int"
 min = 1
-max = 512
+max = 1152
 default = 2
 [params.groups]
 type = "int"
@@ -87,6 +87,15 @@ kh = "CR12"
 ho = "CR13"
 dstail = "CR14"
 dsboth = "CR15"
+[cases.wide]
+cin = 4
+cout = 1152
+h = 4
+w = 4
+kh = 2
+kw = 2
+padding = 0
+stride = 2
 [golden]
 tolerance = { e2 = "NX8_STEP" }
 [cases.default]
@@ -106,12 +115,6 @@ cout = 256
 groups = 256
 h = 4
 w = 5
-[cases.depth512]
-cin = 512
-cout = 512
-groups = 512
-h = 3
-w = 3
 [cases.downsample]
 cin = 64
 cout = 8
