@@ -1,0 +1,107 @@
+[kernel]
+op = "fixed_eq_selector_new61__gemm__row_norm"
+formats = ["e2"]
+[params.s0_tokens]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s0_vocab]
+type = "int"
+min = 1
+max = 50264
+default = 9
+[params.s1_k]
+type = "int"
+min = 1
+max = 50264
+default = 9
+[params.s1_m]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s1_n]
+type = "int"
+min = 128
+max = 1024
+multiple_of = 128
+default = 128
+[params.s2_channels]
+type = "int"
+min = 128
+max = 1024
+multiple_of = 128
+default = 128
+[params.s2_rows]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s2_eps]
+type = "float"
+default = 1e-5
+[params.s2_kind]
+type = "str"
+choices = ["layernorm"]
+default = "layernorm"
+[params.sharp]
+type = "float"
+default = 1024.0
+[derived]
+qf = "case_qf"
+M = "s1_m * s1_n // 128"
+[inputs.in0]
+shape = [1, "s0_tokens"]
+range = [0, 7]
+[inputs.w]
+shape = ["s1_k", "s1_n"]
+range = [-2, 2]
+[inputs.gamma]
+shape = ["s2_channels"]
+range = [-2, 2]
+[inputs.beta]
+shape = ["s2_channels"]
+range = [-2, 2]
+[scratch.ones]
+shape = [128]
+fill = 1
+[scratch.work]
+shape = [32, 128]
+fill = 0.5
+[scratch.selectors]
+shape = ["s0_tokens // 128", "min(s0_vocab, 8)", 128]
+[scratch.mid]
+shape = ["s1_m", "s1_n"]
+[scratch.inv]
+shape = [128]
+fill = "1 / s2_channels"
+[scratch.epsilon]
+shape = [128]
+fill = "s2_eps"
+[outputs.out0]
+shape = [1, "s2_rows", "s2_channels"]
+[abi]
+in0 = "CR2"
+w = "CR3"
+ones = "CR4"
+work = "CR5"
+selectors = "CR6"
+mid = "CR7"
+sharp = "CR8"
+qf = "CR9"
+gamma = "CR10"
+beta = "CR11"
+inv = "CR12"
+epsilon = "CR13"
+out0 = "CR14"
+M = "LR15"
+[cases.default]
+[cases.wide]
+s1_n = 1024
+s2_channels = 1024
+[golden]
+tolerance = { e2 = "NX8_STEP" }
