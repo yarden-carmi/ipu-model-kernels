@@ -1,0 +1,4 @@
+chain = ["static_integer_compare_selector_sol49", "gemm"]
+chain_in = ["in0"]
+chain_out = ["out0"]
+notes = "Exact vocabulary equality selectors (base-32 digit compare, relu6 steps) stored per token block, then a row-by-row gather-as-GEMM: out[m, :] = sum_k sel[m, k] * weights[k, :]. Weights are [k, n] with n along lanes."

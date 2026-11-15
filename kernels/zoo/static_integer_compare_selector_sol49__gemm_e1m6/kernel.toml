@@ -1,0 +1,137 @@
+[kernel]
+op = "static_integer_compare_selector_sol49__gemm"
+formats = ["e1"]
+
+[params.s0_tokens]
+type = "int"
+min = 1
+max = 256
+default = 256
+
+[params.s0_vocab]
+type = "int"
+min = 2
+max = 32768
+default = 32128
+
+[params.s1_k]
+type = "int"
+min = 2
+max = 32768
+default = 32128
+
+[params.s1_m]
+type = "int"
+min = 1
+max = 256
+default = 256
+
+[params.s1_n]
+type = "int"
+min = 128
+max = 512
+multiple_of = 128
+default = 512
+
+[params.compare_scale]
+type = "float"
+default = 1048576.0
+[params.compare_mid]
+type = "float"
+default = 33554432.0
+[params.compare_high]
+type = "float"
+default = 1073741824.0
+
+[params.four]
+type = "float"
+default = 2.0
+[params.twelve]
+type = "float"
+default = 12.0
+[params.six]
+type = "float"
+default = 6.0
+
+[derived]
+qf = "case_qf"
+tb = "ceil(s0_tokens / 128)"
+nb = "s1_n // 128"
+
+[inputs.in0]
+shape = [1, "tb * 128"]
+range = [0.0, 32127.0]
+
+[inputs.weights]
+shape = ["s1_k", "s1_n"]
+range = [-1.0, 1.0]
+
+[outputs.out0]
+shape = [1, "s1_m", "s1_n"]
+
+[scratch.selectors]
+shape = ["tb", "s0_vocab", 128]
+
+[scratch.work]
+shape = [2, 128]
+fill = 1.0
+
+[scratch.digits]
+shape = [32, 128]
+
+[abi]
+in0 = "CR2"
+weights = "CR3"
+out0 = "CR4"
+selectors = "CR5"
+work = "CR6"
+digits = "CR7"
+compare_scale = "CR8"
+compare_mid = "CR9"
+compare_high = "CR10"
+qf = "CR11"
+four = "CR12"
+six = "CR13"
+twelve = "CR14"
+s1_m = "LR12"
+tb = "LR13"
+nb = "LR14"
+s0_vocab = "LR15"
+
+[golden]
+tolerance = { e1 = "NX8_STEP" }
+
+[cases.default]
+s0_tokens = 3
+s0_vocab = 37
+s1_k = 37
+s1_m = 3
+s1_n = 128
+
+[cases.k2]
+s0_tokens = 1
+s0_vocab = 2
+s1_k = 2
+s1_m = 1
+s1_n = 128
+
+[cases.k34]
+s0_tokens = 1
+s0_vocab = 34
+s1_k = 34
+s1_m = 1
+s1_n = 128
+
+[cases.t128]
+s0_tokens = 3
+s0_vocab = 96
+s1_k = 96
+s1_m = 3
+s1_n = 256
+
+[cases.medium]
+s0_tokens = 128
+s0_vocab = 96
+s1_k = 96
+s1_m = 128
+s1_n = 256
