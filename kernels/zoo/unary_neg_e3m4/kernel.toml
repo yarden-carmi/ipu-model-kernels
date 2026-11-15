@@ -1,0 +1,45 @@
+[kernel]
+op = "unary_neg"
+formats = ["e3"]
+
+[params.fn]
+type = "str"
+choices = ["neg"]
+default = "neg"
+
+[params.numel]
+type = "int"
+min = 128
+max = 262144
+multiple_of = 128
+default = 384
+
+[params.minus_one]
+type = "float"
+default = -1.0
+
+[derived]
+qf = "case_qf"
+rows = "numel // 128"
+
+[inputs.in0]
+shape = [1, 1, "rows", 128]
+range = [-10.0, 10.0]
+
+[outputs.out0]
+shape = [1, 1, "rows", 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+qf = "CR4"
+rows = "CR5"
+minus_one = "CR6"
+
+[golden]
+tolerance = { e3 = "EXACT" }
+
+[cases.default]
+
+[cases.single]
+numel = 128
