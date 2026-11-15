@@ -1,0 +1,125 @@
+[kernel]
+op = "add_add_layernorm"
+formats = ["e2"]
+[params.s0_broadcast]
+type = "str"
+choices = ["none"]
+default = "none"
+[params.s1_broadcast]
+type = "str"
+choices = ["none"]
+default = "none"
+[params.s0_op]
+type = "str"
+choices = ["add"]
+default = "add"
+[params.s1_op]
+type = "str"
+choices = ["add"]
+default = "add"
+[params.s0_inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.s1_inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.s0_numel]
+type = "int"
+min = 128
+max = 196608
+multiple_of = 128
+default = 1536
+[params.s1_numel]
+type = "int"
+min = 128
+max = 196608
+multiple_of = 128
+default = 1536
+[params.s2_channels]
+type = "int"
+min = 128
+max = 768
+multiple_of = 128
+default = 768
+[params.s2_rows]
+type = "int"
+min = 1
+max = 256
+default = 2
+[params.s2_eps]
+type = "float"
+min = 0.0
+max = 1.0
+default = 1e-5
+[params.s2_kind]
+type = "str"
+choices = ["layernorm"]
+default = "layernorm"
+[params.half]
+type = "float"
+default = 0.5
+min = 0.5
+max = 0.5
+[derived]
+qf = "case_qf + ds(128) * 65536"
+K = "s2_channels // 128"
+M = "s2_rows * K"
+[inputs.in0]
+shape = ["s2_rows", "K", 128]
+range = [-2.0, 2.0]
+[inputs.in1]
+shape = ["s2_rows", "K", 128]
+range = [-2.0, 2.0]
+[inputs.in2]
+shape = ["s2_rows", "K", 128]
+range = [-2.0, 2.0]
+[inputs.gamma]
+shape = ["K", 128]
+range = [-2.0, 2.0]
+[inputs.beta]
+shape = ["K", 128]
+range = [-2.0, 2.0]
+[outputs.out0]
+shape = ["s2_rows", "K", 128]
+[scratch.tmp]
+shape = [40, 128]
+[scratch.xh]
+shape = ["K", 128]
+[scratch.xl]
+shape = ["K", 128]
+[scratch.c]
+shape = [128]
+fill = "1 / s2_channels"
+[scratch.C]
+shape = [128]
+fill = "s2_channels"
+[scratch.epsilon]
+shape = [128]
+fill = "s2_eps"
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+in2 = "CR4"
+out0 = "CR5"
+gamma = "CR6"
+beta = "CR7"
+tmp = "CR8"
+xh = "CR9"
+xl = "CR10"
+c = "CR11"
+C = "CR12"
+epsilon = "CR13"
+qf = "CR14"
+half = "CR15"
+M = "LR9"
+[golden]
+tolerance = { e2 = "NX8_STEP" }
+[cases.default]
+s0_numel = 1536
+s1_numel = 1536
+s2_rows = 2
+s2_channels = 768
