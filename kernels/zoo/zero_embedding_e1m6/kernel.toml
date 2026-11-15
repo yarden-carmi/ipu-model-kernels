@@ -1,0 +1,44 @@
+[kernel]
+op = "zero_embedding"
+formats = ["e1"]
+
+[params.tokens]
+type = "int"
+min = 1
+max = 65536
+default = 256
+
+[params.dim]
+type = "int"
+min = 128
+max = 4096
+multiple_of = 128
+default = 384
+
+[derived]
+qf = "case_qf"
+rows = "tokens * dim // 128"
+
+[inputs.in0]
+shape = [1, "ceil(tokens / 128) * 128"]
+range = [0.0, 30521.0]
+
+[outputs.out0]
+shape = [1, "tokens", "dim"]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+qf = "CR5"
+rows = "CR6"
+
+[golden]
+tolerance = { e1 = "EXACT" }
+
+[cases.default]
+tokens = 4
+dim = 256
+
+[cases.full]
+tokens = 256
+dim = 384
