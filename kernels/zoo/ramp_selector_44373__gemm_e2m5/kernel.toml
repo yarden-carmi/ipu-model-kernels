@@ -1,0 +1,98 @@
+[kernel]
+op = "ramp_selector_44373__gemm"
+formats = ["e2"]
+
+[params.s0_tokens]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s0_vocab]
+type = "int"
+min = 1
+max = 250002
+default = 128
+[params.s1_bias]
+type = "bool"
+default = false
+[params.s1_k]
+type = "int"
+min = 1
+max = 250002
+default = 128
+[params.s1_m]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s1_n]
+type = "int"
+min = 128
+max = 1024
+multiple_of = 128
+default = 128
+
+[derived]
+qf = "case_qf"
+NB = "ceil(s1_n / 128)"
+K = "ceil(s1_k / 128)"
+ntb = "s0_tokens // 128"
+ke = "min(s0_vocab, 8)"
+[params.sharp]
+type = "float"
+default = 1024.0
+[scratch.ones]
+shape = [1, 128]
+fill = 1.0
+[scratch.work]
+shape = [2, 128]
+[scratch.selectors]
+shape = ["ntb", "ke", 128]
+
+[inputs.in0]
+shape = [1, "s0_tokens"]
+range = [0.0, 7.0]
+[inputs.w]
+shape = ["s1_k * NB", 128]
+range = [-2.0, 2.0]
+[inputs.b]
+shape = ["NB * 128"]
+range = [-2.0, 2.0]
+when = "s1_bias"
+[outputs.out0]
+shape = ["s1_m * NB", 128]
+
+[abi]
+in0 = "CR2"
+w = "CR3"
+b = "CR4"
+out0 = "CR5"
+qf = "CR6"
+K = "CR7"
+NB = "CR8"
+ones = "CR9"
+work = "CR10"
+selectors = "CR11"
+sharp = "CR12"
+
+[golden]
+tolerance = { e2 = "EXACT" }
+
+[cases.default]
+s0_tokens = 128
+s0_vocab = 128
+s1_k = 128
+s1_m = 128
+s1_n = 128
+s1_bias = false
+[cases.two_blocks]
+s0_tokens = 256
+s1_m = 256
+s0_vocab = 20
+s1_k = 20
+s1_n = 256
+[cases.short_vocab]
+s0_vocab = 3
+s1_k = 3
