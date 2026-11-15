@@ -1,0 +1,4 @@
+chain = ["binary", "merge8191", "fixed_eq_ramp_terra", "gemm", "sel1_copy_broadcast", "nov15_eq_selector", "gemm"]
+chain_in = ["in0"]
+chain_out = ["out0", "out1"]
+notes = "Input lane layout is preserved; first token plane supplies ids. Scalar is a runtime input with declared value one. On the declared input domain sums lie in [-1,8], so merge8191 is identity and only ramp entries 0..8 can match. Select source coordinate zero for the singleton gather, then compare exactly with zero. Natural table layout [vocab,channels]."
