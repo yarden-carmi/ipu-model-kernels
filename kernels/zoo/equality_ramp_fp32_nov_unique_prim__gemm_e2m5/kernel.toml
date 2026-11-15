@@ -1,0 +1,111 @@
+[kernel]
+op = "equality_ramp_fp32_nov_unique_prim__gemm"
+formats = ["e2"]
+
+[params.s0_tokens]
+type = "int"
+min = 1
+max = 256
+default = 256
+[params.s0_vocab]
+type = "int"
+min = 1
+max = 250002
+default = 250002
+[params.s1_k]
+type = "int"
+min = 1
+max = 250002
+default = 250002
+[params.s1_m]
+type = "int"
+min = 1
+max = 256
+default = 256
+[params.s1_n]
+type = "int"
+min = 128
+max = 768
+multiple_of = 128
+default = 768
+
+[derived]
+qf = "case_qf"
+active = "ds(128)"
+ntb = "ceil(s0_tokens / 128)"
+nb = "s1_n // 128"
+
+[inputs.in0]
+shape = ["ntb", 128]
+range = [-2.0, 250001.0]
+[inputs.weights]
+shape = ["s1_k", "s1_n"]
+range = [-1.0, 1.0]
+[inputs.ones]
+shape = [1, 128]
+range = [1.0, 1.0]
+[scratch.work]
+shape = [2, 128]
+[scratch.selectors]
+shape = [448, 128]
+[scratch.current]
+shape = [1, 128]
+[scratch.powers]
+shape = [13, 128]
+[params.two]
+type = "float"
+default = 2.0
+[params.sharp]
+type = "float"
+default = 1048576.0
+[params.unit]
+type = "float"
+default = 1.0
+[params.negone]
+type = "float"
+default = -1.0
+[outputs.out0]
+shape = [1, "s1_m", "s1_n"]
+
+[abi]
+in0 = "CR2"
+weights = "CR3"
+out0 = "CR4"
+qf = "CR5"
+active = "CR15"
+ones = "CR6"
+negone = "CR7"
+work = "CR8"
+selectors = "CR9"
+sharp = "CR10"
+unit = "CR12"
+current = "CR13"
+powers = "CR14"
+two = "CR11"
+s0_tokens = "LR12"
+ntb = "LR13"
+nb = "LR14"
+
+[golden]
+tolerance = { e2 = "NX8_STEP" }
+
+[cases.default]
+s0_tokens = 3
+s0_vocab = 37
+s1_k = 37
+s1_m = 3
+s1_n = 128
+
+[cases.full_vocab]
+s0_tokens = 3
+s1_m = 3
+s0_vocab = 250002
+s1_k = 250002
+s1_n = 128
+
+[cases.token_blocks]
+s0_tokens = 129
+s1_m = 129
+s0_vocab = 37
+s1_k = 37
+s1_n = 256

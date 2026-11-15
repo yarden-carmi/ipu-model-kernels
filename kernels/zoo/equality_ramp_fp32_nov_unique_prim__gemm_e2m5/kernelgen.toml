@@ -1,0 +1,4 @@
+chain = ["equality_ramp_fp32_nov_unique_prim", "gemm"]
+chain_in = ["in0"]
+chain_out = ["out0"]
+notes = "Exact vocabulary equality followed by projection. Builds signed selectors (-1/+1), avoiding e2 zero-row round-trip artifacts, and folds weights by 1/2 so each contribution is half_weight * signed_selector + half_weight. Visits only integer indices representable by fixed e2 (six significant bits). Channel lanes and token-block input lanes follow the task layouts. Requires matching selector/GEMM dimensions."
