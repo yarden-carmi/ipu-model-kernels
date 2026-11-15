@@ -1,0 +1,4 @@
+chain = ["terra256_exact_eq_stream_prim", "gemm"]
+chain_in = ["in0"]
+chain_out = ["out0"]
+notes = "Exact equality indicator (id == ramp k) for k < 8 via relu6/max steps, then gemm against the weight rows. Ids are declared in [0, 8) by the input range; ids outside the ramp give a zero row. Adapted from ids_eq_ramp_rows_k__gemm_e2m5."
