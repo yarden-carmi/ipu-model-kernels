@@ -1,0 +1,154 @@
+[kernel]
+op = "binary_add_scalar__merge490__equality_selector__gemm__mux3_zero__singleton_ones__gemm"
+formats = ["e2"]
+[params.s0_broadcast]
+type = "str"
+choices = ["scalar"]
+default = "scalar"
+[params.s0_inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.s0_numel]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s0_op]
+type = "str"
+choices = ["add"]
+default = "add"
+[params.s1_numel]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s2_tokens]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s2_vocab]
+type = "int"
+min = 1
+max = 514
+default = 9
+[params.s3_bias]
+type = "bool"
+default = false
+[params.s3_k]
+type = "int"
+min = 1
+max = 514
+default = 9
+[params.s3_m]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s3_n]
+type = "int"
+min = 128
+max = 768
+multiple_of = 128
+default = 128
+[params.s4_numel]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s4_sel]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s5_tokens]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s5_vocab]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s6_bias]
+type = "bool"
+default = false
+[params.s6_k]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s6_m]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s6_n]
+type = "int"
+min = 128
+max = 768
+multiple_of = 128
+default = 128
+[params.sharp]
+type = "float"
+default = 65536.0
+[derived]
+qf = "case_qf"
+[inputs.in0]
+shape = [1, "s3_n", "s0_numel"]
+range = [-2, 7]
+[inputs.scalar]
+shape = [1, 128]
+range = [1, 1]
+[inputs.w]
+shape = ["s3_k", "s3_n"]
+range = [-2, 2]
+[inputs.v]
+shape = ["s6_k", "s6_n"]
+range = [-2, 2]
+[scratch.ones]
+shape = [1, 128]
+fill = 1
+[scratch.work]
+shape = [2, 128]
+[scratch.selectors]
+shape = ["s2_tokens // 128", "s2_vocab", 128]
+[outputs.out0]
+shape = [1, "s3_m", "s3_n"]
+[outputs.out1]
+shape = [1, "s6_m", "s6_n"]
+[abi]
+in0 = "CR2"
+scalar = "CR3"
+w = "CR4"
+v = "CR5"
+ones = "CR6"
+work = "CR7"
+selectors = "CR8"
+out0 = "CR9"
+out1 = "CR10"
+qf = "CR11"
+sharp = "CR12"
+[golden]
+tolerance = { e2 = "EXACT" }
+[cases.default]
+[cases.two_blocks]
+s0_numel = 256
+s1_numel = 256
+s2_tokens = 256
+s3_m = 256
+s3_n = 256
+s4_numel = 256
+s5_tokens = 256
+s6_m = 256
+s6_n = 256
