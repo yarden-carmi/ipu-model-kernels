@@ -1,0 +1,80 @@
+[kernel]
+op = "static_tile_lookup_prim"
+formats = ["e2"]
+
+[params.tokens]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+
+[params.vocab]
+type = "int"
+min = 1
+max = 250002
+default = 20
+
+[params.dim]
+type = "int"
+min = 128
+max = 1024
+multiple_of = 128
+default = 256
+
+[params.sharp]
+type = "float"
+default = 1024.0
+
+[params.neg1]
+type = "float"
+default = -1.0
+
+[params.six]
+type = "float"
+default = 6.0
+
+[derived]
+qf = "case_qf"
+ntb = "tokens // 128"
+nb = "dim // 128"
+ke = "min(vocab, 8)"
+nscr = "(3 * ke + 2) * ntb"
+
+[inputs.in0]
+shape = ["ntb", 128]
+range = [0.0, 7.0]
+
+[inputs.table]
+shape = ["vocab", "dim"]
+range = [-2.0, 2.0]
+
+[inputs.ones]
+shape = [1, 128]
+range = [1.0, 1.0]
+
+[scratch.scr]
+shape = ["nscr", 128]
+
+[outputs.out0]
+shape = ["tokens * nb", 128]
+
+[abi]
+in0 = "CR2"
+table = "CR3"
+ones = "CR4"
+scr = "CR5"
+out0 = "CR6"
+qf = "CR7"
+sharp = "CR8"
+neg1 = "CR9"
+six = "CR10"
+
+[golden]
+tolerance = { e2 = "NX8_STEP" }
+
+[cases.default]
+
+[cases.small]
+vocab = 9
+dim = 128
