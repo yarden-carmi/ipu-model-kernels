@@ -1,0 +1,121 @@
+[kernel]
+op = "oh_ramp_f32_k21__gemm"
+formats = ["e3"]
+
+[params.s0_tokens]
+type = "int"
+min = 1
+max = 256
+default = 256
+[params.s0_vocab]
+type = "int"
+min = 1
+max = 30522
+default = 30522
+[params.s1_bias]
+type = "bool"
+default = false
+[params.s1_k]
+type = "int"
+min = 1
+max = 30522
+default = 30522
+[params.s1_m]
+type = "int"
+min = 1
+max = 256
+default = 256
+[params.s1_n]
+type = "int"
+min = 128
+max = 384
+multiple_of = 128
+default = 384
+[params.compare_scale]
+type = "float"
+default = 1048576.0
+[params.compare_mid]
+type = "float"
+default = 33554432.0
+[params.compare_high]
+type = "float"
+default = 1073741824.0
+
+[derived]
+qf = "case_qf"
+tokenblocks = "ceil(s0_tokens / 128)"
+nblocks = "s1_n // 128"
+
+[inputs.in0]
+shape = [1, "tokenblocks * 128"]
+range = [0.0, 30522.0]
+[inputs.weights]
+shape = ["s1_k", "s1_n"]
+range = [-1.0, 1.0]
+[inputs.add0]
+shape = [1, "s1_m", "s1_n"]
+range = [-1.0, 1.0]
+[inputs.add1]
+shape = [1, "s1_m", "s1_n"]
+range = [-1.0, 1.0]
+[inputs.bias]
+shape = ["s1_n"]
+range = [-1.0, 1.0]
+when = "s1_bias"
+[outputs.out0]
+shape = [1, "s1_m", "s1_n"]
+[scratch.selectors]
+shape = ["tokenblocks", "s0_vocab", 128]
+[scratch.work]
+shape = [2, 128]
+fill = 1.0
+[scratch.digits]
+shape = [32, 128]
+
+[abi]
+in0 = "CR2"
+weights = "CR3"
+out0 = "CR4"
+selectors = "CR5"
+work = "CR6"
+digits = "CR7"
+compare_scale = "CR8"
+compare_mid = "CR9"
+compare_high = "CR10"
+qf = "CR11"
+add0 = "CR12"
+add1 = "CR13"
+bias = "CR14"
+s0_tokens = "LR12"
+tokenblocks = "LR13"
+nblocks = "LR14"
+s0_vocab = "LR15"
+
+[golden]
+tolerance = { e3 = "EXACT" }
+
+[cases.default]
+s0_tokens = 3
+s1_m = 3
+s0_vocab = 37
+s1_k = 37
+s1_n = 128
+[cases.radix]
+s0_tokens = 129
+s1_m = 129
+s0_vocab = 1057
+s1_k = 1057
+s1_n = 128
+[cases.bias]
+s0_tokens = 2
+s1_m = 2
+s0_vocab = 33
+s1_k = 33
+s1_n = 128
+s1_bias = true
+[cases.mid]
+s0_tokens = 3
+s1_m = 3
+s0_vocab = 6000
+s1_k = 6000
+s1_n = 256

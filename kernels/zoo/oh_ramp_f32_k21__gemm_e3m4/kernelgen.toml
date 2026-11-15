@@ -1,0 +1,4 @@
+chain = ["oh_ramp_f32_k21", "gemm"]
+chain_in = ["in0"]
+chain_out = ["out0"]
+notes = "One-hot selector (ids == ramp) built per token block as digit-compare selectors in e3 (radix-32 exact digits, clipped differences), then GEMM with weights transposed to [k, n] so n runs along lanes. Folded additive constants are added in FP32 before the final store. Only vocabulary indices representable in e3m4 (five significant bits) are visited; the others have identically zero selector columns for e3m4-valued ids."
