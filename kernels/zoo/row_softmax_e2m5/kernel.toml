@@ -1,0 +1,69 @@
+[kernel]
+op = "row_softmax"
+formats = ["e2"]
+[params.n]
+type = "int"
+min = 128
+max = 4096
+multiple_of = 128
+default = 256
+[params.rows]
+type = "int"
+min = 1
+max = 8192
+default = 4
+[params.scale]
+type = "float"
+default = 0.0625
+min = 0.0625
+max = 0.0625
+[derived]
+qf = "case_qf"
+K = "n // 128"
+M = "rows * K"
+[inputs.in0]
+shape = ["rows", "K", 128]
+range = [-2.0, 2.0]
+[outputs.out0]
+shape = ["rows", "K", 128]
+[scratch.exps]
+shape = ["2 * K", 128]
+[scratch.tmp]
+shape = [8, 128]
+fill = 1
+[scratch.poly]
+shape = [4, 128]
+[scratch.c5]
+shape = [128]
+fill = 0.00830078125
+[scratch.c4]
+shape = [128]
+fill = 0.0419921875
+[scratch.c3]
+shape = [128]
+fill = 0.16796875
+[scratch.c2]
+shape = [128]
+fill = 0.5
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+c2 = "CR4"
+exps = "CR5"
+tmp = "CR6"
+qf = "CR7"
+K = "CR8"
+M = "CR9"
+scale = "CR10"
+poly = "CR11"
+c5 = "CR12"
+c4 = "CR13"
+c3 = "CR14"
+[golden]
+tolerance = { e2 = "NX8_STEP" }
+[cases.default]
+n = 256
+rows = 4
+[cases.single]
+n = 128
+rows = 2
