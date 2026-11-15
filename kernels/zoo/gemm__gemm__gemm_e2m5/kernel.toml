@@ -1,0 +1,125 @@
+[kernel]
+op = "gemm__gemm__gemm"
+formats = ["e2"]
+[params.s0_m]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s1_m]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s2_m]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s0_k]
+type = "int"
+min = 128
+max = 512
+multiple_of = 128
+default = 128
+[params.s1_k]
+type = "int"
+min = 128
+max = 512
+multiple_of = 128
+default = 128
+[params.s2_k]
+type = "int"
+min = 128
+max = 512
+multiple_of = 128
+default = 128
+[params.s0_n]
+type = "int"
+min = 128
+max = 512
+multiple_of = 128
+default = 128
+[params.s1_n]
+type = "int"
+min = 128
+max = 512
+multiple_of = 128
+default = 128
+[params.s2_n]
+type = "int"
+min = 128
+max = 512
+multiple_of = 128
+default = 128
+[params.s0_bias]
+type = "bool"
+default = false
+[params.s1_bias]
+type = "bool"
+default = false
+[params.s2_bias]
+type = "bool"
+default = false
+[inputs.in0]
+shape = [1, "s0_m", "s0_k"]
+range = [-2, 2]
+[inputs.w0]
+shape = ["s0_k", "s0_n"]
+range = [-2, 2]
+[inputs.w1]
+shape = ["s1_n", "s1_k"]
+range = [-2, 2]
+[inputs.w2]
+shape = ["s2_k", "s2_n"]
+range = [-2, 2]
+[outputs.out0]
+shape = [1, 1, "s0_m", "s0_n"]
+[outputs.out1]
+shape = [1, 1, "s1_n", "s1_m"]
+[outputs.out2]
+shape = [1, 1, "s2_m", "s2_n"]
+[derived]
+qf = "case_qf"
+c128 = "128"
+K0 = "s0_k // 128"
+K1 = "s1_k // 128"
+K2 = "s2_k // 128"
+NB0 = "s0_n // 128"
+NB2 = "s2_n // 128"
+MB = "s1_m // 128"
+[abi]
+in0 = "CR2"
+w0 = "CR3"
+out0 = "CR4"
+w1 = "CR5"
+out1 = "CR6"
+w2 = "CR7"
+out2 = "CR8"
+qf = "CR9"
+c128 = "CR10"
+NB0 = "CR11"
+MB = "CR12"
+s0_m = "CR13"
+s1_n = "CR14"
+K0 = "LR12"
+K1 = "LR13"
+K2 = "LR14"
+NB2 = "LR15"
+[golden]
+tolerance = { e2 = "NX8_STEP" }
+[cases.default]
+[cases.rows]
+s0_m = 256
+s1_m = 256
+s2_m = 256
+[cases.blocks]
+s0_k = 256
+s0_n = 256
+s1_k = 256
+s1_n = 256
+s2_k = 256
+s2_n = 256
