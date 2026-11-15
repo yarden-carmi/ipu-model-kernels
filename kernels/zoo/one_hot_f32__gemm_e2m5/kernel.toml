@@ -52,7 +52,7 @@ ke = "min(s0_vocab, 8)"
 nscr = "(3 * ke + 2) * ntb"
 
 [inputs.in0]
-shape = ["ntb", 128]
+shape = [1, "s1_m"]
 range = [0.0, 7.0]
 
 [inputs.w]
@@ -67,7 +67,7 @@ range = [1.0, 1.0]
 shape = ["nscr", 128]
 
 [outputs.out0]
-shape = ["s1_m * nb", 128]
+shape = [1, "s1_m", "s1_n"]
 
 [abi]
 in0 = "CR2"
@@ -90,3 +90,9 @@ s0_vocab = 9
 s1_k = 9
 s1_m = 128
 s1_n = 128
+
+[cases.two_channels]
+s0_vocab = 8
+s1_k = 8
+s1_m = 128
+s1_n = 256

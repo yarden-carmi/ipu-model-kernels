@@ -1,4 +1,4 @@
 chain = ["one_hot_f32", "gemm"]
 chain_in = ["in0"]
 chain_out = ["out0"]
-notes = "Builds indicators for IDs below eight then performs the corresponding weight gather as a fused GEMM."
+notes = "Truncation-to-integer one-hot indicators for decoded IDs in the declared [0,7] input domain, followed by fused bias-free GEMM. Input lanes follow dimension 1; output lanes follow dimension 2. Weights retain the accepted [vocab,n] constant arrangement."
