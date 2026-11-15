@@ -1,4 +1,4 @@
 chain = ["conv2d"]
 chain_in = ["in0"]
 chain_out = ["out0"]
-notes = "Channel-lane input; height-lane output in channel,width row order. Folded bias and tap/channel-block weight rows. Zero-padded scratch and FP32 dot-product accumulation."
+notes = "Channel-lane input; height-lane output in channel,width row order. Folded bias and group-local tap/channel-block weight rows. Supports dense and depthwise convolution, with output height at most 128. Zero-padded scratch and FP32 accumulation; depthwise selects each input channel as a scalar."

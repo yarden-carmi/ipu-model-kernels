@@ -7,17 +7,17 @@ default = true
 [params.cin]
 type = "int"
 min = 1
-max = 384
+max = 512
 default = 3
 [params.cout]
 type = "int"
 min = 1
-max = 384
+max = 512
 default = 2
 [params.groups]
 type = "int"
 min = 1
-max = 1
+max = 512
 default = 1
 [params.h]
 type = "int"
@@ -42,7 +42,7 @@ default = 3
 [params.padding]
 type = "int"
 min = 0
-max = 1
+max = 3
 default = 1
 [params.stride]
 type = "int"
@@ -56,12 +56,12 @@ wp = "w + 2 * padding"
 qf = "case_qf + stride * wp * nb * 65536"
 ho = "(h + 2 * padding - kh) // stride + 1"
 wo = "(w + 2 * padding - kw) // stride + 1"
-sall = "kh * kw * nb + 1"
+sall = "kh * kw * ceil((cin // groups) / 128) + 1"
 dsout = "ds(ho) + (2 * ceil(ho / 2) - 2) * 65536"
 ds1 = "ds(1)"
 dsfull = "ds(128)"
 dsboth = "ds(1) + ds(128) * 65536"
-dstail = "ds(cin - (nb - 1) * 128)"
+dstail = "ds(cin - (nb - 1) * 128) + 128 * 65536"
 [inputs.in0]
 shape = ["h", "w", "nb * 128"]
 range = [-2, 2]
@@ -91,20 +91,30 @@ dsboth = "CR15"
 tolerance = { e2 = "NX8_STEP" }
 [cases.default]
 cin = 3
-[cases.patch]
-h = 28
-w = 28
-kh = 14
-kw = 14
-stride = 14
-padding = 0
-[cases.strided]
-cin = 384
-h = 6
-w = 8
-stride = 2
-[cases.nobias192]
-cin = 192
-bias = false
-[cases.c64]
+[cases.stem]
+cin = 3
+cout = 4
+h = 12
+w = 12
+kh = 7
+kw = 7
+padding = 3
+stride = 4
+[cases.depth256]
+cin = 256
+cout = 256
+groups = 256
+h = 4
+w = 5
+[cases.depth512]
+cin = 512
+cout = 512
+groups = 512
+h = 3
+w = 3
+[cases.downsample]
 cin = 64
+cout = 8
+h = 6
+w = 6
+stride = 2
