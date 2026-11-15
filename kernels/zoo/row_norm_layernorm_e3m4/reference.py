@@ -8,5 +8,5 @@ def reference(**kw):
     beta = kw["beta"].to(torch.float64).reshape(-1)[: kw["channels"]]
     mu = x.mean(dim=1, keepdim=True)
     var = ((x - mu) ** 2).mean(dim=1, keepdim=True)
-    y = (x - mu) / torch.sqrt(var + 1e-5) * gamma + beta
+    y = (x - mu) / torch.sqrt(var + kw["eps"]) * gamma + beta
     return {"out0": y.reshape(-1, 128)}
