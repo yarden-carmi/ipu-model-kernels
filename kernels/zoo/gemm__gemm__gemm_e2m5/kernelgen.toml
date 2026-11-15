@@ -1,4 +1,4 @@
 chain = ["gemm", "gemm", "gemm"]
 chain_in = ["in0"]
 chain_out = ["out0", "out1", "out2"]
-notes = "Middle GEMM reduces K vectors into individual M accumulator lanes; no intermediate transpose or extra quantization. Bias-free, full 128-lane tiles."
+notes = "Three GEMMs with optional biases and full 128-lane tiles. Middle GEMM reduces K vectors into M lanes. Bias constants pack stage 0 vectors, stage 1 broadcast rows, then stage 2 vectors. Intermediate outputs are rounded in their required layouts."
