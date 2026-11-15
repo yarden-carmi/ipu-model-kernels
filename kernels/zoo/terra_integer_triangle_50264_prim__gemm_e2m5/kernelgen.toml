@@ -1,0 +1,4 @@
+chain = ["terra_integer_triangle_50264_prim", "gemm"]
+chain_in = ["in0"]
+chain_out = ["out0"]
+notes = "Triangle indicator clamp(1 - |trunc(x) - j|, 0) is one-hot on integer ids in [0, 8); built with relu6 steps of 1024*(x-k)+6 and gathered by multiply-accumulate against the weight rows w[k, :]. Only k < min(vocab, 8) contribute."
