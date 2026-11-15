@@ -1,3 +1,6 @@
+{# Traverse physical rows in the matching dimension-3 lane layouts.
+   R0 retains the scalar; each input row is decoded, multiplied in FP32,
+   and rounded once on store. The last store zeros inactive lanes. #}
     SET LR0 CR0 ;;
     SET LR1 CR0 ;;
     LD.MULT R0 LR0 {{ cr.operand }} ;;
