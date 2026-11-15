@@ -1,0 +1,117 @@
+[kernel]
+op = "static_eq_selector_768__gemm__row_norm"
+formats = ["e2"]
+[params.s0_tokens]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s0_vocab]
+type = "int"
+min = 1
+max = 30522
+default = 9
+[params.s1_k]
+type = "int"
+min = 1
+max = 30522
+default = 9
+[params.s1_m]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s1_n]
+type = "int"
+min = 128
+max = 768
+multiple_of = 128
+default = 128
+[params.s1_bias]
+type = "bool"
+default = false
+[params.s2_rows]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s2_channels]
+type = "int"
+min = 128
+max = 768
+multiple_of = 128
+default = 128
+[params.s2_kind]
+type = "str"
+choices = ["layernorm"]
+default = "layernorm"
+[params.s2_eps]
+type = "float"
+default = 1e-12
+[params.sharp]
+type = "float"
+default = 65536.0
+[params.half]
+type = "float"
+default = 0.5
+[derived]
+K = "s2_channels // 128"
+M = "s2_rows * K"
+ke = "min(s0_vocab, 8)"
+qf = "case_qf + ds(128) * 65536"
+[inputs.in0]
+shape = [1, "s0_tokens"]
+range = [-2, 7]
+[inputs.packed]
+shape = ["s1_k", "s1_n"]
+range = [-2, 2]
+[inputs.a]
+shape = [1, "s1_m", "s1_n"]
+range = [-2, 2]
+[inputs.b]
+shape = [1, "s1_m", "s1_n"]
+range = [-2, 2]
+[inputs.g]
+shape = [2, "s2_channels"]
+range = [-2, 2]
+[scratch.space]
+shape = ["40 + s0_tokens // 128 * ke + M + 2 * K", 128]
+[scratch.ones]
+shape = [128]
+fill = 1
+[scratch.c]
+shape = [128]
+fill = "1 / s2_channels"
+[scratch.C]
+shape = [128]
+fill = "s2_channels"
+[scratch.epsilon]
+shape = [128]
+fill = "s2_eps"
+[outputs.out0]
+shape = [1, "s2_rows", "s2_channels"]
+[abi]
+packed = "CR2"
+space = "CR3"
+in0 = "CR4"
+out0 = "CR5"
+c = "CR6"
+C = "CR7"
+epsilon = "CR8"
+sharp = "CR9"
+ones = "CR10"
+a = "CR11"
+b = "CR12"
+g = "CR13"
+qf = "CR14"
+half = "CR15"
+M = "LR9"
+[golden]
+tolerance = { e2 = "NX8_STEP" }
+[cases.default]
+[cases.wide]
+s1_n = 768
+s2_channels = 768
