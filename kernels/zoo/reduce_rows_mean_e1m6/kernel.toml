@@ -1,0 +1,58 @@
+[kernel]
+op = "reduce_rows_mean"
+formats = ["e1"]
+
+[params.kind]
+type = "str"
+choices = ["mean"]
+default = "mean"
+
+[params.n]
+type = "int"
+min = 1
+max = 100000
+default = 64
+
+[params.rows]
+type = "int"
+min = 1
+max = 1024
+default = 64
+
+[derived]
+qf = "case_qf"
+rb = "ceil(rows / 128)"
+
+[inputs.in0]
+shape = ["n", "rb * 128"]
+range = [0.0, 2.0]
+
+[outputs.out0]
+shape = ["rb", 128]
+
+[scratch.recip]
+shape = [1, 128]
+fill = "1 / n"
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+recip = "CR4"
+qf = "CR5"
+rb = "CR6"
+n = "CR7"
+
+[golden]
+tolerance = { e1 = "NX8_STEP" }
+
+[cases.default]
+n = 100
+rows = 64
+
+[cases.multiblock]
+n = 8
+rows = 200
+
+[cases.single]
+n = 49
+rows = 16
