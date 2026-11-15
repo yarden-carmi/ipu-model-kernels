@@ -1,0 +1,88 @@
+[kernel]
+op = "static_selector_44316__gemm"
+formats = ["e2"]
+[params.s0_tokens]
+type = "int"
+min = 1
+max = 256
+default = 148
+[params.s0_vocab]
+type = "int"
+min = 1
+max = 59392
+default = 59392
+[params.s1_m]
+type = "int"
+min = 1
+max = 256
+default = 148
+[params.s1_k]
+type = "int"
+min = 1
+max = 59392
+default = 59392
+[params.s1_n]
+type = "int"
+min = 128
+max = 1536
+multiple_of = 128
+default = 1536
+[params.s1_bias]
+type = "bool"
+default = false
+[params.sharp]
+type = "float"
+default = 1024.0
+[params.edge]
+type = "float"
+default = 16.0
+[derived]
+qf = "case_qf"
+ntb = "ceil(s0_tokens / 128)"
+ke = "min(s0_vocab, 8)"
+[inputs.in0]
+shape = [1, "s0_tokens"]
+range = [0.0, 7.0]
+[inputs.w]
+shape = ["s1_k", "s1_n"]
+range = [-2.0, 2.0]
+[scratch.ones]
+shape = [1, 128]
+fill = 1.0
+[scratch.work]
+shape = [2, 128]
+[scratch.selectors]
+shape = ["ntb", "ke", 128]
+[outputs.out0]
+shape = [1, "s1_m", "s1_n"]
+[abi]
+in0 = "CR2"
+w = "CR3"
+ones = "CR4"
+work = "CR5"
+selectors = "CR6"
+out0 = "CR7"
+sharp = "CR8"
+qf = "CR9"
+edge = "CR10"
+s0_tokens = "CR11"
+[golden]
+tolerance = { e2 = "EXACT" }
+[cases.default]
+s0_tokens = 5
+s1_m = 5
+s0_vocab = 9
+s1_k = 9
+s1_n = 128
+[cases.tail]
+s0_tokens = 148
+s1_m = 148
+s0_vocab = 20
+s1_k = 20
+s1_n = 256
+[cases.short_vocab]
+s0_tokens = 3
+s1_m = 3
+s0_vocab = 3
+s1_k = 3
+s1_n = 128
