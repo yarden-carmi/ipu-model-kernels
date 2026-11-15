@@ -1,0 +1,118 @@
+[kernel]
+op = "binary_mul_col"
+formats = ["e1"]
+
+[params.broadcast]
+type = "str"
+choices = ["col"]
+default = "col"
+
+[params.inner]
+type = "int"
+min = 1
+max = 576
+default = 16
+
+[params.numel]
+type = "int"
+min = 1
+max = 65536
+default = 50176
+
+[params.op]
+type = "str"
+choices = ["mul"]
+default = "mul"
+
+[params.m]
+type = "int"
+min = 1
+max = 3136
+default = 1
+
+[params.n]
+type = "int"
+min = 1
+max = 576
+default = 16
+
+[params.k]
+type = "int"
+min = 1
+max = 576
+default = 8
+
+[params.bias]
+type = "bool"
+default = true
+
+[derived]
+qf = "case_qf"
+rows = "m"
+chunks = "ceil(n / 128)"
+phys = "m * chunks"
+chunk_el = "chunks * 128"
+tail = "n - (ceil(n / 128) - 1) * 128"
+ds_tail = "ds(tail)"
+chunksm1 = "ceil(n / 128) - 1"
+
+[inputs.in0]
+shape = ["m", "ceil(n / 128) * 128"]
+range = [-2.0, 2.0]
+
+[inputs.in1]
+shape = ["ceil(n / 128)", 128]
+range = [-2.0, 2.0]
+
+[outputs.out0]
+shape = ["m", "ceil(n / 128) * 128"]
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+qf = "CR5"
+phys = "CR6"
+chunk_el = "CR7"
+ds_tail = "CR8"
+chunksm1 = "CR9"
+n = "CR11"
+m = "CR12"
+
+[golden]
+tolerance = { e1 = "EXACT" }
+
+[cases.default]
+inner = 16
+numel = 48
+m = 3
+n = 16
+k = 8
+
+[cases.chunks2]
+inner = 144
+numel = 432
+m = 3
+n = 144
+k = 8
+
+[cases.chunks3]
+inner = 288
+numel = 864
+m = 3
+n = 288
+k = 8
+
+[cases.chunks5]
+inner = 576
+numel = 1152
+m = 2
+n = 576
+k = 8
+
+[cases.real0]
+inner = 16
+numel = 50176
+m = 3136
+n = 16
+k = 8
