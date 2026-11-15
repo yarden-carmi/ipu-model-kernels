@@ -1,0 +1,4 @@
+chain = ["integer_hat_decode_30522", "gemm"]
+chain_in = ["in0"]
+chain_out = ["out0"]
+notes = "Token-lane selectors feed channel-lane GEMM; weights are token-major offline, with task adds already folded at home. Input domain is nonnegative IDs below 8, matching the accepted one_hot kernel's domain; the full vocabulary weight tensor is retained. Bias is false."
