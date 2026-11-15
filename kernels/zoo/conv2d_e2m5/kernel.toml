@@ -1,0 +1,110 @@
+[kernel]
+op = "conv2d"
+formats = ["e2"]
+[params.bias]
+type = "bool"
+default = true
+[params.cin]
+type = "int"
+min = 1
+max = 384
+default = 3
+[params.cout]
+type = "int"
+min = 1
+max = 384
+default = 2
+[params.groups]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.h]
+type = "int"
+min = 1
+max = 224
+default = 5
+[params.w]
+type = "int"
+min = 1
+max = 224
+default = 6
+[params.kh]
+type = "int"
+min = 1
+max = 14
+default = 3
+[params.kw]
+type = "int"
+min = 1
+max = 14
+default = 3
+[params.padding]
+type = "int"
+min = 0
+max = 1
+default = 1
+[params.stride]
+type = "int"
+min = 1
+max = 14
+default = 1
+[derived]
+nb = "ceil(cin / 128)"
+hp = "h + 2 * padding"
+wp = "w + 2 * padding"
+qf = "case_qf + stride * wp * nb * 65536"
+ho = "(h + 2 * padding - kh) // stride + 1"
+wo = "(w + 2 * padding - kw) // stride + 1"
+sall = "kh * kw * nb + 1"
+dsout = "ds(ho) + (2 * ceil(ho / 2) - 2) * 65536"
+ds1 = "ds(1)"
+dsfull = "ds(128)"
+dsboth = "ds(1) + ds(128) * 65536"
+dstail = "ds(cin - (nb - 1) * 128)"
+[inputs.in0]
+shape = ["h", "w", "nb * 128"]
+range = [-2, 2]
+[inputs.weights]
+shape = ["cout * sall", 128]
+range = [-1, 1]
+[scratch.pad]
+shape = ["(hp + 2 * stride + 1) * wp * nb", 128]
+[outputs.out0]
+shape = ["cout", "wo", 128]
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+weights = "CR4"
+pad = "CR5"
+qf = "CR6"
+dsout = "CR7"
+h = "CR8"
+w = "CR9"
+wo = "CR10"
+cout = "CR11"
+kh = "CR12"
+ho = "CR13"
+dstail = "CR14"
+dsboth = "CR15"
+[golden]
+tolerance = { e2 = "NX8_STEP" }
+[cases.default]
+cin = 3
+[cases.patch]
+h = 28
+w = 28
+kh = 14
+kw = 14
+stride = 14
+padding = 0
+[cases.strided]
+cin = 384
+h = 6
+w = 8
+stride = 2
+[cases.nobias192]
+cin = 192
+bias = false
+[cases.c64]
+cin = 64
