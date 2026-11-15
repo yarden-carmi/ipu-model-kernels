@@ -1,0 +1,94 @@
+[kernel]
+op = "embedding_bitcopy"
+formats = ["e2"]
+
+[params.tokens]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 256
+
+[params.vocab]
+type = "int"
+min = 8
+max = 50265
+default = 50265
+
+[params.dim]
+type = "int"
+min = 128
+max = 768
+multiple_of = 128
+default = 768
+
+[params.sharp]
+type = "float"
+default = 1024.0
+
+[params.six]
+type = "float"
+default = 6.0
+
+[params.neg1]
+type = "float"
+default = -1.0
+
+[derived]
+qf = "case_qf"
+ntb = "tokens // 128"
+nd = "dim // 128"
+ke = "min(vocab, 8)"
+nscr = "27 * ntb"
+
+[inputs.in0]
+shape = ["ntb", 128]
+range = [0.0, 7.0]
+
+[inputs.table]
+shape = ["vocab * nd", 128]
+range = [-2.0, 2.0]
+
+[inputs.ones]
+shape = [1, 128]
+range = [1.0, 1.0]
+
+[scratch.scr]
+shape = ["nscr", 128]
+
+[outputs.out0]
+shape = ["tokens * nd", 128]
+
+[abi]
+in0 = "CR2"
+table = "CR3"
+ones = "CR4"
+scr = "CR5"
+out0 = "CR6"
+qf = "CR7"
+sharp = "CR8"
+six = "CR9"
+neg1 = "CR10"
+
+[golden]
+tolerance = { e2 = "EXACT" }
+
+[cases.default]
+tokens = 128
+vocab = 8
+dim = 128
+
+[cases.small]
+tokens = 128
+vocab = 9
+dim = 128
+
+[cases.mid]
+tokens = 256
+vocab = 20
+dim = 256
+
+[cases.tiny_vocab]
+tokens = 128
+vocab = 8
+dim = 128
