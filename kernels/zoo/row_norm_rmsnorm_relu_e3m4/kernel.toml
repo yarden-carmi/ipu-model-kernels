@@ -1,0 +1,79 @@
+[kernel]
+op = "row_norm"
+formats = ["e3"]
+[params.kind]
+type = "str"
+choices = ["rmsnorm"]
+default = "rmsnorm"
+[params.channels]
+type = "int"
+min = 7
+max = 112
+default = 7
+[params.rows]
+type = "int"
+min = 7
+max = 14336
+default = 14
+[params.eps]
+type = "float"
+default = 0.00001
+[params.half]
+type = "float"
+default = 0.5
+[derived]
+qf = "case_qf"
+C = "rows // channels"
+B = "ceil(C / 128)"
+valid = "ds(channels)"
+tail = "ds(C - (B - 1) * 128) + ds(128) * 65536"
+[inputs.in0]
+shape = ["rows",128]
+range = [0.5,2]
+[inputs.gamma]
+shape = [112]
+range = [0.5,1.5]
+[outputs.out0]
+shape = ["channels", "channels", "B",128]
+[scratch.tmp]
+shape = [16,128]
+[scratch.norm]
+shape = ["rows",3,128]
+[scratch.recip]
+shape = [128]
+fill = "1 / channels"
+[scratch.epsilon]
+shape = [128]
+fill = "eps"
+[scratch.rlo]
+shape = [128]
+fill = "1 / (channels * 64)"
+[scratch.rtiny]
+shape = [128]
+fill = "1 / (channels * 4096)"
+[abi]
+in0 = "CR2"
+gamma = "CR3"
+out0 = "CR4"
+tmp = "CR5"
+norm = "CR6"
+recip = "CR7"
+epsilon = "CR8"
+rows = "CR9"
+half = "CR11"
+rlo = "CR12"
+rtiny = "CR13"
+qf = "CR14"
+valid = "CR15"
+tail = "CR10"
+[golden]
+tolerance = { e3 = "NX8_STEP" }
+[cases.default]
+channels = 7
+rows = 14
+[cases.widths]
+channels = [14,28,56]
+rows = 224
+[cases.wide]
+channels = 112
+rows = 112
