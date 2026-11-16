@@ -1,0 +1,62 @@
+[kernel]
+op = "tent32128__gemm__row_norm_rmsnorm_e2m5"
+formats = ["e2"]
+[params]
+s0_tokens = {type="int", min=128, max=256, multiple_of=128, default=128}
+s0_vocab = {type="int", min=8, max=32128, default=9}
+s1_m = {type="int", min=128, max=256, multiple_of=128, default=128}
+s1_k = {type="int", min=8, max=32128, default=9}
+s1_n = {type="int", min=128, max=512, multiple_of=128, default=128}
+s1_bias = {type="bool", default=false}
+s2_rows = {type="int", min=128, max=256, multiple_of=128, default=128}
+s2_channels = {type="int", min=128, max=512, multiple_of=128, default=128}
+s2_kind = {type="str", choices=["rmsnorm"], default="rmsnorm"}
+s2_eps = {type="float", default=0.000001}
+negative = {type="float", default=-1.0}
+[inputs]
+in0 = {shape=[1,"s0_tokens"], range=[0,7]}
+w = {shape=["s1_k","s1_n"], range=[-2,2]}
+gamma = {shape=["s2_channels"], range=[-2,2]}
+[scratch]
+ones = {shape=[128], fill=1}
+tmp = {shape=[16,128], fill=0.5}
+sel = {shape=["s0_tokens // 128","ke",128]}
+mid = {shape=["s1_m","s1_n"]}
+midlo = {shape=["s1_m","s1_n"]}
+recip = {shape=[128], fill="1 / s2_channels"}
+epsilon = {shape=[128], fill="s2_eps"}
+[outputs]
+out0 = {shape=[1,"s2_rows","s2_channels"]}
+[derived]
+qf = "case_qf"
+ke = "min(s0_vocab, 8)"
+valid = "ds(128)"
+[abi]
+in0 = "CR2"
+w = "CR3"
+ones = "CR4"
+tmp = "CR5"
+sel = "CR6"
+mid = "CR7"
+qf = "CR8"
+negative = "CR9"
+gamma = "CR10"
+recip = "CR11"
+epsilon = "CR12"
+out0 = "CR13"
+midlo = "CR14"
+valid = "CR15"
+[golden]
+tolerance = {e2="NX8_STEP"}
+[cases.default]
+[cases.wide]
+s0_tokens=256
+s1_m=256
+s2_rows=256
+s1_n=512
+s2_channels=512
+s0_vocab=20
+s1_k=20
+[cases.small_vocab]
+s0_vocab=8
+s1_k=8
