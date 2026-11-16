@@ -1,0 +1,66 @@
+[kernel]
+op = "static_integer_tent__gemm__row_norm"
+formats = ["e3"]
+[params]
+s0_tokens = {type="int", min=128, max=256, multiple_of=128, default=128}
+s0_vocab = {type="int", min=1, max=30522, default=9}
+s1_k = {type="int", min=1, max=30522, default=9}
+s1_m = {type="int", min=128, max=256, multiple_of=128, default=128}
+s1_n = {type="int", min=128, max=384, multiple_of=128, default=384}
+s1_bias = {type="bool", default=false}
+s2_rows = {type="int", min=128, max=256, multiple_of=128, default=128}
+s2_channels = {type="int", min=128, max=384, multiple_of=128, default=384}
+s2_kind = {type="str", choices=["layernorm"], default="layernorm"}
+s2_eps = {type="float", default=1e-12}
+sharp = {type="float", default=1024.0}
+half = {type="float", default=0.5}
+[derived]
+qf = "case_qf"
+valid = "ds(128)"
+nt = "s0_tokens // 128"
+ke = "min(s0_vocab, 8)"
+nb = "s1_n // 128"
+countoff = "base(count) - base(tmp)"
+epsoff = "base(epsilon) - base(tmp)"
+[inputs]
+in0 = {shape=[1,"s0_tokens"], range=[0,7]}
+w = {shape=["s1_k","s1_n"], range=[-2,2]}
+gamma = {shape=["s2_channels"], range=[-2,2]}
+beta = {shape=["s2_channels"], range=[-2,2]}
+[scratch]
+ones = {shape=[128], fill=1}
+sel = {shape=["nt","ke",128]}
+work = {shape=["nb",128]}
+tmp = {shape=[32,128]}
+recip = {shape=[128], fill="1 / s2_channels"}
+count = {shape=[128], fill="s2_channels"}
+epsilon = {shape=[128], fill="s2_eps"}
+[outputs]
+out0 = {shape=[1,"s2_rows","s2_channels"]}
+[abi]
+in0 = "CR2"
+w = "CR3"
+gamma = "CR4"
+out0 = "CR5"
+ones = "CR6"
+sel = "CR7"
+work = "CR8"
+tmp = "CR9"
+recip = "CR10"
+half = "CR11"
+sharp = "CR12"
+beta = "CR13"
+qf = "CR14"
+valid = "CR15"
+countoff = "LR14"
+epsoff = "LR13"
+[golden]
+tolerance = {e3="NX8_STEP"}
+[cases.default]
+[cases.short]
+s0_vocab = 3
+s1_k = 3
+[cases.two]
+s0_tokens = 256
+s1_m = 256
+s2_rows = 256
