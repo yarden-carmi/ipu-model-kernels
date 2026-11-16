@@ -19,7 +19,8 @@ default = 0
 [params.numel]
 type = "int"
 min = 128
-max = 128
+max = 786432
+multiple_of = 128
 default = 128
 [params.op]
 type = "str"
@@ -27,22 +28,28 @@ choices = ["mul"]
 default = "mul"
 
 [inputs.in0]
-shape = [2304, 128]
+shape = [1, 1, "numel / 128", 128]
 range = [-2.0, 2.0]
 [inputs.operand]
 shape = [1]
 range = [-2.0, 2.0]
 [outputs.out0]
-shape = [1, 128]
+shape = [1, 1, "numel / 128", 128]
 
 [derived]
 qf = "case_qf"
+rows = "numel / 128"
+valid = "ds(128)"
 [abi]
 in0 = "CR2"
 operand = "CR3"
 out0 = "CR4"
 qf = "CR5"
+rows = "CR6"
+valid = "CR15"
 [golden]
 tolerance = { e2 = "EXACT" }
 [cases.default]
 numel = 128
+[cases.multiple_rows]
+numel = 896
