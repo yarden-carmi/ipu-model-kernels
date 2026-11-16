@@ -1,0 +1,129 @@
+[kernel]
+op = "row_norm_rmsnorm__conv2d"
+formats = ["e3"]
+[params.s0_kind]
+type = "str"
+choices = ["rmsnorm"]
+default = "rmsnorm"
+[params.s0_channels]
+type = "int"
+min = 7
+max = 28
+default = 28
+[params.s0_rows]
+type = "int"
+min = 1
+max = 3584
+default = 4
+[params.s1_bias]
+type = "bool"
+default = false
+[params.s1_cin]
+type = "int"
+min = 1
+max = 256
+default = 64
+[params.s1_cout]
+type = "int"
+min = 1
+max = 512
+default = 4
+[params.s1_groups]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s1_h]
+type = "int"
+min = 2
+max = 56
+default = 4
+[params.s1_w]
+type = "int"
+min = 2
+max = 56
+default = 4
+[params.s1_kh]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s1_kw]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s1_padding]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.s1_stride]
+type = "int"
+min = 2
+max = 2
+default = 2
+[params.eps]
+type = "float"
+default = 0.00001
+[derived]
+qf = "case_qf + 65536 * ds(128)"
+valid = "ds(s0_channels)"
+nbi = "ceil(s1_cin / 128)"
+ho = "(s1_h - 1) // s1_stride + 1"
+wo = "(s1_w - 1) // s1_stride + 1"
+dsout = "ds(wo)"
+tail = "ds(s1_cin - (nbi - 1) * 128)"
+[inputs.in0]
+shape = [1, 1, "s0_rows", 128]
+range = [-2,2]
+[inputs.in1]
+shape = [1, "s1_h", "s1_w", "nbi * 128"]
+range = [-2,2]
+[inputs.gamma]
+shape = [128]
+range = [-2,2]
+[inputs.weights]
+shape = ["s1_cout", "nbi", 128]
+range = [-2,2]
+[outputs.out0]
+shape = [1, 1, "s0_rows", 128]
+[outputs.out1]
+shape = [1, "s1_cout", "ho", 128]
+[scratch.tmp]
+shape = [8,128]
+[scratch.recip]
+shape = [128]
+fill = "1 / s0_channels"
+[scratch.reciplo]
+shape = [128]
+fill = "(1 / 64) / s0_channels"
+[scratch.epsilon]
+shape = [128]
+fill = "eps"
+[abi]
+in0 = "CR2"
+gamma = "CR3"
+out0 = "CR4"
+tmp = "CR5"
+recip = "CR6"
+epsilon = "CR7"
+in1 = "CR8"
+weights = "CR9"
+out1 = "CR10"
+reciplo = "CR11"
+dsout = "CR12"
+tail = "CR13"
+s0_rows = "LR13"
+qf = "CR14"
+valid = "CR15"
+ho = "LR15"
+[golden]
+tolerance = { e3 = "NX8_STEP" }
+[cases.default]
+[cases.c128]
+s0_channels = 14
+s1_cin = 128
+[cases.c256]
+s0_channels = 7
+s1_cin = 256
