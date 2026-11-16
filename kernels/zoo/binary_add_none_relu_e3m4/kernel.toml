@@ -1,0 +1,55 @@
+[kernel]
+op = "binary_add_none_relu"
+formats = ["e3"]
+[params.broadcast]
+type = "str"
+choices = ["none"]
+default = "none"
+[params.inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.numel]
+type = "int"
+min = 56
+max = 200704
+multiple_of = 56
+default = 112
+[params.op]
+type = "str"
+choices = ["add"]
+default = "add"
+[inputs.in0]
+shape = [1, 1, 3584, 128]
+range = [-2, 2]
+[inputs.in1]
+shape = [1, "numel / 56", 56, 128]
+range = [-2, 2]
+[outputs.out0]
+shape = [1, "numel / 56", 56, 128]
+[derived]
+qf = "case_qf"
+valid = "ds(1)"
+rows = "numel / 56"
+width = "56"
+reg_offset = "128"
+indices_lo = "50462976"
+indices_hi = "117835012"
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+qf = "CR5"
+valid = "CR6"
+rows = "CR7"
+width = "CR8"
+indices_lo = "CR9"
+indices_hi = "CR10"
+reg_offset = "CR11"
+[golden]
+tolerance = { e3 = "EXACT" }
+[cases.default]
+numel = 112
+[cases.single]
+numel = 56
