@@ -1,0 +1,114 @@
+[kernel]
+op = "static_triangle_decoder__gemm__row_norm"
+formats = ["e3"]
+[params.s0_tokens]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s0_vocab]
+type = "int"
+min = 1
+max = 30522
+default = 9
+[params.s1_m]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s1_k]
+type = "int"
+min = 1
+max = 30522
+default = 9
+[params.s1_n]
+type = "int"
+min = 128
+max = 384
+multiple_of = 128
+default = 384
+[params.s2_rows]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s2_channels]
+type = "int"
+min = 128
+max = 384
+multiple_of = 128
+default = 384
+[params.s2_eps]
+type = "float"
+default = 1e-12
+[params.s2_kind]
+type = "str"
+choices = ["layernorm"]
+default = "layernorm"
+[params.half]
+type = "float"
+default = 0.5
+[inputs.in0]
+shape = [1, "s0_tokens"]
+range = [0, 7]
+[inputs.w]
+shape = ["s1_k", "s1_n"]
+range = [-2, 2]
+[inputs.gamma]
+shape = ["s2_channels"]
+range = [-2, 2]
+[inputs.beta]
+shape = ["s2_channels"]
+range = [-2, 2]
+[scratch.ones]
+shape = [128]
+fill = 1
+[scratch.tmp]
+shape = [30, 128]
+[scratch.selectors]
+shape = [2, "s0_tokens // 128", "min(s0_vocab, 8)", 128]
+[scratch.mid]
+shape = [2, "s1_m", "s1_n"]
+[scratch.crow]
+shape = [128]
+fill = "1 / s2_channels"
+[scratch.crowC]
+shape = [128]
+fill = "s2_channels"
+[scratch.epsilon]
+shape = [128]
+fill = "s2_eps"
+[outputs.out0]
+shape = [1, "s2_rows", "s2_channels"]
+[derived]
+qf = "case_qf"
+[abi]
+mid = "CR2"
+gamma = "CR3"
+beta = "CR4"
+out0 = "CR5"
+crowC = "CR6"
+crow = "CR7"
+tmp = "CR8"
+qf = "CR9"
+in0 = "CR10"
+w = "CR11"
+epsilon = "CR12"
+half = "CR13"
+ones = "CR14"
+selectors = "LR15"
+[golden]
+tolerance = { e3 = "NX8_STEP" }
+[cases.default]
+[cases.short]
+s0_vocab = 3
+s1_k = 3
+s1_n = 128
+s2_channels = 128
+[cases.wide]
+s0_tokens = 256
+s1_m = 256
+s2_rows = 256
