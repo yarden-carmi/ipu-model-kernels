@@ -7,77 +7,72 @@ default = true
 [params.cin]
 type = "int"
 min = 1
-max = 256
+max = 1536
 default = 3
 [params.cout]
 type = "int"
 min = 1
-max = 256
-default = 16
+max = 1536
+default = 4
 [params.groups]
 type = "int"
 min = 1
-max = 256
+max = 1536
 default = 1
 [params.h]
 type = "int"
 min = 1
-max = 1024
+max = 128
 default = 4
 [params.w]
 type = "int"
 min = 1
-max = 1024
+max = 128
 default = 4
 [params.kh]
 type = "int"
 min = 1
-max = 7
+max = 3
 default = 3
 [params.kw]
 type = "int"
 min = 1
-max = 7
+max = 3
 default = 3
 [params.padding]
 type = "int"
 min = 0
-max = 3
+max = 1
 default = 1
 [params.stride]
 type = "int"
 min = 1
 max = 2
-default = 2
+default = 1
 [derived]
 qf = "case_qf"
 nbi = "ceil(cin / 128)"
-nbo = "ceil(cout / 128)"
-cing = "cin // groups"
-wp = "w + 2 * padding"
-wpr = "wp * nbi"
 ho = "(h + 2 * padding - kh) // stride + 1"
 wo = "(w + 2 * padding - kw) // stride + 1"
-wrows = "kh * kw * cing * nbo"
-pad_rows = "(h + 2 * padding) * wp * nbi"
-out_rows = "ho * wo * nbo"
-dsout0 = "ds(min(cout, 128))"
+dsout0 = "ds(ho)"
+wrows = "cout * kh * kw * ceil(cin / (groups * 128))"
+dsci = "ds(min(cin // groups,128))"
 [inputs.in0]
-shape = ["h * w * nbi", 128]
-range = [-2.0, 2.0]
+shape = ["h * w * nbi",128]
+range = [-2.0,2.0]
 [inputs.weights]
-shape = ["wrows", 128]
-range = [-1.0, 1.0]
+shape = ["wrows",128]
+range = [-1.0,1.0]
 [inputs.bias_vec]
-shape = ["nbo", 128]
-range = [-1.0, 1.0]
+shape = ["cout",128]
+range = [-1.0,1.0]
 [inputs.lut]
-shape = [5, 128]
-range = [0.0, 1.0]
-[scratch.pad]
-shape = ["pad_rows", 128]
+shape = [5,128]
+range = [0.0,1.0]
 [outputs.out0]
-shape = ["out_rows", 128]
+shape = ["cout * wo",128]
+[scratch.clean]
+shape = ["max(wrows,(h+2*padding)*(w+2*padding)*nbi)",128]
 [abi]
 in0 = "CR2"
 out0 = "CR3"
@@ -85,63 +80,27 @@ weights = "CR4"
 bias_vec = "CR5"
 lut = "CR6"
 qf = "CR7"
-pad = "CR8"
+cout = "CR8"
 h = "CR9"
 w = "CR10"
 ho = "CR11"
-wo = "CR12"
-wpr = "CR13"
-dsout0 = "CR14"
+wrows = "CR12"
+dsout0 = "CR15"
+clean = "CR13"
+dsci = "CR14"
 [golden]
 tolerance = { e2 = "NX8_STEP" }
 [cases.default]
-[cases.depthwise]
-cin = 64
-cout = 64
-groups = 64
-stride = 1
-[cases.multiblock]
-cin = 192
-cout = 96
-groups = 1
-stride = 1
-[cases.dwblocks]
-cin = 256
-cout = 256
-groups = 256
-stride = 1
-[cases.call0]
-h = 256
-w = 256
-[cases.call1]
-cin = 64
-cout = 64
-groups = 64
-h = 128
-w = 128
-stride = 1
-[cases.call2]
-cin = 256
-cout = 256
-groups = 256
-h = 64
-w = 64
-stride = 1
-[cases.call3]
-cin = 96
-cout = 96
-h = 32
-w = 32
-stride = 1
-[cases.call4]
-cin = 192
-cout = 96
-h = 32
-w = 32
-stride = 1
-[cases.call5]
-cin = 128
-cout = 128
-h = 16
-w = 16
-stride = 1
+[cases.dw]
+cin = 512
+cout = 512
+groups = 512
+h = 3
+w = 3
+[cases.strided]
+cin = 48
+cout = 8
+padding = 0
+stride = 2
+h = 5
+w = 5

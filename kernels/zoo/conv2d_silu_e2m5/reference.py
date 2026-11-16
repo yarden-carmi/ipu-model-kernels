@@ -1,14 +1,14 @@
 import torch
 import torch.nn.functional as F
-
 def reference(**kw):
-    cin, cout, groups = int(kw['cin']), int(kw['cout']), int(kw['groups'])
-    h, w, kh, kx = (int(kw[k]) for k in ('h', 'w', 'kh', 'kw'))
-    nbi, nbo = (cin + 127) // 128, (cout + 127) // 128
-    x = kw['in0'].to(torch.float64).reshape(h, w, nbi * 128)[..., :cin].permute(2, 0, 1)[None]
-    weight = kw['weights'].to(torch.float64).reshape(kh, kx, cin // groups, nbo * 128)[..., :cout].permute(3, 2, 0, 1).contiguous()
-    bias = kw['bias_vec'].to(torch.float64).reshape(-1)[:cout] if kw['bias'] else None
-    y = F.silu(F.conv2d(x, weight, bias, stride=int(kw['stride']), padding=int(kw['padding']), groups=groups))[0].permute(1, 2, 0)
-    out = torch.zeros(y.shape[0], y.shape[1], nbo * 128, dtype=torch.float64)
-    out[..., :cout] = y
-    return {'out0': out.reshape(-1, 128)}
+    ci,co,g,h,w,kh,kk=[int(kw[k]) for k in ('cin','cout','groups','h','w','kh','kw')]
+    x=kw['in0'].reshape(h,w,-1)[...,:ci].permute(2,0,1)[None]
+    if g == 1:
+        wt=kw['weights'].reshape(co,kh,kk,-1)[...,:ci].permute(0,3,1,2)
+    else:
+        wt=kw['weights'][:,0].reshape(co,kh,kk,ci//g).permute(0,3,1,2)
+    b=kw['bias_vec'][:,0] if kw['bias'] else None
+    y=F.silu(F.conv2d(x,wt,b,stride=kw['stride'],padding=kw['padding'],groups=g))[0]
+    out=torch.zeros(co,y.shape[2],128,dtype=y.dtype)
+    out[...,:y.shape[1]]=y.permute(0,2,1)
+    return {'out0':out.reshape(-1,128)}
