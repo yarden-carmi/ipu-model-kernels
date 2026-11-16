@@ -1,0 +1,80 @@
+[kernel]
+op = "gemm_gelu_tanh"
+formats = ["e3"]
+
+[params.m]
+type = "int"
+min = 1
+max = 1024
+default = 2
+[params.k]
+type = "int"
+min = 128
+max = 1024
+multiple_of = 128
+default = 128
+[params.n]
+type = "int"
+min = 128
+max = 4096
+multiple_of = 128
+default = 256
+[params.bias]
+type = "bool"
+default = true
+
+[derived]
+qf = "case_qf"
+K = "k / 128"
+NB = "n / 128"
+c128 = "128"
+rows256 = "256"
+
+[inputs.in0]
+shape = [1, 256, "k"]
+range = [-2, 2]
+[inputs.w]
+shape = ["k * NB", 128]
+range = [-2, 2]
+[inputs.b]
+shape = ["n"]
+range = [-2, 2]
+when = "bias"
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+
+[outputs.out0]
+shape = [1, 256, "n"]
+
+[abi]
+in0 = "CR2"
+w = "CR3"
+out0 = "CR4"
+b = "CR5"
+m = "CR6"
+K = "CR7"
+NB = "CR8"
+qf = "CR9"
+lut = "CR10"
+c128 = "CR11"
+rows256 = "CR12"
+
+[golden]
+tolerance = { e3 = "NX8_STEP" }
+
+[cases.default]
+m = 2
+k = 128
+n = 256
+bias = true
+[cases.multiblock]
+m = 3
+k = 256
+n = 256
+bias = true
+[cases.full_k]
+m = 1
+k = 1024
+n = 128
+bias = true
