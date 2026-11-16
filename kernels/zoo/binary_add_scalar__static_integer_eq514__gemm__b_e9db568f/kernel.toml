@@ -1,0 +1,146 @@
+[kernel]
+op = "binary_add_scalar__static_integer_eq514__gemm__bounded_mux2_primitive__singleton_unit_rows__gemm"
+formats = ["e3"]
+[params.s0_broadcast]
+type = "str"
+choices = ["scalar"]
+default = "scalar"
+[params.s0_inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.s0_numel]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s0_op]
+type = "str"
+choices = ["add"]
+default = "add"
+[params.s1_tokens]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s1_vocab]
+type = "int"
+min = 2
+max = 514
+default = 9
+[params.s2_bias]
+type = "bool"
+default = false
+[params.s2_k]
+type = "int"
+min = 2
+max = 514
+default = 9
+[params.s2_m]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s2_n]
+type = "int"
+min = 128
+max = 768
+multiple_of = 128
+default = 128
+[params.s3_numel]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s3_sel]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s4_tokens]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s4_vocab]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s5_bias]
+type = "bool"
+default = false
+[params.s5_k]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s5_m]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s5_n]
+type = "int"
+min = 128
+max = 768
+multiple_of = 128
+default = 128
+[params.sharp]
+type = "float"
+default = 1048576.0
+[inputs.in0]
+shape = ["s0_numel // 128",128]
+range = [-4, 520]
+[inputs.scalar]
+shape = [1,128]
+range = [1,1]
+[inputs.w]
+shape = ["s2_k","s2_n"]
+range = [-2,2]
+[inputs.v]
+shape = [1,"s5_n"]
+range = [-2,2]
+[scratch.ones]
+shape = [1,128]
+fill = 1
+[scratch.work]
+shape = [2,128]
+[scratch.selectors]
+shape = ["s1_tokens // 128","s1_vocab",128]
+[outputs.out0]
+shape = [1,"s2_m","s2_n"]
+[outputs.out1]
+shape = [1,"s5_m","s5_n"]
+[derived]
+qf = "case_qf"
+vocab = "s1_vocab"
+[abi]
+in0 = "CR2"
+scalar = "CR3"
+w = "CR4"
+v = "CR5"
+ones = "CR6"
+work = "CR7"
+selectors = "CR8"
+out0 = "CR9"
+out1 = "CR10"
+qf = "CR11"
+sharp = "CR12"
+vocab = "CR13"
+[golden]
+tolerance = { e3 = "EXACT" }
+[cases.default]
+[cases.small_vocab]
+s1_vocab = 9
+s2_k = 9
+[cases.boundaries]
+s1_vocab = 129
+s2_k = 129
