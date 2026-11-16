@@ -1,0 +1,80 @@
+[kernel]
+op = "binary_add_none__row_norm_layernorm__row_norm_layernorm"
+formats = ["e3"]
+[params]
+s0_broadcast = {type="str", choices=["none"], default="none"}
+s0_const = {type="int", min=1, max=1, default=1}
+s0_inner = {type="int", min=0, max=0, default=0}
+s0_numel = {type="int", min=128, max=147456, multiple_of=128, default=1536}
+s0_op = {type="str", choices=["add"], default="add"}
+s1_channels = {type="int", min=768, max=768, multiple_of=128, default=768}
+s1_rows = {type="int", min=1, max=128, default=2}
+s1_kind = {type="str", choices=["layernorm"], default="layernorm"}
+s1_eps = {type="float", min=0, max=1, default=0.00001}
+s2_channels = {type="int", min=768, max=768, multiple_of=128, default=768}
+s2_rows = {type="int", min=1, max=128, default=2}
+s2_kind = {type="str", choices=["layernorm"], default="layernorm"}
+s2_eps = {type="float", min=0, max=1, default=0.00001}
+half = {type="float", default=0.5}
+input_width = {type="int", min=7, max=7, default=7}
+[derived]
+qf = "case_qf"
+[inputs]
+in0 = {shape=["s1_channels","input_width",128], range=[-2,2]}
+operand = {shape=["s0_numel"], range=[-2,2]}
+gamma1 = {shape=["s1_channels"], range=[-2,2]}
+beta1 = {shape=["s1_channels"], range=[-2,2]}
+gamma2 = {shape=["s2_channels"], range=[-2,2]}
+beta2 = {shape=["s2_channels"], range=[-2,2]}
+[scratch]
+count = {shape=[128], fill="21 / 16384"}
+countlo = {shape=[128], fill="21 / 1048576"}
+counttail = {shape=[128], fill="21 / 67108864"}
+countlast = {shape=[128], fill="21 / 4294967296"}
+inv = {shape=[128], fill="1 / s1_channels"}
+ones = {shape=[128], fill=1}
+eps1 = {shape=[128], fill="s1_eps"}
+eps2 = {shape=[128], fill="s2_eps"}
+work = {shape=["s1_rows", "s1_channels"]}
+tmp = {shape=[84,128]}
+[outputs]
+out0 = {shape=[1,"s1_rows","s1_channels"]}
+out1 = {shape=[1,"s2_rows","s2_channels"]}
+[abi]
+in0 = "CR2"
+operand = "CR3"
+gamma1 = "CR4"
+beta1 = "CR5"
+gamma2 = "CR6"
+beta2 = "CR7"
+out0 = "CR8"
+out1 = "CR9"
+work = "CR10"
+tmp = "CR11"
+qf = "CR12"
+inv = "LR10"
+count = "LR11"
+countlo = "LR6"
+counttail = "LR7"
+countlast = "LR8"
+ones = "LR12"
+eps1 = "LR13"
+eps2 = "LR14"
+half = "CR14"
+[golden]
+tolerance = {e3="NX8_STEP"}
+[cases.default]
+[cases.real]
+s0_numel = 38400
+s1_rows = 50
+s2_rows = 50
+[cases.eight]
+s0_numel = 6144
+s1_rows = 8
+s2_rows = 8
+[cases.small]
+s0_numel = 1536
+s1_rows = 2
+s2_rows = 2
+s1_channels = 768
+s2_channels = 768

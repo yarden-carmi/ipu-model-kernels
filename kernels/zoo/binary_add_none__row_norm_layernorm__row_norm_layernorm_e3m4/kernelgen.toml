@@ -1,0 +1,4 @@
+chain = ["binary", "row_norm", "row_norm"]
+chain_in = ["in0"]
+chain_out = ["out0", "out1"]
+notes = "Input dimension zero on lanes, seven spatial columns in row order: [768,7,128]. Gather-transpose and add the operand before storing; two affine layer norms use four-part residual arithmetic and three Newton iterations. Fixed 768 channels, matching normalization shapes, numel=rows*768, up to 128 logical rows. Build 953 words; all four cases and call 0 pass. Chained validation remains blocked by conv2d_e3m4 failing alone at 2000000 cycles with F-9 at PC 66 before this kernel executes."
