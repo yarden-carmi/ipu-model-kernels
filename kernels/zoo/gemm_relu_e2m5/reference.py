@@ -1,13 +1,8 @@
 import torch
 
-
 def reference(**kw):
-    m, k, n = (int(kw[t]) for t in ("m", "k", "n"))
-    x = kw["in0"].reshape(m, 128)[:, :k]
-    w = kw["w"].reshape(k, 128)[:, :n]
-    y = x @ w
-    if kw["bias"]:
-        y = y + kw["b"][:n]
-    out = torch.zeros(m, 128, dtype=torch.float64)
-    out[:, :n] = torch.relu(y)
-    return {"out0": out}
+    m, k, n = (int(kw[t]) for t in ('m', 'k', 'n'))
+    y = kw['in0'].reshape(m, k) @ kw['w'].reshape(k, n)
+    if kw['bias']:
+        y = y + kw['b']
+    return {'out0': torch.relu(y).reshape(1, m, n)}

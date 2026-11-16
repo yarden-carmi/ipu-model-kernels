@@ -9,34 +9,37 @@ max = 16384
 default = 2
 [params.k]
 type = "int"
-min = 4
-max = 128
-default = 16
+min = 128
+max = 1024
+multiple_of = 128
+default = 128
 [params.n]
 type = "int"
-min = 1
-max = 128
-default = 72
+min = 128
+max = 4096
+multiple_of = 128
+default = 256
 [params.bias]
 type = "bool"
 default = true
 
 [inputs.in0]
-shape = ["m", 128]
+shape = [1, "m", "k"]
 range = [-2, 2]
 [inputs.w]
-shape = ["k", 128]
+shape = ["k * NB", 128]
 range = [-2, 2]
 [inputs.b]
-shape = [128]
+shape = ["n"]
 range = [-2, 2]
 when = "bias"
 [outputs.out0]
-shape = ["m", 128]
+shape = [1, "m", "n"]
 
 [derived]
 qf = "case_qf"
-tail = "ds(n)"
+K = "k / 128"
+NB = "n / 128"
 c128 = "128"
 [abi]
 in0 = "CR2"
@@ -45,22 +48,23 @@ out0 = "CR4"
 b = "CR5"
 m = "CR6"
 qf = "CR9"
-tail = "CR10"
+K = "CR7"
+NB = "CR8"
 c128 = "CR11"
 [golden]
 tolerance = { e2 = "NX8_STEP" }
 [cases.default]
 m = 3
-k = 16
-n = 72
-bias = true
+k = 512
+n = 256
+bias = false
 [cases.no_bias]
 m = 2
-k = 4
+k = 128
 n = 128
 bias = false
 [cases.wide]
 m = 2
 k = 128
-n = 17
+n = 256
 bias = true

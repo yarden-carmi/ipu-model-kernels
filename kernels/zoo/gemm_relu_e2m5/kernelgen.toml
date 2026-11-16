@@ -1,4 +1,4 @@
 chain = ["gemm", "relu"]
 chain_in = ["in0"]
 chain_out = ["out0"]
-notes = "Channels along lanes on both sides. Fold weights transposed and padded; accumulate GEMM and bias, then fuse ReLU into the masked store. Supports 4<=k<=128 and 1<=n<=128."
+notes = "Contiguous K/N layouts. Fold weights to K,N, runtime loops over rows and 128-element tiles, FP32 accumulation with fused ReLU store. K and N must be multiples of 128."
