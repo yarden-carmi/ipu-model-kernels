@@ -1,0 +1,44 @@
+[kernel]
+op = "static_integer_equality_r81__gemm_e2m5"
+formats = ["e2"]
+[params]
+s0_tokens = {type="int", min=1, max=256, default=5}
+s0_vocab = {type="int", min=1, max=59392, default=9}
+s1_m = {type="int", min=1, max=256, default=5}
+s1_k = {type="int", min=1, max=59392, default=9}
+s1_n = {type="int", min=128, max=1536, multiple_of=128, default=128}
+s1_bias = {type="bool", default=false}
+sharp = {type="float", default=65536.0}
+[inputs]
+in0 = {shape=[1,"s0_tokens"], range=[0,7]}
+w = {shape=["s1_k","s1_n"], range=[-2,2]}
+[scratch]
+ones = {shape=[128], fill=1}
+work = {shape=[2,128]}
+selectors = {shape=["ceil(s0_tokens / 128)","ke",128]}
+[outputs]
+out0 = {shape=[1,"s1_m","s1_n"]}
+[derived]
+qf = "case_qf"
+ke = "min(s0_vocab, 8)"
+valid = "ds(128)"
+[abi]
+in0 = "CR2"
+w = "CR3"
+ones = "CR4"
+work = "CR5"
+selectors = "CR6"
+out0 = "CR7"
+qf = "CR8"
+sharp = "CR9"
+valid = "CR15"
+[golden]
+tolerance = {e2="EXACT"}
+[cases.default]
+[cases.partial]
+s0_tokens = 148
+s1_m = 148
+s1_n = 256
+[cases.short]
+s0_vocab = 3
+s1_k = 3
