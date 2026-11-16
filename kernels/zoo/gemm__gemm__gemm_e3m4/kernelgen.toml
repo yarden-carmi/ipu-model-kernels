@@ -1,0 +1,4 @@
+chain = ["gemm", "gemm", "gemm"]
+chain_in = ["in0"]
+chain_out = ["out0", "out1", "out2"]
+notes = "Three chained GEMMs in e3m4. Each stage is the proven gemm_e3m4 pattern: k along the 128 lanes, weights folded k-major [k, n_padded] so a cyclic prefetch supplies one weight vector per input scalar; bias rows packed stage0/stage1/stage2 in one tensor. Stage 1 reads out0 (n0 along lanes = its k), stage 2 reads out1 (n1 along lanes = its k). All n and k are multiples of 128, so every row is full and ds = ds(128) packed in the high half of the qf register."

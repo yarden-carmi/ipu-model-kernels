@@ -1,0 +1,170 @@
+[kernel]
+op = "gemm__gemm__gemm"
+formats = ["e3"]
+
+[params.s0_m]
+type = "int"
+min = 1
+max = 3136
+default = 50
+[params.s1_m]
+type = "int"
+min = 1
+max = 3136
+default = 50
+[params.s2_m]
+type = "int"
+min = 1
+max = 3136
+default = 50
+[params.s0_k]
+type = "int"
+min = 128
+max = 4096
+multiple_of = 128
+default = 768
+[params.s1_k]
+type = "int"
+min = 128
+max = 4096
+multiple_of = 128
+default = 768
+[params.s2_k]
+type = "int"
+min = 128
+max = 4096
+multiple_of = 128
+default = 768
+[params.s0_n]
+type = "int"
+min = 128
+max = 4096
+multiple_of = 128
+default = 768
+[params.s1_n]
+type = "int"
+min = 128
+max = 4096
+multiple_of = 128
+default = 768
+[params.s2_n]
+type = "int"
+min = 128
+max = 4096
+multiple_of = 128
+default = 768
+[params.s0_bias]
+type = "bool"
+default = true
+[params.s1_bias]
+type = "bool"
+default = true
+[params.s2_bias]
+type = "bool"
+default = true
+
+[derived]
+qf = "case_qf + ds(128) * 65536"
+c128 = "128"
+K0 = "s0_k // 128"
+NB0 = "s0_n // 128"
+NB1 = "s1_n // 128"
+NB2 = "s2_n // 128"
+NB01 = "NB0 + NB1"
+
+[inputs.in0]
+shape = [1, "s0_m", "s0_k"]
+range = [-2.0, 2.0]
+[inputs.w0]
+shape = ["s0_k * NB0", 128]
+range = [-2.0, 2.0]
+[inputs.w1]
+shape = ["s1_k * NB1", 128]
+range = [-2.0, 2.0]
+[inputs.w2]
+shape = ["s2_k * NB2", 128]
+range = [-2.0, 2.0]
+[inputs.biases]
+shape = ["NB0 + NB1 + NB2", 128]
+range = [-2.0, 2.0]
+
+[outputs.out0]
+shape = [1, 1, "s0_m", "s0_n"]
+[outputs.out1]
+shape = [1, 1, "s0_m", "s1_n"]
+[outputs.out2]
+shape = [1, 1, "s0_m", "s2_n"]
+
+[abi]
+in0 = "CR2"
+w0 = "CR3"
+out0 = "CR4"
+w1 = "CR5"
+out1 = "CR6"
+w2 = "CR7"
+out2 = "CR8"
+biases = "CR9"
+qf = "CR10"
+s0_m = "CR11"
+c128 = "CR12"
+K0 = "CR13"
+NB0 = "CR14"
+NB1 = "CR15"
+NB2 = "LR13"
+NB01 = "LR14"
+
+[golden]
+tolerance = { e3 = "NX8_STEP" }
+
+[cases.default]
+s0_m = 2
+s1_m = 2
+s2_m = 2
+s0_k = 128
+s0_n = 128
+s1_k = 128
+s1_n = 128
+s2_k = 128
+s2_n = 128
+s0_bias = true
+s1_bias = true
+s2_bias = true
+[cases.nobias]
+s0_m = 3
+s1_m = 3
+s2_m = 3
+s0_k = 128
+s0_n = 128
+s1_k = 128
+s1_n = 128
+s2_k = 128
+s2_n = 128
+s0_bias = false
+s1_bias = false
+s2_bias = false
+[cases.multiblock]
+s0_m = 2
+s1_m = 2
+s2_m = 2
+s0_k = 256
+s0_n = 256
+s1_k = 256
+s1_n = 256
+s2_k = 256
+s2_n = 256
+s0_bias = true
+s1_bias = true
+s2_bias = true
+[cases.m50]
+s0_m = 50
+s1_m = 50
+s2_m = 50
+s0_k = 128
+s0_n = 128
+s1_k = 128
+s1_n = 128
+s2_k = 128
+s2_n = 128
+s0_bias = true
+s1_bias = true
+s2_bias = true
