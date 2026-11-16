@@ -1,0 +1,173 @@
+[kernel]
+op = "fused_layernorm"
+formats = ["e2"]
+[params.s0_numel]
+type = "int"
+min = 1
+max = 65536
+default = 256
+[params.s0_sel]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s1_dim]
+type = "int"
+min = 128
+max = 4096
+multiple_of = 128
+default = 768
+[params.s1_tokens]
+type = "int"
+min = 1
+max = 65536
+default = 256
+[params.s1_vocab]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s2_broadcast]
+type = "str"
+choices = ["none"]
+default = "none"
+[params.s3_broadcast]
+type = "str"
+choices = ["none"]
+default = "none"
+[params.s2_inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.s3_inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.s2_numel]
+type = "int"
+min = 128
+max = 268435456
+default = 196608
+[params.s3_numel]
+type = "int"
+min = 128
+max = 268435456
+default = 196608
+[params.s2_op]
+type = "str"
+choices = ["add"]
+default = "add"
+[params.s3_op]
+type = "str"
+choices = ["add"]
+default = "add"
+[params.s4_channels]
+type = "int"
+min = 128
+max = 4096
+multiple_of = 128
+default = 768
+[params.s4_rows]
+type = "int"
+min = 1
+max = 65536
+default = 256
+[params.s4_kind]
+type = "str"
+choices = ["layernorm"]
+default = "layernorm"
+[params.s4_eps]
+type = "float"
+min = 0
+max = 1
+default = 0.00001
+[params.half]
+type = "float"
+min = 0.5
+max = 0.5
+default = 0.5
+[derived]
+qf = "case_qf"
+K = "s4_channels // 128"
+M = "s4_rows * K"
+B = "ceil(s4_rows / 128)"
+ds = "ds(128)"
+[inputs.in0]
+shape = [1, "s1_tokens", "s1_dim"]
+range = [-1,1]
+[inputs.in1]
+shape = [1,"s4_rows","s4_channels"]
+range = [-1,1]
+[inputs.in2]
+shape = [1,"s4_rows","s4_channels"]
+range = [-1,1]
+[inputs.table]
+shape = ["s4_channels"]
+range = [-1,1]
+[inputs.gamma]
+shape = ["s4_channels"]
+range = [-1,1]
+[inputs.beta]
+shape = ["s4_channels"]
+range = [-1,1]
+[scratch.work]
+shape = ["M*2",128]
+[scratch.norm]
+shape = ["M*2",128]
+[scratch.tmp]
+shape = [64,128]
+fill = "s4_eps"
+[scratch.constants]
+shape = [128]
+fill = "s4_channels"
+[scratch.recip]
+shape = [128]
+fill = "1 / s4_channels"
+[outputs.out0]
+shape = ["s4_channels","B*128"]
+[abi]
+in0 = "LR14"
+in1 = "CR2"
+in2 = "CR3"
+table = "CR4"
+gamma = "CR5"
+beta = "CR6"
+work = "CR7"
+norm = "CR8"
+tmp = "CR9"
+constants = "CR10"
+recip = "CR11"
+out0 = "CR12"
+qf = "CR13"
+K = "LR12"
+M = "LR15"
+ds = "CR15"
+half = "CR14"
+[golden]
+tolerance = { e2 = "NX8_STEP" }
+[cases.default]
+s0_numel = 18
+s1_tokens = 3
+s1_dim = 128
+s2_numel = 384
+s3_numel = 384
+s4_channels = 128
+s4_rows = 3
+[cases.wide]
+s0_numel = 18
+s1_tokens = 4
+s1_dim = 768
+s2_numel = 3072
+s3_numel = 3072
+s4_channels = 768
+s4_rows = 4
+[cases.token_blocks]
+s0_numel = 132
+s1_tokens = 132
+s1_dim = 128
+s2_numel = 16896
+s3_numel = 16896
+s4_channels = 128
+s4_rows = 132
