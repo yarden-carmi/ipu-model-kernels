@@ -1,0 +1,81 @@
+[kernel]
+op = "static_triangle_decoder__gemm"
+formats = ["e3"]
+[params.s0_tokens]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s0_vocab]
+type = "int"
+min = 1
+max = 30522
+default = 9
+[params.s1_m]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s1_k]
+type = "int"
+min = 1
+max = 30522
+default = 9
+[params.s1_n]
+type = "int"
+min = 128
+max = 384
+multiple_of = 128
+default = 128
+[inputs.in0]
+shape = [1, "s0_tokens"]
+range = [0, 7]
+[params.four]
+type = "float"
+default = 4.0
+[params.quarter]
+type = "float"
+default = 0.25
+[params.two]
+type = "float"
+default = 2.0
+[inputs.w]
+shape = ["s1_k", "s1_n"]
+range = [-2, 2]
+[scratch.ones]
+shape = [1, 128]
+fill = 1
+[scratch.work]
+shape = [2, 128]
+[scratch.selectors]
+shape = ["s0_tokens // 128", "min(s0_vocab, 8)", 128]
+[scratch.residual]
+shape = ["s0_tokens // 128", "min(s0_vocab, 8)", 128]
+[outputs.out0]
+shape = [1, "s1_m", "s1_n"]
+[derived]
+qf = "case_qf"
+[abi]
+in0 = "CR2"
+w = "CR3"
+ones = "CR4"
+work = "CR5"
+selectors = "CR6"
+out0 = "CR7"
+qf = "CR9"
+four = "CR8"
+quarter = "CR10"
+residual = "CR11"
+two = "CR12"
+[golden]
+tolerance = { e3 = "NX8_STEP" }
+[cases.default]
+[cases.short]
+s0_vocab = 3
+s1_k = 3
+[cases.wide]
+s0_tokens = 256
+s1_m = 256
+s1_n = 384
