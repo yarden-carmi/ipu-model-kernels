@@ -1,0 +1,78 @@
+[kernel]
+op = "gemm_silu"
+formats = ["e1"]
+[params.m]
+type = "int"
+min = 1
+max = 16384
+default = 1
+[params.k]
+type = "int"
+min = 128
+max = 1536
+multiple_of = 64
+default = 256
+[params.n]
+type = "int"
+min = 8
+max = 1536
+multiple_of = 8
+default = 16
+[params.bias]
+type = "bool"
+default = true
+[derived]
+qf = "case_qf"
+nb = "ceil(n / 128)"
+kb = "ceil(k / 128)"
+full = "k // 128"
+dsn = "ds(n - (nb - 1) * 128)"
+[inputs.in0]
+shape = ["m", "kb * 128"]
+range = [-2.0, 2.0]
+[inputs.w]
+shape = ["k", "nb * 128"]
+range = [-2.0, 2.0]
+[inputs.bias_vec]
+shape = ["nb", 128]
+range = [-1.0, 1.0]
+[inputs.lut]
+shape = [5, 128]
+range = [0.0, 1.0]
+[outputs.out0]
+shape = ["m", "nb * 128"]
+[abi]
+in0 = "CR2"
+w = "CR3"
+bias_vec = "CR4"
+lut = "CR5"
+out0 = "CR6"
+qf = "CR7"
+kb = "CR8"
+full = "CR9"
+m = "CR10"
+dsn = "CR11"
+nb = "CR12"
+[golden]
+tolerance = { e1 = "NX8_STEP" }
+[cases.default]
+m = 1
+k = 256
+n = 16
+[cases.matrix]
+m = 3
+k = 128
+n = 512
+[cases.tail]
+m = 2
+k = 192
+n = 40
+[cases.largek]
+m = 1
+k = 1536
+n = 64
+[cases.nobias]
+m = 2
+k = 256
+n = 256
+bias = false
