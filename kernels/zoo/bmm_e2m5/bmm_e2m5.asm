@@ -17,7 +17,12 @@ two k chunks the in1 blocks of one k chunk are separated by the other
 chunk's block: pass 0 skips w1 rows between k chunks, pass 1 skips w0 rows
 (= 128); pass 1 also rewinds LR3 by n after pass 0 when both k chunks exist.
 Each pass starts with AGG.SUM.FIRST (clean init); later k chunks use
-AGG.SUM. Stores use per-chunk ds so lanes past n are written 0. -#}
+AGG.SUM. Stores use per-chunk ds so lanes past n are written 0.
+
+The inner loop is two words per output column: the load word does
+LD.MULT.CYCLIC + DEC LR8 (loop counter) + INC LR3/LR7 (three LR slots); the
+mult word does MULT.RC.VV + AGG.SUM + BNE in the cond slot (cond reads LR at
+cycle start, so the DEC written by the previous word is visible). -#}
 {%- set KC = (k + 127) // 128 -%}
 {%- set NC = (n + 127) // 128 -%}
     SET LR0 CR0 ;;
@@ -37,9 +42,8 @@ m_loop:
     SUB LR7 LR7 CR1 ;;
     SET LR8 {{ cr.n if NC == 1 else cr.w0 }} ;;
 inner0_{{ i }}:
-    LD.MULT.CYCLIC LR3 {{ cr.in1 }} LR0 ; INC LR3 1 ; INC LR7 1 ;;
-    MULT.RC.VV LR0 R0 0 LR0 {{ cr.kd0 if i == 0 else cr.kd1 }}.L {{ cr.qf }}.L ; AGG.SUM{% if i == 0 %}.FIRST{% endif %} LR7 {{ cr.kd0 if i == 0 else cr.kd1 }}.L ; DEC LR8 1 ;;
-    BNE LR8 CR0 inner0_{{ i }} ;;
+    LD.MULT.CYCLIC LR3 {{ cr.in1 }} LR0 ; INC LR3 1 ; INC LR7 1 ; DEC LR8 1 ;;
+    MULT.RC.VV LR0 R0 0 LR0 {{ cr.kd0 if i == 0 else cr.kd1 }}.L {{ cr.qf }}.L ; AGG.SUM{% if i == 0 %}.FIRST{% endif %} LR7 {{ cr.kd0 if i == 0 else cr.kd1 }}.L ; BNE LR8 CR0 inner0_{{ i }} ;;
     {%- if NC == 2 and i < KC - 1 %}
     ADD LR3 LR3 {{ cr.w1 }} ;;
     {%- endif %}
@@ -57,9 +61,8 @@ inner0_{{ i }}:
     SUB LR7 LR7 CR1 ;;
     SET LR8 {{ cr.w1 }} ;;
 inner1_{{ i }}:
-    LD.MULT.CYCLIC LR3 {{ cr.in1 }} LR0 ; INC LR3 1 ; INC LR7 1 ;;
-    MULT.RC.VV LR0 R0 0 LR0 {{ cr.kd0 if i == 0 else cr.kd1 }}.L {{ cr.qf }}.L ; AGG.SUM{% if i == 0 %}.FIRST{% endif %} LR7 {{ cr.kd0 if i == 0 else cr.kd1 }}.L ; DEC LR8 1 ;;
-    BNE LR8 CR0 inner1_{{ i }} ;;
+    LD.MULT.CYCLIC LR3 {{ cr.in1 }} LR0 ; INC LR3 1 ; INC LR7 1 ; DEC LR8 1 ;;
+    MULT.RC.VV LR0 R0 0 LR0 {{ cr.kd0 if i == 0 else cr.kd1 }}.L {{ cr.qf }}.L ; AGG.SUM{% if i == 0 %}.FIRST{% endif %} LR7 {{ cr.kd0 if i == 0 else cr.kd1 }}.L ; BNE LR8 CR0 inner1_{{ i }} ;;
     {%- if i < KC - 1 %}
     ADD LR3 LR3 {{ cr.w0 }} ;;
     {%- endif %}
