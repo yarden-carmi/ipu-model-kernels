@@ -1,0 +1,4 @@
+chain = ["static_integer_decode", "gemm", "binary", "merge494", "static_integer_hat", "gemm", "pair_floor_mux", "fixed_single_row_copy_v4", "binary", "binary", "row_norm"]
+chain_in = ["in0", "in1"]
+chain_out = ["out0"]
+notes = "Fixed-address selector scans. The pair-floor result is dead because the following single-row table fanout does not depend on its IDs. Vocabulary-major weights; embedding results and native additions retain their store boundaries."
