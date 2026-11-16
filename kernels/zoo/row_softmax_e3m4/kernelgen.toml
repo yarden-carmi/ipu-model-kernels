@@ -1,0 +1,5 @@
+chain = ["row_softmax"]
+chain_in = ["in0"]
+chain_out = ["out0"]
+generic = "exp"
+notes = "Flat packed row-major input/output. Gather logical rows through R0/R1, subtract row max, LUT exponential, high/low sum, residual Newton reciprocal correction, and scatter padded logical results back into packed output tiles. Final padding is zero."
