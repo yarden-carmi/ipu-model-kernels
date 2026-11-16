@@ -1,0 +1,89 @@
+[kernel]
+op = "binary_add_gemm_silu"
+formats = ["e2"]
+[params.s0_broadcast]
+type = "str"
+choices = ["none"]
+default = "none"
+[params.s0_inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.s0_numel]
+type = "int"
+min = 128
+max = 262144
+default = 256
+[params.s0_op]
+type = "str"
+choices = ["add"]
+default = "add"
+[params.s1_bias]
+type = "bool"
+default = true
+[params.s1_k]
+type = "int"
+min = 64
+max = 64
+default = 64
+[params.s1_m]
+type = "int"
+min = 2
+max = 4096
+multiple_of = 2
+default = 4
+[params.s1_n]
+type = "int"
+min = 1
+max = 256
+default = 256
+[derived]
+qf = "case_qf"
+nb = "ceil(s1_n / 128)"
+last = "ceil(s1_n / 128) - 1"
+tail = "ds((s1_n - 1) % 128 + 1)"
+ds64 = "ds(64)"
+c128 = "128"
+[inputs.in0]
+shape = ["s1_m", 128]
+range = [-2, 2]
+[inputs.in1]
+shape = ["s1_m", 128]
+range = [-2, 2]
+[inputs.w]
+shape = ["nb", "s1_k", 128]
+range = [-2, 2]
+[inputs.b]
+shape = ["nb", 128]
+range = [-1, 1]
+when = "s1_bias"
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[outputs.out0]
+shape = ["s1_m", 128]
+[outputs.out1]
+shape = ["s1_m", "nb * 128"]
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+w = "CR4"
+b = "CR5"
+lut = "CR6"
+out0 = "CR7"
+out1 = "CR8"
+s1_m = "CR9"
+nb = "CR10"
+qf = "CR11"
+tail = "CR12"
+c128 = "CR13"
+ds64 = "CR14"
+last = "LR15"
+[golden]
+tolerance = { e2 = "NX8_STEP" }
+[cases.default]
+[cases.tail]
+s1_m = 2
+s0_numel = 128
+s1_n = 120
