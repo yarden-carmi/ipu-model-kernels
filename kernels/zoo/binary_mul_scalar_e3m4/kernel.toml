@@ -8,22 +8,23 @@ choices = ["scalar"]
 default = "scalar"
 
 [params.const]
-type = "float"
-min = -448.0
-max = 448.0
-default = 1.0
+type = "int"
+min = 1
+max = 1
+default = 1
 
 [params.inner]
 type = "int"
 min = 0
-max = 1
+max = 0
 default = 0
 
 [params.numel]
 type = "int"
-min = 1
-max = 65536
-default = 160
+min = 128
+max = 1048576
+multiple_of = 128
+default = 128
 
 [params.op]
 type = "str"
@@ -32,27 +33,33 @@ default = "mul"
 
 [derived]
 qf = "case_qf"
-rows = "ceil(numel / 128)"
-full = "numel // 128"
-ds_tail = "ds(max(numel % 128, 1))"
+rows = "numel / 128"
+valid = "ds(128)"
 
 [inputs.in0]
-shape = ["numel"]
-range = [-448.0, 448.0]
+shape = [1, 1, "numel / 128", 128]
+range = [-2.0, 2.0]
+
+[inputs.operand]
+shape = [1]
+range = [-2.0, 2.0]
 
 [outputs.out0]
-shape = ["numel"]
+shape = [1, 1, "numel / 128", 128]
 
 [abi]
 in0 = "CR2"
 out0 = "CR3"
 qf = "CR4"
-const = "CR5"
+operand = "CR5"
 rows = "CR6"
-full = "CR7"
-ds_tail = "CR8"
+valid = "CR15"
 
 [golden]
 tolerance = { e3 = "EXACT" }
 
 [cases.default]
+numel = 128
+
+[cases.multiple_rows]
+numel = 896
