@@ -1,4 +1,4 @@
 chain = ["conv2d"]
 chain_in = ["in0"]
 chain_out = ["out0"]
-notes = "Convolution with input channels on lanes and output height on lanes. Output rows are (co, ox), lanes oy. For cin=3 and zero padding, pack patches into scratch and reduce packed weight blocks, followed by a folded bias row when enabled. Other cases use padded spatial scratch and channel-block reductions. Store uses ds(ho), fp8_e3m4."
+notes = "Convolution with input channels on lanes and output width on lanes. Padded spatial scratch and folded tap/channel-block weight reductions. Output rows (co, oy), lanes ox, store ds(wo)."

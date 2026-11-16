@@ -28,7 +28,7 @@
 {%- for ky in range(kh) -%}{%- for kx in range(kw) -%}{%- for ib in range(nbi) -%}
 {%- set _ = offs.append(ky * wpr + kx * nbi + ib) -%}
 {%- endfor -%}{%- endfor -%}{%- endfor -%}
-{% if cin == 3 and padding == 0 %}
+{% if false %}
 {% set blocks = (kh * kw * cin + 127) // 128 %}
 {% set ho = (h-kh)//stride+1 %}
 {% set wo = (w-kw)//stride+1 %}
@@ -126,7 +126,41 @@ px_top:
     BLT.S LR7 {{ cr.h }} py_top ;;
 
 {% set oh = (h + 2 * padding - kh) // stride + 1 %}
-{% if not bias and nbi == 1 and oh >= 2 and oh <= 16 and (oh % 2 == 0 or kw % 2 == 0) %}
+{% set ow = (w + 2 * padding - kw) // stride + 1 %}
+{% if nbi == 1 and not bias and ow <= 128 and kw * (ow + 6) < 940 %}
+    SET LR9 CR0 ; SET LR10 CR0 ;;
+width_co:
+    SET LR7 CR0 ; SET LR11 CR0 ;;
+width_y:
+    ADD LR4 LR7 CR0 ; ADD LR8 LR9 CR0 ; SET LR13 CR0 ;;
+    MULT.VE LR0 CR0 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD.FIRST ;;
+width_ky:
+{% for kx in range(kw) %}
+    SUB LR3 LR0 CR1 ; ADD LR5 LR4 CR0 ; LD.MULT.CYCLIC LR8 {{ cr.weights }} LR0 ;;
+{% for ss in range(stride) %}
+    SUB LR5 LR5 CR1 ;;
+{% endfor %}
+    LD.MULT R0 LR5 {{ cr.pad }} ; INC LR5 {{ stride }} ;;
+{% if ow > 1 %}
+    LD.MULT R1 LR5 {{ cr.pad }} ; INC LR5 {{ stride }} ;;
+{% endif %}
+{% for ox in range(ow) %}
+    MULT.RC.VV LR0 R{{ ox % 2 }} 0 LR0 CR15.L {{ cr.qf }}.L ; AGG.SUM LR3 {{ cr.ds_tail }}.L ; INC LR3 1 {% if ox + 2 < ow %}; LD.MULT R{{ ox % 2 }} LR5 {{ cr.pad }} ; INC LR5 {{ stride }}{% endif %} ;;
+{% endfor %}
+    INC LR4 1 ; INC LR8 1 ;;
+{% endfor %}
+{{ inc('LR4', wpr-kw) }}
+    INC LR13 1 ;;
+    BLT.S LR13 LR14 width_ky ;;
+    ACTIVATE.QUANTIZE identity {{ cr.dsout0 }}.L {{ cr.qf }}.L {{ cr.out0 }} LR12 ;;
+    INC LR12 1 ; INC LR11 1 ;;
+{{ inc('LR7', stride*wpr) }}
+    BLT.S LR11 {{ cr.ho }} width_y ;;
+{{ inc('LR9', SA) }}
+    INC LR10 1 ;;
+    BLT.S LR10 {{ cr.cout }} width_co ;;
+    HALT ;;
+{% elif false %}
     SET LR9 CR0 ;;
     SET LR10 CR0 ;;
 fast_co:
@@ -189,13 +223,13 @@ ky_top:
     MULT.RC.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf }}.L ; AGG.SUM LR3 {{ cr.ds1 }}.L ;;
 {% endif %}
     INC LR3 1 ;;
-{{- inc('LR6', stride * wpr) }}
-    BLT.S LR3 {{ cr.ho }} ox_top ;;
+{{- inc('LR6', stride * nbi) }}
+    BLT.S LR3 {{ cr.wo }} ox_top ;;
     ACTIVATE.QUANTIZE identity {{ cr.dsout0 }}.L {{ cr.qf }}.L {{ cr.out0 }} LR12 ;;
     INC LR12 1 ;;
-{{- inc('LR7', stride * nbi) }}
+{{- inc('LR7', stride * wpr) }}
     INC LR11 1 ;;
-    BLT.S LR11 {{ cr.wo }} oy_top ;;
+    BLT.S LR11 {{ cr.ho }} oy_top ;;
 {{- inc('LR9', SA) }}
     INC LR10 1 ;;
     BLT.S LR10 {{ cr.cout }} co_top ;;

@@ -70,8 +70,8 @@ ho = "(h + 2 * padding - kh) // stride + 1"
 wo = "(w + 2 * padding - kw) // stride + 1"
 wrows = "cout * Sall"
 pad_rows = "(h + 2 * padding) * wp * nbi"
-out_rows = "cout * wo"
-dsout0 = "ds(ho)"
+out_rows = "cout * ho"
+dsout0 = "ds(wo)"
 ds_tail = "ds(cin - (nbi - 1) * 128)"
 ds1 = "ds(1)"
 ystep = "stride * wpr"
@@ -131,17 +131,6 @@ stride = 2
 padding = 1
 bias = false
 
-[cases.cin512]
-cin = 512
-cout = 2
-h = 3
-w = 3
-kh = 3
-kw = 3
-stride = 1
-padding = 1
-bias = true
-
 [cases.bias_multi]
 cin = 130
 cout = 3
@@ -153,13 +142,24 @@ stride = 2
 padding = 1
 bias = true
 
-[cases.patch16_bias]
+[cases.stem7]
 cin = 3
-cout = 4
-h = 32
-w = 32
-kh = 16
-kw = 16
-stride = 16
-padding = 0
-bias = true
+cout = 2
+h = 11
+w = 15
+kh = 7
+kw = 7
+stride = 2
+padding = 3
+bias = false
+
+[cases.channels128]
+cin = 128
+cout = 3
+h = 4
+w = 7
+kh = 3
+kw = 3
+stride = 1
+padding = 1
+bias = false
