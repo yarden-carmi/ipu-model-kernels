@@ -10,7 +10,7 @@ default = "neg"
 [params.numel]
 type = "int"
 min = 128
-max = 262144
+max = 589824
 multiple_of = 128
 default = 384
 
@@ -20,21 +20,23 @@ default = -1.0
 
 [derived]
 qf = "case_qf"
-rows = "numel // 128"
+rows = "numel // 32"
+ds = "ds(64)"
 
 [inputs.in0]
-shape = [1, 1, "rows", 128]
+shape = [1, "rows", 128]
 range = [-10.0, 10.0]
 
 [outputs.out0]
-shape = [1, 1, "rows", 128]
+shape = [1, "rows", 128]
 
 [abi]
 in0 = "CR2"
 out0 = "CR3"
 qf = "CR4"
 rows = "CR5"
-minus_one = "CR6"
+ds = "CR6"
+minus_one = "CR7"
 
 [golden]
 tolerance = { e2 = "EXACT" }
