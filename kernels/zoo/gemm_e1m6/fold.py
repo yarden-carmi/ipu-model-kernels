@@ -2,11 +2,13 @@ import torch
 
 def fold(module, **params):
     n, k = int(params['n']), int(params['k'])
-    w = torch.zeros(k, 128)
-    w[:, :n] = module.weight.detach().t()
-    result = {'w': w}
+    no = ((n + 127) // 128) * 128
+    kp = ((k + 127) // 128) * 128
+    w = torch.zeros(kp, no)
+    w[:k, :n] = module.weight.detach().t()
+    result = {'w': w.reshape(-1, 128)}
     if params['bias']:
-        b = torch.zeros(128)
+        b = torch.zeros(no)
         b[:n] = module.bias.detach()
         result['b'] = b
     return result
