@@ -10,7 +10,7 @@ default = 1
 [params.k]
 type = "int"
 min = 1
-max = 512
+max = 1024
 default = 64
 [params.m]
 type = "int"
@@ -20,7 +20,7 @@ default = 2
 [params.n]
 type = "int"
 min = 1
-max = 64
+max = 256
 default = 50
 
 [inputs.in0]
@@ -37,11 +37,12 @@ qf = "case_qf"
 kchunks = "ceil(k / 128)"
 nchunks = "ceil(n / 128)"
 kcn = "ceil(k / 128) * n"
-kd0 = "ds(min(k, 128))"
-kd1 = "ds(min(max(k - 128, 1), 128))"
-kd2 = "ds(min(max(k - 256, 1), 128))"
-kd3 = "ds(min(max(k - 384, 1), 128))"
-kdout = "ds(n)"
+kfull = "ds(128)"
+klast = "ds(k - (kchunks - 1) * 128)"
+w0 = "min(n, 128)"
+w1 = "max(n - 128, 1)"
+od0 = "ds(w0)"
+od1 = "ds(w1)"
 
 [abi]
 in0 = "CR2"
@@ -50,14 +51,14 @@ out0 = "CR4"
 b = "CR5"
 m = "CR6"
 n = "CR7"
-kchunks = "CR8"
-kd0 = "CR9"
-kd1 = "CR10"
-kd2 = "CR11"
-kd3 = "CR12"
-kcn = "CR13"
+kfull = "CR8"
+klast = "CR9"
+w0 = "CR10"
+w1 = "CR11"
+od0 = "CR12"
+od1 = "CR13"
 qf = "CR14"
-kdout = "CR15"
+kchunks = "CR15"
 
 [golden]
 tolerance = { e3 = "EXACT" }
@@ -67,23 +68,23 @@ b = 1
 m = 2
 k = 64
 n = 50
-[cases.batched]
+[cases.wide]
 b = 2
 m = 3
-k = 50
-n = 64
-[cases.full_k]
+k = 64
+n = 256
+[cases.vector]
+b = 2
+m = 1
+k = 64
+n = 256
+[cases.longdot]
 b = 1
 m = 1
-k = 512
+k = 1024
 n = 1
-[cases.k3]
-b = 1
-m = 2
-k = 300
-n = 7
-[cases.k4]
+[cases.partial]
 b = 2
 m = 2
-k = 512
-n = 33
+k = 300
+n = 137
