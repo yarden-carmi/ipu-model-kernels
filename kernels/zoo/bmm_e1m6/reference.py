@@ -1,8 +1,10 @@
 import torch
 
-
 def reference(**kw):
     b, m, k, n = (int(kw[x]) for x in ("b", "m", "k", "n"))
+    np = ((n + 127) // 128) * 128
     x = kw["in0"].reshape(b, m, 128)[..., :k]
-    y = kw["in1"].reshape(b, n, 128)[..., :k]
-    return {"out0": torch.bmm(x, y.transpose(1, 2)).reshape(b, 1, m, n)}
+    y = kw["in1"].reshape(b, k, np)[..., :n]
+    result = torch.zeros((b, m, np), dtype=x.dtype, device=x.device)
+    result[..., :n] = torch.bmm(x, y)
+    return {"out0": result.reshape(1, b, m, np)}

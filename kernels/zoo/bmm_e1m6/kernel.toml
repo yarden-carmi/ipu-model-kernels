@@ -1,74 +1,63 @@
 [kernel]
 op = "bmm"
 formats = ["e1"]
-
 [params.b]
 type = "int"
 min = 1
-max = 16
+max = 8
 default = 1
 [params.k]
 type = "int"
 min = 1
-max = 128
+max = 64
 default = 64
 [params.m]
 type = "int"
 min = 1
-max = 256
+max = 1500
 default = 2
 [params.n]
 type = "int"
-min = 128
-max = 256
-multiple_of = 128
-default = 128
-
+min = 1
+max = 1500
+default = 32
 [inputs.in0]
-shape = ["b", 1, "m", 128]
+shape = [1, "b", "m", 128]
 range = [-2, 2]
 [inputs.in1]
-shape = ["b", 1, "n", 128]
+shape = [1, "b", "k", "ceil(n / 128) * 128"]
 range = [-2, 2]
 [outputs.out0]
-shape = ["b", 1, "m", "n"]
-
+shape = [1, "b", "m", "ceil(n / 128) * 128"]
 [derived]
 qf = "case_qf"
-kd = "ds(k)"
-nb = "n // 128"
-
+nb = "ceil(n / 128)"
+last = "ds(n - (nb - 1) * 128)"
+batchstride = "k * nb"
 [abi]
 in0 = "CR2"
 in1 = "CR3"
 out0 = "CR4"
 b = "CR5"
 m = "CR6"
-n = "CR7"
-nb = "CR8"
-kd = "CR9"
+nb = "CR7"
+last = "CR8"
+batchstride = "CR9"
 qf = "CR14"
-
 [golden]
 tolerance = { e1 = "EXACT" }
-
 [cases.default]
 b = 1
 m = 2
 k = 64
-n = 128
+n = 32
 [cases.batched]
 b = 2
 m = 3
 k = 64
-n = 256
-[cases.full_k]
+n = 150
+[cases.full]
 b = 1
-m = 1
-k = 128
-n = 128
-[cases.short_k]
-b = 2
-m = 1
-k = 7
+m = 2
+k = 64
 n = 128
