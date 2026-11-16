@@ -18,25 +18,27 @@ default = 0
 [params.numel]
 type = "int"
 min = 1
-max = 1048576
-default = 384
+max = 18000000
+multiple_of = 12000
+default = 12000
 [params.op]
 type = "str"
 choices = ["mul"]
 default = "mul"
 [inputs.in0]
-shape = ["numel"]
+shape = [1, 8, "numel / 12000", 1536]
 range = [-2.0, 2.0]
 [inputs.operand]
 shape = [1]
 range = [-2.0, 2.0]
 [outputs.out0]
-shape = ["numel"]
+shape = [1, 8, "numel / 12000", 1536]
 [derived]
 qf = "case_qf"
-rows = "ceil(numel / 128)"
-last = "ceil(numel / 128) - 1"
-ds_tail = "ds(numel - (ceil(numel / 128) - 1) * 128)"
+rows = "numel / 1500 * 12"
+last = "11"
+ds_tail = "ds(92)"
+valid = "ds(128)"
 [abi]
 in0 = "CR2"
 operand = "CR3"
@@ -45,11 +47,12 @@ qf = "CR5"
 rows = "CR6"
 last = "CR7"
 ds_tail = "CR8"
+valid = "CR15"
 [golden]
 tolerance = { e1 = "EXACT" }
 [cases.default]
-numel = 384
+numel = 12000
 [cases.tail]
-numel = 257
+numel = 24000
 [cases.tiny]
-numel = 1
+numel = 36000
