@@ -41,8 +41,8 @@ nb_loop:
     SUB LR3 LR3 CR1 ;;
     LD.MULT.CYCLIC LR6 {{ cr.w }} LR2 ;;
     MULT.RC.VE LR2 CR0 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD.FIRST ;;
-    SET LR9 CR0 ;;
-kb_loop:
+{% for block in range((k + 127) // 128) %}
+{% set count = [128, k - block * 128] | min %}
     LD.MULT R0 LR8 {{ cr.in0 }} ; INC LR8 1 ;;
     SET LR3 CR0 ;;
     SUB LR3 LR3 CR1 ;;
@@ -50,14 +50,13 @@ kb_loop:
     LD.MULT.CYCLIC LR4 {{ cr.w }} LR2 ; ADD LR4 LR4 {{ cr.NB }} ; INC.MODP2 LR2 {{ cr.c128 }} 9 ;;
     LD.MULT.CYCLIC LR4 {{ cr.w }} LR2 ; ADD LR4 LR4 {{ cr.NB }} ; INC.MODP2 LR2 {{ cr.c128 }} 9 ;;
     LD.MULT.CYCLIC LR4 {{ cr.w }} LR2 ; ADD LR4 LR4 {{ cr.NB }} ; INC.MODP2 LR2 {{ cr.c128 }} 9 ;;
-{% for i in range(124) %}
+{% for i in range(count - 4) %}
     MULT.RC.VE LR2 LR3 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD ; LD.MULT.CYCLIC LR4 {{ cr.w }} LR2 ; ADD LR4 LR4 {{ cr.NB }} ; INC LR3 1 ; INC.MODP2 LR2 {{ cr.c128 }} 9 ;;
 {% endfor %}
 {% for i in range(4) %}
     MULT.RC.VE LR2 LR3 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD ; INC LR3 1 ; INC.MODP2 LR2 {{ cr.c128 }} 9 ;;
 {% endfor %}
-    INC LR9 1 ;;
-    BLT.S LR9 {{ cr.K }} kb_loop ;;
+{% endfor %}
 {% if bias %}
     LD.MULT.CYCLIC LR6 {{ cr.b }} LR2 ;;
     MULT.RC.VE LR2 CR1 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD ;;

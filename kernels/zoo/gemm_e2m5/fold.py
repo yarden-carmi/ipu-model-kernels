@@ -9,8 +9,8 @@ def fold(module, **params):
     w = module.weight.detach()
     assert w.shape[1] == k and w.shape[0] == n, (w.shape, n, k)
     wt = w.t().contiguous().to(torch.float32)
-    wp = torch.zeros(k, NO, dtype=torch.float32)
-    wp[:, :n] = wt
+    wp = torch.zeros(((k + 127) // 128) * 128, NO, dtype=torch.float32)
+    wp[:k, :n] = wt
     out = {"w": wp.reshape(-1, 128)}
     b = getattr(module, "bias", None)
     if params.get("bias") and b is not None:

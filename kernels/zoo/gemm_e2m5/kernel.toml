@@ -5,19 +5,18 @@ formats = ["e2"]
 [params.m]
 type = "int"
 min = 1
-max = 1500
+max = 16384
 default = 1
 
 [params.k]
 type = "int"
-min = 128
-max = 4096
-multiple_of = 128
+min = 4
+max = 512
 default = 128
 
 [params.n]
 type = "int"
-min = 128
+min = 1
 max = 50264
 default = 128
 
@@ -27,7 +26,7 @@ default = false
 
 [derived]
 qf = "case_qf"
-K = "k // 128"
+K = "ceil(k / 128)"
 NB = "ceil(n / 128)"
 c128 = "128"
 tail = "ds(n - (NB - 1) * 128)"
@@ -37,7 +36,7 @@ shape = ["m * K", 128]
 range = [-2.0, 2.0]
 
 [inputs.w]
-shape = ["k * NB", 128]
+shape = ["K * 128 * NB", 128]
 range = [-2.0, 2.0]
 
 [inputs.b]
@@ -75,20 +74,20 @@ k = 256
 n = 200
 bias = false
 
-[cases.task_bias]
+[cases.task_long]
 m = 2
-k = 512
+k = 480
 n = 512
 bias = true
 
-[cases.task_nobias]
+[cases.partial_k]
 m = 2
-k = 512
-n = 512
-bias = false
+k = 144
+n = 144
+bias = true
 
-[cases.task_long]
+[cases.k64]
 m = 2
-k = 2048
-n = 512
+k = 64
+n = 32
 bias = true

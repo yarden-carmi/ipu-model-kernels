@@ -1,4 +1,4 @@
 chain = ["gemm"]
 chain_in = ["in0"]
 chain_out = ["out0"]
-notes = "GEMM with k along the in0 lanes and n along the out0 lanes; weights folded transposed to [k, n_padded] so each w row is one k with 128 n-lanes. Per output row the accumulator sweeps all k, one word per k with the next w row prefetched into the cyclic ring; bias folded in as a vector-times-1.0 accumulate. Partial final n-block stores with the tail DS."
+notes = "GEMM with channels along input and output lanes; weights folded transposed and padded in k and n. Per output row the accumulator sweeps k with cyclic prefetch, adds bias and stores the n tail masked."
