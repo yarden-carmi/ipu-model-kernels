@@ -2,4 +2,4 @@ chain = ["gemm", "silu"]
 chain_in = ["in0"]
 chain_out = ["out0"]
 generic = "silu"
-notes = "Matrix product with optional bias, SiLU applied by the store through the LUT."
+notes = "Matrix product with optional bias, SiLU applied by the store through the LUT. in0 is declared with rows_in = max(ceil(m*k/128), 722) rows of 128 lanes to match the resident left by the previous kernel; logical row r sits at flat offset r*stride (stride = rows_in*128/m), so the kernel keeps a per-row base lane-row and lane offset."

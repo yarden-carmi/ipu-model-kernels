@@ -4,9 +4,9 @@ formats = ["e2"]
 
 [params.m]
 type = "int"
-min = 64
+min = 1
 max = 16384
-multiple_of = 64
+multiple_of = 1
 default = 64
 
 [params.k]
@@ -19,7 +19,7 @@ default = 16
 [params.n]
 type = "int"
 min = 64
-max = 640
+max = 1024
 multiple_of = 32
 default = 64
 
@@ -29,18 +29,20 @@ default = true
 
 [derived]
 qf = "case_qf"
-kp = "ceil(k / 128)"
 nb = "ceil(n / 128)"
 dsn = "ds(max(min(n - (nb - 1) * 128, 128), 0))"
-dsk0 = "ds(max(min(k, 128), 0))"
-dsk1 = "ds(max(min(k - 128, 128), 0))"
+rows_in = "max(ceil(m * k / 128), 722)"
+stride = "rows_in * 128 / m"
+qstep = "stride // 128"
+sstep = "stride % 128"
+c128 = "128"
 
 [inputs.in0]
-shape = ["m", "kp * 128"]
+shape = ["rows_in", 128]
 range = [-2.0, 2.0]
 
 [inputs.w]
-shape = ["kp * nb", 128]
+shape = ["k", "nb * 128"]
 range = [-2.0, 2.0]
 
 [inputs.bias_vec]
@@ -61,33 +63,38 @@ bias_vec = "CR4"
 lut = "CR5"
 out0 = "CR6"
 qf = "CR7"
-dsk1 = "CR8"
-dsk0 = "CR9"
+qstep = "CR8"
+sstep = "CR9"
 m = "CR10"
 dsn = "CR11"
+nb = "CR12"
+c128 = "CR13"
 
 [golden]
 tolerance = { e2 = "NX8_STEP" }
 
 [cases.default]
+m = 2
+k = 64
+n = 256
 
-[cases.small]
-m = 128
-k = 144
-n = 288
+[cases.call1]
+m = 2
+k = 128
+n = 512
 
-[cases.wide_n]
-m = 64
+[cases.call2]
+m = 2
+k = 128
+n = 768
+
+[cases.call3]
+m = 2
 k = 160
-n = 640
-
-[cases.wide_k]
-m = 64
-k = 240
-n = 96
+n = 960
 
 [cases.nobias]
-m = 128
+m = 2
 k = 96
 n = 128
 bias = false
