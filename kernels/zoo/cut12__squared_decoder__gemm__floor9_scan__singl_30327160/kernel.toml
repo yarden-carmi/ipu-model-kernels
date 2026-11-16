@@ -1,0 +1,97 @@
+[kernel]
+op = "cut12__squared_decoder__gemm__floor9_scan__singleton_static_replication"
+formats = ["e2"]
+[params.s0_numel]
+type = "int"
+min = 1
+max = 65536
+default = 256
+[params.s1_tokens]
+type = "int"
+min = 1
+max = 65536
+default = 256
+[params.s1_vocab]
+type = "int"
+min = 1
+max = 65536
+default = 514
+[params.s2_bias]
+type = "bool"
+default = false
+[params.s2_k]
+type = "int"
+min = 1
+max = 65536
+default = 514
+[params.s2_m]
+type = "int"
+min = 1
+max = 65536
+default = 256
+[params.s2_n]
+type = "int"
+min = 1
+max = 4096
+default = 768
+[params.s3_numel]
+type = "int"
+min = 1
+max = 65536
+default = 256
+[params.s3_sel]
+type = "int"
+min = 1
+max = 65536
+default = 1
+[params.s4_dim]
+type = "int"
+min = 128
+max = 4096
+multiple_of = 128
+default = 768
+[params.s4_tokens]
+type = "int"
+min = 1
+max = 65536
+default = 256
+[params.s4_vocab]
+type = "int"
+min = 1
+max = 1
+default = 1
+[inputs.in0]
+shape = ["s2_m", "ceil(s2_n / 128) * 128"]
+range = [-1, 1]
+[inputs.table]
+shape = [1, "s4_dim"]
+range = [-1, 1]
+[outputs.out0]
+shape = [1, "s4_tokens", "s4_dim"]
+[outputs.out1]
+shape = [1, "s4_tokens", "s4_dim"]
+[derived]
+qf = "case_qf"
+ds = "ds(128)"
+chunks = "s4_dim // 128"
+[abi]
+in0 = "CR2"
+table = "CR3"
+out0 = "CR4"
+qf = "CR5"
+ds = "CR6"
+chunks = "CR7"
+s4_tokens = "CR8"
+out1 = "CR9"
+[golden]
+tolerance = { e2 = "EXACT" }
+[cases.default]
+s0_numel = 3
+s1_tokens = 3
+s2_m = 3
+s3_numel = 3
+s4_tokens = 3
+s4_dim = 256
+[cases.single]
+s4_tokens = 1
+s4_dim = 128
