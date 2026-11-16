@@ -1,0 +1,120 @@
+[kernel]
+op = "gemm__conv2d"
+formats = ["e1"]
+[params.s0_bias]
+type = "bool"
+default = true
+[params.s0_k]
+type = "int"
+min = 1
+max = 128
+default = 64
+[params.s0_m]
+type = "int"
+min = 1
+max = 16384
+default = 64
+[params.s0_n]
+type = "int"
+min = 1
+max = 128
+default = 64
+[params.s1_bias]
+type = "bool"
+default = true
+[params.s1_cin]
+type = "int"
+min = 1
+max = 128
+default = 64
+[params.s1_cout]
+type = "int"
+min = 1
+max = 128
+default = 64
+[params.s1_groups]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s1_h]
+type = "int"
+min = 1
+max = 128
+default = 8
+[params.s1_w]
+type = "int"
+min = 1
+max = 128
+default = 8
+[params.s1_kh]
+type = "int"
+min = 1
+max = 8
+default = 8
+[params.s1_kw]
+type = "int"
+min = 1
+max = 8
+default = 8
+[params.s1_padding]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.s1_stride]
+type = "int"
+min = 1
+max = 8
+default = 8
+[derived]
+qf = "case_qf"
+dk = "ds(s0_k)"
+dw = "ds(s1_w)"
+dc = "ds(s1_cout)"
+d1 = "ds(1)"
+ho = "(s1_h - s1_kh) // s1_stride + 1"
+wo = "(s1_w - s1_kw) // s1_stride + 1"
+[inputs.in0]
+shape = ["s0_m",128]
+range = [-1,1]
+[inputs.w0]
+shape = ["s0_n * 2",128]
+range = [-1,1]
+[inputs.w1]
+shape = ["1 + s1_cin * s1_kh * s1_kw",128]
+range = [-1,1]
+[outputs.out0]
+shape = ["s0_n * s1_h",128]
+[outputs.out1]
+shape = ["ho * wo",128]
+[abi]
+in0 = "CR2"
+w0 = "CR3"
+w1 = "CR4"
+out0 = "CR5"
+out1 = "CR6"
+qf = "CR7"
+dk = "CR8"
+dw = "CR9"
+dc = "CR10"
+d1 = "CR11"
+s1_w = "CR12"
+s1_h = "CR13"
+s0_n = "CR14"
+s1_cin = "CR15"
+[golden]
+tolerance = { e1 = "NX8_STEP" }
+[cases.default]
+s0_k = 4
+s0_n = 3
+s0_m = 16
+s1_cin = 3
+s1_cout = 4
+s1_h = 4
+s1_w = 4
+s1_kh = 2
+s1_kw = 2
+s1_stride = 2
+[cases.tile]
+s0_m = 64
