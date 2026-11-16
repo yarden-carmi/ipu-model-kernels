@@ -1,0 +1,53 @@
+[kernel]
+op = "sol61_fixed_eq_selector_v80__gemm"
+formats = ["e2"]
+[params]
+s0_tokens = {type="int", min=128, max=256, multiple_of=128, default=128}
+s0_vocab = {type="int", min=1, max=50265, default=9}
+s1_m = {type="int", min=128, max=256, multiple_of=128, default=128}
+s1_k = {type="int", min=1, max=50265, default=9}
+s1_n = {type="int", min=128, max=768, multiple_of=128, default=128}
+s1_bias = {type="bool", default=false}
+sharp = {type="float", default=1024.0}
+[inputs]
+in0 = {shape=[1,"s0_tokens"], range=[-2,12]}
+w = {shape=["s1_k","s1_n"], range=[-2,2]}
+bias = {shape=["s1_n"], range=[-1,1], when="s1_bias"}
+[scratch]
+ones = {shape=[128], fill=1}
+tmp = {shape=[2,128]}
+sel = {shape=["s0_tokens // 128","ke",128]}
+[outputs]
+out0 = {shape=[1,"s1_m","s1_n"]}
+[derived]
+qf = "case_qf"
+ke = "min(s0_vocab, 13)"
+blocks = "s0_tokens // 128"
+channels = "s1_n // 128"
+valid = "ds(128)"
+[abi]
+in0 = "CR2"
+w = "CR3"
+ones = "CR4"
+tmp = "CR5"
+sel = "CR6"
+out0 = "CR7"
+qf = "CR8"
+ke = "CR9"
+blocks = "CR10"
+channels = "CR11"
+bias = "CR12"
+sharp = "CR13"
+valid = "CR15"
+[golden]
+tolerance = {e2="EXACT"}
+[cases.default]
+[cases.wide]
+s0_tokens = 256
+s1_m = 256
+s1_n = 768
+[cases.carry]
+s0_vocab = 129
+s1_k = 129
+[cases.bias]
+s1_bias = true
