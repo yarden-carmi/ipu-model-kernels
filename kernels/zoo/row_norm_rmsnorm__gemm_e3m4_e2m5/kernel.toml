@@ -1,0 +1,66 @@
+[kernel]
+op="row_norm_rmsnorm__gemm"
+formats=["e3"]
+[params]
+s0_channels={type="int",min=128,max=128,multiple_of=128,default=128}
+s0_rows={type="int",min=1,max=4096,default=2}
+s0_eps={type="float",default=0.000001}
+s0_kind={type="str",choices=["rmsnorm"],default="rmsnorm"}
+s1_m={type="int",min=1,max=256,default=2}
+s1_k={type="int",min=128,max=1024,multiple_of=128,default=128}
+s1_n={type="int",min=128,max=1024,multiple_of=128,default=128}
+s1_bias={type="bool",default=false}
+[derived]
+qf="case_qf"
+RB="ceil(s0_rows / 128)"
+MB="ceil(s1_m / 128)"
+NB="s1_n // 128"
+c128="128"
+one="ds(1)"
+[inputs]
+in0={shape=[1,1,"s0_channels","RB * 128"],range=[-2,2]}
+in1={shape=["s1_m",1,"s1_k"],range=[-2,2]}
+gamma={shape=["s0_channels"],range=[-2,2]}
+w={shape=["s1_k","s1_n"],range=[-2,2]}
+b={shape=["s1_n"],range=[-2,2],when="s1_bias"}
+[outputs]
+out0={shape=["s0_rows",1,1,"s0_channels"]}
+out1={shape=[1,1,"s1_n","MB * 128"]}
+[scratch]
+tmp={shape=[10,128]}
+gx={shape=["2 * s1_m * NB",128]}
+recip={shape=[128],fill="1 / s0_channels"}
+epsilon={shape=[128],fill="s0_eps"}
+[abi]
+in0="CR2"
+in1="CR3"
+gamma="CR4"
+w="CR5"
+out0="CR6"
+out1="CR7"
+tmp="CR8"
+gx="CR9"
+recip="CR10"
+epsilon="CR11"
+c128="CR12"
+one="CR13"
+qf="CR14"
+b="LR15"
+[golden]
+tolerance={e3="NX8_STEP"}
+[cases.default]
+[cases.tiles]
+s0_rows=129
+s1_m=3
+s1_k=256
+s1_n=256
+[cases.wide]
+s0_rows=4
+s1_m=4
+s1_k=1024
+s1_n=1024
+[cases.multiblock]
+s0_rows=3
+s1_m=129
+s1_k=128
+s1_n=128
