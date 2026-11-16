@@ -1,0 +1,59 @@
+[kernel]
+op = "one_hot__gemm__row_norm_rmsnorm"
+formats = ["e2"]
+[params]
+s0_tokens = {type="int", min=128, max=256, multiple_of=128, default=128}
+s0_vocab = {type="int", min=8, max=151669, default=8}
+s1_k = {type="int", min=8, max=151669, default=8}
+s1_m = {type="int", min=128, max=256, multiple_of=128, default=128}
+s1_n = {type="int", min=128, max=1024, multiple_of=128, default=128}
+s1_bias = {type="bool", default=false}
+s2_rows = {type="int", min=128, max=256, multiple_of=128, default=128}
+s2_channels = {type="int", min=128, max=1024, multiple_of=128, default=128}
+s2_kind = {type="str", choices=["rmsnorm"], default="rmsnorm"}
+s2_eps = {type="float", default=0.000001}
+sharp = {type="float", default=1024.0}
+[derived]
+qf = "case_qf"
+K = "s2_channels // 128"
+M = "s2_rows * K"
+[inputs]
+in0 = {shape=[1,"s0_tokens"], range=[0,7]}
+w = {shape=["s1_k","s1_n"], range=[-2,2]}
+gamma = {shape=["s2_channels"], range=[-2,2]}
+bias = {shape=["s1_n"], range=[-1,1], when="s1_bias"}
+[scratch]
+ones = {shape=[128], fill=1}
+sel = {shape=["s0_tokens // 128",8,128]}
+x = {shape=["s0_tokens","s1_n"]}
+tmp = {shape=[8,128]}
+recip = {shape=[128], fill="1 / s2_channels"}
+epsilon = {shape=[128], fill="s2_eps"}
+[outputs]
+out0 = {shape=[1,"s2_rows","s2_channels"]}
+[abi]
+in0 = "CR2"
+w = "CR3"
+gamma = "CR4"
+out0 = "CR5"
+ones = "CR6"
+sel = "CR7"
+x = "CR8"
+tmp = "CR9"
+recip = "CR10"
+epsilon = "CR11"
+sharp = "CR12"
+qf = "CR14"
+bias = "CR13"
+K = "LR14"
+M = "LR15"
+[golden]
+tolerance = {e2="NX8_STEP"}
+[cases.default]
+[cases.wide]
+s1_n = 1024
+s2_channels = 1024
+[cases.two]
+s0_tokens = 256
+s1_m = 256
+s2_rows = 256
