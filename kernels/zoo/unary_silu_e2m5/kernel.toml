@@ -1,0 +1,54 @@
+[kernel]
+op = "unary_silu"
+formats = ["e2"]
+
+[params.fn]
+type = "str"
+choices = ["silu"]
+default = "silu"
+
+[params.numel]
+type = "int"
+min = 1
+max = 65536
+default = 1280
+
+[derived]
+qf = "case_qf"
+rows = "ceil(numel / 128)"
+full = "numel // 128"
+ds_tail = "ds(max(numel % 128, 1))"
+
+[inputs.in0]
+shape = ["numel"]
+range = [-10.0, 10.0]
+
+[inputs.lut]
+shape = [256]
+range = [0.0, 1.0]
+
+[outputs.out0]
+shape = ["numel"]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+lut = "CR4"
+qf = "CR5"
+rows = "CR6"
+full = "CR7"
+ds_tail = "CR8"
+
+[golden]
+tolerance = { e2 = "EXACT" }
+
+[cases.default]
+
+[cases.single]
+numel = 128
+
+[cases.tail]
+numel = 200
+
+[cases.multi]
+numel = 1280
