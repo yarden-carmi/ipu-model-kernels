@@ -1,0 +1,67 @@
+[kernel]
+op = "floor9_scan__singleton_static_replication"
+formats = ["e1"]
+
+[params.s0_numel]
+type = "int"
+min = 1
+max = 65536
+default = 256
+[params.s0_sel]
+type = "int"
+min = 1
+max = 65536
+default = 1
+[params.s1_dim]
+type = "int"
+min = 128
+max = 4096
+multiple_of = 128
+default = 768
+[params.s1_tokens]
+type = "int"
+min = 1
+max = 65536
+default = 256
+[params.s1_vocab]
+type = "int"
+min = 1
+max = 1
+default = 1
+
+[inputs.in0]
+shape = [1, "ceil(s0_numel / 128) * 128"]
+range = [-1, 1]
+[inputs.table]
+shape = [1, "s1_dim"]
+range = [-1, 1]
+[outputs.out0]
+shape = [1, "s1_tokens", "s1_dim"]
+
+[derived]
+qf = "case_qf"
+ds = "ds(128)"
+chunks = "s1_dim // 128"
+[abi]
+in0 = "CR2"
+table = "CR3"
+out0 = "CR4"
+qf = "CR5"
+ds = "CR6"
+chunks = "CR7"
+s1_tokens = "CR8"
+
+[golden]
+tolerance = { e1 = "EXACT" }
+[cases.default]
+s0_numel = 18
+s0_sel = 1
+s1_dim = 256
+s1_tokens = 3
+s1_vocab = 1
+[cases.single]
+s0_numel = 1
+s0_sel = 1
+s1_dim = 128
+s1_tokens = 1
+s1_vocab = 1
