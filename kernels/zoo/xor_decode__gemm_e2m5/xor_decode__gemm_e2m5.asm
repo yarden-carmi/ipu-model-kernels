@@ -1,3 +1,6 @@
+{# Input IDs are nonnegative and at most seven; conversion to int64
+   selects the half-open interval [k,k+1). Enumerate these intervals at
+   fixed addresses, then broadcast each selector across weight channels. #}
 {% set ke = [s0_vocab, 8] | min %}
 {% set ntb = s0_tokens // 128 %}
 {% set nb = s1_n // 128 %}
