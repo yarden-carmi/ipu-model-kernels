@@ -1,0 +1,4 @@
+chain = ["static_tent_decoder", "gemm"]
+chain_in = ["in0"]
+chain_out = ["out0"]
+notes = "Fixed enumeration of tent support for inputs in [1,7]; vocabulary-major weights. Requires tokens=m, vocab=k, bias=false, and n and tokens divisible by 128. Broadcast input lanes before computing tents to preserve precision. No data-dependent addressing."
