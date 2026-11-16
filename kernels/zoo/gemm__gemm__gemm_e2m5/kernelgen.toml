@@ -1,4 +1,4 @@
 chain = ["gemm", "gemm", "gemm"]
 chain_in = ["in0"]
 chain_out = ["out0", "out1", "out2"]
-notes = "Three GEMMs with optional biases and full 128-lane tiles. Middle GEMM reduces K vectors into M lanes. Bias constants pack stage 0 vectors, stage 1 broadcast rows, then stage 2 vectors. Intermediate outputs are rounded in their required layouts."
+notes = "Three GEMMs with optional biases, arbitrary row counts, and full 128-lane K/N tiles. All outputs have N along lanes. All weights are transposed offline to K,N; biases pack stage 0, 1, 2 vectors. Each intermediate is stored and rounded in its required layout before the next GEMM. The preceding scalar multiply is already folded into stage 0 constants by the home computation. Chain dimensions must agree."

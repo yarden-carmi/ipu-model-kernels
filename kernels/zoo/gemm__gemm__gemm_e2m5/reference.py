@@ -15,18 +15,19 @@ def reference(**kw):
     a = x @ kw['w0']
     nb0 = kw['s0_n'] // 128
     b0 = kw['biases'][:nb0].reshape(-1)
-    b1 = kw['biases'][nb0:nb0 + kw['s1_n']]
-    b2 = kw['biases'][nb0 + kw['s1_n']:].reshape(-1)
+    nb1 = kw['s1_n'] // 128
+    b1 = kw['biases'][nb0:nb0 + nb1].reshape(-1)
+    b2 = kw['biases'][nb0 + nb1:].reshape(-1)
     if kw['s0_bias']:
         a = a + b0
     aq = rounded(a)
-    b = (aq @ kw['w1'].T).T.contiguous()
+    b = aq @ kw['w1']
     if kw['s1_bias']:
-        b = b + b1.repeat(1, kw['s1_m'] // 128)
+        b = b + b1
     bq = rounded(b)
-    c = bq.T @ kw['w2']
+    c = bq @ kw['w2']
     if kw['s2_bias']:
         c = c + b2
     return {'out0': a.reshape(1, 1, kw['s0_m'], kw['s0_n']),
-            'out1': b.reshape(1, 1, kw['s1_n'], kw['s1_m']),
+            'out1': b.reshape(1, 1, kw['s1_m'], kw['s1_n']),
             'out2': c.reshape(1, 1, kw['s2_m'], kw['s2_n'])}
