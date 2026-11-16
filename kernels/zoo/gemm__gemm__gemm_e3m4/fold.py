@@ -11,7 +11,7 @@ def fold(module, **params):
         no = nb * 128
         wp = torch.zeros(k, no, dtype=torch.float32)
         wp[:, :n] = w.t().to(torch.float32)
-        result[f'w{i}'] = wp.reshape(-1, 128)
+        result[f'w{i}'] = w.contiguous() if i == 1 else wp.reshape(-1, 128)
         bp = torch.zeros(no, dtype=torch.float32)
         b = getattr(mod, 'bias', None)
         if b is not None:

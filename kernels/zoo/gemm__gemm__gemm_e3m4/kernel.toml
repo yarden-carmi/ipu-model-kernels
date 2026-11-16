@@ -71,6 +71,7 @@ NB0 = "s0_n // 128"
 NB1 = "s1_n // 128"
 NB2 = "s2_n // 128"
 NB01 = "NB0 + NB1"
+tail = "ds((s0_m - 1) % 128 + 1)"
 
 [inputs.in0]
 shape = [1, "s0_m", "s0_k"]
@@ -79,7 +80,7 @@ range = [-2.0, 2.0]
 shape = ["s0_k * NB0", 128]
 range = [-2.0, 2.0]
 [inputs.w1]
-shape = ["s1_k * NB1", 128]
+shape = ["s1_n", "s1_k"]
 range = [-2.0, 2.0]
 [inputs.w2]
 shape = ["s2_k * NB2", 128]
@@ -91,7 +92,7 @@ range = [-2.0, 2.0]
 [outputs.out0]
 shape = [1, 1, "s0_m", "s0_n"]
 [outputs.out1]
-shape = [1, 1, "s0_m", "s1_n"]
+shape = [1, 1, "s1_n", "ceil(s0_m / 128) * 128"]
 [outputs.out2]
 shape = [1, 1, "s0_m", "s2_n"]
 
@@ -107,7 +108,8 @@ biases = "CR9"
 qf = "CR10"
 s0_m = "CR11"
 c128 = "CR12"
-K0 = "CR13"
+K0 = "LR15"
+tail = "CR13"
 NB0 = "CR14"
 NB1 = "CR15"
 NB2 = "LR13"
@@ -120,6 +122,19 @@ tolerance = { e3 = "NX8_STEP" }
 s0_m = 2
 s1_m = 2
 s2_m = 2
+s0_k = 128
+s0_n = 128
+s1_k = 128
+s1_n = 128
+s2_k = 128
+s2_n = 128
+s0_bias = true
+s1_bias = true
+s2_bias = true
+[cases.rowblocks]
+s0_m = 129
+s1_m = 129
+s2_m = 129
 s0_k = 128
 s0_n = 128
 s1_k = 128
@@ -155,16 +170,16 @@ s2_n = 256
 s0_bias = true
 s1_bias = true
 s2_bias = true
-[cases.m50]
-s0_m = 50
-s1_m = 50
-s2_m = 50
-s0_k = 128
-s0_n = 128
-s1_k = 128
-s1_n = 128
-s2_k = 128
-s2_n = 128
+[cases.realwidth]
+s0_m = 2
+s1_m = 2
+s2_m = 2
+s0_k = 1024
+s0_n = 1024
+s1_k = 1024
+s1_n = 1024
+s2_k = 1024
+s2_n = 1024
 s0_bias = true
 s1_bias = true
 s2_bias = true
