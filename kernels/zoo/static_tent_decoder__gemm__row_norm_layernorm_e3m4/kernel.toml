@@ -1,0 +1,127 @@
+[kernel]
+op = "static_tent_decoder__gemm__row_norm"
+formats = ["e3"]
+[params.s0_tokens]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s0_vocab]
+type = "int"
+min = 1
+max = 30522
+default = 9
+[params.s1_m]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s1_k]
+type = "int"
+min = 1
+max = 30522
+default = 9
+[params.s1_n]
+type = "int"
+min = 128
+max = 384
+multiple_of = 128
+default = 384
+[params.s1_bias]
+type = "bool"
+default = false
+[params.s2_rows]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s2_channels]
+type = "int"
+min = 128
+max = 384
+multiple_of = 128
+default = 384
+[params.s2_kind]
+type = "str"
+choices = ["layernorm"]
+default = "layernorm"
+[params.s2_eps]
+type = "float"
+min = 0.0
+max = 1.0
+default = 1e-12
+[params.half]
+type = "float"
+default = 0.5
+min = 0.5
+max = 0.5
+[inputs.in0]
+shape = [1, "s0_tokens"]
+range = [1, 7]
+[inputs.w]
+shape = ["s1_k", "s1_n"]
+range = [-2, 2]
+[inputs.add0]
+shape = ["s1_m", "s1_n"]
+range = [-0.2, 0.2]
+[inputs.add1]
+shape = ["s1_m", "s1_n"]
+range = [-0.2, 0.2]
+[inputs.gamma]
+shape = ["s2_channels"]
+range = [-2, 2]
+[inputs.beta]
+shape = ["s2_channels"]
+range = [-2, 2]
+[scratch.ones]
+shape = [128]
+fill = 1
+[scratch.work]
+shape = [32, 128]
+[scratch.selectors]
+shape = ["s0_tokens", "min(s0_vocab, 8)", 128]
+[scratch.intermediate]
+shape = [2, "s1_m", "s1_n"]
+[scratch.crow]
+shape = [128]
+fill = "1 / s2_channels"
+[scratch.epsilon]
+shape = [128]
+fill = "s2_eps"
+[scratch.channel_count]
+shape = [128]
+fill = "s2_channels"
+[outputs.out0]
+shape = [1, "s2_rows", "s2_channels"]
+[derived]
+qf = "case_qf"
+[abi]
+in0 = "CR2"
+w = "CR3"
+ones = "CR4"
+work = "CR5"
+selectors = "CR6"
+intermediate = "CR7"
+out0 = "CR8"
+qf = "CR9"
+gamma = "CR10"
+beta = "CR11"
+crow = "CR12"
+epsilon = "CR13"
+half = "CR14"
+add0 = "LR14"
+add1 = "LR15"
+channel_count = "LR13"
+[golden]
+tolerance = { e3 = "NX8_STEP" }
+[cases.default]
+[cases.short]
+s0_vocab = 3
+s1_k = 3
+[cases.wide]
+s0_tokens = 256
+s1_m = 256
+s2_rows = 256
