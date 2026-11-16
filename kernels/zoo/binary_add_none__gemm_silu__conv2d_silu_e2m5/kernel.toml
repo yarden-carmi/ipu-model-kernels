@@ -1,0 +1,142 @@
+[kernel]
+op = "binary_add__gemm_silu__conv2d_silu"
+formats = ["e2"]
+[params.s0_broadcast]
+type = "str"
+choices = ["none"]
+default = "none"
+[params.s0_inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.s0_numel]
+type = "int"
+min = 1
+max = 262144
+default = 96
+[params.s0_op]
+type = "str"
+choices = ["add"]
+default = "add"
+[params.s1_bias]
+type = "bool"
+default = true
+[params.s1_k]
+type = "int"
+min = 4
+max = 128
+default = 16
+[params.s1_m]
+type = "int"
+min = 1
+max = 4096
+default = 6
+[params.s1_n]
+type = "int"
+min = 1
+max = 256
+default = 64
+[params.s2_bias]
+type = "bool"
+default = true
+[params.s2_cin]
+type = "int"
+min = 1
+max = 256
+default = 64
+[params.s2_cout]
+type = "int"
+min = 1
+max = 256
+default = 64
+[params.s2_groups]
+type = "int"
+min = 1
+max = 256
+default = 64
+[params.s2_h]
+type = "int"
+min = 1
+max = 64
+default = 2
+[params.s2_w]
+type = "int"
+min = 1
+max = 64
+default = 3
+[params.s2_kh]
+type = "int"
+min = 3
+max = 3
+default = 3
+[params.s2_kw]
+type = "int"
+min = 3
+max = 3
+default = 3
+[params.s2_padding]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s2_stride]
+type = "int"
+min = 1
+max = 1
+default = 1
+[derived]
+qf = "case_qf"
+dsk = "ds(s1_k)"
+ds0 = "ds(min(s1_n, 128))"
+ds1 = "ds(min(s2_cout, 128))"
+nb = "ceil(s1_n / 128)"
+wpr = "s2_w + 2"
+c128 = "128"
+[inputs.in0]
+shape = ["s1_m", 128]
+range = [-2, 2]
+[inputs.in1]
+shape = ["s1_m", 128]
+range = [-2, 2]
+[inputs.w0]
+shape = ["nb * (s1_k + 1)", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 1]
+[inputs.w1]
+shape = ["nb * 10", 128]
+range = [-1, 1]
+[scratch.pad]
+shape = ["nb * (s2_h + 2) * (s2_w + 2)", 128]
+[outputs.out0]
+shape = ["s1_m", 128]
+[outputs.out1]
+shape = ["s2_h * s2_w * nb", 128]
+[abi]
+in0 = "LR14"
+w0 = "CR3"
+lut = "CR4"
+c128 = "CR5"
+pad = "CR6"
+qf = "CR7"
+w1 = "CR8"
+ds1 = "CR9"
+out1 = "CR10"
+s2_h = "CR11"
+s2_w = "CR12"
+wpr = "CR13"
+ds0 = "CR14"
+in1 = "LR13"
+out0 = "LR15"
+dsk = "CR2"
+s1_m = "LR9"
+[golden]
+tolerance = { e2 = "NX8_STEP" }
+[cases.default]
+[cases.wide]
+s1_n = 256
+s2_cin = 256
+s2_cout = 256
+s2_groups = 256
