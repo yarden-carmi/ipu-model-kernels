@@ -1,0 +1,47 @@
+[kernel]
+op = "fixed_vocab_equality__gemm"
+formats = ["e2"]
+[params]
+s0_tokens = {type="int", min=128, max=256, multiple_of=128, default=128}
+s0_vocab = {type="int", min=1, max=151669, default=9}
+s1_k = {type="int", min=1, max=151669, default=9}
+s1_m = {type="int", min=128, max=256, multiple_of=128, default=128}
+s1_n = {type="int", min=128, max=1024, multiple_of=128, default=128}
+s1_bias = {type="bool", default=false}
+sharp = {type="float", default=65536.0}
+[derived]
+qf = "case_qf"
+valid = "ds(128)"
+[inputs]
+in0 = {shape=[1,"s0_tokens"], range=[0,7]}
+w = {shape=["s1_k","s1_n"], range=[-2,2]}
+bias = {shape=["s1_n"], range=[-1,1], when="s1_bias"}
+[scratch]
+ones = {shape=[128], fill=1}
+tmp = {shape=[2,128]}
+sel = {shape=["s0_tokens // 128","min(s0_vocab,8)",128]}
+[outputs]
+out0 = {shape=[1,"s1_m","s1_n"]}
+[abi]
+in0 = "CR2"
+w = "CR3"
+out0 = "CR4"
+ones = "CR5"
+tmp = "CR6"
+sel = "CR7"
+bias = "CR8"
+sharp = "CR12"
+qf = "CR14"
+valid = "CR15"
+[golden]
+tolerance = {e2="EXACT"}
+[cases.default]
+[cases.short]
+s0_vocab = 3
+s1_k = 3
+[cases.wide]
+s0_tokens = 256
+s1_m = 256
+s1_n = 1024
+[cases.bias]
+s1_bias = true
