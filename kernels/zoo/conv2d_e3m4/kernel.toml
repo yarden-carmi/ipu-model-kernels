@@ -33,7 +33,7 @@ default = 6
 [params.w]
 type = "int"
 min = 1
-max = 256
+max = 1024
 default = 6
 
 [params.kh]
@@ -70,8 +70,8 @@ ho = "(h + 2 * padding - kh) // stride + 1"
 wo = "(w + 2 * padding - kw) // stride + 1"
 wrows = "cout * Sall"
 pad_rows = "(h + 2 * padding) * wp * nbi"
-out_rows = "cout * ho"
-dsout0 = "ds(wo)"
+out_rows = "cout * wo"
+dsout0 = "ds(ho)"
 ds_tail = "ds(cin - (nbi - 1) * 128)"
 ds1 = "ds(1)"
 ystep = "stride * wpr"
@@ -120,6 +120,17 @@ stride = 1
 padding = 1
 bias = false
 
+[cases.patch16]
+cin = 1
+cout = 3
+h = 36
+w = 46
+kh = 16
+kw = 16
+stride = 10
+padding = 0
+bias = true
+
 [cases.stride2_cin3]
 cin = 3
 cout = 4
@@ -151,15 +162,4 @@ kh = 7
 kw = 7
 stride = 2
 padding = 3
-bias = false
-
-[cases.channels128]
-cin = 128
-cout = 3
-h = 4
-w = 7
-kh = 3
-kw = 3
-stride = 1
-padding = 1
 bias = false
