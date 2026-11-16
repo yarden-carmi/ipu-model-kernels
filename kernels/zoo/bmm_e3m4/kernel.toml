@@ -1,0 +1,89 @@
+[kernel]
+op = "bmm"
+formats = ["e3"]
+
+[params.b]
+type = "int"
+min = 1
+max = 16
+default = 1
+[params.k]
+type = "int"
+min = 1
+max = 512
+default = 64
+[params.m]
+type = "int"
+min = 1
+max = 256
+default = 2
+[params.n]
+type = "int"
+min = 1
+max = 64
+default = 50
+
+[inputs.in0]
+shape = ["b", "m", "kchunks", 128]
+range = [-2, 2]
+[inputs.in1]
+shape = ["b", "kchunks", "n", 128]
+range = [-2, 2]
+[outputs.out0]
+shape = ["b", "m", "nchunks", 128]
+
+[derived]
+qf = "case_qf"
+kchunks = "ceil(k / 128)"
+nchunks = "ceil(n / 128)"
+kcn = "ceil(k / 128) * n"
+kd0 = "ds(min(k, 128))"
+kd1 = "ds(min(max(k - 128, 1), 128))"
+kd2 = "ds(min(max(k - 256, 1), 128))"
+kd3 = "ds(min(max(k - 384, 1), 128))"
+kdout = "ds(n)"
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+b = "CR5"
+m = "CR6"
+n = "CR7"
+kchunks = "CR8"
+kd0 = "CR9"
+kd1 = "CR10"
+kd2 = "CR11"
+kd3 = "CR12"
+kcn = "CR13"
+qf = "CR14"
+kdout = "CR15"
+
+[golden]
+tolerance = { e3 = "EXACT" }
+
+[cases.default]
+b = 1
+m = 2
+k = 64
+n = 50
+[cases.batched]
+b = 2
+m = 3
+k = 50
+n = 64
+[cases.full_k]
+b = 1
+m = 1
+k = 512
+n = 1
+[cases.k3]
+b = 1
+m = 2
+k = 300
+n = 7
+[cases.k4]
+b = 2
+m = 2
+k = 512
+n = 33

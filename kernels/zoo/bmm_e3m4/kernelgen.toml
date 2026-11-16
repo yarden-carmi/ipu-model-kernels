@@ -1,0 +1,4 @@
+chain = ["bmm"]
+chain_in = ["in0", "in1"]
+chain_out = ["out0"]
+notes = "Batched matmul with both runtime operands carrying k along the 128 lanes: in0 rows (b, m, kchunk), in1 rows (b, kchunk, n); output rows (b, m) with n along the lanes. Each output lane is one FP32 dot product accumulated in R_ACC across k chunks (AGG.SUM.FIRST on chunk 0, AGG.SUM after), stored by one ACTIVATE.QUANTIZE per (b, m) row with ds(n) so lanes >= n are 0. Supports k <= 512 (4 chunks), m <= 256, n <= 64, b <= 16."
