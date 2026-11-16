@@ -1,0 +1,87 @@
+[kernel]
+op = "compare_indicator__gemm__merge474up__integer_delta_decode_r79__gemm__fixed_lane_copy_crop__fixed_eq_selector_161126__gemm__binary__binary__row_norm"
+formats = ["e2"]
+[params]
+s0_tokens = {type="int", min=128, max=256, multiple_of=128, default=128}
+s0_vocab = {type="int", min=1, max=250002, default=9}
+s1_bias = {type="bool", default=false}
+s1_k = {type="int", min=1, max=250002, default=9}
+s1_m = {type="int", min=128, max=256, multiple_of=128, default=128}
+s1_n = {type="int", min=128, max=1024, multiple_of=128, default=128}
+s2_numel = {type="int", min=128, max=256, multiple_of=128, default=128}
+s3_tokens = {type="int", min=128, max=256, multiple_of=128, default=128}
+s3_vocab = {type="int", min=1, max=8194, default=9}
+s4_bias = {type="bool", default=false}
+s4_k = {type="int", min=1, max=8194, default=9}
+s4_m = {type="int", min=128, max=256, multiple_of=128, default=128}
+s4_n = {type="int", min=128, max=1024, multiple_of=128, default=128}
+s5_numel = {type="int", min=128, max=256, multiple_of=128, default=128}
+s5_sel = {type="int", min=1, max=1, default=1}
+s6_tokens = {type="int", min=128, max=256, multiple_of=128, default=128}
+s6_vocab = {type="int", min=1, max=1, default=1}
+s7_bias = {type="bool", default=false}
+s7_k = {type="int", min=1, max=1, default=1}
+s7_m = {type="int", min=128, max=256, multiple_of=128, default=128}
+s7_n = {type="int", min=128, max=1024, multiple_of=128, default=128}
+s8_broadcast = {type="str", choices=["none"], default="none"}
+s8_inner = {type="int", min=0, max=0, default=0}
+s8_numel = {type="int", min=16384, max=262144, multiple_of=128, default=16384}
+s8_op = {type="str", choices=["add"], default="add"}
+s9_broadcast = {type="str", choices=["none"], default="none"}
+s9_inner = {type="int", min=0, max=0, default=0}
+s9_numel = {type="int", min=16384, max=262144, multiple_of=128, default=16384}
+s9_op = {type="str", choices=["add"], default="add"}
+s10_channels = {type="int", min=128, max=1024, multiple_of=128, default=128}
+s10_rows = {type="int", min=128, max=256, multiple_of=128, default=128}
+s10_eps = {type="float", min=0, max=1, default=0.00001}
+s10_kind = {type="str", choices=["layernorm"], default="layernorm"}
+sharp = {type="float", default=65536.0}
+[inputs]
+in0 = {shape=[1,"s0_tokens"], range=[0,7]}
+in1 = {shape=[1,"s3_tokens"], range=[0,7]}
+w0 = {shape=["s1_k","s1_n"], range=[-2,2]}
+w1 = {shape=["s4_k","s4_n"], range=[-2,2]}
+v = {shape=[1,"s7_n"], range=[-2,2]}
+gamma = {shape=["s10_channels"], range=[-2,2]}
+beta = {shape=["s10_channels"], range=[-2,2]}
+[scratch]
+mem = {shape=["32 + (s0_tokens // 128) * (min(s0_vocab,8)+min(s3_vocab,9)) + 3 * s1_m * (s1_n // 128)",128], fill=0.5}
+ones = {shape=[128], fill=1}
+recip = {shape=[128], fill="1 / s10_channels"}
+epsilon = {shape=[128], fill="s10_eps"}
+[outputs]
+out0 = {shape=[1,"s10_rows","s10_channels"]}
+[derived]
+qf = "case_qf"
+valid = "ds(128)"
+[abi]
+in0 = "CR2"
+w0 = "CR3"
+w1 = "CR4"
+v = "CR5"
+gamma = "CR6"
+beta = "CR7"
+in1 = "CR8"
+mem = "CR9"
+qf = "CR10"
+sharp = "CR11"
+recip = "CR12"
+epsilon = "CR13"
+out0 = "CR14"
+valid = "CR15"
+ones = "LR15"
+[golden]
+tolerance = {e2="NX8_STEP"}
+[cases.default]
+[cases.short]
+s0_vocab=3
+s1_k=3
+s3_vocab=3
+s4_k=3
+[cases.wide]
+s1_n=1024
+s4_n=1024
+s7_n=1024
+s10_channels=1024
+s8_numel=131072
+s9_numel=131072
