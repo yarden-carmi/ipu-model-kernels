@@ -28,10 +28,9 @@ qf = "case_qf"
 K = "k / 128"
 NB = "n / 128"
 c128 = "128"
-rows256 = "256"
 
 [inputs.in0]
-shape = [1, 256, "k"]
+shape = [1, "m", "k"]
 range = [-2, 2]
 [inputs.w]
 shape = ["k * NB", 128]
@@ -45,7 +44,7 @@ shape = [5, 128]
 range = [0, 0]
 
 [outputs.out0]
-shape = [1, 256, "n"]
+shape = [1, "m", "n"]
 
 [abi]
 in0 = "CR2"
@@ -58,7 +57,6 @@ NB = "CR8"
 qf = "CR9"
 lut = "CR10"
 c128 = "CR11"
-rows256 = "CR12"
 
 [golden]
 tolerance = { e3 = "NX8_STEP" }
@@ -78,3 +76,9 @@ m = 1
 k = 1024
 n = 128
 bias = true
+
+[cases.no_bias]
+m = 2
+k = 256
+n = 128
+bias = false

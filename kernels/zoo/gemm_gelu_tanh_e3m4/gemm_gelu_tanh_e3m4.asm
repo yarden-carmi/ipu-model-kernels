@@ -42,5 +42,5 @@ kb_loop:
     BLT.S LR6 {{ cr.NB }} nb_loop ;;
     ADD LR11 LR11 {{ cr.K }} ;;
     INC LR5 1 ;;
-    BLT.S LR5 {{ cr.rows256 }} m_loop ;;
+    BLT.S LR5 {{ cr.m }} m_loop ;;
     HALT ;;
