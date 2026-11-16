@@ -1,0 +1,5 @@
+chain = ["conv2d", "hardswish"]
+chain_in = "in0"
+chain_out = "out0"
+generic = "hardswish"
+notes = "Channel-lane depthwise convolution (rows = pixel-major, 128-channel blocks) with fused hardswish LUT store, adapted from conv2d_silu_e1m6 (kh/kw to 5, padding to 2). in0 is the previous gemm's out0 [s0_m, 128]; only the first h*w*ceil(cin/128) rows are read."

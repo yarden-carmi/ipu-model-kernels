@@ -1,0 +1,137 @@
+[kernel]
+op = "conv2d_hardswish"
+formats = ["e1"]
+[params.bias]
+type = "bool"
+default = true
+[params.cin]
+type = "int"
+min = 1
+max = 1536
+default = 3
+[params.cout]
+type = "int"
+min = 1
+max = 1536
+default = 24
+[params.groups]
+type = "int"
+min = 1
+max = 1536
+default = 1
+[params.h]
+type = "int"
+min = 3
+max = 300
+default = 7
+[params.w]
+type = "int"
+min = 3
+max = 300
+default = 7
+[params.kh]
+type = "int"
+min = 1
+max = 5
+default = 5
+[params.kw]
+type = "int"
+min = 1
+max = 5
+default = 5
+[params.padding]
+type = "int"
+min = 0
+max = 2
+default = 2
+[params.stride]
+type = "int"
+min = 1
+max = 2
+default = 2
+[params.s0_m]
+type = "int"
+min = 1
+max = 16384
+default = 784
+[derived]
+nb = "ceil(cin / 128)"
+no = "ceil(cout / 128)"
+cp = "no * 128"
+wp = "w + 2 * padding"
+ho = "(h + 2 * padding - kh) // stride + 1"
+wo = "(w + 2 * padding - kw) // stride + 1"
+qf = "case_qf"
+dsboth = "ds(cout - (no - 1) * 128) + ds(128) * 65536"
+wpr = "wp * nb"
+[inputs.in0]
+shape = ["s0_m", 128]
+range = [-2, 2]
+[inputs.weights]
+shape = ["kh * kw * (cin // groups)", "cp"]
+range = [-1, 1]
+[inputs.bias_vec]
+shape = ["cp"]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[scratch.pad]
+shape = ["h + 2 * padding", "wp", "nb * 128"]
+[outputs.out0]
+shape = ["ho", "wo", "cp"]
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+weights = "CR4"
+bias_vec = "CR5"
+lut = "CR6"
+pad = "CR7"
+qf = "CR8"
+h = "CR9"
+w = "CR10"
+ho = "CR11"
+wo = "CR12"
+no = "CR13"
+wpr = "CR14"
+dsboth = "CR15"
+[golden]
+tolerance = { e1 = "NX8_STEP" }
+[cases.default]
+s0_m = 784
+[cases.depth]
+s0_m = 128
+cin = 256
+cout = 256
+groups = 256
+[cases.padded]
+s0_m = 192
+cin = 1536
+cout = 1536
+groups = 1536
+padding = 1
+stride = 1
+h = 4
+w = 4
+[cases.k5p2s2]
+s0_m = 64
+cin = 96
+cout = 96
+groups = 96
+kh = 5
+kw = 5
+padding = 2
+stride = 2
+h = 8
+w = 8
+[cases.k5p2s1]
+s0_m = 64
+cin = 120
+cout = 120
+groups = 120
+kh = 5
+kw = 5
+padding = 2
+stride = 1
+h = 6
+w = 6
