@@ -1,0 +1,89 @@
+[kernel]
+op = "compare_indicator_gemm"
+formats = ["e2"]
+[params.s0_tokens]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s0_vocab]
+type = "int"
+min = 1
+max = 250002
+default = 8
+[params.s1_bias]
+type = "bool"
+default = false
+[params.s1_k]
+type = "int"
+min = 1
+max = 250002
+default = 8
+[params.s1_m]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s1_n]
+type = "int"
+min = 128
+max = 1024
+multiple_of = 128
+default = 128
+[params.sharp]
+type = "float"
+default = 65536.0
+[inputs.in0]
+shape = [1,"s0_tokens"]
+range = [-2,8]
+[inputs.w]
+shape = ["s1_k","s1_n"]
+range = [-2,2]
+[params.unit64]
+type = "float"
+default = 64.0
+[scratch.digits]
+shape = [3,128]
+[scratch.ones]
+shape = [128]
+fill = 1
+[scratch.work]
+shape = [2,128]
+[scratch.sel]
+shape = ["s0_tokens // 128","min(s0_vocab, 9)",128]
+[outputs.out0]
+shape = [1,"s1_m","s1_n"]
+[derived]
+qf = "case_qf"
+vocab = "min(s0_vocab, 9)"
+blocks = "s0_tokens // 128"
+channels = "s1_n // 128"
+[abi]
+in0 = "CR2"
+w = "CR3"
+digits = "CR4"
+ones = "CR5"
+work = "CR6"
+sel = "CR7"
+out0 = "CR8"
+qf = "CR14"
+sharp = "CR10"
+vocab = "CR11"
+blocks = "CR12"
+channels = "CR13"
+unit64 = "CR9"
+[golden]
+tolerance = {e2 = "NX8_STEP"}
+[cases.default]
+[cases.wide]
+s0_tokens = 256
+s1_m = 256
+s1_n = 256
+[cases.carry]
+s0_vocab = 65
+s1_k = 65
+[cases.middle]
+s0_vocab = 513
+s1_k = 513
