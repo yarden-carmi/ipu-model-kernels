@@ -1,0 +1,4 @@
+chain = ["binary", "merge474", "fixed_eq_selector_8194_nov16", "gemm", "lower15", "fixed_eq_decode", "gemm"]
+chain_in = ["in0"]
+chain_out = ["out0", "out1"]
+notes = "Fixed-address equality over the declared input range; scalar is one, so reachable vocabulary indices are 0..8 and merge474 is inactive. Block15 with sel=1 selects channel zero of the rounded first GEMM. NX8 stored zero has a hidden leading one, so the second equality against zero is false. No biases."
