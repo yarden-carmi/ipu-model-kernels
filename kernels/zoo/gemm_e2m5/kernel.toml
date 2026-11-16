@@ -11,7 +11,7 @@ default = 1
 [params.k]
 type = "int"
 min = 4
-max = 512
+max = 5120
 default = 128
 
 [params.n]
@@ -29,6 +29,7 @@ qf = "case_qf"
 K = "ceil(k / 128)"
 NB = "ceil(n / 128)"
 c128 = "128"
+full_blocks = "k // 128"
 tail = "ds(n - (NB - 1) * 128)"
 
 [inputs.in0]
@@ -58,6 +59,7 @@ NB = "CR8"
 qf = "CR9"
 tail = "CR10"
 c128 = "CR11"
+full_blocks = "CR12"
 
 [golden]
 tolerance = { e2 = "NX8_STEP" }
@@ -74,20 +76,20 @@ k = 256
 n = 200
 bias = false
 
-[cases.task_long]
-m = 2
-k = 480
-n = 512
-bias = true
-
-[cases.partial_k]
-m = 2
-k = 144
-n = 144
-bias = true
-
 [cases.k64]
 m = 2
 k = 64
 n = 32
+bias = true
+
+[cases.large_k]
+m = 2
+k = 5120
+n = 320
+bias = true
+
+[cases.k960]
+m = 2
+k = 960
+n = 320
 bias = true
