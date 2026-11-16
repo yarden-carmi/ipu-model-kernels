@@ -26,22 +26,33 @@
  SET LR3 CR0 ;;
  INC LR3 128 ;;
  SET LR7 CR1 ;;
+ SET LR10 CR1 ;;
+ SET LR11 CR0 ;;
 add_loop:
+ BGE.S LR2 LR4 add_z ;;
  LD.MULT R0 LR2 {{ cr.in0 }} ;;
  LD.MULT R1 LR2 {{ cr.operand }} ;;
  MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD.FIRST ;;
  MULT.VE LR3 CR1 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD ;;
- ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf }}.L {{ cr.out0 }} LR2 ;;
+ ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf }}.L {{ cr.added }} LR2 ;;
  INC LR2 1 ;;
  BLT.S LR2 {{ cr.M }} add_loop ;;
+ BNE LR10 LR11 add_done ;;
+add_z:
+ LD.MULT R1 LR2 {{ cr.operand }} ;;
+ MULT.VE LR3 CR1 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD.FIRST ;;
+ ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf }}.L {{ cr.added }} LR2 ;;
+ INC LR2 1 ;;
+ BLT.S LR2 {{ cr.M }} add_z ;;
+add_done:
  SET LR2 CR0 ;;
 row_loop:
  SET LR5 LR2 ;;
  ADD LR6 LR2 {{ cr.K }} ;;
  MULT.VE LR0 CR0 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD.FIRST ;;
 stats:
- LD.MULT R0 LR5 {{ cr.out0 }} ;;
- LD.MULT.CYCLIC LR5 {{ cr.out0 }} LR0 ;;
+ LD.MULT R0 LR5 {{ cr.added }} ;;
+ LD.MULT.CYCLIC LR5 {{ cr.added }} LR0 ;;
  MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf }}.L ; AGG.SUM LR0 CR15.L ;;
  MULT.RC.VV LR0 R0 0 LR0 CR15.L {{ cr.qf }}.L ; AGG.SUM LR7 CR15.L ;;
  INC LR5 1 ;;
@@ -117,7 +128,7 @@ outputs:
  {{ prod(2,20,true) }}{{ split(22) }}
  {% for n in [20,21,25] %}
  {{ load(n,true) }}
- LD.MULT R0 LR5 {{ cr.out0 }} ;;
+ LD.MULT R0 LR5 {{ cr.added }} ;;
  MULT.RC.VV LR0 R0 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD{{ '.FIRST' if loop.first else '' }} ;;
  {% endfor %}
  {% for n in [22,23] %}
@@ -131,7 +142,7 @@ outputs:
  {% endfor %}
  LD.MULT R0 LR8 {{ cr.beta }} ;;
  MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD ;;
- ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf }}.L {{ cr.out1 }} LR5 ;;
+ ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf }}.L {{ cr.out0 }} LR5 ;;
  INC LR5 1 ;;
  INC LR8 1 ;;
  BLT.S LR5 LR6 outputs ;;
