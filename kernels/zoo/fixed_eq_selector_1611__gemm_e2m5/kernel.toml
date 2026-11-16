@@ -1,0 +1,105 @@
+[kernel]
+op = "fixed_eq_selector_gemm"
+formats = ["e2"]
+[params.s0_tokens]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s0_vocab]
+type = "int"
+min = 1
+max = 250002
+default = 9
+[params.s1_bias]
+type = "bool"
+default = false
+[params.s1_k]
+type = "int"
+min = 1
+max = 250002
+default = 9
+[params.s1_m]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s1_n]
+type = "int"
+min = 128
+max = 1024
+multiple_of = 128
+default = 128
+[params.sharp]
+type = "float"
+default = 65536.0
+[params.d1]
+type = "float"
+default = 2097152.0
+[params.d2]
+type = "float"
+default = 67108864.0
+[params.d3]
+type = "float"
+default = 2147483648.0
+[inputs.in0]
+shape = [1,"s0_tokens"]
+range = [-2,7]
+[inputs.w]
+shape = ["s1_k","s1_n"]
+range = [-2,2]
+[scratch.indices]
+shape = [32,128]
+[inputs.b]
+shape = ["s1_n"]
+when = "s1_bias"
+range = [-1,1]
+[scratch.ones]
+shape = [128]
+fill = 1
+[scratch.work]
+shape = [2,128]
+[scratch.sel]
+shape = ["s0_tokens // 128","active_vocab",128]
+[outputs.out0]
+shape = [1,"s1_m","s1_n"]
+[derived]
+qf = "case_qf"
+active_vocab = "min(s0_vocab, 8)"
+active_k = "min(s1_k, 8)"
+[abi]
+in0 = "CR2"
+w = "CR3"
+ones = "CR4"
+work = "CR5"
+sel = "CR6"
+out0 = "CR7"
+qf = "CR8"
+sharp = "CR9"
+b = "CR10"
+indices = "CR11"
+d1 = "CR12"
+d2 = "CR13"
+d3 = "CR14"
+active_vocab = "LR11"
+active_k = "LR13"
+[golden]
+tolerance = { e2 = "NX8_STEP" }
+[cases.default]
+[cases.wide]
+s0_tokens = 256
+s1_m = 256
+s1_n = 256
+[cases.single]
+s0_vocab = 1
+s1_k = 1
+[cases.large_vocab]
+s0_vocab = 129
+s1_k = 129
+s0_tokens = 256
+s1_m = 256
+s1_n = 256
+[cases.bias]
+s1_bias = true
