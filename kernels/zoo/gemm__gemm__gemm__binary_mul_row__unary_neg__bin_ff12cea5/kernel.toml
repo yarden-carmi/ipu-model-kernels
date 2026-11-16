@@ -1,0 +1,284 @@
+[kernel]
+op = "qkv_rope"
+formats = ["e2"]
+[params.s0_m]
+type = "int"
+min = 1
+max = 256
+default = 2
+[params.s1_m]
+type = "int"
+min = 1
+max = 256
+default = 2
+[params.s2_m]
+type = "int"
+min = 1
+max = 256
+default = 2
+[params.s0_k]
+type = "int"
+min = 128
+max = 1536
+multiple_of = 128
+default = 128
+[params.s1_k]
+type = "int"
+min = 128
+max = 1536
+multiple_of = 128
+default = 128
+[params.s2_k]
+type = "int"
+min = 128
+max = 1536
+multiple_of = 128
+default = 128
+[params.s0_n]
+type = "int"
+min = 128
+max = 1536
+multiple_of = 128
+default = 256
+[params.s1_n]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s2_n]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s0_bias]
+type = "bool"
+default = true
+[params.s1_bias]
+type = "bool"
+default = true
+[params.s2_bias]
+type = "bool"
+default = true
+[params.s3_broadcast]
+type = "str"
+choices = ["row"]
+default = "row"
+[params.s3_const]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s3_inner]
+type = "int"
+min = 128
+max = 32768
+multiple_of = 128
+default = 256
+[params.s3_numel]
+type = "int"
+min = 128
+max = 393216
+multiple_of = 128
+default = 512
+[params.s3_op]
+type = "str"
+choices = ["mul"]
+default = "mul"
+[params.s4_fn]
+type = "str"
+choices = ["neg"]
+default = "neg"
+[params.s4_numel]
+type = "int"
+min = 64
+max = 196608
+multiple_of = 64
+default = 256
+[params.s5_broadcast]
+type = "str"
+choices = ["row"]
+default = "row"
+[params.s5_const]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s5_inner]
+type = "int"
+min = 128
+max = 32768
+multiple_of = 128
+default = 256
+[params.s5_numel]
+type = "int"
+min = 128
+max = 393216
+multiple_of = 128
+default = 512
+[params.s5_op]
+type = "str"
+choices = ["mul"]
+default = "mul"
+[params.s6_broadcast]
+type = "str"
+choices = ["none"]
+default = "none"
+[params.s6_inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.s6_numel]
+type = "int"
+min = 128
+max = 393216
+multiple_of = 128
+default = 512
+[params.s6_op]
+type = "str"
+choices = ["add"]
+default = "add"
+[params.s7_broadcast]
+type = "str"
+choices = ["row"]
+default = "row"
+[params.s7_const]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s7_inner]
+type = "int"
+min = 128
+max = 32768
+multiple_of = 128
+default = 256
+[params.s7_numel]
+type = "int"
+min = 128
+max = 65536
+multiple_of = 128
+default = 256
+[params.s7_op]
+type = "str"
+choices = ["mul"]
+default = "mul"
+[params.s8_fn]
+type = "str"
+choices = ["neg"]
+default = "neg"
+[params.s8_numel]
+type = "int"
+min = 64
+max = 32768
+multiple_of = 64
+default = 128
+[params.s9_broadcast]
+type = "str"
+choices = ["row"]
+default = "row"
+[params.s9_const]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s9_inner]
+type = "int"
+min = 128
+max = 32768
+multiple_of = 128
+default = 256
+[params.s9_numel]
+type = "int"
+min = 128
+max = 65536
+multiple_of = 128
+default = 256
+[params.s9_op]
+type = "str"
+choices = ["mul"]
+default = "mul"
+[params.s10_broadcast]
+type = "str"
+choices = ["none"]
+default = "none"
+[params.s10_inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.s10_numel]
+type = "int"
+min = 128
+max = 65536
+multiple_of = 128
+default = 256
+[params.s10_op]
+type = "str"
+choices = ["add"]
+default = "add"
+[params.minus_one]
+type = "float"
+default = -1.0
+[inputs.in0]
+shape = [1, "s0_m", "s0_k"]
+range = [-2, 2]
+[inputs.constants]
+shape = ["(s0_k*s0_n+s1_k*s1_n+s2_k*s2_n+s0_n+s1_n+s2_n+s3_inner+s5_inner+s7_inner+s9_inner)//128", 128]
+range = [-1, 1]
+[outputs.out0]
+shape = [1, "s0_n//128", "s0_m", 128]
+[outputs.out1]
+shape = [1, "s1_n//128", "s1_m", 128]
+[outputs.out2]
+shape = [1, "s2_n//128", "s2_m", 128]
+[scratch.tmp]
+shape = [4, 128]
+[derived]
+qf = "case_qf + ds(128)*65536"
+c128 = "128"
+p0 = "50462976"
+p1 = "117835012"
+[abi]
+in0 = "CR2"
+constants = "CR3"
+out0 = "CR4"
+out1 = "CR5"
+out2 = "CR6"
+tmp = "CR7"
+qf = "CR8"
+c128 = "CR9"
+minus_one = "CR10"
+p0 = "CR11"
+p1 = "CR12"
+[golden]
+tolerance = { e2 = "NX8_STEP" }
+[cases.default]
+[cases.biasless]
+s0_bias = false
+s1_bias = false
+s2_bias = false
+[cases.blocks]
+s0_m = 4
+s1_m = 4
+s2_m = 4
+s0_k = 256
+s1_k = 256
+s2_k = 256
+s0_n = 384
+s1_n = 256
+s2_n = 256
+s3_inner = 512
+s5_inner = 512
+s7_inner = 512
+s9_inner = 512
+s3_numel = 1536
+s4_numel = 768
+s5_numel = 1536
+s6_numel = 1536
+s7_numel = 1024
+s8_numel = 512
+s9_numel = 1024
+s10_numel = 1024
