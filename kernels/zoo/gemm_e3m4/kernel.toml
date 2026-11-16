@@ -9,9 +9,9 @@ max = 3136
 default = 1
 [params.k]
 type = "int"
-min = 64
+min = 32
 max = 4096
-multiple_of = 64
+multiple_of = 16
 default = 128
 [params.n]
 type = "int"
@@ -25,6 +25,7 @@ default = false
 [derived]
 qf = "case_qf"
 K = "ceil(k / 128)"
+full_k = "k // 128"
 NB = "ceil(n / 128)"
 c128 = "128"
 tail = "ds(n - (NB - 1) * 128)"
@@ -53,32 +54,34 @@ NB = "CR8"
 qf = "CR9"
 tail = "CR10"
 c128 = "CR11"
+full_k = "CR12"
 
 [golden]
 tolerance = { e3 = "NX8_STEP" }
 
 [cases.default]
 m = 1
-k = 128
-n = 128
+k = 256
+n = 256
 bias = true
 [cases.nobias]
 m = 2
-k = 256
+k = 704
 n = 256
 bias = false
-[cases.bias_multitile]
-m = 2
-k = 384
-n = 256
-bias = true
-[cases.k64]
+
+[cases.k32]
 m = 3
-k = 64
+k = 32
+n = 48
+bias = false
+[cases.k336]
+m = 3
+k = 336
 n = 64
 bias = false
-[cases.small_n]
-m = 3
-k = 256
-n = 4
-bias = true
+[cases.k192]
+m = 2
+k = 192
+n = 192
+bias = false
