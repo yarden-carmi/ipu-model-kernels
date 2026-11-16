@@ -17,7 +17,7 @@ default = 16
 [params.s0_n]
 type = "int"
 min = 1
-max = 128
+max = 256
 default = 64
 [params.s1_bias]
 type = "bool"
@@ -25,17 +25,17 @@ default = true
 [params.s1_cin]
 type = "int"
 min = 1
-max = 128
+max = 256
 default = 64
 [params.s1_cout]
 type = "int"
 min = 1
-max = 128
+max = 256
 default = 64
 [params.s1_groups]
 type = "int"
 min = 1
-max = 128
+max = 256
 default = 64
 [params.s1_h]
 type = "int"
@@ -69,26 +69,27 @@ max = 1
 default = 1
 [derived]
 qf = "case_qf"
-ds0 = "ds(s0_n)"
-ds1 = "ds(s1_cout)"
+ds0 = "ds(min(s0_n, 128))"
+ds1 = "ds(min(s1_cout, 128))"
+nb = "ceil(s0_n / 128)"
 wpr = "s1_w + 2"
 c128 = "128"
 [inputs.in0]
 shape = ["s0_m", 128]
 range = [-2, 2]
 [inputs.w0]
-shape = ["s0_k + 1", 128]
+shape = ["nb * (s0_k + 1)", 128]
 range = [-1, 1]
 [inputs.lut]
 shape = [5, 128]
 range = [0, 1]
 [inputs.w1]
-shape = [10, 128]
+shape = ["nb * 10", 128]
 range = [-1, 1]
 [scratch.pad]
-shape = ["(s1_h + 2) * (s1_w + 2)", 128]
+shape = ["nb * (s1_h + 2) * (s1_w + 2)", 128]
 [outputs.out0]
-shape = ["s1_h * s1_w", 128]
+shape = ["s1_h * s1_w * nb", 128]
 [abi]
 in0 = "CR2"
 w0 = "CR3"
@@ -110,3 +111,11 @@ tolerance = { e2 = "NX8_STEP" }
 s0_m = 6
 s1_h = 2
 s1_w = 3
+[cases.wide]
+s0_m = 6
+s1_h = 2
+s1_w = 3
+s0_n = 256
+s1_cin = 256
+s1_cout = 256
+s1_groups = 256

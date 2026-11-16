@@ -14,16 +14,19 @@ def rounded(x):
 def reference(**kw):
     m, k, n = (int(kw[t]) for t in ('s0_m', 's0_k', 's0_n'))
     h, w = kw['s1_h'], kw['s1_w']
-    a = kw['in0'].reshape(m, 128)[:, :k] @ kw['w0'][:k, :n]
+    nb = (n + 127) // 128
+    w0 = kw['w0'].reshape(nb, k + 1, 128).permute(1, 0, 2).reshape(k + 1, nb * 128)[:, :n]
+    a = kw['in0'].reshape(m, 128)[:, :k] @ w0[:k, :n]
     if kw['s0_bias']:
-        a = a + kw['w0'][k, :n]
-    row = torch.zeros(m, 128, dtype=torch.float64)
+        a = a + w0[k, :n]
+    row = torch.zeros(m, nb * 128, dtype=torch.float64)
     row[:, :n] = F.silu(a)
     x = rounded(row)[:, :n].reshape(h, w, n).permute(2, 0, 1)[None]
     c = kw['s1_cout']
-    weights = kw['w1'][:9, :c].T.reshape(c, 1, 3, 3)
-    bias = kw['w1'][9, :c] if kw['s1_bias'] else None
+    w1 = kw['w1'].reshape(nb, 10, 128).permute(1, 0, 2).reshape(10, nb * 128)[:, :c]
+    weights = w1[:9].T.reshape(c, 1, 3, 3)
+    bias = w1[9] if kw['s1_bias'] else None
     y = F.silu(F.conv2d(x, weights, bias, padding=kw['s1_padding'], stride=kw['s1_stride'], groups=kw['s1_groups']))
-    out = torch.zeros(h*w, 128, dtype=torch.float64)
+    out = torch.zeros(h*w, nb * 128, dtype=torch.float64)
     out[:, :c] = y[0].permute(1, 2, 0).reshape(-1, c)
-    return {'out0': out}
+    return {'out0': out.reshape(-1, 128)}

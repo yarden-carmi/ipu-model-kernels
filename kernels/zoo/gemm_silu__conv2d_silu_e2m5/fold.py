@@ -5,12 +5,18 @@ def fold(module, **params):
     linear = next(m for m in layers if m.weight.ndim == 2)
     conv = next(m for m in layers if m.weight.ndim == 4)
     k, n, c = params['s0_k'], params['s0_n'], params['s1_cout']
-    w0 = torch.zeros(k + 1, 128, dtype=linear.weight.dtype)
-    w0[:k, :n] = linear.weight.detach().T
-    if linear.bias is not None:
-        w0[k, :n] = linear.bias.detach()
-    w1 = torch.zeros(10, 128, dtype=conv.weight.dtype)
-    w1[:9, :c] = conv.weight.detach().reshape(c, 9).T
-    if conv.bias is not None:
-        w1[9, :c] = conv.bias.detach()
+    nb = (n + 127) // 128
+    w0 = torch.zeros(nb, k + 1, 128, dtype=linear.weight.dtype)
+    w1 = torch.zeros(nb, 10, 128, dtype=conv.weight.dtype)
+    for b in range(nb):
+        start, end = b * 128, min((b + 1) * 128, n)
+        width = end - start
+        w0[b, :k, :width] = linear.weight.detach()[start:end].T
+        if linear.bias is not None:
+            w0[b, k, :width] = linear.bias.detach()[start:end]
+        w1[b, :9, :width] = conv.weight.detach()[start:end].reshape(width, 9).T
+        if conv.bias is not None:
+            w1[b, 9, :width] = conv.bias.detach()[start:end]
+    w0 = w0.reshape(-1, 128)
+    w1 = w1.reshape(-1, 128)
     return {'w0': w0, 'w1': w1}

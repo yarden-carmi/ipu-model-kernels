@@ -4,22 +4,30 @@
     LD.LUT 2 {{ cr.lut }} LR0 ;;
     LD.LUT 3 {{ cr.lut }} LR0 ;;
     LD.LUT 4 {{ cr.lut }} LR0 ;;
+{% for block in range((s0_n + 127) // 128) %}
     SET LR2 CR0 ;;
     SET LR5 CR0 ;;
     SET LR11 CR0 ;;
     SET LR14 {{ cr.wpr }} ;;
     ADD LR3 LR14 CR1 ;;
-gy:
+gy{{ block }}:
     ADD LR6 LR3 CR0 ;;
     SET LR10 CR0 ;;
-gx:
+gx{{ block }}:
     LD.MULT R0 LR5 {{ cr.in0 }} ;;
     SET LR4 CR0 ;;
+{% if block %}
+    INC LR4 {{ block * (s0_k + 1) }} ;;
+{% endif %}
     SUB LR4 LR4 CR1 ;;
     SET LR7 CR0 ;;
     SUB LR7 LR7 CR1 ;;
     SET LR2 CR0 ;;
-    LD.MULT.CYCLIC LR0 {{ cr.w0 }} LR2 ;;
+    SET LR8 CR0 ;;
+{% if block %}
+    INC LR8 {{ block * (s0_k + 1) }} ;;
+{% endif %}
+    LD.MULT.CYCLIC LR8 {{ cr.w0 }} LR2 ;;
     MULT.RC.VE LR2 CR0 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD.FIRST ;;
 {% for i in range(4) %}
     LD.MULT.CYCLIC LR4 {{ cr.w0 }} LR2 ; INC LR4 1 ; INC.MODP2 LR2 {{ cr.c128 }} 9 ;;
@@ -32,33 +40,39 @@ gx:
 {% endfor %}
 {% if s0_bias %}
     SET LR4 CR0 ;;
-    INC LR4 {{ s0_k }} ;;
+    INC LR4 {{ block * (s0_k + 1) + s0_k }} ;;
     LD.MULT.CYCLIC LR4 {{ cr.w0 }} LR2 ;;
     MULT.RC.VE LR2 CR1 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD ;;
 {% endif %}
     ACTIVATE.QUANTIZE generic {{ cr.ds0 }}.L {{ cr.qf }}.L {{ cr.pad }} LR6 ;;
     INC LR5 1 ; INC LR6 1 ;;
     INC LR10 1 ;;
-    BLT.S LR10 {{ cr.s1_w }} gx ;;
+    BLT.S LR10 {{ cr.s1_w }} gx{{ block }} ;;
     ADD LR3 LR3 LR14 ;;
     INC LR11 1 ;;
-    BLT.S LR11 {{ cr.s1_h }} gy ;;
+    BLT.S LR11 {{ cr.s1_h }} gy{{ block }} ;;
     SET LR3 CR0 ;;
     SET LR11 CR0 ;;
     SET LR12 CR0 ;;
+{% if block %}
+    INC LR12 {{ block }} ;;
+{% endif %}
     SET LR1 CR0 ;;
     INC LR1 128 ;;
-oy:
+oy{{ block }}:
     ADD LR2 LR3 CR0 ;;
     SET LR10 CR0 ;;
-ox:
+ox{{ block }}:
 {% if s1_bias %}
     SET LR8 CR0 ;;
-    INC LR8 9 ;;
+    INC LR8 {{ block * 10 + 9 }} ;;
     LD.MULT.CYCLIC LR8 {{ cr.w1 }} LR1 ;;
     MULT.RC.VE LR1 CR1 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD.FIRST ;;
 {% endif %}
     SET LR8 CR0 ;;
+{% if block %}
+    INC LR8 {{ block * 10 }} ;;
+{% endif %}
     ADD LR4 LR2 CR0 ;;
 {% for ky in range(3) %}
 {% if ky %}
@@ -73,10 +87,11 @@ ox:
 {% endfor %}
 {% endfor %}
     ACTIVATE.QUANTIZE generic {{ cr.ds1 }}.L {{ cr.qf }}.L {{ cr.out0 }} LR12 ;;
-    INC LR12 1 ; INC LR2 1 ;;
+    INC LR12 {{ (s0_n + 127) // 128 }} ; INC LR2 1 ;;
     INC LR10 1 ;;
-    BLT.S LR10 {{ cr.s1_w }} ox ;;
+    BLT.S LR10 {{ cr.s1_w }} ox{{ block }} ;;
     ADD LR3 LR3 LR14 ;;
     INC LR11 1 ;;
-    BLT.S LR11 {{ cr.s1_h }} oy ;;
+    BLT.S LR11 {{ cr.s1_h }} oy{{ block }} ;;
+{% endfor %}
     HALT ;;
