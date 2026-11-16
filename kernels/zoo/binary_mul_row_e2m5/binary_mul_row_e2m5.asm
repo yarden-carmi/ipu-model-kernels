@@ -1,11 +1,10 @@
 {#- binary_mul_row_e2m5: out0[i] = in0[i] * operand[i % inner], e2, row-broadcast
-   constant operand. in0/out0 are [1, 1, 1536, 128]: dimension 3 (the 128) runs
-   along the lanes, dimensions 0-2 are row order, so the tensor is 1536 physical
-   rows of 128 elements - exactly the size of the resident tensor the predecessor
-   unary_neg_e2m5 leaves in XMEM, which the chain's calls read in place.
+   constant operand. in0/out0 are [numel/inner, inner/64, 128]: dimension 2 runs
+   along the lanes and dimensions 0-1 are row order. Read the predecessor's
+   resident tensor directly, one physical row at a time.
 
    Per physical row: LD.MULT loads the operand row (row counter LR2 wraps at
-   operand_rows = inner/128, so the operand repeats every inner/128 rows, i.e.
+   operand_rows = inner/64, so the operand repeats every inner/64 rows, i.e.
    operand[j] multiplies flat index j % inner); LD.MULT.CYCLIC loads in0's row
    into R_CYCLIC slot 0 (its index LR0 is in elements and stays 0; memory
    offsets are in rows); MULT.RC.VV multiplies the cyclic slot by the operand

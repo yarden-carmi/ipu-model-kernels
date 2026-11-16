@@ -2,7 +2,8 @@ import torch
 
 
 def reference(**kw):
-    x = kw["in0"].reshape(-1)
-    operand = kw["operand"].reshape(-1)
-    index = torch.arange(x.numel(), device=x.device) % kw["inner"]
-    return {"out0": (x * operand[index]).reshape(kw["in0"].shape)}
+    x = kw["in0"]
+    operand = kw["operand"]
+    out = torch.zeros_like(x)
+    out[..., :64] = x[..., :64] * operand[None, :, :64]
+    return {"out0": out}

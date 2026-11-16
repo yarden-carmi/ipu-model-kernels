@@ -1,4 +1,4 @@
 chain = ["binary"]
 chain_in = ["in0"]
 chain_out = ["out0"]
-notes = "Row-broadcast constant multiplication in dimension-3 contiguous lane layout. Traverse physical rows and wrap the operand row counter at inner/128; FP32 multiply and one e2 store. Supports inner and numel multiples of 128."
+notes = "Row-broadcast multiplication with dimension 2 along lanes and row order [0,1]. Resident rows have 64 active lanes padded to 128: shape [numel/inner, inner/64, 128]. Fold pads each 64-element operand row; wrap at inner/64. FP32 multiply, one e2 store, zero padding."
