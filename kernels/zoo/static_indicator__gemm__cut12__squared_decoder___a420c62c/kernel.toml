@@ -1,0 +1,245 @@
+[kernel]
+op = "static_indicator__gemm__cut12__squared_decoder__gemm__floor9_scan__singleton_static_replication__binary__binary__row_norm"
+formats = ["e2"]
+[params.s0_tokens]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s0_vocab]
+type = "int"
+min = 1
+max = 50265
+default = 9
+[params.s1_bias]
+type = "bool"
+default = false
+[params.s1_k]
+type = "int"
+min = 1
+max = 50265
+default = 9
+[params.s1_m]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s1_n]
+type = "int"
+min = 128
+max = 768
+multiple_of = 128
+default = 128
+[params.s2_numel]
+type = "int"
+min = 1
+max = 256
+default = 128
+[params.s3_tokens]
+type = "int"
+min = 1
+max = 256
+default = 128
+[params.s3_vocab]
+type = "int"
+min = 1
+max = 514
+default = 514
+[params.s4_bias]
+type = "bool"
+default = false
+[params.s4_k]
+type = "int"
+min = 1
+max = 514
+default = 514
+[params.s4_m]
+type = "int"
+min = 1
+max = 256
+default = 128
+[params.s4_n]
+type = "int"
+min = 128
+max = 768
+multiple_of = 128
+default = 128
+[params.s5_numel]
+type = "int"
+min = 1
+max = 256
+default = 128
+[params.s5_sel]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s6_dim]
+type = "int"
+min = 128
+max = 768
+multiple_of = 128
+default = 128
+[params.s6_tokens]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s6_vocab]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s7_broadcast]
+type = "str"
+choices = ["none"]
+default = "none"
+[params.s7_inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.s7_numel]
+type = "int"
+min = 128
+max = 196608
+default = 16384
+[params.s7_op]
+type = "str"
+choices = ["add"]
+default = "add"
+[params.s8_broadcast]
+type = "str"
+choices = ["none"]
+default = "none"
+[params.s8_inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.s8_numel]
+type = "int"
+min = 128
+max = 196608
+default = 16384
+[params.s8_op]
+type = "str"
+choices = ["add"]
+default = "add"
+[params.s9_channels]
+type = "int"
+min = 128
+max = 768
+multiple_of = 128
+default = 128
+[params.s9_rows]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s9_eps]
+type = "float"
+min = 0.0
+max = 1.0
+default = 0.00001
+[params.s9_kind]
+type = "str"
+choices = ["layernorm"]
+default = "layernorm"
+[params.sharp]
+type = "float"
+default = 1024.0
+[params.half]
+type = "float"
+default = 0.5
+[inputs.in0]
+shape = [1, "s0_tokens"]
+range = [0, 7]
+[inputs.in1]
+shape = [1, "s3_tokens"]
+range = [0, 7]
+[inputs.w]
+shape = ["s1_k", "s1_n"]
+range = [-2, 2]
+[inputs.table]
+shape = [1, "s6_dim"]
+range = [-1, 1]
+[inputs.gamma]
+shape = ["s9_channels"]
+range = [-2, 2]
+[inputs.beta]
+shape = ["s9_channels"]
+range = [-2, 2]
+[scratch.tmp]
+shape = [40, 128]
+fill = 1
+[scratch.selectors]
+shape = ["s0_tokens // 128", "min(s0_vocab, 8)", 128]
+[scratch.x]
+shape = ["s9_rows", "s9_channels"]
+[scratch.xlo]
+shape = ["s9_rows", "s9_channels"]
+[scratch.crow]
+shape = [128]
+fill = "1 / s9_channels"
+[scratch.crowC]
+shape = [128]
+fill = "s9_channels"
+[scratch.epsilon]
+shape = [128]
+fill = "s9_eps"
+[outputs.out0]
+shape = ["s9_channels", 1, "s9_rows"]
+[derived]
+qf = "case_qf"
+aux = "base(in1)"
+[abi]
+in0 = "CR2"
+w = "CR3"
+table = "CR4"
+gamma = "CR5"
+beta = "CR6"
+tmp = "CR7"
+selectors = "CR8"
+x = "CR9"
+out0 = "CR10"
+qf = "CR11"
+sharp = "CR12"
+half = "CR13"
+xlo = "CR14"
+aux = "LR12"
+crow = "LR13"
+crowC = "LR14"
+epsilon = "LR15"
+[golden]
+tolerance = { e2 = "NX8_STEP" }
+[cases.default]
+[cases.wide]
+s1_n = 256
+s4_n = 256
+s6_dim = 256
+s9_channels = 256
+s7_numel = 32768
+s8_numel = 32768
+[cases.two_token_blocks]
+s0_tokens = 256
+s1_m = 256
+s2_numel = 256
+s3_tokens = 256
+s4_m = 256
+s5_numel = 256
+s6_tokens = 256
+s9_rows = 256
+s7_numel = 32768
+s8_numel = 32768
+[cases.three_chunks]
+s1_n = 384
+s4_n = 384
+s6_dim = 384
+s9_channels = 384
+s7_numel = 49152
+s8_numel = 49152
