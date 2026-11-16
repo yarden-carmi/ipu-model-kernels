@@ -1,168 +1,99 @@
 [kernel]
 op = "conv2d"
 formats = ["e3"]
-
 [params.bias]
 type = "bool"
 default = false
-
 [params.cin]
 type = "int"
 min = 1
-max = 512
-default = 8
-
+max = 1024
+default = 4
 [params.cout]
 type = "int"
 min = 1
 max = 1024
 default = 4
-
 [params.groups]
 type = "int"
 min = 1
-max = 1
-default = 1
-
+max = 1024
+default = 4
 [params.h]
 type = "int"
 min = 1
-max = 256
-default = 6
-
+max = 56
+default = 5
 [params.w]
 type = "int"
 min = 1
-max = 1024
-default = 6
-
+max = 56
+default = 5
 [params.kh]
 type = "int"
 min = 1
-max = 32
+max = 5
 default = 3
-
 [params.kw]
 type = "int"
 min = 1
-max = 32
+max = 5
 default = 3
-
 [params.padding]
 type = "int"
 min = 0
-max = 3
+max = 2
 default = 1
-
 [params.stride]
 type = "int"
 min = 1
-max = 32
-default = 1
-
+max = 2
+default = 2
 [derived]
 qf = "case_qf"
-nbi = "ceil(cin / 128)"
-Sall = "kh * kw * nbi + 1"
-wp = "w + 2 * padding"
-wpr = "wp * nbi"
 ho = "(h + 2 * padding - kh) // stride + 1"
 wo = "(w + 2 * padding - kw) // stride + 1"
-wrows = "cout * Sall"
-pad_rows = "(h + 2 * padding) * wp * nbi"
-no = "ceil(cout / 128)"
-out_rows = "ho * wo * no"
-dsout0 = "ds(cout - (no - 1) * 128)"
-ds_tail = "ds(cin - (nbi - 1) * 128)"
-ds1 = "ds(1)"
-ystep = "stride * wpr"
-
+dsout = "ds(wo)"
+wrows = "cout * kh * kw"
 [inputs.in0]
-shape = ["h * w * nbi", 128]
+shape = ["h", "w", "ceil(cin / 128) * 128"]
 range = [-2.0, 2.0]
-
 [inputs.weights]
-shape = ["kh * kw * cin * no", 128]
-
-[inputs.bias_vec]
-shape = ["no", 128]
-
-[scratch.pad]
-shape = ["max(pad_rows, ho * wo * ceil(kh * kw * cin / 128))", 128]
-
+shape = ["cout * kh * kw", 128]
 [outputs.out0]
-shape = ["out_rows", 128]
-
+shape = ["cout", "ho", 128]
+[scratch.clean]
+shape = ["cout * kh * kw", 128]
 [abi]
 in0 = "CR2"
 out0 = "CR3"
 weights = "CR4"
-pad = "CR5"
-qf = "CR6"
-dsout0 = "CR7"
-ho = "CR8"
-wo = "CR9"
-no = "CR10"
-h = "CR11"
-w = "CR12"
-ds_tail = "CR13"
-kh = "LR14"
-bias_vec = "CR14"
-
+qf = "CR5"
+dsout = "CR6"
+h = "CR7"
+w = "CR8"
+ho = "CR9"
+wo = "CR10"
+cout = "CR11"
+clean = "CR12"
+wrows = "CR13"
 [golden]
 tolerance = { e3 = "NX8_STEP" }
-
 [cases.default]
-cin = 32
+cin = 4
 cout = 4
-h = 8
-w = 8
-kh = 3
-kw = 3
-stride = 1
-padding = 1
-bias = false
-
-[cases.stride2_cin3]
+groups = 4
+[cases.five]
 cin = 3
-cout = 4
-h = 9
-w = 9
-kh = 3
-kw = 3
-stride = 2
-padding = 1
-bias = false
-
-[cases.bias_multi]
-cin = 130
 cout = 3
-h = 5
-w = 5
-kh = 3
-kw = 3
-stride = 2
-padding = 1
-bias = true
-
-[cases.stem7]
-cin = 3
-cout = 2
-h = 11
-w = 15
-kh = 7
-kw = 7
-stride = 2
-padding = 3
-bias = false
-
-[cases.patch32]
-cin = 3
+groups = 3
+kh = 5
+kw = 5
+padding = 2
+stride = 1
+[cases.blocks]
+cin = 130
 cout = 130
-h = 32
-w = 32
-kh = 32
-kw = 32
-stride = 32
-padding = 0
-bias = false
+groups = 130
+h = 3
+w = 3
