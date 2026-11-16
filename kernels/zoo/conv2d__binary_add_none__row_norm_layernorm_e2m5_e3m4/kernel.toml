@@ -1,0 +1,163 @@
+[kernel]
+op = "conv2d_binary_layernorm"
+formats = ["e2"]
+[params.s0_bias]
+type = "bool"
+default = true
+[params.s0_cin]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s0_cout]
+type = "int"
+min = 128
+max = 768
+multiple_of = 128
+default = 128
+[params.s0_groups]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s0_h]
+type = "int"
+min = 1
+max = 128
+default = 4
+[params.s0_w]
+type = "int"
+min = 1
+max = 1024
+default = 4
+[params.s0_kh]
+type = "int"
+min = 1
+max = 16
+default = 2
+[params.s0_kw]
+type = "int"
+min = 1
+max = 16
+default = 2
+[params.s0_padding]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.s0_stride]
+type = "int"
+min = 1
+max = 10
+default = 2
+[params.s1_broadcast]
+type = "str"
+choices = ["none"]
+default = "none"
+[params.s1_const]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s1_inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.s1_numel]
+type = "int"
+min = 1
+max = 932352
+default = 512
+[params.s1_op]
+type = "str"
+choices = ["add"]
+default = "add"
+[params.s2_channels]
+type = "int"
+min = 128
+max = 768
+multiple_of = 128
+default = 128
+[params.s2_rows]
+type = "int"
+min = 1
+max = 1214
+default = 4
+[params.s2_eps]
+type = "float"
+default = 1e-12
+[params.s2_kind]
+type = "str"
+choices = ["layernorm"]
+default = "layernorm"
+[derived]
+qf = "case_qf"
+no = "s0_cout // 128"
+ho = "(s0_h-s0_kh)//s0_stride+1"
+wo = "(s0_w-s0_kw)//s0_stride+1"
+count = "ho*wo*no"
+eps_off = "base(epsilon)-base(recip)"
+[inputs.in0]
+shape = ["s0_h*s0_w",128]
+range = [-2,2]
+[inputs.weights]
+shape = ["s0_kh*s0_kw*no",128]
+[inputs.bias]
+shape = ["no",128]
+[inputs.operand]
+shape = ["ho*wo*no",128]
+[inputs.gamma]
+shape = ["no",128]
+range = [0.5,1.5]
+[inputs.beta]
+shape = ["no",128]
+range = [-0.5,0.5]
+[scratch.tmp]
+shape = [16,128]
+[scratch.recip]
+shape = [1,128]
+fill = "1/s2_channels"
+[scratch.epsilon]
+shape = [1,128]
+fill = "s2_eps"
+[outputs.out0]
+shape = ["ho*wo*no",128]
+[outputs.out1]
+shape = ["ho*wo*no",128]
+[abi]
+in0 = "CR2"
+weights = "CR3"
+bias = "CR4"
+operand = "CR5"
+out0 = "CR6"
+out1 = "CR7"
+tmp = "CR8"
+recip = "CR9"
+gamma = "CR10"
+beta = "CR11"
+qf = "CR12"
+count = "CR13"
+no = "LR15"
+half = "CR14"
+eps_off = "LR9"
+[params.half]
+type = "float"
+default = 0.5
+[golden]
+tolerance = { e2 = "NX8_STEP" }
+[cases.default]
+[cases.six]
+s0_cout = 768
+s2_channels = 768
+s1_numel = 3072
+[cases.patch]
+s0_h = 16
+s0_w = 26
+s0_kh = 16
+s0_kw = 16
+s0_stride = 10
+s0_cout = 768
+s2_channels = 768
+s2_rows = 2
+s1_numel = 1536
