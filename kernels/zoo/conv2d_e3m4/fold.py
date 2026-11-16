@@ -1,36 +1,15 @@
 import torch
 
-
 def fold(module, **params):
-    """Weights to rows of 128 input channels: row co*Sall + s, one per (tap, channel block) in
-    (ky, kx, ib) order, then one bias row per output channel (lane 0 = bias, used with a 1.0 scalar)."""
-    w = module.weights.to(torch.float64)
-    cout, cin, kh, kw = w.shape
-    nbi = (cin + 127) // 128
-    taps = kh * kw * nbi
-    rows = torch.zeros(cout, taps + 1, 128, dtype=torch.float64)
-    if cin == 1 and params.get('padding', 0) == 0:
-        packed = w.permute(0, 2, 3, 1).reshape(cout, -1)
-        blocks = (kh * kw * cin + 127) // 128
-        out = torch.zeros(cout, (blocks + int(bool(params.get('bias')))) * 128, dtype=torch.float64)
-        out[:, :packed.shape[1]] = packed
-        if params.get('bias'):
-            b = getattr(module, 'bias_vec', None)
-            if b is None:
-                b = module.bias
-            out[:, blocks * 128] = b.to(torch.float64).reshape(-1)
-        rows.reshape(-1)[:out.numel()] = out.reshape(-1)
-        return {'weights': rows.reshape(-1, 128)}
-    for co in range(cout):
-        for ky in range(kh):
-            for kx in range(kw):
-                for ib in range(nbi):
-                    s = (ky * kw + kx) * nbi + ib
-                    blk = w[co, ib * 128:(ib + 1) * 128, ky, kx]
-                    rows[co, s, :blk.numel()] = blk
-        if params.get('bias'):
-            b = getattr(module, 'bias_vec', None)
-            if b is None:
-                b = getattr(module, 'bias')
-            rows[co, taps, 0] = b.to(torch.float64).reshape(-1)[co]
-    return {'weights': rows.reshape(-1, 128)}
+    w = module.weights
+    co, ci, kh, kw = w.shape
+    cp = ((co + 127) // 128) * 128
+    out = torch.zeros(kh, kw, ci, cp, dtype=w.dtype)
+    out[..., :co] = w.permute(2, 3, 1, 0)
+    b = torch.zeros(cp, dtype=w.dtype)
+    if params.get('bias', False):
+        v = getattr(module, 'bias_vec', None)
+        if v is None:
+            v = module.bias
+        b[:co] = v.reshape(-1)
+    return {'weights': out.reshape(-1,128), 'bias_vec': b.reshape(-1,128)}

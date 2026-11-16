@@ -70,8 +70,9 @@ ho = "(h + 2 * padding - kh) // stride + 1"
 wo = "(w + 2 * padding - kw) // stride + 1"
 wrows = "cout * Sall"
 pad_rows = "(h + 2 * padding) * wp * nbi"
-out_rows = "cout * wo"
-dsout0 = "ds(ho)"
+no = "ceil(cout / 128)"
+out_rows = "ho * wo * no"
+dsout0 = "ds(cout - (no - 1) * 128)"
 ds_tail = "ds(cin - (nbi - 1) * 128)"
 ds1 = "ds(1)"
 ystep = "stride * wpr"
@@ -81,7 +82,10 @@ shape = ["h * w * nbi", 128]
 range = [-2.0, 2.0]
 
 [inputs.weights]
-shape = ["wrows", 128]
+shape = ["kh * kw * cin * no", 128]
+
+[inputs.bias_vec]
+shape = ["no", 128]
 
 [scratch.pad]
 shape = ["max(pad_rows, ho * wo * ceil(kh * kw * cin / 128))", 128]
@@ -98,13 +102,12 @@ qf = "CR6"
 dsout0 = "CR7"
 ho = "CR8"
 wo = "CR9"
-cout = "CR10"
+no = "CR10"
 h = "CR11"
 w = "CR12"
 ds_tail = "CR13"
 kh = "LR14"
-ds1 = "CR14"
-ystep = "LR15"
+bias_vec = "CR14"
 
 [golden]
 tolerance = { e3 = "NX8_STEP" }
@@ -119,17 +122,6 @@ kw = 3
 stride = 1
 padding = 1
 bias = false
-
-[cases.patch16]
-cin = 1
-cout = 3
-h = 36
-w = 46
-kh = 16
-kw = 16
-stride = 10
-padding = 0
-bias = true
 
 [cases.stride2_cin3]
 cin = 3
@@ -162,4 +154,15 @@ kh = 7
 kw = 7
 stride = 2
 padding = 3
+bias = false
+
+[cases.patch32]
+cin = 3
+cout = 130
+h = 32
+w = 32
+kh = 32
+kw = 32
+stride = 32
+padding = 0
 bias = false
