@@ -1,0 +1,142 @@
+[kernel]
+op = "offset_trunc3_add__fixed_onehot__gemm__pair_floor_select__sol61_eq_ramp_r43__gemm"
+formats = ["e2"]
+[params.s0_numel]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s1_tokens]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s1_vocab]
+type = "int"
+min = 1
+max = 8194
+default = 9
+[params.s2_bias]
+type = "bool"
+default = false
+[params.s2_k]
+type = "int"
+min = 1
+max = 8194
+default = 9
+[params.s2_m]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s2_n]
+type = "int"
+min = 128
+max = 1024
+multiple_of = 128
+default = 128
+[params.s3_numel]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s3_sel]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s4_tokens]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s4_vocab]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s5_k]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s5_m]
+type = "int"
+min = 128
+max = 256
+multiple_of = 128
+default = 128
+[params.s5_n]
+type = "int"
+min = 128
+max = 1024
+multiple_of = 128
+default = 128
+[params.sharp]
+type = "float"
+default = 1024.0
+[inputs.in0]
+shape = [1, "s0_numel"]
+range = [0, 7]
+[inputs.w]
+shape = ["s2_k", "s2_n"]
+range = [-2, 2]
+[inputs.v]
+shape = [1, "s5_n"]
+range = [-2, 2]
+[inputs.index]
+shape = ["s3_numel", 128]
+range = [0, 0]
+[scratch.guard]
+shape = [1, 128]
+[scratch.ones]
+shape = [1, 128]
+fill = 1
+[scratch.work]
+shape = [2, 128]
+[scratch.selectors]
+shape = ["s1_tokens // 128", "min(s1_vocab, 8)", 128]
+[outputs.out0]
+shape = [1, "s2_m", "s2_n"]
+[outputs.out1]
+shape = [1, "s5_m", "s5_n"]
+[derived]
+qf = "case_qf"
+single = "ds(1)"
+[abi]
+in0 = "CR2"
+w = "CR3"
+ones = "CR4"
+work = "CR5"
+selectors = "CR6"
+out0 = "CR7"
+sharp = "CR8"
+qf = "CR9"
+v = "CR10"
+out1 = "CR11"
+index = "CR12"
+guard = "CR13"
+single = "CR14"
+[golden]
+tolerance = { e2 = "EXACT" }
+[cases.default]
+[cases.short_vocab]
+s1_vocab = 3
+s2_k = 3
+[cases.full_vocab]
+s1_vocab = 8194
+s2_k = 8194
+[cases.wide]
+s0_numel = 256
+s1_tokens = 256
+s2_m = 256
+s2_n = 256
+s3_numel = 256
+s4_tokens = 256
+s5_m = 256
+s5_n = 256
