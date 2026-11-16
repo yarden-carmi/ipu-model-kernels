@@ -5,7 +5,7 @@ formats = ["e2"]
 [params.m]
 type = "int"
 min = 1
-max = 256
+max = 1500
 default = 1
 
 [params.k]
@@ -69,26 +69,26 @@ k = 128
 n = 128
 bias = true
 
-[cases.m64]
-m = 64
-k = 128
-n = 128
-bias = false
-
-[cases.k1024]
-m = 2
-k = 1024
-n = 128
-bias = true
-
 [cases.tail]
 m = 2
 k = 256
 n = 200
 bias = false
 
-[cases.kloop]
-m = 1
-k = 384
-n = 136
+[cases.task_bias]
+m = 2
+k = 512
+n = 512
+bias = true
+
+[cases.task_nobias]
+m = 2
+k = 512
+n = 512
+bias = false
+
+[cases.task_long]
+m = 2
+k = 2048
+n = 512
 bias = true
