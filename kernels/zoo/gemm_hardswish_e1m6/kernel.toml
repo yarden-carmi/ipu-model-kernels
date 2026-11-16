@@ -1,0 +1,80 @@
+[kernel]
+op = "gemm_hardswish"
+formats = ["e1"]
+[params.m]
+type = "int"
+min = 1
+max = 16384
+default = 3
+[params.k]
+type = "int"
+min = 4
+max = 576
+multiple_of = 4
+default = 40
+[params.n]
+type = "int"
+min = 1
+max = 1024
+default = 240
+[params.bias]
+type = "bool"
+default = true
+[inputs.in0]
+shape = ["m", "ceil(k / 128) * 128"]
+range = [-2, 2]
+[inputs.w]
+shape = ["ceil(n / 128)", "k", 128]
+range = [-2, 2]
+[inputs.b]
+shape = ["ceil(n / 128)", 128]
+range = [-2, 2]
+when = "bias"
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[outputs.out0]
+shape = ["m", "ceil(n / 128) * 128"]
+[derived]
+qf = "case_qf"
+nb = "ceil(n / 128)"
+kb = "ceil(k / 128)"
+last = "ceil(n / 128) - 1"
+tail = "ds((n - 1) % 128 + 1)"
+c128 = "128"
+[abi]
+in0 = "CR2"
+w = "CR3"
+out0 = "CR4"
+b = "CR5"
+lut = "CR6"
+m = "CR7"
+nb = "CR8"
+qf = "CR9"
+tail = "CR10"
+c128 = "CR11"
+kb = "CR12"
+last = "CR13"
+[golden]
+tolerance = { e1 = "NX8_STEP" }
+[cases.default]
+m = 3
+k = 40
+n = 240
+[cases.n120]
+m = 2
+k = 40
+n = 120
+[cases.n576]
+m = 2
+k = 96
+n = 576
+[cases.large_k]
+m = 1
+k = 576
+n = 1024
+[cases.no_bias]
+m = 2
+k = 132
+n = 17
+bias = false

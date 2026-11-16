@@ -1,0 +1,5 @@
+chain = ["gemm", "hardswish"]
+chain_in = ["in0"]
+chain_out = ["out0"]
+generic = "hardswish"
+notes = "Channel dimension along lanes with each spatial row padded to 128. Weights folded by output tile, reduction index, lane. FP32 accumulation across input blocks, bias, then fused hardswish LUT store."
