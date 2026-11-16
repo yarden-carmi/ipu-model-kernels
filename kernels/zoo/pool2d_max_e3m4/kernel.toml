@@ -10,27 +10,25 @@ default = 64
 [params.h]
 type = "int"
 min = 2
-max = 112
-multiple_of = 2
+max = 113
 default = 8
 [params.w]
 type = "int"
 min = 2
-max = 112
-multiple_of = 2
+max = 113
 default = 8
 [params.k]
 type = "int"
-choices = [3]
-default = 3
+choices = [2]
+default = 2
 [params.padding]
+type = "int"
+choices = [0]
+default = 0
+[params.stride]
 type = "int"
 choices = [1]
 default = 1
-[params.stride]
-type = "int"
-choices = [2]
-default = 2
 [params.kind]
 type = "str"
 choices = ["max"]
@@ -39,9 +37,8 @@ default = "max"
 [derived]
 qf = "case_qf"
 ds_channels = "ds(channels)"
-oh = "h // 2"
-ow = "w // 2"
-twow = "w * 2"
+oh = "h - 1"
+ow = "w - 1"
 
 [inputs.in0]
 shape = [1, "h", "w", 128]
@@ -57,12 +54,19 @@ ds_channels = "CR5"
 w = "CR6"
 oh = "CR7"
 ow = "CR8"
-twow = "CR9"
 
 [golden]
 tolerance = { e3 = "EXACT" }
 [cases.default]
 [cases.small]
-h = 2
-w = 2
+h = 3
+w = 3
 channels = 7
+[cases.rect]
+h = 5
+w = 3
+channels = 32
+[cases.full_lanes]
+h = 4
+w = 4
+channels = 128
