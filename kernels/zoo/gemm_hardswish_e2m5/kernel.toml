@@ -1,0 +1,99 @@
+[kernel]
+op = "gemm_hardswish"
+formats = ["e2"]
+
+[params.m]
+type = "int"
+min = 1
+max = 16384
+default = 16
+
+[params.k]
+type = "int"
+min = 4
+max = 128
+multiple_of = 4
+default = 24
+
+[params.n]
+type = "int"
+min = 1
+max = 128
+default = 96
+
+[params.bias]
+type = "bool"
+default = true
+
+[inputs.in0]
+shape = ["m * k"]
+range = [-2, 2]
+
+[inputs.w]
+shape = ["k", 128]
+range = [-2, 2]
+
+[inputs.b]
+shape = [128]
+range = [-2, 2]
+when = "bias"
+
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+
+[outputs.out0]
+shape = ["m", 128]
+
+[derived]
+qf = "case_qf"
+tail = "ds(n)"
+c128 = "128"
+c111 = "111"
+c127 = "127"
+
+[abi]
+in0 = "CR2"
+w = "CR3"
+out0 = "CR4"
+b = "CR5"
+lut = "CR6"
+m = "CR7"
+qf = "CR9"
+tail = "CR10"
+c128 = "CR11"
+c111 = "CR12"
+c127 = "CR13"
+
+[golden]
+tolerance = { e2 = "NX8_STEP" }
+
+[cases.default]
+m = 16
+k = 24
+n = 96
+bias = true
+
+[cases.split120]
+m = 5
+k = 24
+n = 96
+bias = true
+
+[cases.no_bias]
+m = 4
+k = 24
+n = 128
+bias = false
+
+[cases.wide_k]
+m = 3
+k = 128
+n = 96
+bias = true
+
+[cases.k4]
+m = 6
+k = 4
+n = 17
+bias = true

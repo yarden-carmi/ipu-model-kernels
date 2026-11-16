@@ -1,0 +1,5 @@
+chain = ["gemm", "hardswish"]
+chain_in = ["in0"]
+chain_out = ["out0"]
+generic = "hardswish"
+notes = "in0 is declared as the flat vector of its m*k elements: the previous kernel leaves ceil(m*k/128) XMEM rows and the reference reshapes to [m, k]. Weights folded transposed to [k, 128] (n along lanes), bias padded to 128. Per output row the k-run is walked across the flat packing's row boundary with R0/R1; FP32 GEMM and bias fused with a hardswish LUT store. Supports 4<=k<=128 (multiple of 4), 1<=n<=128, any m."
