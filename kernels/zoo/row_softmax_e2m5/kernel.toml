@@ -3,14 +3,14 @@ op = "row_softmax"
 formats = ["e2"]
 [params.n]
 type = "int"
-min = 128
+min = 1
 max = 4096
-multiple_of = 128
+multiple_of = 1
 default = 256
 [params.rows]
 type = "int"
 min = 1
-max = 8192
+max = 12000
 default = 4
 [params.scale]
 type = "float"
@@ -18,11 +18,11 @@ default = 0.0625
 min = 0.0625
 max = 0.0625
 [derived]
-qf = "case_qf"
-K = "n // 128"
+qf = "case_qf + 65536 * ds(min(128, n - (ceil(n / 128) - 1) * 128))"
+K = "ceil(n / 128)"
 M = "rows * K"
 [inputs.in0]
-shape = ["rows", "K", 128]
+shape = ["max(rows * K, 144000)", 128]
 range = [-2.0, 2.0]
 [outputs.out0]
 shape = ["rows", "K", 128]
@@ -67,3 +67,9 @@ rows = 4
 [cases.single]
 n = 128
 rows = 2
+[cases.padded]
+n = 1500
+rows = 2
+[cases.short]
+n = 32
+rows = 4

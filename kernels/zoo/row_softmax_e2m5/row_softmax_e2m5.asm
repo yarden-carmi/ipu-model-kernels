@@ -50,11 +50,23 @@ exp_loop:
     MULT.RC.VV LR0 R0 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD ;;
     MULT.RC.VV LR0 R0 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD ;;
 {% endfor %}
+    SET LR6 LR3 ;;
+    INC LR6 1 ;;
+    BLT.S LR6 {{ cr.K }} exp_full ;;
+    ACTIVATE.QUANTIZE identity {{ cr.qf }}.H {{ cr.qf }}.L {{ cr.exps }} LR3 ;;
+    BEQ LR0 CR0 exp_stored ;;
+exp_full:
     ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf }}.L {{ cr.exps }} LR3 ;;
+exp_stored:
     LD.MULT R0 LR3 {{ cr.exps }} ;;
     MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.SUB ;;
     ADD LR5 LR3 {{ cr.K }} ;;
+    BLT.S LR6 {{ cr.K }} residual_full ;;
+    ACTIVATE.QUANTIZE identity {{ cr.qf }}.H {{ cr.qf }}.L {{ cr.exps }} LR5 ;;
+    BEQ LR0 CR0 residual_stored ;;
+residual_full:
     ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf }}.L {{ cr.exps }} LR5 ;;
+residual_stored:
     INC LR2 1 ;;
     INC LR3 1 ;;
     BLT.S LR3 {{ cr.K }} exp_loop ;;
@@ -117,7 +129,14 @@ out_loop:
     LD.MULT R0 LR5 {{ cr.exps }} ;;
     MULT.RC.VV LR0 R0 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD ;;
     MULT.RC.VV LR9 R0 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD ;;
+    SET LR6 LR3 ;;
+    INC LR6 1 ;;
+    BLT.S LR6 {{ cr.K }} output_full ;;
+    ACTIVATE.QUANTIZE identity {{ cr.qf }}.H {{ cr.qf }}.L {{ cr.out0 }} LR4 ;;
+    BEQ LR0 CR0 output_stored ;;
+output_full:
     ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf }}.L {{ cr.out0 }} LR4 ;;
+output_stored:
     INC LR4 1 ;;
     INC LR3 1 ;;
     BLT.S LR3 {{ cr.K }} out_loop ;;
