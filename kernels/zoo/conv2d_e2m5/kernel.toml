@@ -7,117 +7,84 @@ default = true
 [params.cin]
 type = "int"
 min = 1
-max = 512
+max = 128
 default = 3
 [params.cout]
 type = "int"
-min = 1
+min = 128
 max = 1152
-default = 2
+multiple_of = 128
+default = 128
 [params.groups]
 type = "int"
 min = 1
-max = 512
+max = 1
 default = 1
 [params.h]
 type = "int"
 min = 1
-max = 224
-default = 5
+max = 1024
+default = 4
 [params.w]
 type = "int"
 min = 1
-max = 224
-default = 6
+max = 1024
+default = 4
 [params.kh]
 type = "int"
 min = 1
-max = 14
-default = 3
+max = 16
+default = 2
 [params.kw]
 type = "int"
 min = 1
-max = 14
-default = 3
+max = 16
+default = 2
 [params.padding]
 type = "int"
 min = 0
-max = 3
-default = 1
+max = 16
+default = 0
 [params.stride]
 type = "int"
 min = 1
-max = 14
-default = 1
+max = 16
+default = 2
 [derived]
-nb = "ceil(cin / 128)"
-hp = "h + 2 * padding"
-wp = "w + 2 * padding"
-qf = "case_qf + stride * wp * nb * 65536"
 ho = "(h + 2 * padding - kh) // stride + 1"
 wo = "(w + 2 * padding - kw) // stride + 1"
-sall = "kh * kw * ceil((cin // groups) / 128) + 1"
-dsout = "ds(ho) + (2 * ceil(ho / 2) - 2) * 65536"
-ds1 = "ds(1)"
-dsfull = "ds(128)"
-dsboth = "ds(1) + ds(128) * 65536"
-dstail = "ds(cin - (nb - 1) * 128) + 128 * 65536"
+blocks = "cout // 128"
+qf = "case_qf"
+full = "ds(128)"
+endrows = "(ho * wo + 101) * blocks"
 [inputs.in0]
-shape = ["h", "w", "nb * 128"]
+shape = ["h", "w", 128]
 range = [-2, 2]
 [inputs.weights]
-shape = ["cout * sall", 128]
+shape = ["blocks", "1 + kh * kw * cin", 128]
 range = [-1, 1]
-[scratch.pad]
-shape = ["(hp + 2 * stride + 1) * wp * nb", 128]
 [outputs.out0]
-shape = ["cout", "wo", 128]
+shape = [1, "ho * wo + 101", "cout"]
+[scratch.zero]
+shape = [1, 128]
 [abi]
 in0 = "CR2"
-out0 = "CR3"
-weights = "CR4"
-pad = "CR5"
-qf = "CR6"
-dsout = "CR7"
-h = "CR8"
-w = "CR9"
-wo = "CR10"
-cout = "CR11"
-kh = "CR12"
-ho = "CR13"
-dstail = "CR14"
-dsboth = "CR15"
-[cases.wide]
-cin = 4
-cout = 1152
-h = 4
-w = 4
-kh = 2
-kw = 2
-padding = 0
-stride = 2
+zero = "CR12"
+weights = "CR3"
+out0 = "CR4"
+qf = "CR5"
+blocks = "CR8"
+h = "CR9"
+w = "CR10"
+endrows = "CR11"
+full = "CR15"
+[cases.default]
+[cases.patch16]
+h = 16
+w = 32
+kh = 16
+kw = 16
+stride = 16
+cout = 384
 [golden]
 tolerance = { e2 = "NX8_STEP" }
-[cases.default]
-cin = 3
-[cases.stem]
-cin = 3
-cout = 4
-h = 12
-w = 12
-kh = 7
-kw = 7
-padding = 3
-stride = 4
-[cases.depth256]
-cin = 256
-cout = 256
-groups = 256
-h = 4
-w = 5
-[cases.downsample]
-cin = 64
-cout = 8
-h = 6
-w = 6
-stride = 2

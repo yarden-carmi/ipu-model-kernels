@@ -1,4 +1,4 @@
 chain = ["conv2d"]
 chain_in = ["in0"]
 chain_out = ["out0"]
-notes = "Channel-lane input; height-lane output in channel,width row order. Folded bias and group-local tap/channel-block weight rows. Supports dense and depthwise convolution, with output height at most 128. Zero-padded scratch and FP32 accumulation; depthwise selects each input channel as a scalar."
+notes = "Channel-lane input and output-channel-lane flattened spatial output. Dense convolution with cin <= 128 and cout divisible by 128. Folded weights vectorize output channels; scalar input taps accumulate in FP32. The declared 1829-token output exceeds the 1728 convolution positions: the remaining 101 token slots are zero-filled."
