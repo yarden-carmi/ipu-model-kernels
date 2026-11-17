@@ -18,26 +18,26 @@ default = 0
 [params.numel]
 type = "int"
 min = 1
-max = 18000000
-multiple_of = 12000
-default = 12000
+max = 20071446
+multiple_of = 10974
+default = 10974
 [params.op]
 type = "str"
 choices = ["mul"]
 default = "mul"
 [inputs.in0]
-shape = [1, 8, "numel / 12000", 1536]
+shape = [1, 6, "numel / 10974", 1920]
 range = [-2.0, 2.0]
 [inputs.operand]
 shape = [1]
 range = [-2.0, 2.0]
 [outputs.out0]
-shape = [1, 8, "numel / 12000", 1536]
+shape = [1, 6, "numel / 10974", 1920]
 [derived]
 qf = "case_qf"
-rows = "numel / 1500 * 12"
-last = "11"
-ds_tail = "ds(92)"
+rows = "numel / 1829 * 15"
+last = "14"
+ds_tail = "ds(37)"
 valid = "ds(128)"
 [abi]
 in0 = "CR2"
@@ -51,8 +51,8 @@ valid = "CR15"
 [golden]
 tolerance = { e1 = "EXACT" }
 [cases.default]
-numel = 12000
+numel = 10974
 [cases.tail]
-numel = 24000
+numel = 21948
 [cases.tiny]
-numel = 36000
+numel = 32922
