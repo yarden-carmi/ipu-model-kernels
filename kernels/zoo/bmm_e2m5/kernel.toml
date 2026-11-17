@@ -1,89 +1,84 @@
 [kernel]
 op = "bmm"
 formats = ["e2"]
-
 [params.b]
 type = "int"
-min = 1
-max = 16
-default = 1
+min = 2
+max = 8
+multiple_of = 2
+default = 2
 [params.k]
 type = "int"
 min = 1
-max = 256
-default = 64
+max = 1500
+default = 5
 [params.m]
 type = "int"
 min = 1
-max = 256
+max = 1500
 default = 2
 [params.n]
 type = "int"
-min = 1
-max = 256
-default = 50
-
+min = 64
+max = 64
+default = 64
 [inputs.in0]
-shape = ["b", "m", "kchunks", 128]
+shape = [1, "b", "m", "kc * 128"]
 range = [-2, 2]
+[params.maskval]
+type = "float"
+default = -0.2421875
+[scratch.masks]
+shape = [2, 128]
+fill = 1
 [inputs.in1]
-shape = ["b", "kchunks", "n", 128]
+shape = [1, "b", "k", 128]
 range = [-2, 2]
 [outputs.out0]
-shape = ["b", "m", "nchunks", 128]
-
+shape = [1, "m", "b * n"]
 [derived]
 qf = "case_qf"
-kchunks = "ceil(k / 128)"
-nchunks = "ceil(n / 128)"
-kd0 = "ds(min(k, 128))"
-kd1 = "ds(min(max(k - 128, 1), 128))"
-kdout0 = "ds(min(n, 128))"
-kdout1 = "ds(min(max(n - 128, 1), 128))"
-w0 = "min(n, 128)"
-w1 = "min(max(n - 128, 1), 128)"
-
+kc = "ceil(k / 128)"
+tail = "k - (kc - 1) * 128"
+full = "128"
+one = "ds(8)"
+astride = "m * kc"
+mstride = "m * kc"
+dsfull = "ds(128)"
 [abi]
 in0 = "CR2"
 in1 = "CR3"
 out0 = "CR4"
 b = "CR5"
-m = "CR6"
-n = "CR7"
-kchunks = "CR8"
-kd0 = "CR9"
-kd1 = "CR10"
-w0 = "CR11"
-w1 = "CR15"
-kdout0 = "CR12"
-kdout1 = "CR13"
+k = "CR6"
+maskval = "CR7"
+kc = "CR8"
+tail = "CR9"
+full = "CR10"
+one = "CR11"
+astride = "CR12"
+dsfull = "CR13"
 qf = "CR14"
-
+masks = "CR15"
 [golden]
 tolerance = { e2 = "EXACT" }
-
 [cases.default]
-b = 1
-m = 2
-k = 64
-n = 50
-[cases.batched]
 b = 2
-m = 3
-k = 50
+m = 2
+k = 5
 n = 64
-[cases.full_k]
-b = 1
-m = 1
-k = 256
-n = 1
-[cases.wide_n]
+[cases.chunks]
 b = 2
+m = 1
+k = 130
+n = 64
+[cases.batches]
+b = 8
 m = 2
-k = 32
-n = 200
-[cases.wide_n_full_k]
-b = 1
-m = 2
-k = 256
-n = 256
+k = 3
+n = 64
+[cases.single]
+b = 2
+m = 1
+k = 1
+n = 64
