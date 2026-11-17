@@ -12,20 +12,20 @@ max = 0
 default = 0
 [params.s0_numel]
 type = "int"
-min = 512
-max = 131072
-multiple_of = 512
-default = 2048
+min = 768
+max = 196608
+multiple_of = 768
+default = 3072
 [params.s0_op]
 type = "str"
 choices = ["add"]
 default = "add"
 [params.s1_channels]
 type = "int"
-min = 512
-max = 512
+min = 768
+max = 768
 multiple_of = 128
-default = 512
+default = 768
 [params.s1_rows]
 type = "int"
 min = 1
@@ -88,8 +88,8 @@ valid = "CR15"
 [golden]
 tolerance = { e2 = "NX8_STEP" }
 [cases.default]
-s0_numel = 2048
+s0_numel = 3072
 s1_rows = 4
 [cases.single]
-s0_numel = 512
+s0_numel = 768
 s1_rows = 1
