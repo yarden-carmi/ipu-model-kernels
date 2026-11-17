@@ -75,16 +75,23 @@
     INC LR14 6 ;;                  # mu_hi row
     SET LR15 CR0 ;;
     INC LR15 7 ;;                  # mu_lo row
-    # ---- phase 1: added = in0 + in1, stored rounded ----
+    # ---- phase 1: added = in0 + in1, row-wise over M packed rows ----
+    SET LR6 CR0 ;;
+    LD.MULT.CYCLIC LR6 {{ cr.tmp }} LR0 ;;   # ones row into R_CYC slot 0 (×1 operand)
     SET LR2 CR0 ;;
 add_loop:
     LD.MULT R0 LR2 {{ cr.in0 }} ;;
+    MULT.RC.VV LR0 R0 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD.FIRST ;;
     LD.MULT R1 LR2 {{ cr.in1 }} ;;
-    MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD.FIRST ;;
-    MULT.VE LR3 CR1 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD ;;
+    MULT.RC.VV LR0 R1 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD ;;
     ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf }}.L {{ cr.added }} LR2 ;;
     INC LR2 1 ;;
     BLT.S LR2 {{ cr.M }} add_loop ;;
+    SET LR7 CR1 ;;
+    SET LR8 CR0 ;;
+    INC LR8 8 ;;
+    SET LR9 CR0 ;;
+    INC LR9 9 ;;
     SET LR2 CR0 ;;
 row_loop:
     SET LR5 LR2 ;;

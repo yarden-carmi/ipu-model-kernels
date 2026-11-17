@@ -13,7 +13,7 @@ def rounded(x):
 
 def reference(**kw):
     r, c = kw['s1_rows'], kw['s1_channels']
-    x = kw['in0'].reshape(r, c) + kw['in1'].reshape(r, c)
+    x = kw['in0'][0, :r, :].reshape(r, c) + kw['in1'].reshape(r, c)
     z = rounded(x)
     mu = z.mean(-1, keepdim=True)
     y = (z - mu) * torch.rsqrt(((z - mu)**2).mean(-1, keepdim=True) + kw['s1_eps'])

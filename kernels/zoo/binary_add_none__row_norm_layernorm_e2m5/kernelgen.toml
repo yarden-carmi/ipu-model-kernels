@@ -1,4 +1,4 @@
 chain = ["binary", "row_norm"]
 chain_in = ["in0"]
 chain_out = ["out0", "out1"]
-notes = "Constant add writes out0; affine layernorm of the rounded sum writes out1. Both use channel-lane layout. Compensated statistics and Newton-refined rsqrt."
+notes = "in0 is the previous conv2d's resident out0 ([1, rows+100, 768] channel-lane; only the first rows*K packed rows are read, the zero tail tokens are ignored). Phase 1 adds the packed folded operand row-wise (ones row in R_CYC slot 0 as the x1 operand) and rounds once to channel-lane out0. Compensated statistics and Newton-refined affine layernorm write channel-lane out1."

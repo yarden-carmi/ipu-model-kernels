@@ -27,10 +27,10 @@ default = "add"
 
 [params.s1_channels]
 type = "int"
-min = 384
-max = 384
+min = 768
+max = 768
 multiple_of = 128
-default = 384
+default = 768
 
 [params.s1_eps]
 type = "float"
@@ -62,7 +62,7 @@ M = "s1_rows * K"
 added = "base(out0)"
 
 [inputs.in0]
-shape = [1, "s1_rows", "s1_channels"]
+shape = [1, "s1_rows + 100", "s1_channels"]
 range = [-2, 2]
 
 [inputs.in1]
@@ -114,19 +114,19 @@ half = "CR14"
 tolerance = { e2 = "NX8_STEP" }
 
 [cases.default]
-s0_numel = 1536
+s0_numel = 3072
 s1_rows = 4
-s1_channels = 384
+s1_channels = 768
 
 [cases.small]
-s0_numel = 768
+s0_numel = 1536
 s1_rows = 2
-s1_channels = 384
+s1_channels = 768
 
 [cases.three]
-s0_numel = 1152
+s0_numel = 2304
 s1_rows = 3
-s1_channels = 384
+s1_channels = 768
 
 [params.s0_const]
 type = "int"
