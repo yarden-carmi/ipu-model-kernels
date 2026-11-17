@@ -1,0 +1,4 @@
+chain = ["fixed_eq_selector_1152", "gemm"]
+chain_in = ["in0"]
+chain_out = ["out0"]
+notes = "One token in lane zero of in0 (range [0, 7], exact in e2); output channels along lanes. Selector rows are built for k < ke = min(s0_vocab, s1_k, 8) with the exact split high/low relu6 counters (sharp = 1024); the gemm streams vocab-major folded weight rows through R_CYCLIC and picks selector element 0 (the token lane) as the dynamic scalar. s1_k should equal s0_vocab; s1_m = s0_tokens = 1; no bias."
