@@ -1,0 +1,4 @@
+chain = ["fixed_eq_selector_nov16_z9", "gemm"]
+chain_in = ["in0"]
+chain_out = ["out0"]
+notes = "Fixed equality selector over the vocabulary ramp, then the weighted sum. Selector rows are built per token row with exact split high/low relu6 counters (sharp=1024) and kept in scratch; the gemm streams vocab-major folded weight rows through R_CYCLIC and picks each token's selector element as the dynamic scalar. Token range [0, 7] bounds the scan at min(vocab, 8) steps for any vocab. s1_m must equal s0_tokens; no bias unless s1_bias is set."
