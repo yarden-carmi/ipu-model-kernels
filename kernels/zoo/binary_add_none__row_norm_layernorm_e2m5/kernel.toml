@@ -1,111 +1,128 @@
 [kernel]
 op = "binary_add_layernorm"
 formats = ["e2"]
+
 [params.s0_broadcast]
 type = "str"
 choices = ["none"]
 default = "none"
-[params.s0_const]
-type = "int"
-min = 1
-max = 1
-default = 1
+
 [params.s0_inner]
 type = "int"
 min = 0
 max = 0
 default = 0
+
 [params.s0_numel]
 type = "int"
 min = 128
-max = 768000
+max = 263168
 multiple_of = 128
-default = 2048
+default = 4096
+
 [params.s0_op]
 type = "str"
 choices = ["add"]
 default = "add"
+
 [params.s1_channels]
 type = "int"
-min = 128
-max = 512
+min = 1024
+max = 1024
 multiple_of = 128
-default = 512
-[params.s1_rows]
-type = "int"
-min = 1
-max = 1500
-default = 4
-[params.s1_kind]
-type = "str"
-choices = ["layernorm"]
-default = "layernorm"
-[params.in_cols]
-type = "int"
-min = 1
-max = 3000
-default = 3000
+default = 1024
+
 [params.s1_eps]
 type = "float"
 min = 0
 max = 1
 default = 1e-5
+
+[params.s1_kind]
+type = "str"
+choices = ["layernorm"]
+default = "layernorm"
+
+[params.s1_rows]
+type = "int"
+min = 1
+max = 256
+default = 4
+
 [params.half]
 type = "float"
-default = 0.5
 min = 0.5
 max = 0.5
+default = 0.5
+
 [derived]
 qf = "case_qf"
 K = "s1_channels // 128"
 M = "s1_rows * K"
+
 [inputs.in0]
-shape = [1, "in_cols", "s1_channels"]
+shape = [1, "s1_rows", "s1_channels"]
 range = [-2, 2]
-[inputs.operand]
+
+[inputs.in1]
 shape = ["s0_numel"]
 range = [-2, 2]
+
 [inputs.gamma]
 shape = ["s1_channels"]
 range = [-2, 2]
+
 [inputs.beta]
 shape = ["s1_channels"]
 range = [-2, 2]
+
+[scratch.added]
+shape = ["M", 128]
+
 [scratch.tmp]
-shape = [24,128]
-[scratch.invC]
+shape = [28, 128]
+fill = 1
+
+[scratch.crow]
 shape = [128]
 fill = "1 / s1_channels"
+
 [scratch.epsilon]
 shape = [128]
 fill = "s1_eps"
+
 [outputs.out0]
-shape = [1,"s1_rows","s1_channels"]
-[outputs.out1]
-shape = [1,"s1_rows","s1_channels"]
+shape = [1, "s1_rows", "s1_channels"]
+
 [abi]
 in0 = "CR2"
-operand = "CR3"
-gamma = "CR4"
-beta = "CR5"
-out0 = "CR6"
-out1 = "CR7"
+in1 = "CR3"
+added = "CR4"
+gamma = "CR5"
+beta = "CR6"
+out0 = "CR7"
 tmp = "CR8"
 qf = "CR9"
 K = "CR10"
 M = "CR11"
-invC = "CR12"
+crow = "CR12"
 epsilon = "CR13"
 half = "CR14"
+
 [golden]
 tolerance = { e2 = "NX8_STEP" }
+
 [cases.default]
-s0_numel = 2048
+s0_numel = 4096
 s1_rows = 4
-s1_channels = 512
-in_cols = 3000
+s1_channels = 1024
+
 [cases.small]
-s0_numel = 256
+s0_numel = 2048
 s1_rows = 2
-s1_channels = 128
-in_cols = 4
+s1_channels = 1024
+
+[cases.three]
+s0_numel = 3072
+s1_rows = 3
+s1_channels = 1024
