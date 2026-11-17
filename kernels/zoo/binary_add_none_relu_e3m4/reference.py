@@ -1,8 +1,9 @@
 import torch
 
 def reference(**kw):
-    x = kw['in0'].reshape(-1, 128)[:, :56].reshape(-1)[:kw['numel']]
-    y = kw['in1'].reshape(-1, 128)
-    out = torch.zeros_like(y)
-    out[:, 0] = torch.relu(x + y[:, 0])
-    return {'out0': out.reshape(kw['in1'].shape)}
+    c = kw['numel'] // 3136
+    result = torch.relu(kw['in0'][0, :, :, :56] + kw['in1'][0, :, :, :56])
+    out = torch.zeros((1, (c + 127)//128, 56, 56, 128), dtype=result.dtype)
+    for ch in range(c):
+        out[0, ch//128, :, :, ch%128] = result[ch]
+    return {'out0': out}

@@ -1,4 +1,4 @@
 chain = ["binary", "relu"]
 chain_in = ["in0", "in1"]
 chain_out = ["out0"]
-notes = "Reads the resident [3584,128] input, whose logical rows have 56 elements along dimension 3. Processes the first numel elements. in1 and out0 use dimension 1 along lanes (one active channel, padded to 128), with dimension 2 then dimension 3 in row order. Adds corresponding elements and applies ReLU at store."
+notes = "Both inputs use width lanes and channel-height row order. One-hot routing gathers both operands into FP32 channel-lane output rows, followed by ReLU and one e3 store. Fixed 56x56 spatial dimensions."

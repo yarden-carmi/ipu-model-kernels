@@ -12,44 +12,57 @@ max = 0
 default = 0
 [params.numel]
 type = "int"
-min = 56
-max = 200704
-multiple_of = 56
-default = 112
+min = 3136
+max = 802816
+multiple_of = 3136
+default = 6272
 [params.op]
 type = "str"
 choices = ["add"]
 default = "add"
+[derived]
+channels = "numel / 3136"
+blocks = "ceil(channels / 128)"
+lanes = "min(channels, 128)"
+qf = "case_qf"
+valid = "ds(lanes)"
+height = "56"
+width = "56"
+rows = "channels * 56"
+block_rows = "128 * 56"
+reg_offset = "128"
 [inputs.in0]
-shape = [1, 1, 3584, 128]
+shape = [1, "channels", 56, 128]
 range = [-2, 2]
 [inputs.in1]
-shape = [1, "numel / 56", 56, 128]
+shape = [1, "channels", 56, 128]
 range = [-2, 2]
+[scratch.routing]
+shape = [128, 128]
+[scratch.one]
+shape = [128]
+fill = 1
 [outputs.out0]
-shape = [1, "numel / 56", 56, 128]
-[derived]
-qf = "case_qf"
-valid = "ds(1)"
-rows = "numel / 56"
-width = "56"
-reg_offset = "128"
-indices_lo = "50462976"
-indices_hi = "117835012"
+shape = [1, "blocks", 56, 56, 128]
 [abi]
 in0 = "CR2"
 in1 = "CR3"
 out0 = "CR4"
 qf = "CR5"
 valid = "CR6"
-rows = "CR7"
+lanes = "CR7"
 width = "CR8"
-indices_lo = "CR9"
-indices_hi = "CR10"
+height = "CR9"
+block_rows = "CR10"
 reg_offset = "CR11"
+routing = "CR12"
+rows = "CR13"
+one = "CR14"
 [golden]
 tolerance = { e3 = "EXACT" }
 [cases.default]
-numel = 112
+numel = 6272
 [cases.single]
-numel = 56
+numel = 3136
+[cases.small]
+numel = 12544
