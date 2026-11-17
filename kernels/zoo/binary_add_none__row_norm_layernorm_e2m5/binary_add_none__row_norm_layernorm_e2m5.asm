@@ -52,7 +52,7 @@
     MULT.RC.VV LR0 R0 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD ;;
     MULT.RC.VV LR3 R0 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.SUB ;;
     MULT.RC.VE LR12 CR1 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD ;;
-    ACTIVATE.QUANTIZE identity {{ ds }}.L {{ cr.qf }}.L {{ cr.out0 }} LR5 ;;
+    ACTIVATE.QUANTIZE identity {{ ds }}.L {{ cr.qf }}.L {{ cr.out1 }} LR5 ;;
 {% endmacro %}
     SET LR0 CR0 ;;
     SET LR2 CR0 ;;                 # m0 (also add-loop row pointer)

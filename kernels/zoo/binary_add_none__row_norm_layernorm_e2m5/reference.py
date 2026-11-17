@@ -18,4 +18,4 @@ def reference(**kw):
     mu = z.mean(-1, keepdim=True)
     y = (z - mu) * torch.rsqrt(((z - mu)**2).mean(-1, keepdim=True) + kw['s1_eps'])
     y = y * kw['gamma'].reshape(-1)[:c] + kw['beta'].reshape(-1)[:c]
-    return {'out0': y.reshape(1, r, c)}
+    return {'out0': z.reshape(1, r, c), 'out1': y.reshape(1, r, c)}
