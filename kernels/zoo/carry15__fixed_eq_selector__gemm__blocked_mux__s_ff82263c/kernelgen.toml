@@ -1,0 +1,4 @@
+chain=["carry15","fixed_eq_selector","gemm","blocked_mux","singleton_selector_build","gemm"]
+chain_in=["in0"]
+chain_out=["out0","out1"]
+notes="Assumes unit second operand for carry15 (task lists only in0). Integer truncation and unit carry resolve to floor(input)+1 on declared nonnegative 0..7 domain, fused into interval selectors and weight offset. Blocked mux is dead under singleton selector construction. Broadcast final weight row."
