@@ -1,0 +1,73 @@
+[kernel]
+op = "row_norm_layernorm_silu"
+formats = ["e2"]
+[params.channels]
+type = "int"
+min = 128
+max = 1048576
+multiple_of = 128
+default = 256
+[params.rows]
+type = "int"
+min = 1
+max = 128
+default = 32
+[params.kind]
+type = "str"
+choices = ["layernorm"]
+default = "layernorm"
+[params.eps]
+type = "float"
+default = 0.000001
+[params.half]
+type = "float"
+default = 0.5
+[derived]
+qf = "case_qf"
+P = "rows * channels // 128"
+valid = "ds(128) + 65536 * ds(128 // rows)"
+[inputs.in0]
+shape = ["P",128]
+range = [-2,2]
+[inputs.gamma]
+shape = ["P",128]
+range = [-2,2]
+[inputs.beta]
+shape = ["P",128]
+range = [-2,2]
+[inputs.lut]
+shape = [5,128]
+[scratch.tmp]
+shape = [40,128]
+[scratch.stats]
+shape = ["rows",4,128]
+[scratch.c]
+shape = [128]
+fill = "1 / channels"
+[scratch.epsilon]
+shape = [128]
+fill = "eps"
+[outputs.out0]
+shape = ["P",128]
+[abi]
+in0 = "CR2"
+gamma = "CR3"
+beta = "CR4"
+out0 = "CR5"
+tmp = "CR6"
+stats = "CR7"
+c = "CR8"
+epsilon = "CR9"
+P = "CR10"
+lut = "CR12"
+half = "CR13"
+qf = "CR14"
+valid = "CR15"
+[golden]
+tolerance = { e2 = "NX8_STEP" }
+[cases.default]
+channels = 256
+rows = 32
+[cases.widths]
+channels = [128,512,2048]
+rows = 32
