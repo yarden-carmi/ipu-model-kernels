@@ -6,52 +6,71 @@ formats = ["e2"]
 type = "str"
 choices = ["scalar"]
 default = "scalar"
+
 [params.const]
 type = "int"
 min = 1
 max = 1
 default = 1
+
 [params.inner]
 type = "int"
 min = 0
 max = 0
 default = 0
+
 [params.numel]
 type = "int"
-min = 197
-max = 465708
-multiple_of = 197
-default = 197
+min = 4096
+max = 1310720
+multiple_of = 4096
+default = 4096
+
 [params.op]
 type = "str"
 choices = ["mul"]
 default = "mul"
 
+[params.reciprocal]
+type = "bool"
+default = true
+
 [inputs.in0]
-shape = [1, 1, "numel / 197", 256]
+shape = [4096, "K", 128]
 range = [-2.0, 2.0]
+
 [inputs.operand]
 shape = [1]
 range = [-2.0, 2.0]
+
 [outputs.out0]
-shape = [1, 1, "numel / 197", 256]
+shape = [4096, "K", 128]
 
 [derived]
 qf = "case_qf"
-rows = "numel / 197 * 2"
+K = "(numel + 524287) // 524288"
+dim1 = "numel // 4096"
+rows = "4096 * K"
+tail = "ds(dim1 - (K - 1) * 128)"
 valid = "ds(128)"
-tail = "ds(69)"
+
 [abi]
 in0 = "CR2"
 operand = "CR3"
 out0 = "CR4"
 qf = "CR5"
 rows = "CR6"
-valid = "CR15"
 tail = "CR7"
+valid = "CR15"
+
 [golden]
 tolerance = { e2 = "EXACT" }
+
 [cases.default]
-numel = 197
-[cases.multiple_rows]
-numel = 1379
+numel = 524288
+[cases.small_two]
+numel = 532480
+[cases.full]
+numel = 1310720
+[cases.half]
+numel = 655360
