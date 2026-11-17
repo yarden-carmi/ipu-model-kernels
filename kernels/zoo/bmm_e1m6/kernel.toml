@@ -14,18 +14,18 @@ default = 64
 [params.m]
 type = "int"
 min = 1
-max = 1500
+max = 1829
 default = 2
 [params.n]
 type = "int"
 min = 1
-max = 1500
+max = 1829
 default = 32
 [inputs.in0]
 shape = [1, "b", "m", 128]
 range = [-2, 2]
 [inputs.in1]
-shape = [1, "b", "k", "ceil(n / 128) * 128"]
+shape = [1, "b", "n", 128]
 range = [-2, 2]
 [outputs.out0]
 shape = [1, "b", "m", "ceil(n / 128) * 128"]
@@ -33,16 +33,22 @@ shape = [1, "b", "m", "ceil(n / 128) * 128"]
 qf = "case_qf"
 nb = "ceil(n / 128)"
 last = "ds(n - (nb - 1) * 128)"
-batchstride = "k * nb"
+kds = "ds(k)"
+width = "min(n, 128)"
+lastwidth = "n - (nb - 1) * 128"
+full = "ds(128)"
 [abi]
 in0 = "CR2"
 in1 = "CR3"
 out0 = "CR4"
 b = "CR5"
 m = "CR6"
-nb = "CR7"
+n = "CR7"
 last = "CR8"
-batchstride = "CR9"
+kds = "CR9"
+width = "CR10"
+lastwidth = "CR11"
+full = "CR12"
 qf = "CR14"
 [golden]
 tolerance = { e1 = "EXACT" }
@@ -61,3 +67,15 @@ b = 1
 m = 2
 k = 64
 n = 128
+
+[cases.oddwide]
+b = 2
+m = 2
+k = 64
+n = 257
+
+[cases.shortk]
+b = 2
+m = 1
+k = 17
+n = 129

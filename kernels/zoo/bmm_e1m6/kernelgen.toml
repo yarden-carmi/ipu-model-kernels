@@ -1,4 +1,4 @@
 chain = ["bmm"]
 chain_in = ["in0", "in1"]
 chain_out = ["out0"]
-notes = "Both inputs use their final dimension along lanes; accumulate k outer products into each n tile and mask the final output tile."
+notes = "Both inputs have k along lanes. Reduce vector products into individual output accumulator slots, then store n tiles with masked padding."
