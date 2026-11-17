@@ -13,7 +13,8 @@
 {% endmacro %}
 {# Scalar mul folded into the softmax range reduction: Ra[0] holds operand*scale,
    each input row is multiplied by it on the way into the polynomial exponential.
-   Two 128-lane chunks per logical row (n = 256). In-place safe: out0 rows are
+    Dimension 3 spans two consecutive 128-lane rows; [0, 1, 2] stay in row order.
+    Two 128-lane chunks per logical row (n = 256). In-place safe: out0 rows are
    written only after the whole logical row has been read. #}
     SET LR0 CR0 ;;
     SET LR2 CR0 ;;
