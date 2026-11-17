@@ -11,13 +11,16 @@ def rounded(x):
 
 def reference(**kw):
     r, c = kw['s1_rows'], kw['s1_channels']
-    n = kw['s0_numel']
-    flat = kw['in0'].reshape(-1)
-    if flat.numel() < n:
-        flat = torch.cat([flat, torch.zeros(n - flat.numel(), dtype=flat.dtype)])
-    x = flat[:n].reshape(r, c) + kw['in1'].reshape(r, c)
+    n = r * c
+    flat0 = kw['in0'].to(torch.float64).reshape(-1)
+    flat0 = torch.cat([flat0, torch.zeros(n - flat0.numel(), dtype=torch.float64)])[:n]
+    flat1 = kw['in1'].to(torch.float64).reshape(-1)
+    flat1 = torch.cat([flat1, torch.zeros(n - flat1.numel(), dtype=torch.float64)])[:n]
+    x = (flat0 + flat1).reshape(r, c)
     z = rounded(x)
-    mu = z.mean(-1,keepdim=True)
-    y = (z-mu)*torch.rsqrt(((z-mu)**2).mean(-1,keepdim=True)+kw['s1_eps'])
-    y = y*kw['gamma']+kw['beta']
-    return {'out0':y.reshape(1,r,c)}
+    mu = z.mean(-1, keepdim=True)
+    y = (z - mu) * torch.rsqrt(((z - mu) ** 2).mean(-1, keepdim=True) + kw['s1_eps'])
+    gamma = kw['gamma'].to(torch.float64).reshape(-1)[:c]
+    beta = kw['beta'].to(torch.float64).reshape(-1)[:c]
+    y = y * gamma + beta
+    return {'out0': y.reshape(1, r, c)}

@@ -1,128 +1,125 @@
 [kernel]
-op = "binary_add_layernorm"
+op = "binary_add_none__row_norm_layernorm"
 formats = ["e3"]
+
 [params.s0_broadcast]
 type = "str"
 choices = ["none"]
 default = "none"
-[params.s0_const]
-type = "int"
-min = 1
-max = 1
-default = 1
+
 [params.s0_inner]
 type = "int"
 min = 0
 max = 0
 default = 0
+
 [params.s0_numel]
 type = "int"
 min = 128
 max = 263168
 multiple_of = 128
-default = 3072
+default = 98304
+
 [params.s0_op]
 type = "str"
 choices = ["add"]
 default = "add"
+
 [params.s1_channels]
 type = "int"
-min = 768
+min = 128
 max = 768
 multiple_of = 128
-default = 768
-[params.s1_rows]
-type = "int"
-min = 1
-max = 257
-default = 4
-[params.s1_kind]
-type = "str"
-choices = ["layernorm"]
-default = "layernorm"
+default = 384
+
 [params.s1_eps]
 type = "float"
 min = 0
 max = 1
-default = 1e-5
-[params.in_cols]
+default = 1e-12
+
+[params.s1_kind]
+type = "str"
+choices = ["layernorm"]
+default = "layernorm"
+
+[params.s1_rows]
 type = "int"
 min = 1
 max = 257
 default = 256
+
 [params.half]
 type = "float"
-default = 0.5
 min = 0.5
 max = 0.5
+default = 0.5
+
 [derived]
 qf = "case_qf"
-tailoff = "base(invTail) - base(invC)"
-tailoff2 = "base(invTail2) - base(invC)"
 K = "s1_channels // 128"
 M = "s1_rows * K"
-inlim = "s1_rows * K"
+
 [inputs.in0]
 shape = [1, "s1_rows", "s1_channels"]
 range = [-2, 2]
+
 [inputs.in1]
 shape = ["s0_numel"]
 range = [-2, 2]
+
 [inputs.gamma]
 shape = ["s1_channels"]
 range = [-2, 2]
+
 [inputs.beta]
 shape = ["s1_channels"]
 range = [-2, 2]
-[scratch.tmp]
-shape = [26,128]
-[scratch.invC]
+
+[scratch.crow]
 shape = [128]
-fill = 0.00128173828125
-[scratch.invTail]
+fill = "1 / s1_channels"
+
+[scratch.crowC]
 shape = [128]
-fill = 0.00002002716064453125
-[scratch.invTail2]
-shape = [128]
-fill = 0.0000003178914388020833
+fill = "s1_channels"
+
 [scratch.epsilon]
 shape = [128]
 fill = "s1_eps"
-[scratch.added]
-shape = [1,"s1_rows","s1_channels"]
+
+[scratch.tmp]
+shape = [28, 128]
+
 [outputs.out0]
-shape = [1,"s1_rows","s1_channels"]
+shape = [1, "s1_rows", "s1_channels"]
+
 [abi]
 in0 = "CR2"
 in1 = "CR3"
-gamma = "CR4"
-beta = "CR5"
-added = "CR6"
-out0 = "CR7"
-tmp = "CR8"
-qf = "CR9"
-K = "CR10"
-M = "CR11"
-invC = "CR12"
-epsilon = "CR13"
-half = "CR14"
-inlim = "LR4"
-tailoff = "LR12"
-tailoff2 = "LR13"
+out0 = "CR4"
+gamma = "CR5"
+beta = "CR6"
+crow = "CR7"
+crowC = "CR8"
+epsilon = "CR9"
+tmp = "CR10"
+qf = "CR11"
+half = "CR12"
+K = "CR13"
+M = "CR14"
+
 [golden]
 tolerance = { e3 = "NX8_STEP" }
+
 [cases.default]
-s0_numel = 3072
-s1_rows = 4
-s1_channels = 768
-in_cols = 4
-[cases.small]
-s0_numel = 1536
 s1_rows = 2
-s1_channels = 768
-in_cols = 2
-[cases.six_chunks]
-s0_numel = 1536
-s1_rows = 2
-s1_channels = 768
-in_cols = 1
+s0_numel = 768
+
+[cases.r3]
+s1_rows = 3
+s0_numel = 1152
+
+[cases.r5]
+s1_rows = 5
+s0_numel = 1920

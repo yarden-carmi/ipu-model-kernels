@@ -1,4 +1,4 @@
 chain = ["binary", "row_norm"]
 chain_in = ["in0", "in1"]
 chain_out = ["out0"]
-notes = "Channel-lane input and output; addition is rounded in internal scratch before layernorm with compensated statistics and Newton-refined rsqrt."
+notes = "Channel-lane input and output; the fused add is stored rounded into out0 in place, then layernorm with compensated hi/lo statistics and a Newton-refined rsqrt reads out0 and writes out0. in0 is decoded with its own e2m5 QF half (qf_in0), everything else with the run format."
