@@ -9,4 +9,4 @@ def reference(**kw):
         y = y + kw["bias_vec"].reshape(-1)[:kw["n"]]
     out = torch.zeros((kw["m"], ((kw["n"] + 127) // 128) * 128), dtype=y.dtype)
     out[:, :kw["n"]] = torch.relu(y)
-    return {"out0": out}
+    return {"out0": out.reshape(1, kw["m"], kw["n"])}

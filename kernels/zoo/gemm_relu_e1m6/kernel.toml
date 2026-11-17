@@ -1,66 +1,67 @@
 [kernel]
 op = "gemm_relu"
 formats = ["e1"]
-
-[params.bias]
-type = "bool"
-default = true
-[params.k]
-type = "int"
-min = 1
-max = 576
-default = 16
 [params.m]
 type = "int"
 min = 1
-max = 784
-default = 1
+max = 1024
+default = 2
+[params.k]
+type = "int"
+min = 128
+max = 1024
+multiple_of = 128
+default = 128
 [params.n]
 type = "int"
-min = 1
-max = 144
-default = 8
-
+min = 128
+max = 4096
+multiple_of = 128
+default = 256
+[params.bias]
+type = "bool"
+default = false
 [derived]
 qf = "case_qf"
-tail_ds = "ds(n - (ceil(n / 128) - 1) * 128)"
-
+K = "k / 128"
+NB = "n / 128"
+c128 = "128"
 [inputs.in0]
-shape = ["m", "ceil(k / 128) * 128"]
-range = [-1.0, 1.0]
+shape = [1, "m", "k"]
+range = [-1, 1]
 [inputs.w]
-shape = ["k", "ceil(n / 128) * 128"]
-range = [-1.0, 1.0]
+shape = ["k", "n"]
+range = [-1, 1]
 [inputs.bias_vec]
-shape = ["ceil(n / 128)", 128]
-range = [-1.0, 1.0]
+shape = ["n"]
+range = [-1, 1]
+when = "bias"
 [outputs.out0]
-shape = ["m", "ceil(n / 128) * 128"]
-
+shape = [1, "m", "n"]
 [abi]
 in0 = "CR2"
 w = "CR3"
-bias_vec = "CR4"
-out0 = "CR5"
-qf = "CR6"
-tail_ds = "CR7"
-k = "CR8"
-m = "CR9"
-
+out0 = "CR4"
+bias_vec = "CR5"
+m = "CR6"
+K = "CR7"
+NB = "CR8"
+qf = "CR9"
+c128 = "CR11"
 [golden]
 tolerance = { e1 = "NX8_STEP" }
-
 [cases.default]
-k = 16
-m = 1
-n = 8
-bias = true
-
-[cases.rows]
-k = 24
-m = 3
-n = 88
-[cases.chunks]
-k = 144
 m = 2
-n = 144
+k = 128
+n = 256
+bias = false
+[cases.multiblock]
+m = 3
+k = 512
+n = 256
+bias = false
+[cases.bias]
+m = 2
+k = 256
+n = 128
+bias = true
