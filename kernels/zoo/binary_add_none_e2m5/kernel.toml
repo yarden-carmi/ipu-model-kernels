@@ -19,7 +19,7 @@ default = 0
 [params.numel]
 type = "int"
 min = 1
-max = 768000
+max = 786432
 default = 384
 [params.op]
 type = "str"
@@ -34,14 +34,14 @@ ds_tail = "ds(numel - (ceil(numel / 128) - 1) * 128)"
 [inputs.in0]
 shape = ["numel"]
 range = [-2.0, 2.0]
-[inputs.in1]
+[inputs.operand]
 shape = ["numel"]
 range = [-2.0, 2.0]
 [outputs.out0]
 shape = ["numel"]
 [abi]
 in0 = "CR2"
-in1 = "CR3"
+operand = "CR3"
 out0 = "CR4"
 qf = "CR5"
 rows = "CR6"
@@ -55,5 +55,5 @@ numel = 384
 numel = 1
 [cases.tail]
 numel = 257
-[cases.no_const]
+[cases.partial]
 numel = 513
