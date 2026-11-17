@@ -1,0 +1,231 @@
+[kernel]
+op = "binary_mul_scalar__row_softmax__bmm"
+formats = ["e2"]
+[params.s0_broadcast]
+type = "str"
+choices = ["scalar"]
+default = "scalar"
+[params.s0_const]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s0_inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.s0_numel]
+type = "int"
+min = 256
+max = 1048576
+default = 512
+[params.s0_op]
+type = "str"
+choices = ["mul"]
+default = "mul"
+[params.s1_n]
+type = "int"
+min = 256
+max = 256
+default = 256
+[params.s1_rows]
+type = "int"
+min = 1
+max = 4096
+default = 2
+[params.s2_b]
+type = "int"
+min = 2
+max = 16
+multiple_of = 2
+default = 2
+[params.s2_k]
+type = "int"
+min = 256
+max = 256
+default = 256
+[params.s2_m]
+type = "int"
+min = 1
+max = 256
+default = 1
+[params.s2_n]
+type = "int"
+min = 64
+max = 64
+default = 64
+[inputs.in0]
+shape = ["s2_b", "s2_m", 2, 128]
+range = [-2, 2]
+[inputs.in1]
+shape = ["s2_b", 256, 128]
+range = [-2, 2]
+[inputs.operand]
+shape = [1]
+range = [-2, 2]
+[outputs.out0]
+shape = [1,"s2_m","s2_b * 64"]
+[scratch.scaled]
+shape = ["s2_b * s2_m",2,128]
+[scratch.probs]
+shape = ["s2_b * s2_m",6,128]
+[scratch.exps]
+shape = [6,128]
+[scratch.tmp]
+shape = [64,128]
+fill = 1
+[scratch.result]
+shape = [12,128]
+[scratch.c0]
+shape = [1,128]
+fill = 1
+[scratch.c1]
+shape = [1,128]
+fill = 0
+[scratch.c2]
+shape = [1,128]
+fill = 0
+[scratch.c3]
+shape = [1,128]
+fill = 0
+[scratch.c4]
+shape = [1,128]
+fill = 1
+[scratch.c5]
+shape = [1,128]
+fill = 0
+[scratch.c6]
+shape = [1,128]
+fill = 0
+[scratch.c7]
+shape = [1,128]
+fill = 0
+[scratch.c8]
+shape = [1,128]
+fill = 0.5
+[scratch.c9]
+shape = [1,128]
+fill = 0
+[scratch.c10]
+shape = [1,128]
+fill = 0
+[scratch.c11]
+shape = [1,128]
+fill = 0
+[scratch.c12]
+shape = [1,128]
+fill = "21 / 128"
+[scratch.c13]
+shape = [1,128]
+fill = "10 / 4096"
+[scratch.c14]
+shape = [1,128]
+fill = "21 / 131072"
+[scratch.c15]
+shape = [1,128]
+fill = "10 / 4194304"
+[scratch.c16]
+shape = [1,128]
+fill = "21 / 512"
+[scratch.c17]
+shape = [1,128]
+fill = "10 / 16384"
+[scratch.c18]
+shape = [1,128]
+fill = "21 / 524288"
+[scratch.c19]
+shape = [1,128]
+fill = "10 / 16777216"
+[scratch.c20]
+shape = [1,128]
+fill = "17 / 2048"
+[scratch.c21]
+shape = [1,128]
+fill = "2 / 65536"
+[scratch.c22]
+shape = [1,128]
+fill = "4 / 2097152"
+[scratch.c23]
+shape = [1,128]
+fill = "8 / 67108864"
+[scratch.c24]
+shape = [1,128]
+fill = "22 / 16384"
+[scratch.c25]
+shape = [1,128]
+fill = "24 / 524288"
+[scratch.c26]
+shape = [1,128]
+fill = "5 / 16777216"
+[scratch.c27]
+shape = [1,128]
+fill = "22 / 536870912"
+[scratch.c28]
+shape = [1,128]
+fill = "26 / 131072"
+[scratch.c29]
+shape = [1,128]
+fill = 0
+[scratch.c30]
+shape = [1,128]
+fill = "6 / 134217728"
+[scratch.c31]
+shape = [1,128]
+fill = "16 / 4294967296"
+[scratch.c32]
+shape = [1,128]
+fill = "26 / 1048576"
+[scratch.c33]
+shape = [1,128]
+fill = 0
+[scratch.c34]
+shape = [1,128]
+fill = "6 / 1073741824"
+[scratch.c35]
+shape = [1,128]
+fill = "16 / 34359738368"
+[scratch.c36]
+shape = [1,128]
+fill = 0.015625
+[scratch.c37]
+shape = [1,128]
+fill = 1
+[derived]
+coeff = "base(c0) + 0 * (base(c1) + base(c2) + base(c3) + base(c4) + base(c5) + base(c6) + base(c7) + base(c8) + base(c9) + base(c10) + base(c11) + base(c12) + base(c13) + base(c14) + base(c15) + base(c16) + base(c17) + base(c18) + base(c19) + base(c20) + base(c21) + base(c22) + base(c23) + base(c24) + base(c25) + base(c26) + base(c27) + base(c28) + base(c29) + base(c30) + base(c31) + base(c32) + base(c33) + base(c34) + base(c35) + base(c36) + base(c37))"
+qf = "case_qf"
+active = "ds(128)"
+M = "s1_rows * 2"
+K = "2"
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+operand = "CR5"
+coeff = "CR6"
+scaled = "CR7"
+probs = "CR8"
+exps = "CR9"
+tmp = "CR10"
+result = "CR11"
+M = "CR12"
+K = "CR13"
+qf = "CR14"
+active = "CR15"
+[golden]
+tolerance = { e2 = "NX8_STEP" }
+[cases.default]
+s0_numel = 512
+s1_rows = 2
+s2_b = 2
+s2_m = 1
+[cases.multi]
+s0_numel = 3072
+s1_rows = 12
+s2_b = 4
+s2_m = 3
+[cases.batches]
+s0_numel = 16384
+s1_rows = 64
+s2_b = 16
+s2_m = 4
