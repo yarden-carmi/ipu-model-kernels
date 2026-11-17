@@ -3,15 +3,21 @@ op = "row_softmax"
 formats = ["e3"]
 [params.n]
 type = "int"
-min = 256
-max = 256
-multiple_of = 128
+min = 1
+max = 4096
+multiple_of = 1
 default = 256
 [params.rows]
 type = "int"
 min = 1
 max = 8192
 default = 4
+[derived]
+qf = "case_qf"
+K = "ceil(n / 128)"
+M = "rows * K"
+active = "ds(128)"
+part = "ds(min(128, n - (K - 1) * 128))"
 [inputs.in0]
 shape = ["rows", "K", 128]
 range = [-2, 2]
@@ -25,11 +31,6 @@ shape = ["K", 128]
 [scratch.tmp]
 shape = [8, 128]
 fill = 1
-[derived]
-qf = "case_qf"
-K = "n // 128"
-M = "rows * K"
-active = "ds(128)"
 [abi]
 in0 = "CR2"
 out0 = "CR3"
@@ -39,6 +40,7 @@ qf = "CR6"
 K = "CR7"
 M = "CR8"
 exps = "CR9"
+part = "CR14"
 active = "CR15"
 [golden]
 tolerance = { e3 = "NX8_STEP" }
@@ -49,5 +51,11 @@ rows = 4
 n = 256
 rows = 1
 [cases.small_call]
-n = 256
-rows = 16
+n = 64
+rows = 4
+[cases.task_call0]
+n = 257
+rows = 4112
+[cases.task_call1]
+n = 64
+rows = 768

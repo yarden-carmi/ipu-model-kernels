@@ -1,6 +1,8 @@
 import torch
 
 def reference(in0, n, rows, **kw):
-    out = torch.zeros_like(in0)
-    out.flatten()[:rows*n] = torch.softmax(in0.flatten()[:rows*n].reshape(rows, n), dim=-1).flatten()
-    return {"out0": out}
+    k = (n + 127) // 128
+    x = in0.reshape(-1)[:rows * k * 128].reshape(rows, k * 128)
+    out = torch.zeros_like(x)
+    out[:, :n] = torch.softmax(x[:, :n], dim=-1)
+    return {"out0": out.reshape(rows, k, 128)}

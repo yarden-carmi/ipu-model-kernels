@@ -1,3 +1,4 @@
+{% set K = (n + 127) // 128 %}
     SET LR0 CR0 ;;
     SET LR2 CR0 ;;
     SET LR9 CR0 ;;
@@ -9,38 +10,40 @@
 {% endfor %}
 row_loop:
     SET LR4 LR2 ;;
-    LD.MULT R0 LR4 {{ cr.in0 }} ;;
     MULT.VE LR0 CR0 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD.FIRST ;;
-    MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf }}.L ; AGG.MAX.FIRST LR0 CR15.L ;;
+{% for tile in range(K) %}
+{% set ds = 'CR14.L' if tile == K - 1 else 'CR15.L' %}
+{% if tile > 0 %}
     INC LR4 1 ;;
-max_loop:
+{% endif %}
     LD.MULT R0 LR4 {{ cr.in0 }} ;;
-    MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf }}.L ; AGG.MAX LR0 CR15.L ;;
-    INC LR4 1 ;;
-    SUB LR5 LR4 LR2 ;;
-    BLT.S LR5 {{ cr.K }} max_loop ;;
+    MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ cr.qf }}.L ; {% if tile == 0 %}AGG.MAX.FIRST{% else %}AGG.MAX{% endif %} LR0 {{ ds }} ;;
+{% endfor %}
     SET LR1 CR1 ;;
     ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf }}.L {{ cr.tmp }} LR1 ;;
     LD.MULT R0 LR1 {{ cr.tmp }} ;;
     MULT.EE LR0 CR1 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD.FIRST ;;
     ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf }}.L {{ cr.tmp }} LR1 ;;
     SET LR3 CR0 ;;
-exp_loop:
-    ADD LR4 LR2 LR3 ;;
+    SET LR4 LR2 ;;
+{% for tile in range(K) %}
+{% set ds = 'CR14.L' if tile == K - 1 else 'CR15.L' %}
     LD.MULT R0 LR4 {{ cr.in0 }} ;;
-    MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD.FIRST ;;
+    MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ cr.qf }}.L ; ACC.ADD.FIRST ;;
     LD.MULT R0 LR1 {{ cr.tmp }} ;;
-    MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.SUB ;;
-    ACTIVATE.QUANTIZE generic CR15.L {{ cr.qf }}.L {{ cr.exps }} LR3 ;;
+    MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ cr.qf }}.L ; ACC.SUB ;;
+    ACTIVATE.QUANTIZE generic {{ ds }} {{ cr.qf }}.L {{ cr.exps }} LR3 ;;
+    INC LR4 1 ;;
     INC LR3 1 ;;
-    BLT.S LR3 {{ cr.K }} exp_loop ;;
+{% endfor %}
     SET LR3 CR0 ;;
     MULT.VE LR0 CR0 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD.FIRST ;;
-sum_loop:
+{% for tile in range(K) %}
+{% set ds = 'CR14.L' if tile == K - 1 else 'CR15.L' %}
     LD.MULT R0 LR3 {{ cr.exps }} ;;
-    MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf }}.L ; AGG.SUM LR0 CR15.L ;;
+    MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ cr.qf }}.L ; AGG.SUM LR0 {{ ds }} ;;
     INC LR3 1 ;;
-    BLT.S LR3 {{ cr.K }} sum_loop ;;
+{% endfor %}
     ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf }}.L {{ cr.tmp }} LR0 ;;
     LD.MULT R0 LR0 {{ cr.tmp }} ;;
     MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.SUB ;;
@@ -76,14 +79,16 @@ sum_loop:
     ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf }}.L {{ cr.tmp }} LR1 ;;
     LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR9 ;;
     SET LR3 CR0 ;;
-out_loop:
+    SET LR4 LR2 ;;
+{% for tile in range(K) %}
+{% set ds = 'CR14.L' if tile == K - 1 else 'CR15.L' %}
     LD.MULT R0 LR3 {{ cr.exps }} ;;
-    MULT.RC.VV LR0 R0 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD.FIRST ;;
-    MULT.RC.VV LR9 R0 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD ;;
-    ADD LR4 LR2 LR3 ;;
-    ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf }}.L {{ cr.out0 }} LR4 ;;
+    MULT.RC.VV LR0 R0 0 LR0 {{ ds }} {{ cr.qf }}.L ; ACC.ADD.FIRST ;;
+    MULT.RC.VV LR9 R0 0 LR0 {{ ds }} {{ cr.qf }}.L ; ACC.ADD ;;
+    ACTIVATE.QUANTIZE identity {{ ds }} {{ cr.qf }}.L {{ cr.out0 }} LR4 ;;
     INC LR3 1 ;;
-    BLT.S LR3 {{ cr.K }} out_loop ;;
+    INC LR4 1 ;;
+{% endfor %}
     ADD LR2 LR2 {{ cr.K }} ;;
     BLT.S LR2 {{ cr.M }} row_loop ;;
     HALT ;;
