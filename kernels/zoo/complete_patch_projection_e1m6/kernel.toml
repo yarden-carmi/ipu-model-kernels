@@ -1,0 +1,64 @@
+[kernel]
+op = "complete_patch_projection"
+formats = ["e1"]
+[params.batch]
+type = "int"
+min = 1
+max = 576
+default = 2
+[params.channels]
+type = "int"
+min = 128
+max = 1024
+multiple_of = 128
+default = 128
+[params.features]
+type = "int"
+min = 84
+max = 1176
+multiple_of = 84
+default = 84
+[derived]
+qf = "case_qf"
+dsfull = "ds(128)"
+NB = "channels / 128"
+IR = "features / 14"
+[inputs.in0]
+shape = ["batch", 3, 2, "features / 84", 14]
+range = [-1, 1]
+[inputs.w]
+shape = ["features", "NB", 128]
+range = [-1, 1]
+[inputs.b]
+shape = ["channels"]
+range = [-1, 1]
+[outputs.out0]
+shape = ["batch", "channels"]
+[abi]
+in0 = "CR2"
+w = "CR3"
+b = "CR4"
+out0 = "CR5"
+batch = "CR6"
+NB = "CR7"
+IR = "CR8"
+qf = "CR14"
+dsfull = "CR15"
+[golden]
+tolerance = { e1 = "NX8_STEP" }
+[cases.default]
+batch = 2
+channels = 128
+features = 84
+[cases.tiles]
+batch = 3
+channels = 256
+features = 168
+[cases.patch]
+batch = 1
+channels = 128
+features = 1176
+[cases.full_width_patch]
+batch = 2
+channels = 1024
+features = 1176
