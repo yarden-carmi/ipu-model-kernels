@@ -1,0 +1,97 @@
+    LD.MULT R1 LR0 CR7 ;;
+    INC LR3 128 ;;
+    INC LR4 32 ;;
+    INC LR5 4 ;;
+block:
+    SET LR6 CR0 ; SET LR7 CR0 ;;
+    MULT.VE LR3 CR0 0 LR0 CR15.L CR8.L ; ACC.ADD.FIRST ;;
+    ACTIVATE.QUANTIZE identity CR15.L CR8.L CR6 LR0 ;;
+    SET LR1 CR1 ;;
+    ACTIVATE.QUANTIZE identity CR15.L CR8.L CR6 LR1 ;;
+scan:
+{% for sign in ['ADD','SUB'] %}
+    LD.MULT R0 LR2 CR2 ;;
+    MULT.VE LR0 CR9 0 LR0 CR15.L CR8.L ; ACC.{{sign}}.FIRST ;;
+    MULT.VE LR3 CR9 0 LR0 CR15.L CR8.L ; ACC.{{sign}} ;;
+    LD.MULT R0 LR0 CR6 ;;
+    MULT.VE LR0 CR9 0 LR0 CR15.L CR8.L ; ACC.{{'SUB' if sign=='ADD' else 'ADD'}} ;;
+    LD.MULT R0 LR1 CR6 ;;
+    MULT.VE LR0 CR9 0 LR0 CR15.L CR8.L ; ACC.{{'SUB' if sign=='ADD' else 'ADD'}} ;;
+    SET LR8 CR0 ;;
+    INC LR8 {{2 if sign=='ADD' else 3}} ;;
+    ACTIVATE.QUANTIZE relu6 CR15.L CR8.L CR6 LR8 ;;
+{% endfor %}
+    MULT.VE LR3 CR1 0 LR0 CR15.L CR8.L ; ACC.ADD.FIRST ;;
+    LD.MULT R0 LR8 CR6 ;;
+    MULT.VE LR0 CR1 0 LR0 CR15.L CR8.L ; ACC.SUB ;;
+    DEC LR8 1 ;;
+    LD.MULT R0 LR8 CR6 ;;
+    MULT.VE LR0 CR1 0 LR0 CR15.L CR8.L ; ACC.SUB ;;
+    ACTIVATE.QUANTIZE relu CR15.L CR8.L CR6 LR5 ;;
+    LD.MULT R0 LR5 CR6 ;;
+    MULT.VE LR0 CR1 0 LR0 CR15.L CR8.L ; ACC.ADD.FIRST ;;
+    MULT.VE LR3 CR1 0 LR0 CR15.L CR8.L ; ACC.ADD ;;
+    ACTIVATE.QUANTIZE identity CR15.L CR8.L CR6 LR5 ;;
+    SET LR8 CR0 ;;
+    INC LR5 1 ; INC LR6 1 ; INC LR7 1 ;;
+    LD.MULT R0 LR1 CR6 ;;
+    MULT.VE LR0 CR1 0 LR0 CR15.L CR8.L ; ACC.ADD.FIRST ;;
+    MULT.VE LR3 CR1 0 LR0 CR15.L CR8.L ; ACC.ADD ;;
+    ACTIVATE.QUANTIZE identity CR15.L CR8.L CR6 LR1 ;;
+    BNE LR7 LR4 next ;;
+    SET LR7 CR0 ;;
+    MULT.VE LR3 CR0 0 LR0 CR15.L CR8.L ; ACC.ADD.FIRST ;;
+    ACTIVATE.QUANTIZE identity CR15.L CR8.L CR6 LR1 ;;
+    LD.MULT R0 LR0 CR6 ;;
+    MULT.VE LR0 CR1 0 LR0 CR15.L CR8.L ; ACC.ADD.FIRST ;;
+    MULT.VE LR3 CR10 0 LR0 CR15.L CR8.L ; ACC.ADD ;;
+    ACTIVATE.QUANTIZE identity CR15.L CR8.L CR6 LR0 ;;
+next:
+    BLT.S LR6 CR11 scan ;;
+    INC LR2 1 ;;
+    BLT.S LR2 CR12 block ;;
+    SET LR2 CR0 ; SET LR9 CR0 ; SET LR10 CR0 ;;
+    SET LR12 CR0 ;;
+    INC LR12 246 ;;
+    INC LR12 246 ;;
+embed_block:
+    SET LR5 CR0 ;;
+embed_lane:
+    SET LR6 CR0 ;;
+embed_channel:
+    SET LR7 LR9 ;;
+    INC LR7 4 ;;
+    SET LR8 LR6 ; SET LR11 CR0 ;;
+    LD.MULT R0 LR7 CR6 ;;
+    LD.MULT.CYCLIC LR8 CR3 LR0 ;;
+    MULT.RC.VE LR0 LR5 0 LR0 CR15.L CR8.L ; ACC.ADD.FIRST ;;
+    MULT.RC.VE LR0 LR3 0 LR0 CR15.L CR8.L ; ACC.SUB ;;
+    INC LR11 1 ;;
+sum:
+    INC LR7 1 ; ADD LR8 LR8 CR13 ;;
+    LD.MULT R0 LR7 CR6 ;;
+{% if s2_vocab > 492 %}
+    BNE LR11 LR12 normal_weight ;;
+    SUB LR8 LR8 CR13 ;;
+    LD.MULT.CYCLIC LR8 CR3 LR0 ;;
+    ADD LR8 LR8 CR13 ;;
+    BEQ LR0 CR0 weight_loaded ;;
+normal_weight:
+{% endif %}
+    LD.MULT.CYCLIC LR8 CR3 LR0 ;;
+weight_loaded:
+    MULT.RC.VE LR0 LR5 0 LR0 CR15.L CR8.L ; ACC.ADD ;;
+    MULT.RC.VE LR0 LR3 0 LR0 CR15.L CR8.L ; ACC.SUB ;;
+    INC LR11 1 ;;
+    BLT.S LR11 CR11 sum ;;
+    ACTIVATE.QUANTIZE identity CR15.L CR8.L CR14 LR10 ;;
+    LD.MULT.CYCLIC LR6 CR5 LR0 ;;
+    MULT.RC.VE LR0 CR0 0 LR0 CR15.L CR8.L ; ACC.ADD.FIRST ;;
+    ACTIVATE.QUANTIZE identity CR15.L CR8.L CR0 LR14 ;;
+    INC LR14 1 ; INC LR10 1 ; INC LR6 1 ;;
+    BLT.S LR6 CR13 embed_channel ;;
+    INC LR5 1 ;;
+    BLT.S LR5 LR3 embed_lane ;;
+    ADD LR9 LR9 CR11 ; INC LR2 1 ;;
+    BLT.S LR2 CR12 embed_block ;;
+    HALT ;;
