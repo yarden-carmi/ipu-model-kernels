@@ -1,0 +1,95 @@
+[kernel]
+op = "binary_add_rmsnorm"
+formats = ["e2"]
+[params.s0_broadcast]
+type = "str"
+choices = ["none"]
+default = "none"
+[params.s0_inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.s0_numel]
+type = "int"
+min = 512
+max = 131072
+multiple_of = 512
+default = 2048
+[params.s0_op]
+type = "str"
+choices = ["add"]
+default = "add"
+[params.s1_channels]
+type = "int"
+min = 512
+max = 512
+multiple_of = 128
+default = 512
+[params.s1_rows]
+type = "int"
+min = 1
+max = 256
+default = 4
+[params.s1_eps]
+type = "float"
+default = 0.000001
+[params.s1_kind]
+type = "str"
+choices = ["rmsnorm"]
+default = "rmsnorm"
+[derived]
+qf = "case_qf"
+K = "s1_channels // 128"
+M = "s1_rows * K"
+valid = "ds(128)"
+[params.half]
+type = "float"
+default = 0.5
+[scratch.one]
+shape = [128]
+fill = 1
+[inputs.in0]
+shape = [1, "s1_rows", "s1_channels"]
+range = [-2, 2]
+[inputs.in1]
+shape = [1, "s1_rows", "s1_channels"]
+range = [-2, 2]
+[inputs.gamma]
+shape = ["s1_channels"]
+range = [-2, 2]
+[outputs.out0]
+shape = [1, "s1_rows", "s1_channels"]
+[scratch.added]
+shape = ["K", 128]
+[scratch.tmp]
+shape = [8, 128]
+[scratch.recip]
+shape = [128]
+fill = "1 / s1_channels"
+[scratch.epsilon]
+shape = [128]
+fill = "s1_eps"
+[abi]
+in0 = "CR2"
+gamma = "CR3"
+out0 = "CR4"
+tmp = "CR5"
+recip = "CR6"
+epsilon = "CR7"
+K = "CR8"
+M = "CR9"
+in1 = "CR10"
+added = "CR11"
+one = "CR12"
+half = "CR13"
+qf = "CR14"
+valid = "CR15"
+[golden]
+tolerance = { e2 = "NX8_STEP" }
+[cases.default]
+s0_numel = 2048
+s1_rows = 4
+[cases.single]
+s0_numel = 512
+s1_rows = 1
