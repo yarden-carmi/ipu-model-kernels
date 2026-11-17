@@ -1,0 +1,118 @@
+[kernel]
+op = "binary_mul_scalar__binary_add_none__row_softmax"
+formats = ["e2"]
+[params.s0_broadcast]
+type = "str"
+choices = ["scalar"]
+default = "scalar"
+[params.s0_const]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s0_inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.s0_numel]
+type = "int"
+min = 256
+max = 524288
+multiple_of = 256
+default = 1024
+[params.s0_op]
+type = "str"
+choices = ["mul"]
+default = "mul"
+[params.s1_broadcast]
+type = "str"
+choices = ["none"]
+default = "none"
+[params.s1_const]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s1_inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.s1_numel]
+type = "int"
+min = 256
+max = 524288
+multiple_of = 256
+default = 1024
+[params.s1_op]
+type = "str"
+choices = ["add"]
+default = "add"
+[params.s2_n]
+type = "int"
+min = 256
+max = 256
+default = 256
+[params.s2_rows]
+type = "int"
+min = 1
+max = 2048
+default = 4
+[derived]
+qf = "case_qf"
+M = "s2_rows * 2"
+[inputs.in0]
+shape = ["s2_rows * 2", 128]
+range = [-2, 2]
+[inputs.operand0]
+shape = [1]
+range = [-0.0078125, 0.0078125]
+[inputs.operand1]
+shape = ["s1_numel"]
+range = [-0.0078125, 0.0078125]
+[scratch.c5]
+shape = [128]
+fill = 0.00830078125
+[scratch.c4]
+shape = [128]
+fill = 0.0419921875
+[scratch.c3]
+shape = [128]
+fill = 0.16796875
+[scratch.c2]
+shape = [128]
+fill = 0.5
+[scratch.poly]
+shape = [8, 128]
+[outputs.out0]
+shape = ["s2_rows * 2", 128]
+[scratch.exps]
+shape = [4, 128]
+[scratch.tmp]
+shape = [8, 128]
+fill = 1
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+operand0 = "CR4"
+operand1 = "CR5"
+qf = "CR6"
+M = "CR7"
+c2 = "CR8"
+exps = "CR9"
+tmp = "CR10"
+poly = "CR11"
+c5 = "CR12"
+c4 = "CR13"
+c3 = "CR14"
+[golden]
+tolerance = { e2 = "NX8_STEP" }
+[cases.default]
+s0_numel = 1024
+s1_numel = 1024
+s2_rows = 4
+[cases.single]
+s0_numel = 256
+s1_numel = 256
+s2_rows = 1
