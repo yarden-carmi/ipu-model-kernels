@@ -18,28 +18,29 @@ max = 0
 default = 0
 [params.numel]
 type = "int"
-min = 128
-max = 1048576
-multiple_of = 128
-default = 128
+min = 197
+max = 465708
+multiple_of = 197
+default = 197
 [params.op]
 type = "str"
 choices = ["mul"]
 default = "mul"
 
 [inputs.in0]
-shape = [1, 1, "numel / 128", 128]
+shape = [1, 1, "numel / 197", 256]
 range = [-2.0, 2.0]
 [inputs.operand]
 shape = [1]
 range = [-2.0, 2.0]
 [outputs.out0]
-shape = [1, 1, "numel / 128", 128]
+shape = [1, 1, "numel / 197", 256]
 
 [derived]
 qf = "case_qf"
-rows = "numel / 128"
+rows = "numel / 197 * 2"
 valid = "ds(128)"
+tail = "ds(69)"
 [abi]
 in0 = "CR2"
 operand = "CR3"
@@ -47,9 +48,10 @@ out0 = "CR4"
 qf = "CR5"
 rows = "CR6"
 valid = "CR15"
+tail = "CR7"
 [golden]
 tolerance = { e2 = "EXACT" }
 [cases.default]
-numel = 128
+numel = 197
 [cases.multiple_rows]
-numel = 896
+numel = 1379
