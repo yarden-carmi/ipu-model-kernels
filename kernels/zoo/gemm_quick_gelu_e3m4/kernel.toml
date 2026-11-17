@@ -1,6 +1,7 @@
 [kernel]
 op = "gemm_quick_gelu"
 formats = ["e3"]
+
 [params.m]
 type = "int"
 min = 1
@@ -9,23 +10,25 @@ default = 2
 [params.k]
 type = "int"
 min = 128
-max = 768
+max = 1024
 multiple_of = 128
 default = 128
 [params.n]
 type = "int"
 min = 128
-max = 3072
+max = 4096
 multiple_of = 128
 default = 256
 [params.bias]
 type = "bool"
 default = true
+
 [derived]
 qf = "case_qf"
 K = "k / 128"
 NB = "n / 128"
 c128 = "128"
+
 [inputs.in0]
 shape = [1, "m", "k"]
 range = [-2, 2]
@@ -39,8 +42,10 @@ when = "bias"
 [inputs.lut]
 shape = [5, 128]
 range = [0, 0]
+
 [outputs.out0]
 shape = [1, "m", "n"]
+
 [abi]
 in0 = "CR2"
 w = "CR3"
@@ -52,20 +57,30 @@ NB = "CR8"
 qf = "CR9"
 lut = "CR10"
 c128 = "CR11"
+
 [golden]
 tolerance = { e3 = "NX8_STEP" }
+
 [cases.default]
 m = 2
 k = 128
 n = 256
 bias = true
+
 [cases.multiblock]
 m = 3
 k = 256
+n = 256
+bias = true
+
+[cases.full_k]
+m = 1
+k = 1024
 n = 128
 bias = true
+
 [cases.no_bias]
-m = 1
-k = 128
+m = 2
+k = 256
 n = 128
 bias = false

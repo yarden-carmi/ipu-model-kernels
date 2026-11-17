@@ -2,4 +2,4 @@ chain = ["gemm", "quick_gelu"]
 chain_in = ["in0"]
 chain_out = ["out0"]
 generic = "quick_gelu"
-notes = "Input and output dimension 2 occupies lanes, row order [0,1]. Transposed folded weights supply output-lane vectors; quick GELU is fused into the store."
+notes = "Input and output dimension 2 occupies lanes, row order [0,1]. Folded transposed weights supply output-lane vectors; quick GELU is fused into the quantizing store through the LUT. K blocks are walked by a loop so any k to 1024 fits."

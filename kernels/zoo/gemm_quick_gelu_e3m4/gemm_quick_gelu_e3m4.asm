@@ -1,4 +1,4 @@
-    SET LR0 CR0 ;;
+SET LR0 CR0 ;;
     SET LR10 CR0 ;;
 {% for i in range(5) %}
     LD.LUT {{ i }} {{ cr.lut }} LR10 ;;
@@ -17,7 +17,8 @@ nb_loop:
     SUB LR8 LR8 CR1 ;;
     LD.MULT.CYCLIC LR6 {{ cr.w }} LR2 ;;
     MULT.RC.VE LR2 CR0 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD.FIRST ;;
-{% for block in range(k // 128) %}
+    SET LR9 {{ cr.K }} ;;
+kb_loop:
     LD.MULT R0 LR8 {{ cr.in0 }} ; INC LR8 1 ;;
     SET LR3 CR0 ;;
     SUB LR3 LR3 CR1 ;;
@@ -30,7 +31,8 @@ nb_loop:
 {% for i in range(4) %}
     MULT.RC.VE LR2 LR3 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD ; INC LR3 1 ; INC.MODP2 LR2 {{ cr.c128 }} 9 ;;
 {% endfor %}
-{% endfor %}
+    DEC LR9 1 ;;
+    BNE LR9 CR0 kb_loop ;;
 {% if bias %}
     LD.MULT.CYCLIC LR6 {{ cr.b }} LR2 ;;
     MULT.RC.VE LR2 CR1 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD ;;
