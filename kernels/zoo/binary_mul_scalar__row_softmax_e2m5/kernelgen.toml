@@ -1,0 +1,4 @@
+chain = ["binary", "row_softmax"]
+chain_in = ["in0"]
+chain_out = ["out0"]
+notes = "Scalar multiplication feeds a 1/64-range-reduced polynomial softmax with six squarings, compensated exponential and reciprocal scratch. Two 128-lane chunks per logical row. Stronger range reduction supports the preceding bmm outputs."
