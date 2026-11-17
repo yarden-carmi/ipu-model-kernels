@@ -31,7 +31,7 @@
 add_loop:
  BGE.S LR2 LR4 add_z ;;
  LD.MULT R0 LR2 {{ cr.in0 }} ;;
- LD.MULT R1 LR2 {{ cr.operand }} ;;
+ LD.MULT R1 LR2 {{ cr.in1 }} ;;
  MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD.FIRST ;;
  MULT.VE LR3 CR1 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD ;;
  ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf }}.L {{ cr.added }} LR2 ;;
@@ -39,7 +39,7 @@ add_loop:
  BLT.S LR2 {{ cr.M }} add_loop ;;
  BNE LR10 LR11 add_done ;;
 add_z:
- LD.MULT R1 LR2 {{ cr.operand }} ;;
+ LD.MULT R1 LR2 {{ cr.in1 }} ;;
  MULT.VE LR3 CR1 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD.FIRST ;;
  ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf }}.L {{ cr.added }} LR2 ;;
  INC LR2 1 ;;
@@ -68,11 +68,15 @@ stats:
  MULT.EE {{ slot }} CR1 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD{{ '.FIRST' if n == 0 else '' }} ;;
  {% endfor %}
  {{ split(6) }}
- LD.MULT.CYCLIC LR0 {{ cr.invC }} LR0 ;;
+ {% for p in range(3) %}
+ SET LR9 CR0 ;;
+ {% if p == 1 %}SET LR9 LR12 ;;{% elif p == 2 %}SET LR9 LR13 ;;{% endif %}
+ LD.MULT.CYCLIC LR9 {{ cr.invC }} LR0 ;;
  {{ load(6) }}
- MULT.RC.VV LR0 R0 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD.FIRST ;;
+ MULT.RC.VV LR0 R0 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD{{ '.FIRST' if p == 0 else '' }} ;;
  {{ load(7) }}
  MULT.RC.VV LR0 R0 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.ADD ;;
+ {% endfor %}
  {{ split(dest) }}
  {% endfor %}
  {{ load(4) }}

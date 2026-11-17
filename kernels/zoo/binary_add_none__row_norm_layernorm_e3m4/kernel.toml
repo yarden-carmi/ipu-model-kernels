@@ -20,17 +20,17 @@ type = "int"
 min = 128
 max = 263168
 multiple_of = 128
-default = 4096
+default = 3072
 [params.s0_op]
 type = "str"
 choices = ["add"]
 default = "add"
 [params.s1_channels]
 type = "int"
-min = 128
-max = 1024
+min = 768
+max = 768
 multiple_of = 128
-default = 1024
+default = 768
 [params.s1_rows]
 type = "int"
 min = 1
@@ -57,13 +57,15 @@ min = 0.5
 max = 0.5
 [derived]
 qf = "case_qf"
+tailoff = "base(invTail) - base(invC)"
+tailoff2 = "base(invTail2) - base(invC)"
 K = "s1_channels // 128"
 M = "s1_rows * K"
-inlim = "in_cols * K"
+inlim = "s1_rows * K"
 [inputs.in0]
-shape = [1, "in_cols", "s1_channels"]
+shape = [1, "s1_rows", "s1_channels"]
 range = [-2, 2]
-[inputs.operand]
+[inputs.in1]
 shape = ["s0_numel"]
 range = [-2, 2]
 [inputs.gamma]
@@ -76,7 +78,13 @@ range = [-2, 2]
 shape = [26,128]
 [scratch.invC]
 shape = [128]
-fill = "1 / s1_channels"
+fill = 0.00128173828125
+[scratch.invTail]
+shape = [128]
+fill = 0.00002002716064453125
+[scratch.invTail2]
+shape = [128]
+fill = 0.0000003178914388020833
 [scratch.epsilon]
 shape = [128]
 fill = "s1_eps"
@@ -86,7 +94,7 @@ shape = [1,"s1_rows","s1_channels"]
 shape = [1,"s1_rows","s1_channels"]
 [abi]
 in0 = "CR2"
-operand = "CR3"
+in1 = "CR3"
 gamma = "CR4"
 beta = "CR5"
 added = "CR6"
@@ -99,20 +107,22 @@ invC = "CR12"
 epsilon = "CR13"
 half = "CR14"
 inlim = "LR4"
+tailoff = "LR12"
+tailoff2 = "LR13"
 [golden]
 tolerance = { e3 = "NX8_STEP" }
 [cases.default]
-s0_numel = 4096
+s0_numel = 3072
 s1_rows = 4
-s1_channels = 1024
+s1_channels = 768
 in_cols = 4
 [cases.small]
-s0_numel = 256
+s0_numel = 1536
 s1_rows = 2
-s1_channels = 128
+s1_channels = 768
 in_cols = 2
-[cases.padrow]
-s0_numel = 2048
+[cases.six_chunks]
+s0_numel = 1536
 s1_rows = 2
-s1_channels = 1024
+s1_channels = 768
 in_cols = 1

@@ -15,7 +15,7 @@ def reference(**kw):
     flat = kw['in0'].reshape(-1)
     if flat.numel() < n:
         flat = torch.cat([flat, torch.zeros(n - flat.numel(), dtype=flat.dtype)])
-    x = flat[:n].reshape(r, c) + kw['operand'].reshape(r, c)
+    x = flat[:n].reshape(r, c) + kw['in1'].reshape(r, c)
     z = rounded(x)
     mu = z.mean(-1,keepdim=True)
     y = (z-mu)*torch.rsqrt(((z-mu)**2).mean(-1,keepdim=True)+kw['s1_eps'])
