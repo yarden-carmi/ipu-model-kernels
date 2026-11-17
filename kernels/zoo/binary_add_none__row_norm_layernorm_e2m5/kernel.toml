@@ -18,7 +18,7 @@ type = "int"
 min = 128
 max = 263168
 multiple_of = 128
-default = 4096
+default = 3072
 
 [params.s0_op]
 type = "str"
@@ -27,10 +27,10 @@ default = "add"
 
 [params.s1_channels]
 type = "int"
-min = 1024
-max = 1024
+min = 768
+max = 768
 multiple_of = 128
-default = 1024
+default = 768
 
 [params.s1_eps]
 type = "float"
@@ -113,16 +113,16 @@ half = "CR14"
 tolerance = { e2 = "NX8_STEP" }
 
 [cases.default]
-s0_numel = 4096
+s0_numel = 3072
 s1_rows = 4
-s1_channels = 1024
+s1_channels = 768
 
 [cases.small]
-s0_numel = 2048
+s0_numel = 1536
 s1_rows = 2
-s1_channels = 1024
+s1_channels = 768
 
 [cases.three]
-s0_numel = 3072
+s0_numel = 2304
 s1_rows = 3
-s1_channels = 1024
+s1_channels = 768

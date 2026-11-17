@@ -5,11 +5,13 @@
     statistics, exactly matching the store).
 
     Phase 2 (layernorm): from the proven row_norm_layernorm_e2m5. Each logical
-    row = K = 8 memory rows (chunk k = m0 + k). Stats straight from `added`:
+    row = K = 6 memory rows (chunk k = m0 + k). Stats straight from `added`:
     AGG.SUM of x gives S in lane 0, AGG.SUM of x*x gives Q in lane 1. Every
     broadcast or scalar that must go through XMEM is stored as a hi/lo pair
     (hi = store, lo = residual of ACC), so the fp8 store error is squared away.
-    c = 1/channels is a full row of the same value in `crow` (exact for 1024).
+    c = 1/channels is a full row of the same value in `crow` (fill
+    1/s1_channels, quantized to the e2 grid like any store; the same single
+    recip row is accepted practice for channels=768 in e2 at NX8_STEP).
     tmp rows: 0/1 [S,Q] hi/lo; 2/3 S bcast hi/lo; 4/5 Q bcast hi/lo;
     6/7 mu hi/lo; 8 rstd; 9/10 W hi/lo; 11/12 var hi/lo; 13/14 r0^2 hi/lo;
     15/16 g hi/lo; 17/18 r0*g hi/lo; 19/20 rs hi/lo; 26 [S,Q] lo pair; 27 W_lo
@@ -115,7 +117,7 @@ stat_tail:
     SET LR1 CR0 ;;
     INC LR1 26 ;;
     ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf }}.L {{ cr.tmp }} LR1 ;;
-    # S broadcast = bcast(S_hi) + bcast(S_lo)
+    # S broadcast = bcast(S_hi) + bcast(S_lo) + bcast(S_lo2)
     SET LR1 CR0 ;;
     LD.MULT R0 LR1 {{ cr.tmp }} ;;
     INC LR1 1 ;;
@@ -134,7 +136,7 @@ stat_tail:
     MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf }}.L ; ACC.SUB ;;
     INC LR1 1 ;;
     ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf }}.L {{ cr.tmp }} LR1 ;;
-    # Q broadcast = bcast(Q_hi) + bcast(Q_lo)
+    # Q broadcast = bcast(Q_hi) + bcast(Q_lo) + bcast(Q_lo2)
     SET LR1 CR0 ;;
     LD.MULT R0 LR1 {{ cr.tmp }} ;;
     INC LR1 1 ;;

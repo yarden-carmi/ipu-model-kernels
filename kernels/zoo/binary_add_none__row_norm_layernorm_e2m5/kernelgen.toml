@@ -1,4 +1,4 @@
 chain = ["binary", "row_norm"]
 chain_in = ["in0", "in1"]
 chain_out = ["out0"]
-notes = "Channel-lane inputs and output ([1, rows, 1024] = rows*8 memory rows of 128). The add (in0+in1) is stored rounded to scratch `added`; layernorm reads it back, so statistics see exactly the rounded sum. Compensated hi/lo statistics and one Newton rsqrt step, from the proven row_norm_layernorm_e2m5."
+notes = "Channel-lane inputs and output ([1, rows, 768] = rows*6 memory rows of 128). The add (in0+in1) is stored rounded to scratch `added`; layernorm reads it back, so statistics see exactly the rounded sum. Compensated hi/lo statistics and one Newton rsqrt step, from the proven row_norm_layernorm_e2m5. 1/768 is not e2-exact, so the folded constant `crow` [3,128] holds c_hi, c_lo (two e2-exact rows summing to 1/768 up to 6e-5 relative) and epsilon; mu and var each use both crow terms."
