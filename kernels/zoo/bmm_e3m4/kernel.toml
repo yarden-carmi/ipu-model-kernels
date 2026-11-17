@@ -15,12 +15,12 @@ default = 64
 [params.m]
 type = "int"
 min = 1
-max = 256
+max = 1024
 default = 2
 [params.n]
 type = "int"
 min = 1
-max = 256
+max = 1024
 default = 50
 
 [inputs.in0]
@@ -40,7 +40,7 @@ kcn = "ceil(k / 128) * n"
 kfull = "ds(128)"
 klast = "ds(k - (kchunks - 1) * 128)"
 w0 = "min(n, 128)"
-w1 = "max(n - 128, 1)"
+w1 = "n - (nchunks - 1) * 128"
 od0 = "ds(w0)"
 od1 = "ds(w1)"
 
@@ -73,18 +73,20 @@ b = 2
 m = 3
 k = 64
 n = 256
-[cases.vector]
-b = 2
-m = 1
-k = 64
-n = 256
-[cases.longdot]
-b = 1
-m = 1
-k = 1024
-n = 1
 [cases.partial]
 b = 2
 m = 2
 k = 300
 n = 137
+
+[cases.oddwide]
+b = 2
+m = 3
+k = 64
+n = 257
+
+[cases.oddlong]
+b = 2
+m = 3
+k = 257
+n = 64

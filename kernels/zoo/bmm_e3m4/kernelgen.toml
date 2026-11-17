@@ -1,4 +1,4 @@
 chain = ["bmm"]
 chain_in = ["in0", "in1"]
 chain_out = ["out0"]
-notes = "Both operands carry k along lanes. Output tiles have 128 columns. FP32 dot products accumulate across k chunks, with quantization only at the output store. Supports b <= 16, m <= 256, n <= 256, k <= 1024."
+notes = "Both operands carry k along lanes, with in1 rows ordered by batch, k chunk, column. Output tiles have up to 128 columns, including a masked final tile. FP32 dot products accumulate across k chunks, with quantization only at the output store. Supports b <= 16 and m, n, k <= 1024."
