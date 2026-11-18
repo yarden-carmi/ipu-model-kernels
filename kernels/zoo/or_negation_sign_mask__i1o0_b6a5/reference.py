@@ -77,4 +77,7 @@ def reference(module, *ins, _round=None, **params):
 
 def fold(module, **params):
     r = torch.arange(params['vocab'], dtype=torch.float32)
-    return {'ones': torch.ones(128), 'digits': torch.stack([r % 32,(r // 32) % 32 * 32,(r // 1024) * 1024],1)[:,:,None].expand(-1,-1,128).contiguous()}
+    digits = torch.stack([r % 32, (r // 32) % 32 * 32,
+                          (r // 1024) * 1024], 1)
+    return {'ones': torch.ones(128),
+            'digits': digits[:, :, None].expand(-1, -1, 128).contiguous()}
