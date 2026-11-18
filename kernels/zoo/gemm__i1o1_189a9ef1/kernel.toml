@@ -1,0 +1,56 @@
+[kernel]
+op = "gemm"
+formats = ["e3"]
+[params.m]
+type = "int"
+min = 1
+max = 1048576
+default = 3136
+[params.k]
+type = "int"
+min = 1
+max = 4096
+default = 256
+[params.n]
+type = "int"
+min = 1
+max = 4096
+default = 64
+[params.bias]
+type = "bool"
+default = false
+[derived]
+K = "ceil(k / 128)"
+NB = "ceil(n / 128)"
+c128 = "128"
+[inputs.in0]
+shape = ["m * K", 128]
+range = [-2, 2]
+[inputs.w]
+shape = ["NB * k", 128]
+range = [-2, 2]
+[inputs.b]
+shape = ["NB", 128]
+range = [-2, 2]
+when = "bias"
+[outputs.out0]
+shape = ["m * NB", 128]
+[abi]
+in0 = "CR2"
+w = "CR3"
+out0 = "CR4"
+b = "CR5"
+m = "CR6"
+K = "CR7"
+NB = "CR8"
+qf_in0 = "CR9"
+qf_out0 = "CR10"
+c128 = "CR11"
+k = "CR12"
+[golden]
+tolerance = { e3 = "NX8_STEP" }
+[cases.default]
+m = 3136
+k = 256
+n = 64
+bias = false
