@@ -36,7 +36,7 @@ inner:
     LD.MULT.CYCLIC LR6 {{ cr.b }} LR2 ;;
     MULT.RC.VE LR2 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD ;;
 {% endif %}
-    ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR7 ;;
+    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} CR15.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR7 ;;
     INC LR7 1 ; INC LR6 1 ;;
     BLT.S LR6 {{ cr.NB }} nb_loop ;;
     ADD LR11 LR11 {{ cr.K }} ;;
