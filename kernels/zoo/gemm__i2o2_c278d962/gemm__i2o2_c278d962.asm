@@ -17,18 +17,24 @@ kb_loop:
     LD.MULT R0 LR8 {{ cr.in0 }} ; INC LR8 1 ;;
     SET LR3 CR0 ;;
     SUB LR3 LR3 CR1 ;;
-{% for i in range(4) %}
+{% macro preload() %}
     LD.MULT.CYCLIC LR4 {{ cr.w }} LR2 ; ADD LR4 LR4 {{ cr.NB }} ; INC.MODP2 LR2 {{ cr.c128 }} 9 ;;
+{% endmacro %}
+{% macro multiply(load) %}
+    MULT.RC.VE LR2 LR3 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD ; {% if load %}LD.MULT.CYCLIC LR4 {{ cr.w }} LR2 ; ADD LR4 LR4 {{ cr.NB }} ; {% endif %}INC LR3 1 ; INC.MODP2 LR2 {{ cr.c128 }} 9 ;;
+{% endmacro %}
+{% for i in range(4) %}
+{{ preload() }}
 {% endfor %}
     SET LR10 {{ cr.c31 }} ;;
 inner:
 {% for i in range(4) %}
-    MULT.RC.VE LR2 LR3 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD ; LD.MULT.CYCLIC LR4 {{ cr.w }} LR2 ; ADD LR4 LR4 {{ cr.NB }} ; INC LR3 1 ; INC.MODP2 LR2 {{ cr.c128 }} 9 ;;
+{{ multiply(true) }}
 {% endfor %}
     DEC LR10 1 ;;
     BNE LR10 CR0 inner ;;
 {% for i in range(4) %}
-    MULT.RC.VE LR2 LR3 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR3 1 ; INC.MODP2 LR2 {{ cr.c128 }} 9 ;;
+{{ multiply(false) }}
 {% endfor %}
     DEC LR9 1 ;;
     BNE LR9 CR0 kb_loop ;;
