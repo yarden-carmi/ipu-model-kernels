@@ -1,6 +1,6 @@
 [kernel]
 op = "base175_digit_hat_selector_v1"
-formats = ["e2"]
+formats = ["e2", "s0e1w8"]
 [params.tokens]
 type = "int"
 min = 256
@@ -15,7 +15,7 @@ default = 30522
 shape = [1, "tokens"]
 range = [0, 30521]
 [inputs.hi]
-shape = ["ceil(vocab / 128)", 128]
+shape = ["2 * ceil(vocab / 128)", 128]
 range = [0, 0]
 [inputs.lo]
 shape = ["ceil(vocab / 128)", 128]
@@ -23,9 +23,14 @@ range = [0, 0]
 [inputs.ones]
 shape = [128]
 range = [1, 1]
+[inputs.gain]
+shape = [128]
+range = [65536, 65536]
 [outputs.out0]
 shape = ["tokens", "ceil(vocab / 128) * 128"]
 [scratch.tmp]
+shape = [128]
+[scratch.lower]
 shape = [128]
 [derived]
 chunks = "ceil(vocab / 128)"
@@ -39,13 +44,14 @@ lo = "CR5"
 ones = "CR6"
 tmp = "CR7"
 qf_in0 = "CR8"
-qf_hi = "CR9"
-qf_lo = "CR10"
+qf_hi = "CR10"
 qf_out0 = "CR11"
-chunks = "CR12"
-tokens = "CR13"
+chunks = "LR6"
+tokens = "LR7"
 lastds = "CR14"
 one28 = "LR14"
+gain = "CR12"
+lower = "CR9"
 [cases.default]
 [golden]
 tolerance = { e2 = "EXACT" }

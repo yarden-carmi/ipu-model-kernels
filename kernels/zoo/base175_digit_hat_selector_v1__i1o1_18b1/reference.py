@@ -84,6 +84,10 @@ def fold(module, **params):
     vocab = params['vocab']
     padded = ((vocab + 127) // 128) * 128
     ramp = torch.arange(padded, dtype=torch.float32)
-    return {'hi': (torch.floor(ramp / 128) * 128).reshape(-1, 128),
+    hi = (torch.floor(ramp / 128) * 128).reshape(-1, 128)
+    lower = hi.clone()
+    lower[0, 0] = -1
+    return {'hi': torch.cat((lower, hi), dim=0),
             'lo': (ramp % 128).reshape(-1, 128),
-            'ones': torch.ones(128)}
+            'ones': torch.ones(128),
+            'gain': torch.full((128,), 65536.)}
