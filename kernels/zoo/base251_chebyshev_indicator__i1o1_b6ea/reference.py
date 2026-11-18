@@ -75,9 +75,7 @@ def reference(module, *ins, _round=None, **params):
     return {"out0": _out(op0, [256, 250002])}
 # ---- end of the frozen reference ----
 
-
 def fold(module, **params):
-    # Exact base-32 planes represent vocabulary indices without rounding.
     vocab = int(params['vocab'])
     chunks = min((vocab + 127) // 128, 2)
     ramp = torch.arange(chunks * 128, dtype=torch.int64)

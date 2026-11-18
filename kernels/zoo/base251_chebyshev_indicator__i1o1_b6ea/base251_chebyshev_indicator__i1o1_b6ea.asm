@@ -17,7 +17,6 @@ LD.MULT R1 LR2 {{ cr.in0 }} ;;
 SET LR4 LR3 ; SET LR6 CR0 ;;
 INC LR4 128 ;;
 chunk_loop:
-{# Inputs are bounded by 255; higher vocabulary indices are unequal. #}
 SET LR9 CR0 ;;
 INC LR9 2 ;;
 BLT.S LR6 LR9 compute ;;

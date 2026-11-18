@@ -1,5 +1,4 @@
 [kernel]
-# Quotient/remainder equality is integer equality.
 op = "base251_chebyshev_indicator"
 formats = ["e2", "s0e1w8"]
 [params.tokens]
@@ -26,9 +25,7 @@ shape = ["tokens", "ceil(vocab / 128) * 128"]
 shape = [3,128]
 [derived]
 chunks = "ceil(vocab / 128)"
-last = "ceil(vocab / 128) - 1"
 tail = "ds(vocab - (ceil(vocab / 128) - 1) * 128)"
-digit_chunks = "min(ceil(vocab / 128), 2)"
 [abi]
 in0 = "CR2"
 out0 = "CR3"
