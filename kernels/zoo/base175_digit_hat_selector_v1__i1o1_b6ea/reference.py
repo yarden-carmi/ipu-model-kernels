@@ -81,9 +81,9 @@ def reference(module, *ins, _round=None, **params):
 # ---- end of the frozen reference ----
 
 def fold(module, **params):
-    v = params['vocab']
-    n = ((v + 127) // 128) * 128
-    ramp = torch.arange(n, dtype=torch.float32)
+    vocab = params['vocab']
+    padded = ((vocab + 127) // 128) * 128
+    ramp = torch.arange(padded, dtype=torch.float32)
     return {'hi': (torch.floor(ramp / 128) * 128).reshape(-1, 128),
             'lo': (ramp % 128).reshape(-1, 128),
             'ones': torch.ones(128)}
