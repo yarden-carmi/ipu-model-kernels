@@ -1,0 +1,62 @@
+[kernel]
+op = "bmm"
+formats = ["e3"]
+[params.b]
+type = "int"
+min = 16
+max = 16
+default = 16
+[params.k]
+type = "int"
+min = 64
+max = 64
+default = 64
+[params.m]
+type = "int"
+min = 256
+max = 256
+default = 256
+[params.n]
+type = "int"
+min = 256
+max = 256
+default = 256
+[inputs.in0]
+shape = [1, "m", "b*k"]
+range = [-2, 2]
+[inputs.in1]
+shape = [1, "n", "b*k"]
+range = [-2, 2]
+[scratch.trans]
+shape = ["b*k", "n"]
+[outputs.out0]
+shape = [1, "b", "m", "n"]
+[derived]
+dsfull = "ds(128)"
+arows = "b*k/128"
+nchunks = "n/128"
+headstride = "k*nchunks"
+total = "b*k"
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+b = "CR5"
+k = "CR6"
+m = "CR7"
+nchunks = "CR8"
+arows = "CR9"
+dsfull = "CR10"
+qf_in0 = "CR11"
+qf_in1 = "CR12"
+qf_out0 = "CR13"
+headstride = "CR14"
+trans = "CR15"
+total = "LR15"
+[golden]
+tolerance = { e3 = "EXACT" }
+[cases.default]
+b = 16
+k = 64
+m = 256
+n = 256
