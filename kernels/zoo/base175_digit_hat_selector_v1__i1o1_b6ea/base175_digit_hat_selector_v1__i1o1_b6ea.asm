@@ -1,4 +1,3 @@
-{# Exact equality: split ramp subtraction, then relu(1 - difference squared). #}
 {% macro row(ds) %}
 LD.MULT.CYCLIC LR2 {{ cr.hi }} LR0 ;;
 MULT.EE LR1 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
