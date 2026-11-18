@@ -90,4 +90,6 @@ def fold(module, **params):
                 parts = [-1.0, 0.0, 0.0, 2.0 ** -24]
             for k, v in enumerate(parts):
                 b[j, side, k].fill_(v)
-    return {'bounds': b, 'ones': torch.ones(128), 'gainvec': torch.full((128,), 16777216.), 'gaininput': torch.full((128,), 16777216.)}
+    return {'bounds': b, 'ones': torch.ones(128),
+            'gainvec': torch.full((128,), 16777216.),
+            'gaininput': torch.full((128,), 16777216.)}

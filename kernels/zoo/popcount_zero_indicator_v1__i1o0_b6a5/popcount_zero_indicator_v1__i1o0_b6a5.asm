@@ -1,4 +1,3 @@
-{# Fixed-address interval predicates with split exact integer boundaries. #}
 {% macro bound(subtract) %}
 {% for part in range(4) %}
 LD.MULT R1 LR2 {{ cr.bounds }};;
