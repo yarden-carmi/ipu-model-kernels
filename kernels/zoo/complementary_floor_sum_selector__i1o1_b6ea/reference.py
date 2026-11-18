@@ -83,4 +83,5 @@ def fold(module, **params):
     j = torch.zeros(((v + 127) // 128) * 128, dtype=torch.int64)
     j[:v] = torch.arange(v)
     limbs = torch.stack([((j // (32 ** k)) % 32).float() * (32 ** k) for k in range(4)])
-    return {'indices': limbs.reshape(4, -1, 128).permute(1, 0, 2).reshape(-1, 128), 'ones': torch.ones(128)}
+    return {'indices': limbs.reshape(4, -1, 128).permute(1, 0, 2).reshape(-1, 128),
+            'ones': torch.ones(128)}
