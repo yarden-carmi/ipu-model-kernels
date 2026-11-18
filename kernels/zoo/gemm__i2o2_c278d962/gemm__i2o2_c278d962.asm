@@ -1,6 +1,3 @@
-{% macro step() %}
-    MULT.RC.VE LR2 LR3 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD ; LD.MULT.CYCLIC LR4 {{ cr.w }} LR2 ; ADD LR4 LR4 {{ cr.NB }} ; INC LR3 1 ; INC.MODP2 LR2 {{ cr.c128 }} 9 ;;
-{% endmacro %}
     SET LR0 CR0 ;;
     SET LR2 CR0 ;;
     SET LR7 CR0 ;;
@@ -26,7 +23,7 @@ kb_loop:
     SET LR10 {{ cr.c31 }} ;;
 inner:
 {% for i in range(4) %}
-{{ step() }}
+    MULT.RC.VE LR2 LR3 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD ; LD.MULT.CYCLIC LR4 {{ cr.w }} LR2 ; ADD LR4 LR4 {{ cr.NB }} ; INC LR3 1 ; INC.MODP2 LR2 {{ cr.c128 }} 9 ;;
 {% endfor %}
     DEC LR10 1 ;;
     BNE LR10 CR0 inner ;;
