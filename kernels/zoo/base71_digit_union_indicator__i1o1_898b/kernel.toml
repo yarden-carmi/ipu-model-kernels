@@ -1,0 +1,45 @@
+[kernel]
+op = "base71_digit_union_indicator"
+formats = ["e2"]
+[params.tokens]
+type = "int"
+min = 1
+default = 256
+[params.vocab]
+type = "int"
+min = 1
+default = 50264
+[inputs.in0]
+shape = [1, "tokens"]
+range = [0, 50263]
+[inputs.digits]
+shape = [3, "ceil(vocab / 128) * 128"]
+range = [0, 63]
+[inputs.ones]
+shape = [128]
+range = [1, 1]
+[outputs.out0]
+shape = ["tokens", "ceil(vocab / 128) * 128"]
+[scratch.tmp]
+shape = [128]
+[derived]
+chunks = "ceil(vocab / 128)"
+lastds = "ds((vocab - 1) % 128 + 1)"
+qs = "qf(1, 6, 8, 0)"
+[abi]
+in0 = "CR2"
+digits = "CR3"
+out0 = "CR4"
+tmp = "CR5"
+qf_in0 = "CR6"
+qf_digits = "CR7"
+qf_out0 = "CR8"
+chunks = "CR9"
+tokens = "CR10"
+ones = "CR11"
+qf_ones = "CR12"
+lastds = "CR13"
+qs = "CR14"
+[cases.default]
+tokens = 256
+vocab = 50264
