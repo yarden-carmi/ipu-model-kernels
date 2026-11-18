@@ -1,0 +1,46 @@
+[kernel]
+op = "base181_l1_indicator_v1"
+formats = ["e2"]
+[params.tokens]
+type = "int"
+min = 1
+max = 256
+default = 256
+[params.vocab]
+type = "int"
+min = 1
+max = 32761
+default = 30522
+[inputs.in0]
+shape = [1, "tokens"]
+[inputs.digits]
+shape = ["3 * ceil(vocab / 128) + 1", 128]
+range = [0, 31]
+[outputs.out0]
+shape = ["tokens", "ceil(vocab / 128)", 128]
+[scratch.tmp]
+shape = [128]
+[derived]
+chunks = "ceil(vocab / 128)"
+tail = "ds((vocab - 1) % 128 + 1)"
+index128 = "128"
+full = "ds(128)"
+ones_offset = "3 * ceil(vocab / 128)"
+[abi]
+in0 = "CR2"
+digits = "CR3"
+out0 = "CR4"
+tmp = "CR5"
+qf_in0 = "CR6"
+qf_digits = "CR7"
+qf_out0 = "CR8"
+qf_tmp = "CR9"
+chunks = "CR10"
+tokens = "CR11"
+index128 = "CR12"
+tail = "CR14"
+full = "CR13"
+ones_offset = "CR15"
+[cases.default]
+tokens = 256
+vocab = 30522
