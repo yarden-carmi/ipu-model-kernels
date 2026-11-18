@@ -1,0 +1,44 @@
+[kernel]
+op = "xor_negate_signbit_selector"
+formats = ["e2"]
+[params.tokens]
+type = "int"
+min = 1
+default = 256
+[params.vocab]
+type = "int"
+min = 1
+default = 50257
+[inputs.in0]
+shape = ["tokens",128]
+range = [0, 32]
+[inputs.ramp]
+shape = [3,"ceil(vocab / 128)",128]
+range = [0, 1]
+[inputs.ones]
+shape = [128]
+range = [1,1]
+[outputs.out0]
+shape = ["tokens","ceil(vocab / 128) * 128"]
+[scratch.tmp]
+shape = [128]
+[derived]
+chunks = "ceil(vocab / 128)"
+last = "ds((vocab - 1) % 128 + 1)"
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+ramp = "CR4"
+tmp = "CR5"
+qf_in0 = "CR6"
+qf_out0 = "CR7"
+qf_ramp = "CR8"
+qf_tmp = "CR9"
+tokens = "CR10"
+chunks = "CR11"
+last = "CR12"
+ones = "CR13"
+qf_ones = "CR14"
+[cases.default]
+[golden]
+tolerance = {e2 = "EXACT"}
