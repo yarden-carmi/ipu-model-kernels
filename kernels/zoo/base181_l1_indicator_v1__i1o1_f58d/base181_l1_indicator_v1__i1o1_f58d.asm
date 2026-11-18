@@ -22,11 +22,11 @@ SET LR1 CR0;;
 SET LR2 CR0;;
 SET LR3 CR0;;
 SET LR6 CR0;;
-SET LR7 {{ cr.ones_offset }};;
 SET LR8 CR1;;
 {% for k in range(7) %}
 ADD LR8 LR8 LR8;;
 {% endfor %}
+SET LR7 {{ cr.ones_offset }};;
 token:
 SET LR5 CR0;;
 chunk:
