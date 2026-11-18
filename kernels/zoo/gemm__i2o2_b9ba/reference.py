@@ -46,6 +46,7 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
+    """Pack the operation's weights in k-major, output-lane rows."""
     n, k = int(params['n']), int(params['k'])
     result = {'w': module.weight.detach().t().contiguous().reshape(k * (n // 128), 128)}
     if params['bias']:
