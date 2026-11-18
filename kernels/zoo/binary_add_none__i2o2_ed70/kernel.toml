@@ -1,0 +1,60 @@
+[kernel]
+op = "binary_add"
+formats = ["e2", "e3"]
+
+[params.broadcast]
+type = "str"
+choices = ["none"]
+default = "none"
+[params.const]
+type = "float"
+min = -448.0
+max = 448.0
+default = 1.0
+[params.inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.numel]
+type = "int"
+min = 1
+max = 932352
+default = 384
+[params.op]
+type = "str"
+choices = ["add"]
+default = "add"
+
+[derived]
+rows = "ceil(numel / 128)"
+last = "ceil(numel / 128) - 1"
+ds_tail = "ds(numel - (ceil(numel / 128) - 1) * 128)"
+[inputs.in0]
+shape = ["numel"]
+range = [-2.0, 2.0]
+[inputs.operand]
+shape = ["numel"]
+range = [-2.0, 2.0]
+[outputs.out0]
+shape = ["numel"]
+[abi]
+in0 = "CR2"
+operand = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_operand = "CR9"
+qf_out0 = "CR10"
+rows = "CR6"
+last = "CR7"
+ds_tail = "CR8"
+[golden]
+tolerance = { e2 = "EXACT", e3 = "EXACT" }
+[cases.default]
+numel = 384
+[cases.tiny]
+numel = 1
+[cases.tail]
+numel = 257
+[cases.partial]
+numel = 513
