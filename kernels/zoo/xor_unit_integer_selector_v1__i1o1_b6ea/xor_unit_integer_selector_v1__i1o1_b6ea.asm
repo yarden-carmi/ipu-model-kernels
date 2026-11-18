@@ -42,7 +42,7 @@ LD.MULT R0 LR10 {{ cr.difference }} ;;
 MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf_difference }}.L ; ACC.SUB.FIRST ;;
 LD.MULT R0 LR12 {{ cr.difference }} ;;
 MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf_difference }}.L ; ACC.ADD ;;
-ACTIVATE.QUANTIZE relu CR15.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR5 ;;
+ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR5 ;;
 INC LR5 1 ; INC LR6 1 ;;
 BLT.S LR6 {{ lr.chunks }} chunk_loop ;;
 INC LR1 1 ; INC.MODP2 LR3 CR1 7 ;;
