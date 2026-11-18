@@ -1,4 +1,3 @@
-{# Equality of integer IDs via an exact split compile-time ramp. #}
 {% macro difference(sign) %}
 LD.MULT R0 LR2 {{ cr.in0 }} ;;
 MULT.EE LR1 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.{{ 'ADD' if sign == 1 else 'SUB' }}.FIRST ;;

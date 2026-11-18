@@ -82,7 +82,8 @@ def reference(module, *ins, _round=None, **params):
 # ---- end of the frozen reference ----
 
 def fold(module, **params):
-    v = params['vocab']
-    n = (v+127)//128
-    j = torch.arange(n*128).reshape(n,128)
-    return {'ramp': torch.stack((j%256,(j//256)*256),dim=1).reshape(2*n,128).float(), 'ones': torch.ones(128)}
+    v = int(params['vocab'])
+    n = (v + 127) // 128
+    j = torch.arange(n * 128).reshape(n, 128)
+    return {'ramp': torch.stack((j % 256, (j // 256) * 256), dim=1).reshape(2*n, 128).float(),
+            'ones': torch.ones(128)}
