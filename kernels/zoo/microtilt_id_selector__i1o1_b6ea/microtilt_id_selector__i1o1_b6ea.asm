@@ -1,4 +1,3 @@
-{# Fixed address selector. #}
 SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
 SET LR3 CR0 ; SET LR4 CR0 ;;
 LD.MULT R0 LR0 {{ cr.in0 }} ;;

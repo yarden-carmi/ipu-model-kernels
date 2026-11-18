@@ -73,5 +73,5 @@ def reference(module, *ins, _round=None, **params):
 
 def fold(module, **params):
     v = params['vocab']
-    r = torch.arange(v).float().reshape(-1,128)
+    r = torch.arange(v).float().reshape(-1, 128)
     return {'ramp': r % 128, 'high': (r // 128) * 128, 'ones': torch.ones(128)}
