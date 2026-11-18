@@ -8,7 +8,7 @@ row:
 tile:
     ADD LR7 LR2 LR6 ; SET LR8 LR3 ; SET LR9 CR0 ;;
     LD.MULT.CYCLIC LR7 {{ cr.in1 }} LR0 ;;
-    MULT.RC.VE LR0 LR8 0 LR0 {{ cr.dsfull }}.L {{ cr.qf_in1 }}.L ; ACC.ADD.FIRST ;;
+    MULT.RC.VE LR0 LR8 0 LR0 {{ cr.dsfull }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
     INC LR8 1 ; INC LR9 1 ; ADD LR7 LR7 {{ cr.nchunks }} ;;
 inner:
     LD.MULT.CYCLIC LR7 {{ cr.in1 }} LR0 ;;
