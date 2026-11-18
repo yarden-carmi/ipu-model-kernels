@@ -39,9 +39,9 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.padding(_v(ins[0], [1, 3, 224, 224], [150528, 50176, 224, 1], 0), module.weight, module.bias, [16, 16])
+    r0 = aten.conv2d.default(_v(ins[0], [1, 3, 224, 224], [150528, 50176, 224, 1], 0), module.weight, module.bias, [4, 4], [3, 3])
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 768, 14, 14])}
+    return {"out0": _out(op0, [1, 64, 56, 56])}
 # ---- end of the frozen reference ----
 
 
@@ -50,11 +50,14 @@ import torch
 def fold(module, **params):
     w = module.weight.to(torch.float64)
     co, ci, kh, kw = w.shape
-    rows = torch.zeros(co // 128, 1 + kh * kw * ci, 128, dtype=torch.float64)
-    rows[:, 1:] = w.reshape(co // 128, 128, ci, kh, kw).permute(0, 3, 4, 2, 1).reshape(co // 128, -1, 128)
+    blocks = (co + 127) // 128
+    wp = torch.zeros(blocks * 128, ci, kh, kw, dtype=torch.float64)
+    wp[:co] = w
+    rows = torch.zeros(blocks, 1 + kh * kw * ci, 128, dtype=torch.float64)
+    rows[:, 1:] = wp.reshape(blocks, 128, ci, kh, kw).permute(0, 3, 4, 2, 1).reshape(blocks, -1, 128)
     if params.get('bias'):
         b = getattr(module, 'bias_vec', None)
         if b is None:
             b = module.bias
-        rows[:, 0] = b.reshape(-1, 128)
+        rows[:, 0].reshape(-1)[:co] = b
     return {'weights': rows}

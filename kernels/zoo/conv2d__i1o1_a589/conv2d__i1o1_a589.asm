@@ -8,7 +8,7 @@ ox:
  SET LR3 CR0 ; SET LR4 CR0 ;;
 block:
  LD.MULT R0 LR4 {{cr.weights}} ;;
-  MULT.VE LR15 {{'CR1' if bias else 'CR0'}} 0 LR15 CR15.L {{cr.qf_in0}}.L ; ACC.ADD.FIRST ; INC LR4 1 ;;
+ MULT.VE LR15 {{'CR1' if bias else 'CR0'}} 0 LR15 CR15.L {{cr.qf_in0}}.L ; ACC.ADD.FIRST ; INC LR4 1 ;;
   SET LR5 CR0 ; SET LR14 LR1 ;;
 ky:
  SET LR6 CR0 ;;
@@ -25,7 +25,7 @@ kx:
 {% for c in range(cin) %}
  LD.MULT.CYCLIC LR4 {{cr.weights}} LR15 ; SET LR11 CR0 ;;
 {{step('LR11',c)}}
-  MULT.RC.VE LR15 LR11 0 LR15 CR15.L {{cr.qf_in0}}.L ; ACC.ADD ; INC LR4 1 ;;
+ MULT.RC.VE LR15 LR11 0 LR15 CR15.L {{cr.qf_in0}}.L ; ACC.ADD ; INC LR4 1 ;;
 {% endfor %}
  BEQ LR15 CR0 next ;;
 skip:
@@ -40,7 +40,7 @@ next:
  SET LR12 CR0 ;;
 {{step('LR12',kh)}}
  BLT.S LR5 LR12 ky ;;
-  ACTIVATE.QUANTIZE identity CR15.L {{cr.qf_out0}}.L {{cr.out0}} LR13 ;;
+ ACTIVATE.QUANTIZE identity CR15.L {{cr.qf_out0}}.L {{cr.out0}} LR13 ;;
  INC LR13 1 ; INC LR3 1 ;;
  BLT.S LR3 {{cr.blocks}} block ;;
 {{step('LR1',stride)}}{{step('LR2',stride)}}
