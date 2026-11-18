@@ -1,0 +1,60 @@
+[kernel]
+op = "conv2d"
+formats = ["e2"]
+[params.bias]
+type = "bool"
+default = true
+[params.cin]
+type = "int"
+default = 1
+[params.cout]
+type = "int"
+default = 512
+[params.groups]
+type = "int"
+default = 1
+[params.h]
+type = "int"
+default = 1
+[params.w]
+type = "int"
+default = 32000
+[params.kh]
+type = "int"
+default = 1
+[params.kw]
+type = "int"
+default = 10
+[params.padding]
+type = "int"
+default = 0
+[params.stride]
+type = "int"
+default = 5
+[derived]
+blocks = "cout // 128"
+positions = "(w - kw) // stride + 1"
+taps = "kh * kw * cin"
+full = "ds(128)"
+[inputs.in0]
+shape = ["w", 128]
+range = [-2, 2]
+[inputs.weights]
+shape = ["blocks", "1 + taps", 128]
+range = [-1, 1]
+[outputs.out0]
+shape = ["positions", "cout"]
+[abi]
+in0 = "CR2"
+weights = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_weights = "CR6"
+qf_out0 = "CR7"
+blocks = "CR8"
+positions = "CR9"
+taps = "CR10"
+full = "CR15"
+[golden]
+tolerance = { e2 = "NX8_STEP" }
+[cases.default]
