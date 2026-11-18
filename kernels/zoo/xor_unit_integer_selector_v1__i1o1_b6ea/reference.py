@@ -77,5 +77,11 @@ def reference(module, *ins, _round=None, **params):
 def fold(module, **params):
     chunks = params['vocab'] // 128
     ramp = torch.arange(params['vocab'], dtype=torch.int64)
-    planes = [(ramp // 1024) * 1024, ((ramp // 32) % 32) * 32, ramp % 32]
-    return {'digits': torch.cat([p.float().reshape(chunks, 128) for p in planes] + [torch.ones(1, 128)])}
+    planes = [(ramp // 1024) * 1024,
+              ((ramp // 32) % 32) * 32, ramp % 32]
+    planes[2][0] = -1
+    widths = torch.ones(chunks, 128)
+    widths[0, 0] = 2
+    return {'digits': torch.cat([p.float().reshape(chunks, 128) for p in planes]
+                                + [torch.ones(1, 128)]),
+            'gain': torch.full((128,), 65536.), 'widths': widths}
