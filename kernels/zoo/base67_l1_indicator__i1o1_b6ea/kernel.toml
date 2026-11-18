@@ -1,0 +1,48 @@
+[kernel]
+op = "base67_l1_indicator"
+formats = ["e3"]
+[params.tokens]
+type = "int"
+min = 256
+max = 256
+default = 256
+[params.vocab]
+type = "int"
+min = 250002
+max = 250002
+default = 250002
+[inputs.in0]
+shape = [1, "tokens"]
+range = [0, 250001]
+[inputs.digits]
+shape = [3, "ceil(vocab / 128)", 128]
+range = [0, 127]
+[inputs.ones]
+shape = [128]
+range = [1, 1]
+[outputs.out0]
+shape = ["tokens", "ceil(vocab / 128) * 128"]
+[scratch.diff]
+shape = [128]
+[derived]
+chunks = "ceil(vocab / 128)"
+last_ds = "ds((vocab - 1) % 128 + 1)"
+offset128 = "128"
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+digits = "CR4"
+ones = "CR5"
+diff = "CR6"
+qf_in0 = "CR7"
+qf_out0 = "CR8"
+qf_digits = "CR9"
+qf_ones = "CR10"
+qf_diff = "CR11"
+tokens = "CR12"
+chunks = "CR13"
+last_ds = "CR14"
+offset128 = "LR6"
+[cases.default]
+[golden]
+tolerance = { e3 = "EXACT" }
