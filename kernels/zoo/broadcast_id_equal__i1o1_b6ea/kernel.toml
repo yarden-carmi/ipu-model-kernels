@@ -1,0 +1,47 @@
+[kernel]
+op = "broadcast_id_equal"
+formats = ["e2"]
+[params.tokens]
+type = "int"
+min = 1
+max = 256
+default = 256
+[params.vocab]
+type = "int"
+min = 1
+max = 65536
+default = 50265
+[inputs.in0]
+shape = [1, "tokens"]
+range = [0, 255]
+[inputs.digits]
+shape = ["3 * ceil(vocab / 128) + 1", 128]
+range = [0, 1]
+[outputs.out0]
+shape = ["tokens", "ceil(vocab / 128) * 128"]
+[scratch.difference]
+shape = [128]
+[derived]
+chunks = "ceil(vocab / 128)"
+last = "ceil(vocab / 128) - 1"
+tail = "ds(vocab - (ceil(vocab / 128) - 1) * 128)"
+ones = "3 * ceil(vocab / 128)"
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+digits = "CR4"
+difference = "CR5"
+qf_in0 = "CR6"
+qf_out0 = "CR7"
+qf_digits = "CR8"
+qf_difference = "CR9"
+chunks = "CR10"
+tokens = "CR11"
+tail = "CR12"
+last = "CR13"
+ones = "CR14"
+[cases.default]
+tokens = 256
+vocab = 50265
+[golden]
+tolerance = { e2 = "EXACT" }
