@@ -1,0 +1,56 @@
+[kernel]
+op = "bmm"
+formats = ["e3"]
+[params.b]
+type = "int"
+min = 16
+max = 16
+default = 16
+[params.k]
+type = "int"
+min = 256
+max = 256
+default = 256
+[params.m]
+type = "int"
+min = 256
+max = 256
+default = 256
+[params.n]
+type = "int"
+min = 64
+max = 64
+default = 64
+[inputs.in0]
+shape = [1, "b", "m", "k"]
+range = [-2, 2]
+[inputs.in1]
+shape = [1, "k", "b*n"]
+range = [-2, 2]
+[outputs.out0]
+shape = [1, "b", "m", 128]
+[derived]
+dsfull = "ds(128)"
+dsout = "ds(n)"
+brows = "b*n/128"
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+b = "CR5"
+k = "CR6"
+m = "CR7"
+n = "CR8"
+brows = "CR9"
+dsfull = "CR10"
+qf_in0 = "CR11"
+qf_in1 = "CR12"
+qf_out0 = "CR13"
+dsout = "CR14"
+[golden]
+tolerance = { e3 = "EXACT" }
+[cases.default]
+b = 16
+k = 256
+m = 256
+n = 64

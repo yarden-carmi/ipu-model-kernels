@@ -1,0 +1,19 @@
+chain = ["bmm"]
+chain_in = ["in0", "in1"]
+chain_out = ["out0"]
+[layout.in0]
+shape = [1, "b", "m", "k"]
+lanes = 3
+rows = [0, 1, 2]
+[view.in0]
+kind = "whole"
+[layout.in1]
+shape = [1, "k", "b*n"]
+lanes = 2
+rows = [0, 1]
+[view.in1]
+kind = "heads"
+[layout.out0]
+shape = [1, "b", "m", "n"]
+lanes = 3
+rows = [0, 1, 2]
