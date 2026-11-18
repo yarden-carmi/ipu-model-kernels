@@ -1,0 +1,52 @@
+[kernel]
+op = "grid18_selector"
+formats = ["e2"]
+[params.tokens]
+type = "int"
+min = 1
+max = 256
+default = 256
+[params.vocab]
+type = "int"
+min = 1
+max = 30522
+default = 30522
+[inputs.in0]
+shape = [1, "tokens"]
+range = [0, 30521]
+[inputs.indices]
+shape = ["ceil(vocab / 128)", 128]
+range = [0, 30521]
+[inputs.ones]
+shape = [128]
+range = [1, 1]
+[inputs.low]
+shape = [128]
+range = [0, 127]
+[scratch.tmp]
+shape = [128]
+[outputs.out0]
+shape = ["tokens", "ceil(vocab / 128) * 128"]
+[derived]
+chunks = "ceil(vocab / 128)"
+last = "ceil(vocab / 128) - 1"
+tail = "ds(vocab - (ceil(vocab / 128)-1)*128)"
+[abi]
+in0 = "CR2"
+indices = "CR3"
+out0 = "CR4"
+tmp = "CR5"
+qf_in0 = "CR6"
+qf_indices = "CR7"
+qf_out0 = "CR8"
+qf_tmp = "CR9"
+tokens = "LR13"
+chunks = "LR12"
+low = "CR11"
+tail = "CR13"
+ones = "CR14"
+qf_ones = "CR12"
+qf_low = "CR10"
+[cases.default]
+[golden]
+tolerance = { e2 = "EXACT" }
