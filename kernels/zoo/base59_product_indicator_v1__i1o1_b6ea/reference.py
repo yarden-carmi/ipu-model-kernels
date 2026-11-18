@@ -87,5 +87,9 @@ def fold(module, **params):
     ramp = torch.arange(chunks * 128)
     planes = [(ramp // 1024) * 1024,
               ((ramp // 32) % 32) * 32, ramp % 32]
+    planes[2][0] = -1
+    upper = torch.ones(chunks, 128)
+    upper[0, 0] = 2
     return {'digits': torch.cat([p.float().reshape(chunks, 128)
-                                 for p in planes] + [torch.ones(1, 128)])}
+                                 for p in planes] + [upper, torch.ones(1, 128)]),
+            'factors': torch.tensor([2.0**30, 6.0]).reshape(2, 1).expand(2, 128).clone()}
