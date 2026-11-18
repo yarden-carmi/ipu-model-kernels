@@ -1,6 +1,6 @@
 [kernel]
 op = "conv2d"
-formats = ["e1", "e2"]
+formats = ["e3"]
 [params.bias]
 type = "bool"
 default = true
@@ -66,7 +66,6 @@ range = [-1, 1]
 shape = [1, "ho * wo + 1", "cout"]
 [inputs.cls]
 shape = ["blocks", 128]
-range = [-1, 1]
 [scratch.zero]
 shape = [1, 128]
 [abi]
@@ -91,4 +90,4 @@ kw = 16
 stride = 16
 cout = 384
 [golden]
-tolerance = { e2 = "NX8_STEP" }
+tolerance = { e3 = "NX8_STEP" }

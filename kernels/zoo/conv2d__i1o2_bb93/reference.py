@@ -39,11 +39,11 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.default(_v(ins[0], [1, 3, 224, 224], [150528, 50176, 224, 1], 0), module.op0_weight, module.op0_bias, [16, 16])
+    r0 = aten.conv2d.default(_v(ins[0], [1, 3, 224, 224], [150528, 50176, 224, 1], 0), module.op0_weight, None, [14, 14])
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.cat.default([module.op1_cls_token, _v(op0, [1, 196, 768], [150528, 1, 196], 0)], 1)
+    r0 = aten.cat.default([module.op1_class_embedding, _v(op0, [1, 256, 1024], [262144, 1, 256], 0)], 1)
     op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 197, 768])}
+    return {"out0": _out(op1, [1, 257, 1024])}
 # ---- end of the frozen reference ----
 
 
@@ -55,6 +55,8 @@ def fold(module, **params):
     rows = torch.zeros(co // 128, 1 + kh * kw * ci, 128, dtype=torch.float64)
     rows[:, 1:] = w.reshape(co // 128, 128, ci, kh, kw).permute(0, 3, 4, 2, 1).reshape(co // 128, -1, 128)
     if params.get('bias'):
-        b = module.op0_bias
+        b = getattr(module, 'bias_vec', None)
+        if b is None:
+            b = module.bias
         rows[:, 0] = b.reshape(-1, 128)
-    return {'weights': rows, 'cls': module.op1_cls_token.reshape(-1, 128)}
+    return {'weights': rows, 'cls': module.op1_class_embedding.reshape(-1, 128)}
