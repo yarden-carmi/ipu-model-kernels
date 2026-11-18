@@ -1,6 +1,6 @@
 [kernel]
 op = "or_negation_sign_mask"
-formats = ["e2"]
+formats = ["e2", "s0e1w8"]
 [params.tokens]
 type = "int"
 min = 1
@@ -16,6 +16,10 @@ shape = ["ceil(vocab / 128)",3,128]
 [inputs.ones]
 shape = ["ceil(vocab / 128)",128]
 range = [1,1]
+[inputs.epsilon]
+shape = ["chunks + 1",128]
+[inputs.gain]
+shape = [128]
 [outputs.out0]
 shape = ["tokens","ceil(vocab / 128)",128]
 [scratch.tmp]
@@ -24,6 +28,7 @@ shape = [2,128]
 chunks = "ceil(vocab / 128)"
 last = "chunks - 1"
 tail = "ds((vocab - 1) % 128 + 1)"
+store_ds = "ds(128) + 65536 * ds((vocab - 1) % 128 + 1)"
 [abi]
 in0 = "CR2"
 digits = "CR3"
@@ -33,12 +38,15 @@ qf_in0 = "CR6"
 qf_digits = "CR7"
 qf_tmp = "CR8"
 qf_out0 = "CR9"
-tokens = "CR10"
-chunks = "CR11"
-ones = "CR13"
-qf_ones = "CR14"
-tail = "CR12"
+tokens = "LR9"
+chunks = "LR8"
+gain = "CR11"
+epsilon = "CR12"
+store_ds = "CR15"
 last = "LR6"
+ones = "CR10"
+qf_epsilon = "CR13"
+qf_ones = "CR14"
 [cases.default]
 tokens = 256
 vocab = 50265

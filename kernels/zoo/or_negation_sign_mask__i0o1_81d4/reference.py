@@ -81,4 +81,9 @@ def fold(module, **params):
     digits = torch.stack([r % 32, (r // 32) % 32 * 32,
                           (r // 1024) * 1024], 1)
     ones = (torch.arange(n) < params['vocab']).float().reshape(-1, 128)
-    return {'ones': ones, 'digits': digits.contiguous()}
+    eps = torch.zeros((n // 128 + 1, 128))
+    eps[0] = 2.0 ** -24
+    eps[1,0] = 1 - 2.0 ** -24
+    return {'ones': ones, 'digits': digits.contiguous(),
+            'epsilon': eps,
+            'gain': torch.full((128,), 16777216.)}
