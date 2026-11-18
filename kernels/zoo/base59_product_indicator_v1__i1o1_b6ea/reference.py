@@ -85,5 +85,7 @@ def fold(module, **params):
     vocab = params['vocab']
     chunks = (vocab + 127) // 128
     ramp = torch.arange(chunks * 128)
-    planes = [(ramp // 1024) * 1024, ((ramp // 32) % 32) * 32, ramp % 32]
-    return {'digits': torch.cat([p.float().reshape(chunks, 128) for p in planes] + [torch.ones(1, 128)])}
+    planes = [(ramp // 1024) * 1024,
+              ((ramp // 32) % 32) * 32, ramp % 32]
+    return {'digits': torch.cat([p.float().reshape(chunks, 128)
+                                 for p in planes] + [torch.ones(1, 128)])}
