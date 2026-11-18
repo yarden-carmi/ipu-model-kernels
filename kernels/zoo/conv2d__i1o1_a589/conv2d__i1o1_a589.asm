@@ -22,14 +22,11 @@ kx:
   ADD LR9 LR14 LR6 ;;
 {{step('LR9',-padding*w-padding)}}
  LD.MULT R0 LR9 {{cr.in0}} ;;
- SET LR11 CR0 ;;
- channel:
-  LD.MULT.CYCLIC LR4 {{cr.weights}} LR15 ;;
+{% for c in range(cin) %}
+ LD.MULT.CYCLIC LR4 {{cr.weights}} LR15 ; SET LR11 CR0 ;;
+{{step('LR11',c)}}
   MULT.RC.VE LR15 LR11 0 LR15 CR15.L {{cr.qf_in0}}.L ; ACC.ADD ; INC LR4 1 ;;
- INC LR11 1 ;;
- SET LR12 CR0 ;;
-{{step('LR12',cin)}}
- BLT.S LR11 LR12 channel ;;
+{% endfor %}
  BEQ LR15 CR0 next ;;
 skip:
 {{step('LR4',cin)}}
