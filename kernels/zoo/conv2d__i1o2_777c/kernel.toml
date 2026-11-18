@@ -1,0 +1,93 @@
+[kernel]
+op = "conv2d"
+formats = ["e2"]
+[params.bias]
+type = "bool"
+default = true
+[params.cin]
+type = "int"
+min = 1
+max = 128
+default = 3
+[params.cout]
+type = "int"
+min = 128
+max = 1152
+multiple_of = 128
+default = 128
+[params.groups]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.h]
+type = "int"
+min = 1
+max = 1024
+default = 4
+[params.w]
+type = "int"
+min = 1
+max = 1024
+default = 4
+[params.kh]
+type = "int"
+min = 1
+max = 16
+default = 2
+[params.kw]
+type = "int"
+min = 1
+max = 16
+default = 2
+[params.padding]
+type = "int"
+min = 0
+max = 16
+default = 0
+[params.stride]
+type = "int"
+min = 1
+max = 16
+default = 2
+[derived]
+ho = "(h + 2 * padding - kh) // stride + 1"
+wo = "(w + 2 * padding - kw) // stride + 1"
+blocks = "cout // 128"
+full = "ds(128)"
+endrows = "(ho * wo + 101) * blocks"
+rowjump = "stride*w-wo*stride"
+[inputs.in0]
+shape = ["h", "w", 128]
+range = [-2, 2]
+[inputs.weights]
+shape = ["blocks", "1 + kh * kw * cin", 128]
+range = [-1, 1]
+[outputs.out0]
+shape = [1, "ho * wo + 101", "cout"]
+[inputs.tokens]
+shape = [101, "cout"]
+range = [-1, 1]
+[abi]
+in0 = "CR2"
+rowjump = "CR12"
+weights = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+tokens = "CR7"
+blocks = "CR8"
+h = "CR9"
+w = "CR10"
+endrows = "CR11"
+full = "CR15"
+[cases.default]
+[cases.patch16]
+h = 16
+w = 32
+kh = 16
+kw = 16
+stride = 16
+cout = 384
+[golden]
+tolerance = { e2 = "NX8_STEP" }
