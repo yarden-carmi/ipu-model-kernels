@@ -1,0 +1,42 @@
+[kernel]
+op = "radix16_product_indicator"
+formats = ["e2"]
+[params.tokens]
+type = "int"
+min = 1
+default = 256
+[params.vocab]
+type = "int"
+min = 1
+default = 32128
+[inputs.in0]
+shape = [1, "tokens"]
+range = [0, 32127]
+[inputs.digits]
+shape = [4, "ceil(vocab / 128)", 128]
+range = [0, 15]
+[inputs.ones]
+shape = [128]
+range = [1, 1]
+[outputs.out0]
+shape = ["tokens", "vocab"]
+[scratch.tmp]
+shape = [2, 128]
+[derived]
+chunks = "ceil(vocab / 128)"
+[abi]
+in0 = "CR2"
+digits = "CR3"
+out0 = "CR4"
+tmp = "CR5"
+qf_in0 = "CR6"
+qf_digits = "CR7"
+qf_out0 = "CR8"
+qf_tmp = "CR9"
+chunks = "CR11"
+tokens = "CR12"
+ones = "CR14"
+qf_ones = "CR10"
+[cases.default]
+tokens = 256
+vocab = 32128
