@@ -1,6 +1,6 @@
 [kernel]
 op = "base71_digit_union_indicator"
-formats = ["e2"]
+formats = ["e1", "e2"]
 [params.tokens]
 type = "int"
 min = 1
@@ -13,14 +13,19 @@ default = 50264
 shape = [1, "tokens"]
 range = [0, 50263]
 [inputs.digits]
-shape = [3, "ceil(vocab / 128) * 128"]
+shape = [5, "ceil(vocab / 128) * 128"]
 range = [0, 63]
 [inputs.ones]
 shape = [128]
 range = [1, 1]
+[inputs.gain]
+shape = [128]
+range = [16777216, 16777216]
 [outputs.out0]
 shape = ["tokens", "ceil(vocab / 128) * 128"]
 [scratch.tmp]
+shape = [128]
+[scratch.saved]
 shape = [128]
 [derived]
 chunks = "ceil(vocab / 128)"
@@ -35,7 +40,10 @@ qf_in0 = "CR6"
 qf_digits = "CR7"
 qf_out0 = "CR8"
 chunks = "CR9"
-tokens = "CR10"
+tokens = "LR15"
+gain = "LR13"
+qf_gain = "CR10"
+saved = "LR14"
 ones = "CR11"
 qf_ones = "CR12"
 lastds = "CR13"

@@ -87,4 +87,9 @@ def fold(module, **params):
     n = ((v + 127) // 128) * 128
     j = torch.arange(n, dtype=torch.int64)
     j[v:] = 0
-    return {'digits': torch.stack([j % 64, ((j // 64) % 64) * 64, (j // 4096) * 4096]).float(), 'ones': torch.ones(128)}
+    lo = (j % 64).float()
+    extra = torch.zeros(n)
+    lo[0] = -1
+    extra[0] = 1
+    eps = extra * (2 ** -24)
+    return {'digits': torch.stack([lo, ((j // 64) % 64).float() * 64, (j // 4096).float() * 4096, eps, extra]), 'ones': torch.ones(128), 'gain': torch.full((128,), 16777216.)}
