@@ -3,7 +3,7 @@ pos:
  SET LR3 CR0 ; SET LR4 CR0 ;;
 block:
  LD.MULT R0 LR4 {{cr.weights}} ;;
- MULT.VE LR15 {{'CR1' if bias else 'CR0'}} 0 LR15 {{cr.full}}.L {{cr.qf_weights}}.L ; ACC.ADD.FIRST ; INC LR4 1 ;;
+ MULT.VE LR15 CR1 0 LR15 {{cr.full}}.L {{cr.qf_weights}}.L ; ACC.ADD.FIRST ; INC LR4 1 ;;
  SET LR5 LR1 ; SET LR6 CR0 ;;
 tap:
  LD.MULT R0 LR5 {{cr.in0}} ;;
