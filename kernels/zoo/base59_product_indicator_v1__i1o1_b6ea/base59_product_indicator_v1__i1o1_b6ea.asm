@@ -1,4 +1,3 @@
-{# Fixed-address equality using exact radix planes and a squared difference. #}
 {% macro subtract_digit() %}
 LD.MULT R0 LR7 {{ cr.digits }} ;;
 MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf_digits }}.L ; ACC.SUB ;;
