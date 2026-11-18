@@ -1,0 +1,12 @@
+chain = ["row_softmax"]
+chain_in = ["in0"]
+chain_out = ["out0"]
+notes = "Contiguous 128-lane tiles, two tiles per logical row. Cross-tile maximum, LUT exponential, cross-tile sum with high/low residual and Newton reciprocal correction, then contiguous normalized output."
+[layout.in0]
+lanes = 3
+rows = [0, 1, 2]
+[view.in0]
+kind = "whole"
+[layout.out0]
+lanes = 3
+rows = [0, 1, 2]
