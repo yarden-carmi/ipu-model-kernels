@@ -1,0 +1,46 @@
+[kernel]
+op = "dense_id_equal"
+formats = ["e2"]
+[params.tokens]
+type = "int"
+min = 1
+default = 256
+[params.vocab]
+type = "int"
+min = 1
+default = 50264
+[inputs.in0]
+shape = [1, "ceil(tokens / 128)*128"]
+[inputs.ramp]
+shape = ["ceil(vocab / 128)", 128]
+[inputs.ones]
+shape = [128]
+range = [1,1]
+[outputs.out0]
+shape = ["tokens", "ceil(vocab / 128)*128"]
+[scratch.diff]
+shape = [128]
+[derived]
+chunks = "ceil(vocab / 128)"
+last = "ceil(vocab / 128)-1"
+idx = "128"
+tail = "ds(vocab % 128)"
+[abi]
+in0 = "CR2"
+ramp = "CR3"
+ones = "CR4"
+out0 = "CR5"
+diff = "CR6"
+qf_in0 = "CR7"
+qf_ramp = "CR8"
+qf_ones = "CR9"
+qf_diff = "CR10"
+qf_out0 = "CR11"
+chunks = "CR12"
+idx = "CR13"
+tail = "CR14"
+tokens = "LR14"
+last = "LR13"
+[cases.default]
+tokens = 256
+vocab = 50264
