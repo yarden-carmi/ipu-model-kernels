@@ -1,4 +1,3 @@
-{# Truncation interval selector, with split exact base-32 thresholds. #}
 {% macro step(which) %}
 SET LR6 CR0 ;;
 INC LR6 2 ;;
@@ -60,8 +59,6 @@ INC LR6 128 ;;
 BNE LR3 LR6 nocarry ;;
 SET LR3 CR0 ; INC LR1 1 ;;
 nocarry:
-BLT.S LR5 LR8 token ;;
-{% else %}
-BLT.S LR5 LR8 token ;;
 {% endif %}
+BLT.S LR5 LR8 token ;;
 HALT ;;
