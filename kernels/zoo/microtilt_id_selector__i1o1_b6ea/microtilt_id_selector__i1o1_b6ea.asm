@@ -1,37 +1,49 @@
+{% macro step(which) %}
+SET LR6 CR0 ;;
+INC LR6 2 ;;
+LD.MULT.CYCLIC LR6 {{ cr.steps }} LR0 ;;
+LD.MULT R1 LR0 {{ cr.big }} ;;
+MULT.RC.VV LR0 R1 0 LR0 {{ cr.ds }}.L {{ cr.qf_big }}.L ; ACC.ADD.FIRST ;;
+{% for digit in range(4) %}
+SET LR6 LR4 ;;
+{% for n in range(which * 4 + digit) %}
+ADD LR6 LR6 LR10 ;;
+{% endfor %}
+LD.MULT R1 LR6 {{ cr.thresholds }} ;;
+MULT.VE LR7 CR1 0 LR0 {{ cr.ds }}.L {{ cr.qf_thresholds }}.L ; ACC.{{ 'ADD' if digit == 3 else 'SUB' }} ;;
+{% endfor %}
+SET LR6 CR{{ which }} ;;
+ACTIVATE.QUANTIZE relu6 {{ cr.ds }}.L {{ cr.qf_steps }}.L {{ cr.steps }} LR6 ;;
+{% endmacro %}
 SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
 SET LR3 CR0 ; SET LR4 CR0 ;;
-LD.MULT R0 LR0 {{ cr.in0 }} ;;
-LD.MULT R1 LR0 {{ cr.in0 }} ;;
-row:
+SET LR5 CR0 ;;
+SET LR7 CR0 ;;
+INC LR7 128 ;;
+token:
+LD.MULT R0 LR1 {{ cr.in0 }} ;;
+MULT.EE LR3 CR1 0 LR0 {{ cr.ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
+SET LR6 CR0 ;;
+INC LR6 2 ;;
+ACTIVATE.QUANTIZE identity {{ cr.ds }}.L {{ cr.qf_steps }}.L {{ cr.steps }} LR6 ;;
+SET LR4 CR0 ;;
+chunk:
+{{ step(0) }}
+{{ step(1) }}
+LD.MULT R1 LR0 {{ cr.sixth }} ;;
+LD.MULT.CYCLIC LR0 {{ cr.steps }} LR0 ;;
+MULT.RC.VV LR0 R1 0 LR0 {{ cr.ds }}.L {{ cr.qf_steps }}.L ; ACC.ADD.FIRST ;;
+SET LR6 CR1 ;;
+LD.MULT.CYCLIC LR6 {{ cr.steps }} LR0 ;;
+MULT.RC.VV LR0 R1 0 LR0 {{ cr.ds }}.L {{ cr.qf_steps }}.L ; ACC.SUB ;;
+ACTIVATE.QUANTIZE identity {{ cr.ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR2 ;;
+INC LR4 1 ; INC LR2 1 ;;
+BLT.S LR4 LR10 chunk ;;
+INC LR3 1 ; INC LR5 1 ;;
 SET LR6 CR0 ;;
 INC LR6 128 ;;
-BNE LR1 LR6 ready ;;
-SET LR6 CR1 ;;
-LD.MULT R0 LR6 {{ cr.in0 }} ;;
-SET LR1 CR0 ;;
-ready:
-SET LR3 CR0 ;;
-chunk:
-MULT.EE LR1 CR1 0 LR0 {{ cr.ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
-LD.MULT R1 LR3 {{ cr.ramp }} ;;
-SET LR5 CR0 ;;
-INC LR5 128 ;;
-MULT.VE LR5 CR1 0 LR0 {{ cr.ds }}.L {{ cr.qf_ramp }}.L ; ACC.SUB ;;
-LD.MULT R1 LR3 {{ cr.high }} ;;
-MULT.VE LR5 CR1 0 LR0 {{ cr.ds }}.L {{ cr.qf_high }}.L ; ACC.SUB ; ACTIVATE.QUANTIZE relu {{ cr.ds }}.L {{ cr.qf_out0 }}.L {{ cr.tmp }} LR0 ;;
-MULT.VE LR5 CR1 0 LR0 {{ cr.ds }}.L {{ cr.qf_high }}.L ; ACC.ADD.FIRST ;;
-LD.MULT R1 LR3 {{ cr.ramp }} ;;
-MULT.VE LR5 CR1 0 LR0 {{ cr.ds }}.L {{ cr.qf_ramp }}.L ; ACC.ADD ;;
-MULT.EE LR1 CR1 0 LR0 {{ cr.ds }}.L {{ cr.qf_in0 }}.L ; ACC.SUB ; ACTIVATE.QUANTIZE relu {{ cr.ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR2 ;;
-LD.MULT R1 LR0 {{ cr.ones }} ;;
-MULT.VE LR5 CR1 0 LR0 {{ cr.ds }}.L {{ cr.qf_ones }}.L ; ACC.ADD.FIRST ;;
-LD.MULT R1 LR0 {{ cr.tmp }} ;;
-MULT.VE LR5 CR1 0 LR0 {{ cr.ds }}.L {{ cr.qf_out0 }}.L ; ACC.SUB ;;
-LD.MULT R1 LR2 {{ cr.out0 }} ;;
-MULT.VE LR5 CR1 0 LR0 {{ cr.ds }}.L {{ cr.qf_out0 }}.L ; ACC.SUB ; ACTIVATE.QUANTIZE relu {{ cr.ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR2 ;;
-INC LR2 1 ; INC LR3 1 ;;
-BLT.S LR3 {{ cr.chunks }} chunk ;;
-INC LR1 1 ;;
-INC LR4 1 ;;
-BLT.S LR4 {{ cr.tokens }} row ;;
+BNE LR3 LR6 nocarry ;;
+SET LR3 CR0 ; INC LR1 1 ;;
+nocarry:
+BLT.S LR5 LR8 token ;;
 HALT ;;

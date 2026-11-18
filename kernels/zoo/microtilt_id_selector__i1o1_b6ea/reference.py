@@ -72,6 +72,14 @@ def reference(module, *ins, _round=None, **params):
 # ---- end of the frozen reference ----
 
 def fold(module, **params):
-    ramp = torch.arange(params['vocab']).float().reshape(-1, 128)
-    return {'ramp': ramp % 128, 'high': (ramp // 128) * 128,
-            'ones': torch.ones(128)}
+    vocab = params['vocab']
+    j = torch.arange(vocab, dtype=torch.int64)
+    rows = []
+    for upper in (False, True):
+        threshold = j + 1 if upper else torch.where(j == 0, -1, j)
+        sign, a = threshold.sign(), threshold.abs()
+        for power in (0, 1, 2):
+            rows.append((sign * ((a // (32 ** power)) % 32) * (32 ** power)).float() * 65536)
+        rows.append(torch.full((vocab,), 6.) if upper else torch.where(j == 0, -6., 6.))
+    return {'thresholds': torch.stack(rows).reshape(2, 4, vocab // 128, 128),
+            'sixth': torch.full((128,), 1 / 6), 'big': torch.full((128,), 65536.)}
