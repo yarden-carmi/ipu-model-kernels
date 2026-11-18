@@ -1,0 +1,49 @@
+[kernel]
+op = "euclidean_gcd_selector_core"
+formats = ["e2"]
+[params.tokens]
+type = "int"
+min = 1
+default = 256
+[params.vocab]
+type = "int"
+min = 1
+default = 50265
+[inputs.in0]
+shape = [1, "tokens"]
+[inputs.hi]
+shape = ["ceil(vocab / 128)", 128]
+[inputs.lo]
+shape = ["ceil(vocab / 128)", 128]
+[inputs.ones]
+shape = [1,128]
+range = [1,1]
+[inputs.mid]
+shape = ["ceil(vocab / 128)",128]
+[outputs.out0]
+shape = ["tokens", "ceil(vocab / 128)*128"]
+[scratch.tmp]
+shape = [2,128]
+[derived]
+chunks = "ceil(vocab / 128)"
+wide = "qf(1, 6, 8, 0)"
+slot = "128"
+last = "ds((vocab - 1) % 128 + 1)"
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+hi = "CR4"
+lo = "CR5"
+tmp = "CR6"
+qf_in0 = "CR7"
+qf_out0 = "CR8"
+mid = "CR9"
+last = "CR10"
+slot = "LR8"
+chunks = "CR11"
+tokens = "CR12"
+wide = "CR13"
+ones = "CR14"
+[cases.default]
+tokens = 256
+vocab = 50265

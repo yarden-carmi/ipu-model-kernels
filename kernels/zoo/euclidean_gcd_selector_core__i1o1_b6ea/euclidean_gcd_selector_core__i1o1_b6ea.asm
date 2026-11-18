@@ -1,0 +1,31 @@
+{# Integer selector using absolute differences. #}
+SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
+SET LR3 CR0 ; SET LR6 CR1 ;;
+LD.MULT R0 LR0 CR2 ;;
+LD.MULT R1 LR6 CR2 ;;
+token:
+SET LR2 CR0 ;;
+chunk:
+MULT.EE LR1 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
+LD.MULT.CYCLIC LR2 CR4 LR0 ;;
+MULT.RC.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf_out0 }}.L ; ACC.SUB ;;
+LD.MULT.CYCLIC LR2 CR9 LR0 ;;
+MULT.RC.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf_out0 }}.L ; ACC.SUB ;;
+LD.MULT.CYCLIC LR2 CR5 LR0 ;;
+MULT.RC.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf_out0 }}.L ; ACC.SUB ;;
+ACTIVATE.QUANTIZE identity CR15.L {{ cr.wide }}.L CR6 LR0 ;;
+LD.MULT.CYCLIC LR0 CR6 LR0 ;;
+LD.MULT.CYCLIC LR0 CR14 LR8 ;;
+MULT.RC.VE LR8 CR1 0 LR0 CR15.L {{ cr.qf_out0 }}.L ; ACC.ADD.FIRST ;;
+MULT.RC.VS LR0 0 LR0 CR15.L {{ cr.wide }}.L ; ACC.SUB ;;
+INC LR2 1 ;;
+BEQ LR2 CR11 tail ;;
+ACTIVATE.QUANTIZE relu CR15.L {{ cr.qf_out0 }}.L CR3 LR3 ;;
+INC LR3 1 ;;
+BLT.S LR2 CR11 chunk ;;
+tail:
+ACTIVATE.QUANTIZE relu {{ cr.last }}.L {{ cr.qf_out0 }}.L CR3 LR3 ;;
+INC LR3 1 ;;
+INC LR1 1 ;;
+BLT.S LR1 CR12 token ;;
+HALT ;;
