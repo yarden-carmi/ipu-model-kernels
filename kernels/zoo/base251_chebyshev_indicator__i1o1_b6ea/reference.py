@@ -77,9 +77,12 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
+    # Exact base-32 planes represent vocabulary indices without rounding.
     vocab = int(params['vocab'])
-    chunks = (vocab + 127) // 128
+    chunks = min((vocab + 127) // 128, 2)
     ramp = torch.arange(chunks * 128, dtype=torch.int64)
     ramp[ramp >= vocab] = 0
     planes = [((ramp // (32 ** k)) % 32).float() * (32 ** k) for k in range(4)]
-    return {'digits': torch.cat([p.reshape(chunks, 128) for p in planes] + [torch.ones(1, 128)])}
+    return {'digits': torch.cat([p.reshape(chunks, 128) for p in planes]),
+            'controls': torch.cat([torch.tensor([1048576., 6., -1048576., 1/8, 1/32, 1/128, 1/512, 1/2048, 1/8192, -1/4096]).reshape(10,1).expand(10,128).clone(),
+                                   torch.nn.functional.pad(torch.tensor([[1048576.]]), (0,127)), torch.zeros(1,128)])}

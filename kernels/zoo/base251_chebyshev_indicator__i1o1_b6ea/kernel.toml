@@ -1,6 +1,7 @@
 [kernel]
+# Quotient/remainder equality is integer equality.
 op = "base251_chebyshev_indicator"
-formats = ["e2"]
+formats = ["e2", "s0e1w8"]
 [params.tokens]
 type = "int"
 min = 1
@@ -15,17 +16,19 @@ default = 250002
 shape = [1, "tokens"]
 range = [0, 255]
 [inputs.digits]
-shape = ["4 * ceil(vocab / 128) + 1", 128]
+shape = ["4 * min(ceil(vocab / 128), 2)", 128]
 range = [0, 1]
+[inputs.controls]
+shape = [12, 128]
 [outputs.out0]
 shape = ["tokens", "ceil(vocab / 128) * 128"]
 [scratch.difference]
-shape = [128]
+shape = [3,128]
 [derived]
 chunks = "ceil(vocab / 128)"
 last = "ceil(vocab / 128) - 1"
 tail = "ds(vocab - (ceil(vocab / 128) - 1) * 128)"
-ones = "4 * ceil(vocab / 128)"
+digit_chunks = "min(ceil(vocab / 128), 2)"
 [abi]
 in0 = "CR2"
 out0 = "CR3"
@@ -38,8 +41,8 @@ qf_difference = "CR9"
 chunks = "CR10"
 tokens = "CR11"
 tail = "CR12"
-last = "CR13"
-ones = "CR14"
+controls = "CR13"
+qf_controls = "CR14"
 [cases.default]
 tokens = 256
 vocab = 250002

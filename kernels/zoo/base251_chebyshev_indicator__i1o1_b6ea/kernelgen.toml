@@ -9,10 +9,13 @@ dim = 1
 start = 0
 size = "tokens"
 [layout.out0]
+# Vocabulary occupies lanes; tokens occupy padded row groups.
 shape = ["tokens", "vocab"]
 lanes = 1
 [format.in0]
 format = "s0e1w8"
 scale = 7
 [format.difference]
+format = "e6"
+[format.controls]
 format = "e6"
