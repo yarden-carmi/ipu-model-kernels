@@ -1,4 +1,4 @@
-{# Integer quotient/remainder equality is equivalent to integer equality. #}
+{# Integer quotient/remainder equality is integer equality. #}
 {% macro subtract_digit() %}
 LD.MULT R0 LR7 {{ cr.digits }} ;;
 MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf_digits }}.L ; ACC.SUB ;;
