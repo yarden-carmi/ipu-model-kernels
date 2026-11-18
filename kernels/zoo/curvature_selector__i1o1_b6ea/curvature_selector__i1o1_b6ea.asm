@@ -4,20 +4,14 @@ INC LR6 2 ;;
 LD.MULT.CYCLIC LR6 {{ cr.steps }} LR0 ;;
 LD.MULT R1 LR0 {{ cr.big }} ;;
 MULT.RC.VV LR0 R1 0 LR0 {{ cr.ds }}.L {{ cr.qf_big }}.L ; ACC.ADD.FIRST ;;
-{% for digit in range(3) %}
+{% for digit in range(4) %}
 SET LR6 LR4 ;;
 {% for n in range(which * 4 + digit) %}
 ADD LR6 LR6 LR10 ;;
 {% endfor %}
 LD.MULT R1 LR6 {{ cr.thresholds }} ;;
-MULT.VE LR7 CR1 0 LR0 {{ cr.ds }}.L {{ cr.qf_thresholds }}.L ; ACC.SUB ;;
+MULT.VE LR7 CR1 0 LR0 {{ cr.ds }}.L {{ cr.qf_thresholds }}.L ; ACC.{{ 'ADD' if digit == 3 else 'SUB' }} ;;
 {% endfor %}
-SET LR6 LR4 ;;
-{% for n in range(which * 4 + 3) %}
-ADD LR6 LR6 LR10 ;;
-{% endfor %}
-LD.MULT R1 LR6 {{ cr.thresholds }} ;;
-MULT.VE LR7 CR1 0 LR0 {{ cr.ds }}.L {{ cr.qf_thresholds }}.L ; ACC.ADD ;;
 SET LR6 CR{{ which }} ;;
 ACTIVATE.QUANTIZE relu6 {{ cr.ds }}.L {{ cr.qf_steps }}.L {{ cr.steps }} LR6 ;;
 {% endmacro %}
