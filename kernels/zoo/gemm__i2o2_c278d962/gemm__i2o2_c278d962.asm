@@ -1,3 +1,6 @@
+{% macro step() %}
+    MULT.RC.VE LR2 LR3 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD ; LD.MULT.CYCLIC LR4 {{ cr.w }} LR2 ; ADD LR4 LR4 {{ cr.NB }} ; INC LR3 1 ; INC.MODP2 LR2 {{ cr.c128 }} 9 ;;
+{% endmacro %}
     SET LR0 CR0 ;;
     SET LR2 CR0 ;;
     SET LR7 CR0 ;;
@@ -23,7 +26,7 @@ kb_loop:
     SET LR10 {{ cr.c31 }} ;;
 inner:
 {% for i in range(4) %}
-    MULT.RC.VE LR2 LR3 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD ; LD.MULT.CYCLIC LR4 {{ cr.w }} LR2 ; ADD LR4 LR4 {{ cr.NB }} ; INC LR3 1 ; INC.MODP2 LR2 {{ cr.c128 }} 9 ;;
+{{ step() }}
 {% endfor %}
     DEC LR10 1 ;;
     BNE LR10 CR0 inner ;;
@@ -36,7 +39,7 @@ inner:
     LD.MULT.CYCLIC LR6 {{ cr.b }} LR2 ;;
     MULT.RC.VE LR2 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD ;;
 {% endif %}
-    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} CR15.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR7 ;;
+    ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR7 ;;
     INC LR7 1 ; INC LR6 1 ;;
     BLT.S LR6 {{ cr.NB }} nb_loop ;;
     ADD LR11 LR11 {{ cr.K }} ;;
