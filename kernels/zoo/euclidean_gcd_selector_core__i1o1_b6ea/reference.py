@@ -86,4 +86,5 @@ def fold(module, **params):
     j = torch.arange(((n + 127)//128)*128)
     return {'hi': ((j//4096)*4096).float().reshape(-1,128),
             'mid': (((j//64)%64)*64).float().reshape(-1,128),
-            'lo': (j%64).float().reshape(-1,128), 'ones': torch.ones(1,128)}
+            'lo': (j%64).float().reshape(-1,128),
+            'ones': torch.ones(1,128)}

@@ -1,4 +1,3 @@
-{# Integer selector using absolute differences. #}
 SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
 SET LR3 CR0 ; SET LR6 CR1 ;;
 LD.MULT R0 LR0 CR2 ;;
