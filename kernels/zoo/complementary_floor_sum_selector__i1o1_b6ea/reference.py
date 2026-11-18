@@ -79,7 +79,7 @@ def reference(module, *ins, _round=None, **params):
 # ---- end of the frozen reference ----
 
 def fold(module, **params):
-    v = params['vocab']
+    v = int(params['vocab'])
     j = torch.zeros(((v + 127) // 128) * 128, dtype=torch.int64)
     j[:v] = torch.arange(v)
     limbs = torch.stack([((j // (32 ** k)) % 32).float() * (32 ** k) for k in range(4)])
