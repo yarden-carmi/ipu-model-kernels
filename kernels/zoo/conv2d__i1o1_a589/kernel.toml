@@ -11,9 +11,8 @@ max = 128
 default = 3
 [params.cout]
 type = "int"
-min = 128
+min = 1
 max = 1152
-multiple_of = 128
 default = 128
 [params.groups]
 type = "int"
@@ -53,7 +52,7 @@ default = 2
 [derived]
 ho = "(h + 2 * padding - kh) // stride + 1"
 wo = "(w + 2 * padding - kw) // stride + 1"
-blocks = "cout // 128"
+blocks = "(cout + 127) // 128"
 full = "ds(128)"
 [inputs.in0]
 shape = ["h", "w", 128]
