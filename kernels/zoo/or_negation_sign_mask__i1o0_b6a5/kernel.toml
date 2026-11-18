@@ -1,0 +1,42 @@
+[kernel]
+op = "or_negation_sign_mask"
+formats = ["e2"]
+[params.tokens]
+type = "int"
+min = 1
+default = 256
+[params.vocab]
+type = "int"
+min = 1
+default = 50265
+[inputs.in0]
+shape = ["ceil(tokens / 128)",128]
+[inputs.digits]
+shape = ["vocab",3,128]
+[inputs.ones]
+shape = [128]
+range = [1,1]
+[outputs.out0]
+shape = ["vocab","ceil(tokens / 128)",128]
+[scratch.tmp]
+shape = [2,128]
+[derived]
+chunks = "ceil(tokens / 128)"
+neg = "constant(160, 0, 2, 1)"
+[abi]
+in0 = "CR2"
+digits = "CR3"
+out0 = "CR4"
+tmp = "CR5"
+qf_in0 = "CR6"
+qf_digits = "CR7"
+qf_tmp = "CR8"
+qf_out0 = "CR9"
+vocab = "CR10"
+chunks = "CR11"
+neg = "CR12"
+ones = "CR13"
+qf_ones = "CR14"
+[cases.default]
+tokens = 256
+vocab = 50265
