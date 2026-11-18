@@ -1,0 +1,41 @@
+[kernel]
+op = "radix225_l1_indicator"
+formats = ["e2"]
+[params.tokens]
+type = "int"
+min = 1
+default = 256
+[params.vocab]
+type = "int"
+min = 2
+default = 50264
+[inputs.in0]
+shape = [1, "ceil(tokens / 128)*128"]
+[inputs.ramp]
+shape = ["2*ceil(vocab / 128)", 128]
+[inputs.ones]
+shape = [128]
+range = [1, 1]
+[outputs.out0]
+shape = ["tokens", "ceil(vocab / 128)*128"]
+[scratch.tmp]
+shape = [2,128]
+[derived]
+chunks = "ceil(vocab / 128)"
+last = "ds((vocab-1) % 128+1)"
+[abi]
+in0 = "CR2"
+ramp = "CR3"
+out0 = "CR4"
+tmp = "CR5"
+qf_in0 = "CR6"
+qf_ramp = "CR7"
+qf_out0 = "CR8"
+chunks = "CR9"
+tokens = "CR10"
+qf_ones = "CR11"
+last = "CR12"
+ones = "CR14"
+[cases.default]
+tokens = 256
+vocab = 50264
