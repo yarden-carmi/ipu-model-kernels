@@ -1,6 +1,6 @@
 [kernel]
 op = "complementary_floor_sum_selector"
-formats = ["e2"]
+formats = ["e2", "s0e1w8"]
 [params.tokens]
 type = "int"
 min = 1
@@ -15,15 +15,15 @@ default = 50265
 shape = [1, "tokens"]
 range = [0, 50264]
 [inputs.indices]
-shape = ["ceil(vocab / 128) * 4", 128]
+shape = ["ceil(vocab / 128) * 8", 128]
 range = [0, 50264]
 [inputs.ones]
-shape = [128]
-range = [1, 1]
+shape = [2, 128]
+range = [1, 33554432]
 [outputs.out0]
 shape = ["tokens", "ceil(vocab / 128) * 128"]
 [scratch.diff]
-shape = [128]
+shape = [2, 128]
 [derived]
 chunks = "ceil(vocab / 128)"
 last = "ds((vocab - 1) % 128 + 1)"
@@ -43,4 +43,4 @@ ones = "CR13"
 qf_ones = "CR14"
 [cases.default]
 [golden]
-tolerance = { e2 = "EXACT" }
+tolerance = { e2 = "EXACT", s0e1w8 = "EXACT" }

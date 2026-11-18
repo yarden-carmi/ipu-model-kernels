@@ -82,6 +82,11 @@ def fold(module, **params):
     v = int(params['vocab'])
     j = torch.zeros(((v + 127) // 128) * 128, dtype=torch.int64)
     j[:v] = torch.arange(v)
-    limbs = torch.stack([((j // (32 ** k)) % 32).float() * (32 ** k) for k in range(4)])
-    return {'indices': limbs.reshape(4, -1, 128).permute(1, 0, 2).reshape(-1, 128),
-            'ones': torch.ones(128)}
+    limbs = torch.stack([((j // (32 ** k)) % 32).float() * (32 ** k) * (2 ** 25) for k in range(4)])
+    left = limbs.clone()
+    left[0, 0] = 2
+    left[1, 0] = -(2 ** 25)
+    both = torch.cat([left.reshape(4, -1, 128).permute(1, 0, 2),
+                      limbs.reshape(4, -1, 128).permute(1, 0, 2)], dim=1)
+    return {'indices': both.reshape(-1, 128),
+            'ones': torch.stack([torch.ones(128), torch.full((128,), float(2 ** 25))])}
