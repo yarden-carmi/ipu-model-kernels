@@ -1,0 +1,42 @@
+[kernel]
+op = "coprime_residue_indicator"
+formats = ["e2"]
+[params.tokens]
+type = "int"
+min = 256
+max = 256
+default = 256
+[params.vocab]
+type = "int"
+min = 151936
+max = 151936
+default = 151936
+[inputs.in0]
+shape = [1,"tokens"]
+range = [0,1]
+[inputs.ramp]
+shape = ["vocab",128]
+range = [0,1]
+[inputs.one]
+shape = [128]
+range = [1,1]
+[outputs.out0]
+shape = ["vocab","tokens"]
+[scratch.tmp]
+shape = [128]
+[derived]
+chunks = "tokens // 128"
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+ramp = "CR4"
+tmp = "CR5"
+qf_in0 = "CR6"
+qf_out0 = "CR7"
+qf_ramp = "CR8"
+qf_tmp = "CR9"
+vocab = "CR11"
+chunks = "CR12"
+one = "CR13"
+qf_one = "CR14"
+[cases.default]
