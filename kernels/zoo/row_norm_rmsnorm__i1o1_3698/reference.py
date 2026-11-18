@@ -65,7 +65,9 @@ def fold(module, **params):
     result = {}
     for name, value in (("scale", scale), ("bias", bias)):
         peak = value.abs().max().item()
-        step = 2.0 ** (torch.floor(torch.log2(torch.tensor(peak))).item() - 2) if peak else 1.0
+        top = torch.floor(torch.log2(torch.tensor(peak))) if peak else torch.tensor(0.)
+        exponent = torch.floor(torch.log2(value.abs().clamp_min(1e-30)))
+        step = torch.pow(2.0, torch.maximum(exponent - 4, top - 6))
         high = torch.round(value / step) * step
         result[name] = high.reshape(-1, 128)
         result[name + "_lo"] = (value - high).reshape(-1, 128)
