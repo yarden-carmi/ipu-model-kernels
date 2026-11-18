@@ -1,0 +1,59 @@
+[kernel]
+op = "bmm"
+formats = ["e3"]
+[params.b]
+type = "int"
+min = 1
+max = 256
+default = 12
+[params.k]
+type = "int"
+min = 1
+max = 4096
+default = 64
+[params.m]
+type = "int"
+min = 1
+max = 4096
+default = 50
+[params.n]
+type = "int"
+min = 1
+max = 128
+default = 50
+[inputs.in0]
+shape = [1, "m", "ceil(b*k/128)*128"]
+range = [-2, 2]
+[inputs.in1]
+shape = [1, "n", "ceil(b*k/128)*128"]
+range = [-2, 2]
+[scratch.trans]
+shape = ["b*k", 128]
+[outputs.out0]
+shape = [1, "b", "m", 128]
+[derived]
+arows = "ceil(b*k/128)"
+total = "b*k"
+dsfull = "ds(128)"
+dsout = "ds(n)"
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+b = "CR5"
+k = "CR6"
+m = "CR7"
+n = "CR8"
+arows = "CR9"
+dsout = "CR10"
+qf_in0 = "CR11"
+qf_in1 = "CR12"
+qf_out0 = "CR13"
+dsfull = "CR14"
+trans = "CR15"
+total = "LR15"
+[cases.default]
+b = 12
+k = 64
+m = 50
+n = 50
