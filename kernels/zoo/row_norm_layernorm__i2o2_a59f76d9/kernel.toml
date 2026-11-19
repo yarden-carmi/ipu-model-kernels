@@ -1,0 +1,63 @@
+[kernel]
+op = "row_norm"
+formats = ["e3"]
+[params.kind]
+type = "str"
+choices = ["layernorm"]
+default = "layernorm"
+[params.channels]
+type = "int"
+min = 128
+max = 1152
+multiple_of = 128
+default = 1024
+[params.rows]
+type = "int"
+min = 128
+max = 4096
+multiple_of = 128
+default = 256
+[params.eps]
+type = "float"
+min = 0.0
+max = 1.0
+default = 1e-6
+[derived]
+half = "1277440"
+K = "channels // 128"
+M = "rows * channels // 128"
+stride = "rows // 128"
+[inputs.in0]
+shape = ["M", 128]
+range = [-2.0, 2.0]
+[inputs.gamma]
+shape = [3, "channels"]
+[inputs.beta]
+shape = [3, "channels"]
+[inputs.crow]
+shape = [3, 128]
+[inputs.epsilon]
+shape = [128]
+[scratch.tmp]
+shape = ["32 + 3 * K", 128]
+[outputs.out0]
+shape = ["M", 128]
+[abi]
+in0 = "CR2"
+gamma = "CR3"
+beta = "CR4"
+out0 = "CR5"
+stride = "CR6"
+crow = "CR7"
+tmp = "CR8"
+qf_in0 = "CR9"
+K = "CR10"
+M = "CR11"
+epsilon = "CR12"
+half = "CR13"
+qf_out0 = "CR14"
+[golden]
+tolerance = { e3 = "NX8_STEP" }
+[cases.default]
+channels = 1024
+rows = 256
