@@ -39,7 +39,7 @@ def _sub(module, prefix):
 # the replacement's recorded code (§4.6), the operation of op0
 import torch
 
-_STEP_PARAMS = {'bias': False, 'k': 50257, 'm': 32, 'n': 768}
+_STEP_PARAMS = {'bias': False, 'k': 32128, 'm': 32, 'n': 768}
 
 def forward(module, *inputs):
     """Step 2 of 2 of the replacement (gemm): the matrix product."""
@@ -67,23 +67,18 @@ def forward(module, *inputs):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    op0 = forward(module, _v(ins[0], [32, 50257], [50257, 1], 0))  # the replacement (step 0)
-    r0 = aten.add.Tensor(_v(op0, [1, 32, 768], [24576, 768, 1], 0), module.op1_const0)
-    op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 32, 768])}
+    op0 = forward(module, _v(ins[0], [32, 32128], [32128, 1], 0))  # the replacement (step 0)
+    return {"out0": _out(op0, [1, 32, 768])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    n, k, m = (int(params[x]) for x in ('n', 'k', 'm'))
+    n, k = int(params['n']), int(params['k'])
     source = getattr(module, 'weight', getattr(module, 'table', None)).detach()
     if tuple(source.shape) != (k, n):
         source = source.t() if tuple(source.shape) == (n, k) else source.reshape(k, n)
-    kp, np = ((k + 127) // 128) * 128, ((n + 127) // 128) * 128
-    w = source.new_zeros((kp, np))
-    w[:k, :n] = source
-    b = source.new_zeros((m, np))
-    b[:, :n] = module.op1_const0.detach().reshape(m, n)
+    result = {'w': source.contiguous().reshape(k * (n // 128), 128),
+              'b': source.new_zeros(n)}
     if params['bias']:
-        b[:, :n] += module.bias.detach()
-    return {'w': w.reshape(-1, 128).contiguous(), 'b': b}
+        result['b'] = module.bias.detach().contiguous()
+    return result

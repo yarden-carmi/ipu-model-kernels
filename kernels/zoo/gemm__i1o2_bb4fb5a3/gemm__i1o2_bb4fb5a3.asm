@@ -38,7 +38,7 @@ inner:
 {% endfor %}
     DEC LR9 1 ;;
     BNE LR9 CR0 kb_loop ;;
-    LD.MULT.CYCLIC LR7 {{ cr.b }} LR2 ;;
+    LD.MULT.CYCLIC LR6 {{ cr.b }} LR2 ;;
     MULT.RC.VE LR2 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD ;;
     ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR7 ;;
     INC LR7 1 ; INC LR6 1 ;;

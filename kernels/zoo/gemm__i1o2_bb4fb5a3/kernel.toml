@@ -8,33 +8,35 @@ max = 65536
 default = 2
 [params.k]
 type = "int"
-min = 1
+min = 128
 max = 65536
+multiple_of = 128
 default = 128
 [params.n]
 type = "int"
-min = 1
+min = 128
 max = 65536
+multiple_of = 128
 default = 128
 [params.bias]
 type = "bool"
-default = false
+default = true
 [derived]
-K = "ceil(k / 128)"
-NB = "ceil(n / 128)"
-c31 = "31"
+K = "k / 128"
+NB = "n / 128"
 c128 = "128"
+c31 = "31"
 [inputs.in0]
-shape = ["m", "K * 128"]
+shape = ["m", "k"]
 range = [-2, 2]
 [inputs.w]
-shape = ["K * 128 * NB", 128]
+shape = ["k * NB", 128]
 range = [-2, 2]
 [inputs.b]
-shape = ["m * NB", 128]
+shape = ["n"]
 range = [-2, 2]
 [outputs.out0]
-shape = [1, "m", "NB * 128"]
+shape = [1, "m", "n"]
 [abi]
 in0 = "CR2"
 w = "CR3"
@@ -54,3 +56,23 @@ m = 1
 k = 128
 n = 128
 bias = false
+[cases.kloop]
+m = 1
+k = 256
+n = 128
+bias = false
+[cases.nb2]
+m = 3
+k = 128
+n = 256
+bias = true
+[cases.realish]
+m = 4
+k = 384
+n = 384
+bias = true
+[cases.full_depth]
+m = 1
+k = 4096
+n = 1024
+bias = true
