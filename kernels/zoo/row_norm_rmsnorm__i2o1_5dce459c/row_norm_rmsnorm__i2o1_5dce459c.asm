@@ -1,0 +1,92 @@
+    SET LR0 CR0 ;;
+    SET LR2 CR0 ;;
+    SET LR3 CR0 ;;
+    INC LR3 128 ;;
+row:
+    SET LR5 LR2 ;;
+    ADD LR6 LR2 {{ cr.K }} ;;
+    MULT.VE LR0 CR0 0 LR0 {{ cr.valid }}.L {{ cr.qf }}.L ; ACC.ADD.FIRST ;;
+stat:
+    LD.MULT.CYCLIC LR5 {{ cr.in0 }} LR0 ;;
+    MULT.RC.VS LR0 0 LR0 {{ cr.valid }}.L {{ cr.qf }}.L ; AGG.SUM LR0 {{ cr.valid }}.L ;;
+    INC LR5 1 ;;
+    BLT.S LR5 LR6 stat ;;
+    ACTIVATE.QUANTIZE identity {{ cr.valid }}.L {{ cr.qf }}.L {{ cr.tmp }} LR0 ;;
+    LD.MULT R0 LR0 {{ cr.tmp }} ;;
+    MULT.VE LR0 CR1 0 LR0 {{ cr.valid }}.L {{ cr.qf }}.L ; ACC.SUB ;;
+    SET LR1 CR1 ;;
+    ACTIVATE.QUANTIZE identity {{ cr.valid }}.L {{ cr.qf }}.L {{ cr.tmp }} LR1 ;;
+    LD.MULT R1 LR1 {{ cr.tmp }} ;;
+    MULT.EE LR0 CR1 0 LR0 {{ cr.valid }}.L {{ cr.qf }}.L ; ACC.ADD.FIRST ;;
+    MULT.EE LR3 CR1 0 LR0 {{ cr.valid }}.L {{ cr.qf }}.L ; ACC.ADD ;;
+    SET LR1 CR0 ;;
+    INC LR1 2 ;;
+    ACTIVATE.QUANTIZE identity {{ cr.valid }}.L {{ cr.qf }}.L {{ cr.tmp }} LR1 ;;
+    LD.MULT R0 LR1 {{ cr.tmp }} ;;
+    MULT.VE LR0 CR1 0 LR0 {{ cr.valid }}.L {{ cr.qf }}.L ; ACC.SUB ;;
+    SET LR4 CR0 ;;
+    INC LR4 6 ;;
+    ACTIVATE.QUANTIZE identity {{ cr.valid }}.L {{ cr.qf }}.L {{ cr.tmp }} LR4 ;;
+    LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
+    LD.MULT R0 LR0 {{ cr.recip }} ;;
+    MULT.RC.VV LR0 R0 0 LR0 {{ cr.valid }}.L {{ cr.qf }}.L ; ACC.ADD.FIRST ;;
+    LD.MULT.CYCLIC LR4 {{ cr.tmp }} LR0 ;;
+    MULT.RC.VV LR0 R0 0 LR0 {{ cr.valid }}.L {{ cr.qf }}.L ; ACC.ADD ;;
+    LD.MULT R0 LR0 {{ cr.epsilon }} ;;
+    MULT.VE LR0 CR1 0 LR0 {{ cr.valid }}.L {{ cr.qf }}.L ; ACC.ADD ;;
+    INC LR1 1 ;;
+    ACTIVATE.QUANTIZE rsqrt {{ cr.valid }}.L {{ cr.qf }}.L {{ cr.tmp }} LR1 ;;
+    SET LR5 LR2 ;;
+    SET LR7 CR0 ;;
+out:
+    LD.MULT.CYCLIC LR5 {{ cr.in0 }} LR0 ;;
+    LD.MULT R0 LR1 {{ cr.tmp }} ;;
+    MULT.RC.VV LR0 R0 0 LR0 {{ cr.valid }}.L {{ cr.qf }}.L ; ACC.ADD.FIRST ;;
+    ACTIVATE.QUANTIZE identity {{ cr.valid }}.L {{ cr.qf }}.L {{ cr.normalized }} LR5 ;;
+    INC LR5 1 ;;
+    INC LR7 1 ;;
+    BLT.S LR5 LR6 out ;;
+    SET LR2 LR6 ;;
+    BLT.S LR2 {{ cr.M }} row ;;
+    SET LR0 CR0 ;;
+    SET LR1 CR0 ;;
+    SET LR2 CR0 ;;
+    SET LR11 CR0 ;;
+    SET LR7 CR0 ;;
+    INC LR7 128 ;;
+batch_transpose:
+    SET LR3 CR0 ;;
+    SET LR9 CR0 ;;
+chunk_transpose:
+    SET LR4 CR0 ;;
+channel_transpose:
+    ADD LR6 LR2 LR3 ;;
+    SET LR10 CR0 ;;
+block_transpose:
+    SET LR8 CR0 ;;
+    SET LR14 CR0 ;;
+    SET LR15 CR0 ;;
+lane_transpose:
+    LD.MULT R0 LR6 {{ cr.normalized }} ;;
+    MULT.EE LR4 CR1 0 LR0 {{ cr.valid }}.L {{ cr.qf }}.L ; ACC.RESHAPE LRD0 LRD14 7 ;;
+    ADDBI LRD14 1 ;;
+    ADD LR6 LR6 {{ cr.K }} ;;
+    INC LR8 1 ;;
+    BLT.S LR8 LR7 lane_transpose ;;
+    ACTIVATE.QUANTIZE identity {{ cr.valid }}.L {{ cr.qf }}.L {{ cr.tmp }} LR0 ;;
+    LD.MULT.CYCLIC LR0 {{ cr.tmp }} LR0 ;;
+    LD.MULT R0 LR9 {{ cr.gamma }} ;;
+    MULT.RC.VV LR0 R0 0 LR0 {{ cr.valid }}.L {{ cr.qf }}.L ; ACC.ADD.FIRST ;;
+    ACTIVATE.QUANTIZE identity {{ cr.valid }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR11 ;;
+    INC LR11 1 ;;
+    INC LR10 1 ;;
+    BLT.S LR10 {{ cr.blocks }} block_transpose ;;
+    INC LR9 1 ;;
+    INC LR4 1 ;;
+    BLT.S LR4 LR7 channel_transpose ;;
+    INC LR3 1 ;;
+    BLT.S LR3 {{ cr.K }} chunk_transpose ;;
+    DEC LR3 1 ;;
+    SUB LR2 LR6 LR3 ;;
+    BLT.S LR2 {{ cr.M }} batch_transpose ;;
+    HALT ;;
