@@ -1,5 +1,5 @@
     SET LR0 CR0 ;;
-    LD.MULT R0 LR0 {{ cr.operand }} ;;
+    LD.MULT R0 LR0 {{ cr.scale }} ;;
     SET LR1 CR0 ;;
     SET LR2 CR0 ;;
 group:
