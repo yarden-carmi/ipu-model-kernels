@@ -20,9 +20,9 @@ default = 128
 type = "bool"
 default = true
 [derived]
-c31 = "31"
 K = "ceil(k / 128)"
 NB = "ceil(n / 128)"
+c31 = "31"
 c128 = "128"
 [inputs.in0]
 shape = ["m", "K * 128"]
@@ -31,9 +31,8 @@ range = [-2, 2]
 shape = ["K * 128 * NB", 128]
 range = [-2, 2]
 [inputs.b]
-shape = ["NB * 128"]
+shape = ["m * NB", 128]
 range = [-2, 2]
-when = "bias"
 [outputs.out0]
 shape = [1, "m", "NB * 128"]
 [abi]
