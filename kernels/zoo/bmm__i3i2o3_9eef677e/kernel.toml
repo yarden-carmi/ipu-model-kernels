@@ -1,6 +1,6 @@
 [kernel]
 op = "bmm"
-formats = ["e3"]
+formats = ["e2"]
 [params.b]
 type = "int"
 min = 1
@@ -10,12 +10,12 @@ default = 12
 type = "int"
 min = 1
 max = 4096
-default = 50
+default = 196
 [params.m]
 type = "int"
 min = 1
 max = 4096
-default = 50
+default = 196
 [params.n]
 type = "int"
 min = 64
@@ -56,9 +56,9 @@ qf_out0 = "CR13"
 dsout = "CR14"
 dsfull = "CR15"
 [golden]
-tolerance = { e3 = "EXACT" }
+tolerance = { e2 = "EXACT" }
 [cases.default]
 b = 12
-k = 50
-m = 50
+k = 196
+m = 196
 n = 64
