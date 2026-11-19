@@ -1,0 +1,71 @@
+[kernel]
+op = "bmm"
+formats = ["e2", "e4"]
+[params.b]
+type = "int"
+min = 1
+max = 256
+default = 12
+[params.k]
+type = "int"
+min = 1
+max = 4096
+default = 64
+[params.m]
+type = "int"
+min = 1
+max = 4096
+default = 197
+[params.n]
+type = "int"
+min = 1
+max = 4096
+default = 197
+[params.in0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 197
+[params.in1_d2]
+type = "int"
+min = 1
+max = 1048576
+default = 768
+[inputs.in0]
+shape = ["b*k*ceil(in0_d1/128)", 128]
+range = [-2, 2]
+[inputs.in1]
+shape = ["n*ceil(in1_d2/128)", 128]
+range = [-2, 2]
+[outputs.out0]
+shape = ["b*m*ceil(n/128)", 128]
+[scratch.tmp]
+shape = ["b*n*ceil(m/128)", 128]
+[derived]
+arows = "ceil(in0_d1/128)"
+brows = "ceil(in1_d2/128)"
+mchunks = "ceil(m/128)"
+dsfull = "ds(128)"
+dstail = "ds(m-(mchunks-1)*128) + 65536*ds(n-(ceil(n/128)-1)*128)"
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+tmp = "CR4"
+out0 = "LR15"
+m = "LR14"
+b = "CR5"
+k = "CR6"
+n = "CR7"
+mchunks = "CR8"
+arows = "CR9"
+brows = "CR10"
+qf_in0 = "CR11"
+qf_in1 = "CR12"
+qf_out0 = "CR13"
+dsfull = "CR14"
+dstail = "CR15"
+[cases.default]
+b = 12
+k = 64
+m = 197
+n = 197
