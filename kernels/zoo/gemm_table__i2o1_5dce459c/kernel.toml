@@ -1,0 +1,94 @@
+[kernel]
+op = "gemm_table"
+formats = ["e3"]
+[params.m]
+type = "int"
+min = 1
+max = 128
+default = 50
+[params.k]
+type = "int"
+min = 128
+max = 16384
+multiple_of = 128
+default = 768
+[params.n]
+type = "int"
+min = 1
+max = 16384
+default = 3072
+[params.bias]
+type = "bool"
+default = true
+[params.act_out0]
+type = "str"
+choices = ["quick_gelu"]
+default = "quick_gelu"
+[params.in0_d0]
+type = "int"
+min = 1
+max = 1024
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 128
+default = 50
+[params.in0_d2]
+type = "int"
+min = 128
+max = 16384
+multiple_of = 128
+default = 768
+[params.out0_d0]
+type = "int"
+min = 1
+max = 1024
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 128
+default = 50
+[params.out0_d2]
+type = "int"
+min = 1
+max = 16384
+default = 3072
+[derived]
+K = "k / 128"
+ods = "ds(out0_d1)"
+[inputs.in0]
+shape = ["in0_d0", "in0_d1", "in0_d2"]
+range = [-2, 2]
+[inputs.w]
+shape = ["n", "k"]
+range = [-2, 2]
+[inputs.b]
+shape = ["n", 128]
+range = [-2, 2]
+when = "bias"
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[outputs.out0]
+shape = ["out0_d0", "out0_d2", 128]
+[abi]
+in0 = "CR2"
+w = "CR3"
+out0 = "CR4"
+b = "CR5"
+in0_d1 = "CR6"
+K = "CR7"
+n = "CR8"
+qf_in0 = "CR9"
+lut = "CR10"
+in0_d0 = "CR11"
+qf_out0 = "CR12"
+ods = "CR13"
+[golden]
+tolerance = { e3 = "NX8_STEP" }
+[cases.default]
+m = 50
+k = 768
+n = 3072
