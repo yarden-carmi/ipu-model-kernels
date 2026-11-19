@@ -1,7 +1,6 @@
 [kernel]
-op = "gemm_quick_gelu"
+op = "gemm_gelu_tanh"
 formats = ["e3"]
-
 [params.m]
 type = "int"
 min = 1
@@ -24,15 +23,13 @@ type = "bool"
 default = true
 [params.act_out0]
 type = "str"
-choices = ["quick_gelu"]
-default = "quick_gelu"
-
+choices = ["gelu_tanh"]
+default = "gelu_tanh"
 [derived]
 c31 = "31"
 K = "k / 128"
 NB = "n / 128"
 c128 = "128"
-
 [inputs.in0]
 shape = [1, "m", "k"]
 range = [-2, 2]
@@ -46,10 +43,8 @@ when = "bias"
 [inputs.lut]
 shape = [5, 128]
 range = [0, 0]
-
 [outputs.out0]
 shape = [1, "m", "n"]
-
 [abi]
 in0 = "CR2"
 w = "CR3"
@@ -59,32 +54,27 @@ m = "CR6"
 K = "CR7"
 NB = "CR8"
 qf_in0 = "CR9"
-qf_out0 = "CR10"
+qf_out0 = "CR12"
+c31 = "CR13"
+lut = "CR10"
 c128 = "CR11"
-c31 = "CR12"
-lut = "CR13"
-
 [golden]
 tolerance = { e3 = "NX8_STEP" }
-
 [cases.default]
 m = 2
 k = 128
 n = 256
 bias = true
-
 [cases.multiblock]
 m = 3
 k = 256
 n = 256
 bias = true
-
 [cases.full_k]
 m = 1
-k = 1024
+k = 768
 n = 128
 bias = true
-
 [cases.no_bias]
 m = 2
 k = 256

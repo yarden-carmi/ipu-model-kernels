@@ -1,4 +1,7 @@
-SET LR0 CR0 ;;
+{% macro weight_load() %}
+    LD.MULT.CYCLIC LR4 {{ cr.w }} LR2 ; ADD LR4 LR4 {{ cr.NB }} ; INC.MODP2 LR2 {{ cr.c128 }} 9 ;;
+{% endmacro %}
+    SET LR0 CR0 ;;
     SET LR10 CR0 ;;
 {% for i in range(5) %}
     LD.LUT {{ i }} {{ cr.lut }} LR10 ;;
@@ -23,15 +26,15 @@ kb_loop:
     SET LR3 CR0 ;;
     SUB LR3 LR3 CR1 ;;
 {% for i in range(4) %}
-    LD.MULT.CYCLIC LR4 {{ cr.w }} LR2 ; ADD LR4 LR4 {{ cr.NB }} ; INC.MODP2 LR2 {{ cr.c128 }} 9 ;;
+{{ weight_load() }}
 {% endfor %}
-    SET LR10 {{ cr.c31 }} ;;
-inner:
+    SET LR12 {{ cr.c31 }} ;;
+inner_loop:
 {% for i in range(4) %}
     MULT.RC.VE LR2 LR3 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD ; LD.MULT.CYCLIC LR4 {{ cr.w }} LR2 ; ADD LR4 LR4 {{ cr.NB }} ; INC LR3 1 ; INC.MODP2 LR2 {{ cr.c128 }} 9 ;;
 {% endfor %}
-    DEC LR10 1 ;;
-    BNE LR10 CR0 inner ;;
+    DEC LR12 1 ;;
+    BNE LR12 CR0 inner_loop ;;
 {% for i in range(4) %}
     MULT.RC.VE LR2 LR3 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR3 1 ; INC.MODP2 LR2 {{ cr.c128 }} 9 ;;
 {% endfor %}
