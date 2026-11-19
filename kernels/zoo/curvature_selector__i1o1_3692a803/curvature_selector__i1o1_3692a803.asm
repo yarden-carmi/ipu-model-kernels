@@ -38,10 +38,10 @@ LD.MULT.CYCLIC LR6 {{ cr.steps }} LR0 ;;
 MULT.RC.VV LR0 R1 0 LR0 {{ cr.ds }}.L {{ cr.qf_steps }}.L ; ACC.SUB ;;
 INC LR4 1 ;;
 BLT.S LR4 LR10 full ;;
-ACTIVATE.QUANTIZE identity {{ cr.tail }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR2 ;;
+ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.tail }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR2 ;;
 BEQ CR0 CR0 endchunk ;;
 full:
-ACTIVATE.QUANTIZE identity {{ cr.ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR2 ;;
+ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR2 ;;
 endchunk:
 INC LR2 1 ;;
 BLT.S LR4 LR10 chunk ;;
