@@ -82,4 +82,10 @@ def reference(module, *ins, _round=None, **params):
 def fold(module, **params):
     v = int(params['vocab'])
     j = torch.arange(((v + 127) // 128) * 128)
-    return {'digits': torch.cat([torch.stack([((j // (32 ** k)) % 32) * (32 ** k) * 1024 for k in range(3)]).reshape(-1, 128), torch.full((1, 128), 6), torch.full((1, 128), 1024), torch.full((1, 128), 5)]).float()}
+    return {'digits': torch.cat([
+        torch.stack([((j // (32 ** k)) % 32) * (32 ** k) * 1024
+                     for k in range(3)]).reshape(-1, 128),
+        torch.full((1, 128), 6),
+        torch.full((1, 128), 1024),
+        torch.full((1, 128), 5),
+    ]).float()}
