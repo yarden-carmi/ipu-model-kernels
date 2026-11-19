@@ -15,17 +15,17 @@ default = 64
 type = "int"
 min = 1
 max = 4096
-default = 197
+default = 196
 [params.n]
 type = "int"
 min = 1
 max = 4096
-default = 197
+default = 196
 [params.in0_d1]
 type = "int"
 min = 1
 max = 4096
-default = 197
+default = 196
 [params.in1_d2]
 type = "int"
 min = 1
@@ -42,30 +42,28 @@ shape = ["b*m*ceil(n/128)", 128]
 [scratch.tmp]
 shape = ["b*n*ceil(m/128)", 128]
 [derived]
-arows = "ceil(in0_d1/128)"
-brows = "ceil(in1_d2/128)"
-mchunks = "ceil(m/128)"
-dsfull = "ds(128)"
-dstail = "ds(m-(mchunks-1)*128) + 65536*ds(n-(ceil(n/128)-1)*128)"
+dsfull = "ds(128) + 65536*ds((m-1)%128+1)"
+arows = "ceil(in1_d2/128)"
+nchunks = "ceil(in0_d1/128)"
+dstail = "ds((n-1)%128+1)"
 [abi]
 in0 = "CR2"
 in1 = "CR3"
-tmp = "CR4"
-out0 = "LR15"
-m = "LR14"
+out0 = "CR4"
 b = "CR5"
 k = "CR6"
 n = "CR7"
-mchunks = "CR8"
+nchunks = "CR8"
 arows = "CR9"
-brows = "CR10"
+dsfull = "CR10"
 qf_in0 = "CR11"
 qf_in1 = "CR12"
 qf_out0 = "CR13"
-dsfull = "CR14"
+tmp = "CR14"
 dstail = "CR15"
+m = "LR15"
 [cases.default]
 b = 12
 k = 64
-m = 197
-n = 197
+m = 196
+n = 196
