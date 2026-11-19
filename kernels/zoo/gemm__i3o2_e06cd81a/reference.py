@@ -39,16 +39,33 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.linear.default(_v(ins[0], [1, 256, 1024], [262144, 1024, 1], 0), module.weight, module.bias)
+    r0 = aten.linear.default(_v(ins[0], [1, 257, 384], [98688, 384, 1], 0), module.op0_weight, module.op0_bias)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 256, 1024])}
+    r0 = aten.mul.Tensor(_v(op0, [1, 257, 384], [98688, 384, 1], 0), module.op1_lambda1)
+    op1 = _pick(r0, 0)  # step 0
+    return {"out0": _out(op1, [1, 257, 384])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Transpose natural linear weights into k-major lane vectors."""
     n, k = int(params['n']), int(params['k'])
-    result = {'w': module.weight.detach().t().contiguous().reshape(k * (n // 128), 128)}
+    np = ((n + 127) // 128) * 128
+    weight = module.op0_weight.detach() * module.op1_lambda1.detach().reshape(-1, 1)
+    w = weight.new_zeros((k, np))
+    w[:, :n] = weight.t()
+    def split(t):
+        r = t.reshape(-1, 128).clone()
+        parts = []
+        for _ in range(4):
+            e = torch.frexp(r.abs().amax(dim=1, keepdim=True))[1]
+            step = torch.pow(2.0, e.float() - 5)
+            p = torch.round(r / step) * step
+            parts.append(p)
+            r = r - p
+        return torch.stack(parts, dim=1).reshape(-1, 128).contiguous()
+    result = {'w': split(w)}
     if params['bias']:
-        result['b'] = module.bias.detach().contiguous()
+        b = weight.new_zeros(np)
+        b[:n] = module.op0_bias.detach() * module.op1_lambda1.detach()
+        result['b'] = split(b)
     return result
