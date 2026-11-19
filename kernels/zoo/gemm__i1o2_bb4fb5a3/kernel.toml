@@ -18,7 +18,7 @@ max = 65536
 default = 128
 [params.bias]
 type = "bool"
-default = true
+default = false
 [derived]
 K = "ceil(k / 128)"
 NB = "ceil(n / 128)"
@@ -31,9 +31,8 @@ range = [-2, 2]
 shape = ["K * 128 * NB", 128]
 range = [-2, 2]
 [inputs.b]
-shape = ["NB", 128]
+shape = ["m * NB", 128]
 range = [-2, 2]
-when = "bias"
 [outputs.out0]
 shape = [1, "m", "NB * 128"]
 [abi]
