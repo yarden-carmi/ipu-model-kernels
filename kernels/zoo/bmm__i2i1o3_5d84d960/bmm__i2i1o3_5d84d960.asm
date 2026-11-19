@@ -16,7 +16,7 @@ inner:
     LD.MULT.CYCLIC LR7 {{ cr.in1 }} LR0 ;;
     MULT.RC.VE LR0 LR8 0 LR0 {{ cr.dsboth }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ;;
 advance:
-    ADD LR7 LR7 {{ cr.nchunks }} ; INC LR9 1 ; INC.MODP2 LR8 CR1 7 ;;
+    ADD LR7 LR7 {{ cr.bstride }} ; INC LR9 1 ; INC.MODP2 LR8 CR1 7 ;;
     BNE LR8 CR0 same_chunk ;;
     INC LR6 1 ;;
 same_chunk:
@@ -34,7 +34,7 @@ stored:
     BLT.S LR4 {{ cr.m }} row ;;
     SET LR12 CR0 ;;
 head_offset:
-    ADD LR2 LR2 {{ cr.nchunks }} ; INC LR12 1 ;;
+    ADD LR2 LR2 {{ cr.bstride }} ; INC LR12 1 ;;
     BLT.S LR12 {{ cr.k }} head_offset ;;
     INC LR11 1 ; ADD LR3 LR3 {{ cr.k }} ;;
 normalize:
