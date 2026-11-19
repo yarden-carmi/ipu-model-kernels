@@ -18,14 +18,14 @@ range = [0, 255]
 [inputs.digits]
 shape = ["3 * (vocab // 128) + 1", 128]
 range = [0, 1]
-[outputs.out0]
-shape = ["tokens", "vocab"]
 [inputs.gain]
 shape = [128]
 range = [65536, 65536]
 [inputs.widths]
 shape = ["vocab // 128", 128]
 range = [1, 2]
+[outputs.out0]
+shape = ["tokens", "vocab"]
 [scratch.difference]
 shape = [3, 128]
 [derived]
@@ -40,13 +40,13 @@ qf_in0 = "CR6"
 qf_out0 = "CR7"
 qf_digits = "CR8"
 qf_difference = "CR9"
+widths = "CR10"
+qf_widths = "CR11"
+gain = "CR12"
+qf_gain = "CR13"
 chunks = "LR13"
 tokens = "LR14"
 ones = "LR15"
-gain = "CR12"
-qf_gain = "CR13"
-widths = "CR10"
-qf_widths = "CR11"
 [cases.default]
 tokens = 256
 vocab = 32128
