@@ -1,0 +1,77 @@
+[kernel]
+op = "gemm"
+formats = ["e2", "e3"]
+[params.m]
+type = "int"
+min = 1
+max = 65536
+default = 2
+[params.k]
+type = "int"
+min = 1
+max = 65536
+default = 128
+[params.n]
+type = "int"
+min = 1
+max = 65536
+default = 128
+[params.bias]
+type = "bool"
+default = true
+[derived]
+c31 = "31"
+K = "ceil(k / 128)"
+NB = "ceil(n / 128)"
+c128 = "128"
+[inputs.in0]
+shape = ["m", "K * 128"]
+range = [-2, 2]
+[inputs.w]
+shape = ["K * 128 * NB", 128]
+range = [-2, 2]
+[inputs.b]
+shape = ["NB * 128"]
+range = [-2, 2]
+when = "bias"
+[outputs.out0]
+shape = [1, "m", "NB * 128"]
+[abi]
+in0 = "CR2"
+w = "CR3"
+out0 = "CR4"
+b = "CR5"
+m = "CR6"
+K = "CR7"
+NB = "CR8"
+qf_in0 = "CR9"
+qf_out0 = "CR10"
+c128 = "CR11"
+c31 = "CR12"
+[golden]
+tolerance = { e2 = "NX8_STEP", e3 = "NX8_STEP" }
+[cases.default]
+m = 1
+k = 128
+n = 128
+bias = false
+[cases.kloop]
+m = 1
+k = 256
+n = 128
+bias = false
+[cases.nb2]
+m = 3
+k = 128
+n = 256
+bias = true
+[cases.realish]
+m = 4
+k = 384
+n = 384
+bias = true
+[cases.full_depth]
+m = 1
+k = 4096
+n = 1024
+bias = true
