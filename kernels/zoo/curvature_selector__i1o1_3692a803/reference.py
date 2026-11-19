@@ -72,7 +72,7 @@ def reference(module, *ins, _round=None, **params):
 # ---- end of the frozen reference ----
 
 def fold(module, **params):
-    vocab = params['vocab']
+    vocab = int(params['vocab'])
     padded = ((vocab + 127) // 128) * 128
     j = torch.arange(padded, dtype=torch.int64)
     rows = []
