@@ -43,10 +43,10 @@ LD.MULT R0 LR4 {{ cr.digits }};;
 MULT.VE LR0 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_digits }}.L ; ACC.SUB;;
 INC LR5 1;;
 BLT.S LR5 {{ cr.chunks }} full_store;;
-ACTIVATE.QUANTIZE relu {{ cr.tail }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR3;;
+ACTIVATE.QUANTIZE {{ act_out0 | default('relu') }} {{ cr.tail }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR3;;
 BEQ LR0 CR0 stored;;
 full_store:
-ACTIVATE.QUANTIZE relu {{ cr.full }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR3;;
+ACTIVATE.QUANTIZE {{ act_out0 | default('relu') }} {{ cr.full }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR3;;
 stored:
 INC LR3 1;;
 BLT.S LR5 {{ cr.chunks }} chunk;;
