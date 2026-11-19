@@ -44,32 +44,33 @@ def reference(module, *ins, _round=None, **params):
     r2 = aten.reshape.default(module.running_var, [1, -1, 1, 1])
     r3 = aten.reshape.default(module.running_mean, [1, -1, 1, 1])
     r4 = aten.add.Tensor(module.running_var, 1e-05)
-    r5 = aten.rsqrt.default(_l(r4, 0, [1, 64, 1, 1], [64, 1, 1, 1], 0))
-    r6 = aten.mul.Tensor(module.weight, _l(r5, 0, [1, 64, 1, 1], [64, 1, 1, 1], 0))
-    r7 = aten.mul.Tensor(module.running_mean, _l(r6, 0, [1, 64, 1, 1], [64, 1, 1, 1], 0))
-    r8 = aten.sub.Tensor(module.bias, _l(r7, 0, [1, 64, 1, 1], [64, 1, 1, 1], 0))
-    r9 = aten.mul.Tensor(_v(ins[0], [1, 64, 56, 56], [200704, 3136, 56, 1], 0), _l(r6, 0, [1, 64, 1, 1], [64, 1, 1, 1], 0))
-    r10 = aten.add.Tensor(_l(r9, 0, [1, 64, 56, 56], [200704, 3136, 56, 1], 0), _l(r8, 0, [1, 64, 1, 1], [64, 1, 1, 1], 0))
+    r5 = aten.rsqrt.default(_l(r4, 0, [1, 256, 1, 1], [256, 1, 1, 1], 0))
+    r6 = aten.mul.Tensor(module.weight, _l(r5, 0, [1, 256, 1, 1], [256, 1, 1, 1], 0))
+    r7 = aten.mul.Tensor(module.running_mean, _l(r6, 0, [1, 256, 1, 1], [256, 1, 1, 1], 0))
+    r8 = aten.sub.Tensor(module.bias, _l(r7, 0, [1, 256, 1, 1], [256, 1, 1, 1], 0))
+    r9 = aten.mul.Tensor(_v(ins[0], [1, 256, 28, 28], [200704, 784, 28, 1], 0), _l(r6, 0, [1, 256, 1, 1], [256, 1, 1, 1], 0))
+    r10 = aten.add.Tensor(_l(r9, 0, [1, 256, 28, 28], [200704, 784, 28, 1], 0), _l(r8, 0, [1, 256, 1, 1], [256, 1, 1, 1], 0))
     op0 = _pick(r10, 0)  # step 0
-    r0 = aten.relu.default(_v(op0, [1, 64, 56, 56], [200704, 3136, 56, 1], 0))
+    r0 = aten.relu.default(_v(op0, [1, 256, 28, 28], [200704, 784, 28, 1], 0))
     op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 64, 56, 56])}
+    return {"out0": _out(op1, [1, 256, 28, 28])}
 # ---- end of the frozen reference ----
 
 def fold(module, **params):
     n = module.weight.numel()
     v = lambda t: torch.as_strided(t, (1, n, 1, 1), (n, 1, 1, 1), 0)
-    r5 = torch.rsqrt(v(module.running_var + 1e-5))
-    r6 = module.weight * r5
-    r7 = module.running_mean * v(r6)
-    r8 = module.bias - v(r7)
-    scale = v(r6).flatten()
-    bias = v(r8).flatten()
+    scale = v(module.weight * torch.rsqrt(v(module.running_var + 1e-5))).flatten()
+    r7 = module.running_mean * v(scale)
+    bias = v(module.bias - v(r7)).flatten()
     result = {}
     for name, value in (("scale", scale), ("bias", bias)):
-        magnitude = value.abs().max().item()
-        step = 2.0 ** (torch.floor(torch.log2(torch.tensor(magnitude))).item() - 4) if magnitude else 1.0
-        high = torch.round(value / step) * step
-        result[name] = torch.nn.functional.pad(high, (0, 128 - value.numel()))
-        result[name + "_lo"] = torch.nn.functional.pad(value - high, (0, 128 - value.numel()))
+        hi, lo = [], []
+        for part in value.split(128):
+            mag = part.abs().max().item()
+            step = 2.0 ** (torch.floor(torch.log2(torch.tensor(mag))).item() - 4) if mag else 1.0
+            high = torch.round(part / step) * step
+            hi.append(torch.nn.functional.pad(high, (0, 128-part.numel())))
+            lo.append(torch.nn.functional.pad(part-high, (0, 128-part.numel())))
+        result[name] = torch.stack(hi)
+        result[name + "_lo"] = torch.stack(lo)
     return result
