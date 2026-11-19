@@ -39,7 +39,7 @@ def _sub(module, prefix):
 # the replacement's recorded code (§4.6), the operation of op0
 import torch
 
-_STEP_PARAMS = {'bias': False, 'k': 30522, 'm': 32, 'n': 1024}
+_STEP_PARAMS = {'bias': False, 'k': 32128, 'm': 32, 'n': 512}
 
 def forward(module, *inputs):
     """Step 2 of 3 of the replacement (gemm): the matrix product."""
@@ -67,8 +67,8 @@ def forward(module, *inputs):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    op0 = forward(module, _v(ins[0], [32, 30522], [30522, 1], 0))  # the replacement (step 0)
-    return {"out0": _out(op0, [32, 1024])}
+    op0 = forward(module, _v(ins[0], [32, 32128], [32128, 1], 0))  # the replacement (step 0)
+    return {"out0": _out(op0, [32, 512])}
 # ---- end of the frozen reference ----
 
 
