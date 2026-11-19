@@ -39,7 +39,7 @@ def _sub(module, prefix):
 # the replacement's recorded code (§4.6), the operation of op0
 import torch
 
-_STEP_PARAMS = {'bias': False, 'k': 50264, 'm': 16, 'n': 1024}
+_STEP_PARAMS = {'bias': False, 'k': 30522, 'm': 64, 'n': 384}
 
 def forward(module, *inputs):
     """Step 2 of 2 of the replacement (gemm): the matrix product."""
@@ -67,12 +67,12 @@ def forward(module, *inputs):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    op0 = forward(module, _v(ins[0], [16, 50264], [50264, 1], 0))  # the replacement (step 0)
-    r0 = aten.mul.Tensor(_v(op0, [1, 16, 1024], [16384, 1024, 1], 0), 1.0)
+    op0 = forward(module, _v(ins[0], [64, 30522], [30522, 1], 0))  # the replacement (step 0)
+    r0 = aten.add.Tensor(_v(op0, [1, 64, 384], [24576, 384, 1], 0), module.op1_const0)
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.add.Tensor(_v(op1, [1, 16, 1024], [16384, 1024, 1], 0), module.op2_const0)
+    r0 = aten.add.Tensor(_v(op1, [1, 64, 384], [24576, 384, 1], 0), module.op2_const0)
     op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 16, 1024])}
+    return {"out0": _out(op2, [1, 64, 384])}
 # ---- end of the frozen reference ----
 
 
@@ -84,8 +84,13 @@ def fold(module, **params):
     kp, np = ((k + 127) // 128) * 128, ((n + 127) // 128) * 128
     w = source.new_zeros((kp, np))
     w[:k, :n] = source
-    b = source.new_zeros((m, np))
-    b[:, :n] = module.op2_const0.detach().reshape(m, n)
+    a = source.new_zeros((m, np))
+    a[:, :n] = module.op1_const0.detach().reshape(m, n)
+    a2 = source.new_zeros((m, np))
+    a2[:, :n] = module.op2_const0.detach().reshape(m, n)
+    result = {'w': w.reshape(-1, 128).contiguous(), 'addend': torch.cat((a.reshape(-1, 128), a2.reshape(-1, 128)))}
     if params['bias']:
-        b[:, :n] += module.bias.detach()
-    return {'w': w.reshape(-1, 128).contiguous(), 'b': b}
+        b = source.new_zeros(np)
+        b[:n] = module.bias.detach()
+        result['b'] = b
+    return result

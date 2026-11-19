@@ -28,17 +28,27 @@ kb_loop:
 {% endfor %}
     SET LR10 {{ cr.c31 }} ;;
 inner:
-{% for i in range(4) %}
+{% for i in range(32) %}
 {{ multiply(true) }}
 {% endfor %}
     DEC LR10 1 ;;
     BNE LR10 CR0 inner ;;
+{% for i in range(28) %}
+{{ multiply(true) }}
+{% endfor %}
 {% for i in range(4) %}
 {{ multiply(false) }}
 {% endfor %}
     DEC LR9 1 ;;
     BNE LR9 CR0 kb_loop ;;
-    LD.MULT.CYCLIC LR7 {{ cr.b }} LR2 ;;
+{% if bias %}
+    LD.MULT.CYCLIC LR6 {{ cr.b }} LR2 ;;
+    MULT.RC.VE LR2 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD ;;
+{% endif %}
+    LD.MULT.CYCLIC LR7 {{ cr.addend }} LR2 ;;
+    MULT.RC.VE LR2 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD ;;
+    ADD LR12 LR7 {{ cr.add_offset }} ;;
+    LD.MULT.CYCLIC LR12 {{ cr.addend }} LR2 ;;
     MULT.RC.VE LR2 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD ;;
     ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR7 ;;
     INC LR7 1 ; INC LR6 1 ;;
