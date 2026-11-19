@@ -1,7 +1,7 @@
 {% macro weight_load() %}
     LD.MULT.CYCLIC LR4 {{ cr.w }} LR2 ; ADD LR4 LR4 {{ cr.NB }} ; INC.MODP2 LR2 {{ cr.c128 }} 9 ;;
 {% endmacro %}
-    SET LR0 CR0 ;;
+SET LR0 CR0 ;;
     SET LR10 CR0 ;;
 {% for i in range(5) %}
     LD.LUT {{ i }} {{ cr.lut }} LR10 ;;
