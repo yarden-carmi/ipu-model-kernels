@@ -1,0 +1,65 @@
+[kernel]
+op = "curvature_adjust"
+formats = ["e2"]
+[params.dim]
+type = "int"
+min = 128
+multiple_of = 128
+default = 1024
+[params.tokens]
+type = "int"
+min = 1
+default = 256
+[params.in0_d0]
+type = "int"
+min = 1
+default = 256
+[params.in0_d1]
+type = "int"
+min = 128
+default = 1024
+[params.out0_d0]
+type = "int"
+min = 1
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+default = 256
+[params.out0_d2]
+type = "int"
+min = 128
+default = 1024
+[inputs.in0]
+shape = ["in0_d0", "in0_d1"]
+range = [-1, 1]
+[outputs.out0]
+shape = ["out0_d0", "out0_d1", "out0_d2"]
+[inputs.epsilon]
+shape = [1, 128]
+range = [0.00000095367431640625, 0.00000095367431640625]
+[derived]
+chunks = "dim // 128"
+total = "tokens * chunks"
+right_index = "129"
+slot2 = "256"
+shift_left = "127"
+shift_right = "1"
+slot1 = "128"
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+qf_in0 = "CR4"
+qf_out0 = "CR5"
+chunks = "CR6"
+total = "CR7"
+epsilon = "CR8"
+right_index = "CR12"
+slot2 = "CR13"
+qf_epsilon = "CR14"
+shift_left = "CR9"
+shift_right = "CR10"
+slot1 = "CR11"
+[golden]
+tolerance = { e2 = "NX8_STEP" }
+[cases.default]
