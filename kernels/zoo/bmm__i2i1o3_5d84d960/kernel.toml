@@ -1,6 +1,6 @@
 [kernel]
 op = "bmm"
-formats = ["e2"]
+formats = ["e2", "e4"]
 [params.b]
 type = "int"
 min = 1
@@ -15,12 +15,12 @@ default = 64
 type = "int"
 min = 1
 max = 4096
-default = 197
+default = 196
 [params.n]
 type = "int"
 min = 1
 max = 4096
-default = 197
+default = 196
 [inputs.in0]
 shape = [1, "m", "b*k"]
 range = [-2, 2]
@@ -33,8 +33,7 @@ shape = [1, "b", "m", "n"]
 arows = "ceil(b*k/128)"
 nchunks = "ceil(n/128)"
 total = "b*k"
-dsfull = "ds(128)"
-dstail = "ds(n-(nchunks-1)*128)"
+dsboth = "ds(128) + 65536*ds(n-(nchunks-1)*128)"
 [abi]
 in0 = "CR2"
 in1 = "CR3"
@@ -44,13 +43,12 @@ k = "CR6"
 m = "CR7"
 nchunks = "CR8"
 arows = "CR9"
-dsfull = "CR10"
+dsboth = "CR10"
 qf_in0 = "CR11"
 qf_in1 = "CR12"
 qf_out0 = "CR13"
-dstail = "CR14"
 [cases.default]
 b = 12
 k = 64
-m = 197
-n = 197
+m = 196
+n = 196
