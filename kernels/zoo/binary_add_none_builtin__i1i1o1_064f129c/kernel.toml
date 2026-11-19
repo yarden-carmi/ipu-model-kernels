@@ -14,7 +14,7 @@ default = 0
 type = "int"
 min = 1
 max = 16777216
-default = 401408
+default = 200704
 [params.op]
 type = "str"
 choices = ["add"]
@@ -30,20 +30,19 @@ max = 1024
 default = 1
 [params.in0_d1]
 type = "int"
-min = 128
+min = 1
 max = 65536
-multiple_of = 128
-default = 512
+default = 1024
 [params.in0_d2]
 type = "int"
 min = 1
 max = 65536
-default = 28
+default = 14
 [params.in0_d3]
 type = "int"
 min = 1
 max = 65536
-default = 28
+default = 14
 [derived]
 blocks = "ceil(in0_d1 / 128)"
 rows = "in0_d0 * in0_d2 * in0_d3 * blocks"
@@ -68,4 +67,4 @@ valid = "CR15"
 [golden]
 tolerance = { e3 = "EXACT" }
 [cases.default]
-numel = 401408
+numel = 200704
