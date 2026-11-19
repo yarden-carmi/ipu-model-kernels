@@ -39,16 +39,20 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.linear.default(_v(ins[0], [1, 1214, 768], [932352, 768, 1], 0), module.weight, module.bias)
+    r0 = aten.linear.default(_v(ins[0], [1, 3136, 64], [200704, 64, 1], 0), module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 1214, 768])}
+    return {"out0": _out(op0, [1, 3136, 64])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Transpose natural linear weights into k-major output-lane rows."""
     n, k = int(params['n']), int(params['k'])
-    result = {'w': module.weight.detach().t().contiguous().reshape(k * (n // 128), 128)}
+    kp, np = ((k + 127) // 128) * 128, ((n + 127) // 128) * 128
+    w = module.weight.detach().new_zeros((kp, np))
+    w[:k, :n] = module.weight.detach().t()
+    result = {'w': w.reshape(-1, 128).contiguous()}
     if params['bias']:
-        result['b'] = module.bias.detach().contiguous()
+        b = module.bias.detach().new_zeros(np)
+        b[:n] = module.bias.detach()
+        result['b'] = b
     return result
