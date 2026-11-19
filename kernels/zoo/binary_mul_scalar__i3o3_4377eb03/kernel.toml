@@ -1,29 +1,35 @@
 [kernel]
 op = "binary_mul_scalar"
 formats = ["e2", "e4"]
+
 [params.broadcast]
 type = "str"
 choices = ["scalar"]
 default = "scalar"
+
 [params.const]
 type = "int"
 min = 1
 max = 1
 default = 1
+
 [params.inner]
 type = "int"
 min = 0
 max = 0
 default = 0
+
 [params.numel]
 type = "int"
 min = 1
 max = 2147483647
 default = 460992
+
 [params.op]
 type = "str"
 choices = ["mul"]
 default = "mul"
+
 [params.in0_d0]
 type = "int"
 min = 1
@@ -44,11 +50,14 @@ type = "int"
 min = 1
 max = 65536
 default = 196
+
 [inputs.in0]
 shape = ["in0_d0 * in0_d1 * in0_d2", "ceil(in0_d3 / 128) * 128"]
 range = [-2.0, 2.0]
+
 [outputs.out0]
 shape = ["in0_d0 * in0_d1 * in0_d2", "ceil(in0_d3 / 128) * 128"]
+
 [derived]
 chunks = "ceil(in0_d3 / 128)"
 groups = "in0_d0 * in0_d1 * in0_d2"
@@ -56,6 +65,7 @@ full = "ds(128)"
 tail = "ds((in0_d3 - 1) % 128 + 1)"
 scale = "124 * 256 + 65536"
 fp_scale = "1040187392"
+
 [abi]
 in0 = "CR2"
 out0 = "CR3"
@@ -67,6 +77,8 @@ full = "CR8"
 tail = "CR9"
 scale = "CR10"
 fp_scale = "CR11"
+
 [golden]
 tolerance = { e2 = "EXACT", e4 = "EXACT" }
+
 [cases.default]
