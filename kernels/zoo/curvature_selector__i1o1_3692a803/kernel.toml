@@ -6,13 +6,33 @@ type = "int"
 min = 1
 max = 256
 default = 256
+[params.in0_d0]
+type = "int"
+min = 1
+max = 256
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 256
+default = 256
+[params.out0_d0]
+type = "int"
+min = 1
+max = 256
+default = 256
+[params.out0_d1]
+type = "int"
+min = 1
+max = 30522
+default = 30522
 [params.vocab]
 type = "int"
 min = 1
 max = 30522
 default = 30522
 [inputs.in0]
-shape = [1, "ceil(tokens / 128) * 128"]
+shape = ["in0_d0", "ceil(in0_d1 / 128) * 128"]
 [inputs.thresholds]
 shape = [2, 4, "ceil(vocab / 128)", 128]
 [inputs.sixth]
@@ -20,7 +40,7 @@ shape = [128]
 [inputs.big]
 shape = [128]
 [outputs.out0]
-shape = ["tokens", "ceil(vocab / 128) * 128"]
+shape = ["out0_d0", "ceil(out0_d1 / 128) * 128"]
 [scratch.steps]
 shape = [3, 128]
 [derived]
