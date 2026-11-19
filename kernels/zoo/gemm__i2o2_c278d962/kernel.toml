@@ -21,6 +21,7 @@ type = "bool"
 default = true
 [derived]
 c31 = "31"
+c3 = "3"
 K = "ceil(k / 128)"
 NB = "ceil(n / 128)"
 c128 = "128"
@@ -28,10 +29,10 @@ c128 = "128"
 shape = [1, "m", "k"]
 range = [-2, 2]
 [inputs.w]
-shape = ["K * 128 * NB", 128]
+shape = ["3 * K * 128 * NB", 128]
 range = [-2, 2]
 [inputs.b]
-shape = ["NB * 128"]
+shape = ["3 * NB * 128"]
 range = [-2, 2]
 when = "bias"
 [outputs.out0]
@@ -48,6 +49,7 @@ qf_in0 = "CR9"
 qf_out0 = "CR10"
 c128 = "CR11"
 c31 = "CR12"
+c3 = "CR13"
 [golden]
 tolerance = { e2 = "NX8_STEP", e3 = "NX8_STEP" }
 [cases.default]
