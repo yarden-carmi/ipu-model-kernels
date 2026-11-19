@@ -39,27 +39,23 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.layer_norm.default(_v(ins[0], [1, 3136, 64], [200704, 64, 1], 0), [64], module.weight, module.bias)
+    r0 = aten.layer_norm.default(_v(ins[0], [1, 257, 384], [98688, 384, 1], 0), [384], module.weight, module.bias, 1e-06)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 3136, 64])}
+    return {"out0": _out(op0, [1, 257, 384])}
 # ---- end of the frozen reference ----
 
 def fold(module, **params):
-    result = {}
-    for name, t in (("gamma", module.weight), ("beta", module.bias)):
-        rem = torch.nn.functional.pad(t.flatten(), (0, 128 - t.numel())).reshape(1, 128)
-        pieces = []
+    def split(t):
+        rem = t.flatten().reshape(-1, 128)
+        parts = []
         for i in range(2):
-            step = 2.0 ** (torch.floor(torch.log2(rem.abs().amax(1, keepdim=True).clamp_min(1e-30))) - 4)
-            high = torch.round(rem / step) * step
-            pieces.append(high)
-            rem = rem - high
-        pieces.append(rem)
-        result[name] = torch.cat(pieces)
-    c = 1 / params['channels']
-    import math
-    step = 2.0 ** (math.floor(math.log2(c)) - 4)
-    hi = round(c / step) * step
-    result['crow'] = torch.tensor([hi, c - hi]).reshape(2, 1).expand(2, 128).clone()
-    result['epsilon'] = torch.full((128,), params['eps'])
-    return result
+            step = 2. ** (torch.floor(torch.log2(rem.abs().amax(1, keepdim=True).clamp_min(1e-30))) - 3)
+            hi = torch.round(rem / step) * step
+            parts.append(hi)
+            rem = rem - hi
+        parts.append(rem)
+        return torch.cat(parts).reshape(3, -1)
+    return {"gamma": split(module.weight),
+            "beta": split(module.bias),
+            "crow": split(torch.full((128,), 1 / params['channels'])),
+            "epsilon": torch.full((128,), params['eps'])}

@@ -1,60 +1,97 @@
 [kernel]
 op = "row_norm"
-formats = ["e2"]
+formats = ["e3"]
+
 [params.kind]
 type = "str"
 choices = ["layernorm"]
 default = "layernorm"
+
+
 [params.channels]
 type = "int"
-min = 1
-max = 128
-default = 64
+min = 128
+max = 1152
+multiple_of = 128
+default = 384
+
 [params.rows]
 type = "int"
 min = 1
-max = 2147483647
-default = 3136
+max = 4096
+default = 256
+
 [params.eps]
 type = "float"
 min = 0.0
 max = 1.0
-default = 1e-5
+default = 1e-12
+
 [derived]
 half = "1277440"
-active = "ds(channels)"
-M = "rows"
+K = "channels // 128"
+M = "rows * channels // 128"
+ds_full = "ds(128)"
+
 [inputs.in0]
-shape = ["rows", 128]
+shape = ["M", 128]
 range = [-2.0, 2.0]
+
 [inputs.gamma]
-shape = [3, 128]
+shape = [3, "channels"]
+range = [-2.0, 2.0]
+
 [inputs.beta]
-shape = [3, 128]
+shape = [3, "channels"]
+range = [-2.0, 2.0]
+
 [inputs.crow]
-shape = [2, 128]
+shape = [3, 128]
+
+
 [inputs.epsilon]
 shape = [128]
+
 [scratch.tmp]
-shape = [31, 128]
+shape = ["32 + 2 * K", 128]
+
 [outputs.out0]
-shape = ["rows", 128]
+shape = ["M", 128]
+
 [abi]
 in0 = "CR2"
 gamma = "CR3"
 beta = "CR4"
 out0 = "CR5"
-qf_out0 = "CR6"
 crow = "CR7"
+epsilon = "CR12"
 tmp = "CR8"
 qf_in0 = "CR9"
+qf_out0 = "CR14"
+K = "CR10"
 M = "CR11"
-epsilon = "CR12"
 half = "CR13"
-active = "CR14"
+
 [golden]
-tolerance = { e2 = "NX8_STEP" }
+tolerance = { e3 = "NX8_STEP" }
+
 [cases.default]
-channels = 64
-rows = 3136
-eps = 1e-5
+kind = "layernorm"
+channels = 384
+rows = 8
+
+[cases.c256]
+channels = 256
+rows = 49
+
+[cases.c512]
+channels = 512
+rows = 5
+
+[cases.c768]
+channels = 768
+rows = 3
+
+[cases.c1152]
+channels = 1152
+rows = 2
