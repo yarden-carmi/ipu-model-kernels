@@ -49,14 +49,13 @@ shape = ["in0_d0 * in0_d1 * in0_d2", "ceil(in0_d3 / 128) * 128"]
 range = [-2.0, 2.0]
 [outputs.out0]
 shape = ["in0_d0 * in0_d1 * in0_d2", "ceil(in0_d3 / 128) * 128"]
-[inputs.scale]
-shape = [1]
-range = [0.125, 0.125]
 [derived]
 chunks = "ceil(in0_d3 / 128)"
 groups = "in0_d0 * in0_d1 * in0_d2"
 full = "ds(128)"
 tail = "ds((in0_d3 - 1) % 128 + 1)"
+scale = "124 * 256 + 65536"
+fp_scale = "1040187392"
 [abi]
 in0 = "CR2"
 out0 = "CR3"
@@ -67,6 +66,7 @@ chunks = "CR7"
 full = "CR8"
 tail = "CR9"
 scale = "CR10"
+fp_scale = "CR11"
 [golden]
 tolerance = { e2 = "EXACT", e4 = "EXACT" }
 [cases.default]

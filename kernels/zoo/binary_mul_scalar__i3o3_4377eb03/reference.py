@@ -45,4 +45,4 @@ def reference(module, *ins, _round=None, **params):
 # ---- end of the frozen reference ----
 
 def fold(module, **params):
-    return {"scale": torch.tensor([0.125])}
+    return {}
