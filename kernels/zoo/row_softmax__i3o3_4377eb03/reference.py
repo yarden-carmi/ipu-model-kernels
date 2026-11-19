@@ -39,10 +39,10 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.softmax.int(_v(ins[0], [1, 12, 196, 196], [460992, 38416, 196, 1], 0), -1, torch.float32)
+    r0 = aten.softmax.int(_v(ins[0], [1, 6, 257, 257], [396294, 66049, 257, 1], 0), -1)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 12, 196, 196])}
+    return {"out0": _out(op0, [1, 6, 257, 257])}
 # ---- end of the frozen reference ----
 
 def fold(module, **params):
-    return {"log2e": torch.tensor([1.4375, 0.005126953125, 1.4426950408889634 - 1.4375 - 0.005126953125]).reshape(3, 1).expand(3, 128).contiguous(), "floor": torch.full((1, 128), 2.0**-120)}
+    return {}

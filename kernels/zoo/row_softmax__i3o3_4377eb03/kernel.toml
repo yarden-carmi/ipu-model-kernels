@@ -1,6 +1,6 @@
 [kernel]
 op = "row_softmax"
-formats = ["e2", "e3"]
+formats = ["e1", "e2", "e3"]
 [params.n]
 type = "int"
 min = 1
@@ -20,21 +20,14 @@ part = "ds(min(128, n - (K - 1) * 128))"
 [inputs.in0]
 shape = ["rows", "K", 128]
 range = [-2, 2]
-[inputs.log2e]
-shape = [3, 128]
-[inputs.floor]
-shape = [1, 128]
 [outputs.out0]
 shape = ["rows", "K", 128]
 [scratch.exps]
 shape = ["K", 128]
 [scratch.tmp]
-shape = [11, 128]
-fill = 1
+shape = [19, 128]
 [abi]
 in0 = "CR2"
-log2e = "CR4"
-floor = "CR11"
 out0 = "CR3"
 tmp = "CR5"
 qf_in0 = "CR6"
@@ -57,7 +50,7 @@ n = 64
 rows = 4
 [cases.task_call0]
 n = 257
-rows = 4112
+rows = 1542
 [cases.task_call1]
 n = 64
 rows = 768
