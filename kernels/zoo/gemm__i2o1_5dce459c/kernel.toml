@@ -5,59 +5,50 @@ formats = ["e2", "e3"]
 type = "int"
 min = 1
 max = 65536
-default = 196
+default = 2
 [params.k]
 type = "int"
 min = 1
 max = 4096
-default = 768
+default = 128
 [params.n]
 type = "int"
 min = 1
 max = 4096
-default = 768
+default = 128
 [params.bias]
 type = "bool"
 default = true
 [derived]
-MB = "ceil(m / 128)"
 K = "ceil(k / 128)"
-tail_ds = "ds((m - 1) % 128 + 1)"
 c128 = "128"
-cshift = "16777216"
 [inputs.in0]
-shape = [1, "m", "K * 128"]
+shape = [1, "m", "k"]
 range = [-2, 2]
 [inputs.w]
-shape = ["n", "K * 128"]
+shape = ["n * K * 3", 128]
 range = [-2, 2]
 [inputs.b]
-shape = ["n", 128]
+shape = ["3 * n", 128]
 range = [-2, 2]
 when = "bias"
-[scratch.t]
-shape = ["k", "MB * 128"]
 [outputs.out0]
-shape = [1, "n", "MB * 128"]
+shape = ["n * ceil(m / 128)", 128]
 [abi]
 in0 = "CR2"
 w = "CR3"
 out0 = "CR4"
 b = "CR5"
-k = "CR6"
-n = "CR7"
-MB = "CR8"
-K = "CR9"
-qf_in0 = "CR10"
-qf_out0 = "CR11"
-t = "CR12"
-tail_ds = "CR13"
-m = "CR14"
-c128 = "LR15"
-cshift = "LR3"
+m = "CR6"
+K = "CR7"
+n = "CR8"
+qf_in0 = "CR9"
+qf_out0 = "CR10"
+c128 = "CR11"
 [golden]
 tolerance = { e2 = "NX8_STEP", e3 = "NX8_STEP" }
 [cases.default]
-m = 3
-k = 17
-n = 5
+m = 2
+k = 129
+n = 3
+bias = true
