@@ -12,8 +12,20 @@ min = 128
 max = 32128
 multiple_of = 128
 default = 32128
+[params.in0_d0]
+type = "int"
+default = 1
+[params.in0_d1]
+type = "int"
+default = 256
+[params.out0_d0]
+type = "int"
+default = 256
+[params.out0_d1]
+type = "int"
+default = 32128
 [inputs.in0]
-shape = [1, "tokens"]
+shape = ["in0_d0", "in0_d1"]
 [inputs.thresholds]
 shape = [2, 4, "vocab // 128", 128]
 [inputs.sixth]
@@ -21,7 +33,7 @@ shape = [128]
 [inputs.big]
 shape = [128]
 [outputs.out0]
-shape = ["tokens", "vocab"]
+shape = ["out0_d0", "out0_d1"]
 [scratch.steps]
 shape = [3, 128]
 [derived]
