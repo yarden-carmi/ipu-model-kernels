@@ -1,0 +1,46 @@
+[kernel]
+op = "base107_l1_indicator_new"
+formats = ["e1"]
+[params.tokens]
+type = "int"
+min = 1
+default = 256
+[params.vocab]
+type = "int"
+min = 1
+default = 30522
+[inputs.in0]
+shape = ["ceil(tokens / 128)", 128]
+[inputs.idx]
+shape = ["6*chunks+1", 128]
+[inputs.gain]
+shape = [2, 128]
+[outputs.out0]
+shape = ["tokens", "chunks", 128]
+[scratch.tmp]
+shape = [2, 128]
+[derived]
+width = "128"
+chunks = "ceil(vocab / 128)"
+unitrow = "6*chunks"
+full = "ds(128)"
+tail = "ds((vocab - 1) % 128 + 1)"
+[abi]
+in0 = "CR2"
+idx = "CR3"
+out0 = "CR4"
+tmp = "CR5"
+qf_in0 = "CR6"
+qf_idx = "CR7"
+qf_tmp = "CR8"
+qf_out0 = "CR9"
+chunks = "CR10"
+tokens = "CR11"
+unitrow = "CR12"
+gain = "CR13"
+qf_gain = "LR15"
+full = "CR14"
+tail = "CR15"
+[cases.default]
+[golden]
+tolerance = { e1 = "EXACT" }
