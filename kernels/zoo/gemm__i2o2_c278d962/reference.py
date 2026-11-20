@@ -39,24 +39,15 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.view.default(_v(ins[0], [1, 256, 768], [196608, 768, 1], 0), [-1, 768])
-    r1 = aten.addmm.default(module.bias, _l(r0, 0, [256, 768], [768, 1], 0), module.weight)
-    r2 = aten.view.default(_l(r1, 0, [256, 2304], [2304, 1], 0), [1, 256, 2304])
-    op0 = _pick(r2, 0)  # step 0
-    return {"out0": _out(op0, [1, 256, 2304])}
+    r0 = aten.linear.default(_v(ins[0], [1, 256, 4096], [1048576, 4096, 1], 0), module.weight, module.bias)
+    op0 = _pick(r0, 0)  # step 0
+    return {"out0": _out(op0, [1, 256, 1024])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
     n, k = int(params['n']), int(params['k'])
-    kp, np = ((k + 127) // 128) * 128, ((n + 127) // 128) * 128
-    w = module.weight.detach().new_zeros((kp, np))
-    w[:k, :n] = module.weight.detach()
-    def split(t):
-        return t.reshape(-1, 128).contiguous()
-    result = {'w': split(w)}
+    result = {'w': module.weight.detach().t().contiguous().reshape(k * (n // 128), 128)}
     if params['bias']:
-        b = w.new_zeros(np)
-        b[:n] = module.bias.detach()
-        result['b'] = split(b)
+        result['b'] = module.bias.detach().contiguous()
     return result
