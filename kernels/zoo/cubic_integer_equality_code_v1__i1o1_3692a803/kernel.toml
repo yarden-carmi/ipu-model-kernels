@@ -33,29 +33,29 @@ range = [0, 100]
 shape = ["ceil(vocab / 128)",128]
 [inputs.lo]
 shape = ["ceil(vocab / 128)",128]
-[inputs.ones]
-shape = [1,128]
-range = [1,1]
+[inputs.bias]
+shape = ["ceil(vocab / 128)+2",128]
 [outputs.out0]
 shape = ["out0_d0", "ceil(out0_d1 / 128)*128"]
 [scratch.tmp]
-shape = [1,128]
+shape = [2,128]
 [derived]
 chunks = "ceil(out0_d1 / 128)"
 tail = "ds((out0_d1-1)%128+1)"
 count = "out0_d0"
-input_rows = "in0_d0*ceil(in0_d1/128)"
+gain = "65536 + 151*256"
+fp_gain = "1266679808"
 [abi]
 in0 = "CR2"
 out0 = "CR3"
 hi = "CR4"
 lo = "CR5"
-ones = "CR6"
+gain = "CR6"
 tmp = "CR7"
 qf_in0 = "CR8"
 qf_hi = "CR9"
-qf_lo = "CR10"
-qf_ones = "CR11"
+bias = "CR10"
+fp_gain = "CR11"
 qf_tmp = "CR12"
 qf_out0 = "CR13"
 tail = "CR14"

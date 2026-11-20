@@ -75,6 +75,15 @@ def reference(module, *ins, _round=None, **params):
 
 def fold(module, **params):
     n = params['vocab']
-    b = torch.arange(((n+127)//128)*128).reshape(-1,128)
-    return {'hi': (b//128*128).float(), 'lo': (b%128).float(),
-            'ones': torch.ones(1,128)}
+    b = torch.arange(((n + 127) // 128) * 128).reshape(-1, 128)
+    hi = (b // 256 * 256).float() * 16777216
+    lo = (b % 256).float() * 16777216
+    # The zero ID includes negative fractions, because int64 truncates toward zero.
+    hi[0] = -16777216
+    lo[0] += 16777216
+    lo[0, 0] = 0
+    delta = torch.full_like(b, 16777216, dtype=torch.float32)
+    delta[0, 0] *= 2
+    return {'hi': hi, 'lo': lo,
+            'bias': torch.cat([torch.full((1,128), 6.),
+                               torch.full((1,128), 1/6), delta])}
