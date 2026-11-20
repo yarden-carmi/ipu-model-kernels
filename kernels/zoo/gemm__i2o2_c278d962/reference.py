@@ -39,33 +39,24 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.linear.default(_v(ins[0], [1, 257, 1536], [394752, 1536, 1], 0), module.op0_weight, module.op0_bias)
-    op0 = _pick(r0, 0)  # step 0
-    r0 = aten.mul.Tensor(_v(op0, [1, 257, 384], [98688, 384, 1], 0), module.op1_lambda1)
-    op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 257, 384])}
+    r0 = aten.view.default(_v(ins[0], [1, 256, 768], [196608, 768, 1], 0), [-1, 768])
+    r1 = aten.addmm.default(module.bias, _l(r0, 0, [256, 768], [768, 1], 0), module.weight)
+    r2 = aten.view.default(_l(r1, 0, [256, 2304], [2304, 1], 0), [1, 256, 2304])
+    op0 = _pick(r2, 0)  # step 0
+    return {"out0": _out(op0, [1, 256, 2304])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
     n, k = int(params['n']), int(params['k'])
     kp, np = ((k + 127) // 128) * 128, ((n + 127) // 128) * 128
-    scale = module.op1_lambda1.detach().reshape(n)
-    w = module.op0_weight.detach().new_zeros((kp, np))
-    w[:k, :n] = (module.op0_weight.detach() * scale[:, None]).t()
+    w = module.weight.detach().new_zeros((kp, np))
+    w[:k, :n] = module.weight.detach()
     def split(t):
-        t = t.reshape(-1, 128)
-        pieces = []
-        for _ in range(3):
-            top = t.abs().amax(dim=1, keepdim=True).clamp_min(1e-30)
-            step = torch.pow(2.0, torch.floor(torch.log2(top)) - 4)
-            hi = torch.round(t / step) * step
-            pieces.append(hi)
-            t = t - hi
-        return torch.cat(pieces, dim=0).contiguous()
+        return t.reshape(-1, 128).contiguous()
     result = {'w': split(w)}
     if params['bias']:
         b = w.new_zeros(np)
-        b[:n] = module.op0_bias.detach() * scale
+        b[:n] = module.bias.detach()
         result['b'] = split(b)
     return result
