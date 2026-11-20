@@ -1,0 +1,66 @@
+[kernel]
+op = "cubic_integer_equality_code_v1"
+formats = ["e2"]
+[params.tokens]
+type = "int"
+min = 1
+default = 256
+[params.vocab]
+type = "int"
+min = 1
+max = 32768
+default = 30522
+[params.in0_d0]
+type = "int"
+min = 1
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+default = 256
+[params.out0_d0]
+type = "int"
+min = 1
+default = 256
+[params.out0_d1]
+type = "int"
+min = 1
+default = 30522
+[inputs.in0]
+shape = ["in0_d0", "ceil(in0_d1 / 128)*128"]
+range = [0, 100]
+[inputs.hi]
+shape = ["ceil(vocab / 128)",128]
+[inputs.lo]
+shape = ["ceil(vocab / 128)",128]
+[inputs.ones]
+shape = [1,128]
+range = [1,1]
+[outputs.out0]
+shape = ["out0_d0", "ceil(out0_d1 / 128)*128"]
+[scratch.tmp]
+shape = [1,128]
+[derived]
+chunks = "ceil(out0_d1 / 128)"
+tail = "ds((out0_d1-1)%128+1)"
+count = "out0_d0"
+input_rows = "in0_d0*ceil(in0_d1/128)"
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+hi = "CR4"
+lo = "CR5"
+ones = "CR6"
+tmp = "CR7"
+qf_in0 = "CR8"
+qf_hi = "CR9"
+qf_lo = "CR10"
+qf_ones = "CR11"
+qf_tmp = "CR12"
+qf_out0 = "CR13"
+tail = "CR14"
+chunks = "LR13"
+count = "LR14"
+[cases.default]
+[golden]
+tolerance = { e2 = "EXACT" }
