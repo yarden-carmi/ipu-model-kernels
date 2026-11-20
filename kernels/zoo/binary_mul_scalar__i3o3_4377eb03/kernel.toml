@@ -1,35 +1,29 @@
 [kernel]
 op = "binary_mul_scalar"
 formats = ["e2", "e4"]
-
 [params.broadcast]
 type = "str"
 choices = ["scalar"]
 default = "scalar"
-
 [params.const]
 type = "int"
 min = 1
 max = 1
 default = 1
-
 [params.inner]
 type = "int"
 min = 0
 max = 0
 default = 0
-
 [params.numel]
 type = "int"
 min = 1
 max = 2147483647
-default = 460992
-
+default = 786432
 [params.op]
 type = "str"
 choices = ["mul"]
 default = "mul"
-
 [params.in0_d0]
 type = "int"
 min = 1
@@ -44,28 +38,26 @@ default = 12
 type = "int"
 min = 1
 max = 65536
-default = 196
+default = 256
 [params.in0_d3]
 type = "int"
 min = 1
 max = 65536
-default = 196
-
+default = 256
 [inputs.in0]
-shape = ["in0_d0 * in0_d1 * in0_d2", "ceil(in0_d3 / 128) * 128"]
+shape = ["groups", "chunks * 128"]
 range = [-2.0, 2.0]
-
 [outputs.out0]
-shape = ["in0_d0 * in0_d1 * in0_d2", "ceil(in0_d3 / 128) * 128"]
-
+shape = ["groups", "chunks * 128"]
 [derived]
-chunks = "ceil(in0_d3 / 128)"
 groups = "in0_d0 * in0_d1 * in0_d2"
+chunks = "ceil(in0_d3 / 128)"
 full = "ds(128)"
 tail = "ds((in0_d3 - 1) % 128 + 1)"
-scale = "124 * 256 + 65536"
-fp_scale = "1040187392"
-
+s0 = "65536 + 124 * 256 + 53"
+s1 = "65536 + 111 * 256 + 30"
+s2 = "65536 + 102 * 256 + 77"
+s3 = "1043662067"
 [abi]
 in0 = "CR2"
 out0 = "CR3"
@@ -75,10 +67,10 @@ groups = "CR6"
 chunks = "CR7"
 full = "CR8"
 tail = "CR9"
-scale = "CR10"
-fp_scale = "CR11"
-
+s0 = "CR10"
+s1 = "CR11"
+s2 = "CR12"
+s3 = "CR13"
 [golden]
 tolerance = { e2 = "EXACT", e4 = "EXACT" }
-
 [cases.default]

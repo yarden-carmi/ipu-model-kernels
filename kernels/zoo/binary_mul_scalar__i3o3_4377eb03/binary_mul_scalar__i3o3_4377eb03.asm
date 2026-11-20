@@ -5,7 +5,10 @@ group:
     SET LR3 CR1 ;;
 chunk:
     LD.MULT R0 LR1 {{ cr.in0 }} ;;
-    MULT.VE LR0 {{ cr.fp_scale if format == 'fp32' else cr.scale }} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
+    MULT.VE LR0 {{ cr.s3 if format == 'fp32' else cr.s0 }} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
+{% for s in ([] if format == 'fp32' else [cr.s1, cr.s2]) %}
+    MULT.VE LR0 {{ s }} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ;;
+{% endfor %}
     BEQ LR3 {{ cr.chunks }} tail ;;
     ACTIVATE.QUANTIZE identity {{ cr.full }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;;
     INC LR1 1 ;;
