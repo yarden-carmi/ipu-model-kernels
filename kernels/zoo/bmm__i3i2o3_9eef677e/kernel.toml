@@ -1,45 +1,38 @@
 [kernel]
 op = "bmm"
-formats = ["e2"]
-[params.b]
-type = "int"
-min = 1
-max = 256
-default = 12
-[params.k]
-type = "int"
-min = 1
-max = 4096
-default = 196
-[params.m]
-type = "int"
-min = 1
-max = 4096
-default = 196
-[params.n]
-type = "int"
-min = 64
-max = 128
-multiple_of = 64
-default = 64
-[params.in1_d2]
-type = "int"
-min = 1
-max = 32768
-default = 768
+formats = ["e2", "e3", "e4"]
+[params]
+b = {type="int", min=1, max=65536, default=12}
+k = {type="int", min=1, max=65536, default=256}
+m = {type="int", min=1, max=65536, default=256}
+n = {type="int", min=1, max=65536, default=32}
+in0_d0 = {type="int", min=1, max=65536, default=1}
+in0_d1 = {type="int", min=1, max=65536, default=12}
+in0_d2 = {type="int", min=1, max=65536, default=256}
+in0_d3 = {type="int", min=1, max=65536, default=256}
+in1_d0 = {type="int", min=1, max=65536, default=1}
+in1_d1 = {type="int", min=1, max=65536, default=256}
+in1_d2 = {type="int", min=1, max=65536, default=384}
+out0_d0 = {type="int", min=1, max=65536, default=1}
+out0_d1 = {type="int", min=1, max=65536, default=12}
+out0_d2 = {type="int", min=1, max=65536, default=256}
+out0_d3 = {type="int", min=1, max=65536, default=32}
 [inputs.in0]
-shape = [1, "b", "m", "kc * 128"]
+shape = ["in0_d0", "in0_d1", "in0_d2", "ceil(in0_d3/128)*128"]
 range = [-2, 2]
 [inputs.in1]
-shape = [1, "k", "brows * 128"]
+shape = ["in1_d0", "in1_d1", "ceil(in1_d2/128)*128"]
 range = [-2, 2]
 [outputs.out0]
-shape = [1, "b", "m", 128]
+shape = ["out0_d0", "out0_d1", "out0_d2", "ceil(out0_d3/128)*128"]
+[scratch.trans]
+shape = ["k", "ceil(m/128)*128"]
 [derived]
-kc = "ceil(k / 128)"
-brows = "ceil(in1_d2 / 128)"
-dsout = "ds(n)"
-dsfull = "ds(128)"
+dsfull = "ds(128) + ds((n-1)%128+1)*65536"
+kc = "ceil(in0_d3/128)"
+mc = "ceil(n/128)"
+brows = "ceil(in1_d2/128)"
+astride = "m*kc"
 [abi]
 in0 = "CR2"
 in1 = "CR3"
@@ -49,16 +42,15 @@ k = "CR6"
 m = "CR7"
 n = "CR8"
 brows = "CR9"
-kc = "CR10"
+dsfull = "CR10"
 qf_in0 = "CR11"
 qf_in1 = "CR12"
 qf_out0 = "CR13"
-dsout = "CR14"
-dsfull = "CR15"
+mc = "CR14"
+trans = "CR15"
+kc = "LR10"
+astride = "LR11"
 [golden]
-tolerance = { e2 = "EXACT" }
+tolerance = {e2="EXACT", e3="EXACT", e4="EXACT"}
 [cases.default]
 b = 12
-k = 196
-m = 196
-n = 64
