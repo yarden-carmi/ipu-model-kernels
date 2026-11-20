@@ -39,17 +39,13 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.linear.default(_v(ins[0], [1, 257, 1024], [263168, 1024, 1], 0), module.weight, module.bias)
+    r0 = aten.linear.default(_v(ins[0], [1, 256, 1024], [262144, 1024, 1], 0), module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.mul.Tensor(_v(op0, [1, 257, 4096], [1052672, 4096, 1], 0), 1.702)
-    r1 = aten.sigmoid.default(_l(r0, 0, [1, 257, 4096], [1052672, 4096, 1], 0))
-    r2 = aten.mul.Tensor(_v(op0, [1, 257, 4096], [1052672, 4096, 1], 0), _l(r1, 0, [1, 257, 4096], [1052672, 4096, 1], 0))
-    op1 = _pick(r2, 0)  # step 0
-    return {"out0": _out(op1, [1, 257, 4096])}
+    r0 = aten.gelu.default(_v(op0, [1, 256, 4096], [1048576, 4096, 1], 0), approximate='tanh')
+    op1 = _pick(r0, 0)  # step 0
+    return {"out0": _out(op1, [1, 256, 4096])}
 # ---- end of the frozen reference ----
 
-
-import torch
 
 def fold(module, **params):
     n, k = int(params['n']), int(params['k'])
