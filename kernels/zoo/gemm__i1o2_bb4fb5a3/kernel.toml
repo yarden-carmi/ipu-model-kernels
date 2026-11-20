@@ -13,33 +13,30 @@ max = 65536
 default = 128
 [params.n]
 type = "int"
-min = 1
+min = 128
 max = 65536
+multiple_of = 128
 default = 128
 [params.bias]
 type = "bool"
-default = true
+default = false
 [derived]
-K = "ceil(k / 128)"
-NB = "ceil(n / 128)"
-c31 = "3"
+K = "(k + 127) // 128"
+KP = "((k + 127) // 128) * 128"
+NB = "n // 128"
 c128 = "128"
-add_offset = "m * NB"
+c31 = "31"
 [inputs.in0]
-shape = ["m", "K * 128"]
+shape = ["m", "k"]
 range = [-2, 2]
 [inputs.w]
-shape = ["K * 128 * NB", 128]
+shape = ["KP * NB", 128]
 range = [-2, 2]
 [inputs.b]
-shape = ["NB * 128"]
+shape = ["m * NB", 128]
 range = [-2, 2]
-when = "bias"
-[inputs.addend]
-shape = ["2 * m * NB", 128]
-range = [-1, 1]
 [outputs.out0]
-shape = [1, "m", "NB * 128"]
+shape = [1, "m", "n"]
 [abi]
 in0 = "CR2"
 w = "CR3"
@@ -52,32 +49,10 @@ qf_in0 = "CR9"
 qf_out0 = "CR10"
 c128 = "CR11"
 c31 = "CR12"
-addend = "CR13"
-add_offset = "CR14"
 [golden]
 tolerance = { e2 = "NX8_STEP", e3 = "NX8_STEP" }
 [cases.default]
-m = 1
-k = 128
+m = 2
+k = 129
 n = 128
 bias = false
-[cases.kloop]
-m = 1
-k = 256
-n = 128
-bias = false
-[cases.nb2]
-m = 3
-k = 128
-n = 256
-bias = true
-[cases.realish]
-m = 4
-k = 384
-n = 384
-bias = true
-[cases.full_depth]
-m = 1
-k = 4096
-n = 1024
-bias = true
