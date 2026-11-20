@@ -1,0 +1,53 @@
+[kernel]
+op = "scaled229_selector"
+formats = ["e2"]
+[params.tokens]
+type = "int"
+min = 1
+default = 256
+[params.vocab]
+type = "int"
+min = 1
+default = 50265
+[inputs.in0]
+shape = ["tokens", 128]
+range = [0, 50264]
+[inputs.lo]
+shape = [1, 128]
+range = [0, 127]
+[inputs.hi]
+shape = ["2 * ceil(vocab / 128)", 128]
+range = [0, 50176]
+[inputs.ones]
+shape = [1,128]
+range = [1,1]
+[outputs.out0]
+shape = ["tokens", "vocab"]
+[scratch.pos]
+shape = [1,128]
+[scratch.neg]
+shape = [1,128]
+[derived]
+chunks = "ceil(vocab / 128)"
+lastds = "ds((vocab - 1) % 128 + 1)"
+full = "ds(128)"
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+lo = "CR4"
+hi = "CR5"
+ones = "CR6"
+pos = "CR7"
+neg = "CR8"
+qf_in0 = "CR9"
+qf_lo = "CR10"
+qf_hi = "CR11"
+qf_out0 = "CR12"
+qf_ones = "CR13"
+full = "CR15"
+lastds = "CR14"
+tokens = "LR14"
+chunks = "LR15"
+[cases.default]
+tokens = 256
+vocab = 50265
