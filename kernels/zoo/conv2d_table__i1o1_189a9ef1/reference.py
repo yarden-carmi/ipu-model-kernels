@@ -53,32 +53,17 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 3, 256, 256], [196608, 65536, 256, 1], 0), module.op0_weight, None, [2, 2], [1, 1])
+    r0 = aten.conv2d.default(_v(ins[0], [1, 96, 28, 28], [75264, 784, 28, 1], 0), module.op0_weight, None, [2, 2], [2, 2], [1, 1], 96)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 16, 128, 128], [262144, 16384, 128, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 96, 14, 14], [18816, 196, 14, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.silu_.default(_v(op1, [1, 16, 128, 128], [262144, 16384, 128, 1], 0))
+    r0 = aten.hardswish_.default(_v(op1, [1, 96, 14, 14], [18816, 196, 14, 1], 0))
     op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 16, 128, 128])}
+    return {"out0": _out(op2, [1, 96, 14, 14])}
 # ---- end of the frozen reference ----
 
 import numpy as np
 import torch
-
-
-def _e1_rows(rows):
-    """Each row of 128 rounded to the signed e1m6 grid at its own row scale, as the host writes a constant row."""
-    out = np.zeros_like(rows)
-    for r in range(rows.shape[0]):
-        v32 = rows[r].astype(np.float32)
-        top = float(np.max(np.abs(v32)))
-        if top == 0.0 or not np.isfinite(top):
-            continue
-        e = int(np.frexp(np.float32(top))[1]) - 1
-        step = 2.0 ** (e - 6)
-        mag = np.minimum(np.floor(np.abs(v32.astype(np.float64)) / step + 0.5) * step, (2.0 - 2.0 ** -6) * 2.0 ** e)
-        out[r] = np.sign(v32) * mag
-    return out
 
 
 def _rows(rows, bits):
@@ -98,24 +83,21 @@ def _rows(rows, bits):
 
 
 def fold(module, **params):
-    """groups == 1 (the stem): two frames of 4 rows, the BN-folded weights (27 vectors of cout lanes, tap-major,
-    channel-minor) and the folded bias as vector 27, rounded to e1 (hi), then the remainder rounded to e1 (lo).
-    Otherwise (depthwise): 20 rows of 128 lanes (channel c in lane c), tap-major (ky * 3 + kx), each a hi row then a
-    lo row of the BN-folded weights, then the folded bias as a hi row and a lo row; lo = what hi left over."""
-    w = module.op0_weight.to(torch.float64)
-    co, ci, kh, kw = w.shape
-    scale = module.op1_weight.to(torch.float64) / torch.sqrt(module.op1_running_var.to(torch.float64) + 1e-5)
-    b = module.op1_bias.to(torch.float64) - module.op1_running_mean.to(torch.float64) * scale
-    wf = w * scale.reshape(-1, 1, 1, 1)
-    if int(params.get('groups', 1)) == 1:
-        vecs = wf.permute(2, 3, 1, 0).reshape(-1, co)
-        vecs = torch.cat([vecs, b.reshape(1, co)], 0).numpy()
-        frame = np.zeros(4 * 128, dtype=np.float64)
-        frame[:vecs.size] = vecs.reshape(-1)
-        rows = frame.reshape(4, 128)
-        hi = _e1_rows(rows)
-        lo = _e1_rows(rows - hi)
-        return {'weights': np.concatenate([hi, lo], 0)}
+    """Depthwise: 2 * (kh * kw + 1) rows of 128 lanes (channel c in lane c), tap-major (ky * kw + kx), each a hi row then a
+    lo row of the folded weights, then the folded bias as a hi row and a lo row; lo = what hi left over. Accepts the
+    conv + batch norm form (op0_weight, op0_bias optional, op1_*) and the plain form (weight, bias)."""
+    if hasattr(module, "op1_weight"):
+        w = module.op0_weight.to(torch.float64)
+        scale = module.op1_weight.to(torch.float64) / torch.sqrt(module.op1_running_var.to(torch.float64) + 1e-5)
+        b0 = getattr(module, "op0_bias", None)
+        b0 = b0.to(torch.float64) if b0 is not None else torch.zeros(w.shape[0], dtype=torch.float64)
+        wf = w * scale.reshape(-1, 1, 1, 1)
+        b = module.op1_bias.to(torch.float64) + (b0 - module.op1_running_mean.to(torch.float64)) * scale
+    else:
+        wf = module.weight.to(torch.float64)
+        b = getattr(module, "bias", None)
+        b = b.to(torch.float64) if b is not None else torch.zeros(wf.shape[0], dtype=torch.float64)
+    co, _, kh, kw = wf.shape
     wd = wf.reshape(co, kh * kw).t().numpy()
     vecs = np.zeros((kh * kw + 1, 128), dtype=np.float64)
     vecs[:kh * kw, :co] = wd

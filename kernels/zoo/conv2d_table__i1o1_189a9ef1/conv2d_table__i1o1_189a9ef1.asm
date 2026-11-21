@@ -44,56 +44,11 @@ xloop:
  BLT.S LR12 LR15 yloop ;;
 {{ zloop('zbot', padding * wp - padding) }}
 {% endmacro %}
-{# stem: one phase = the nvec weight vectors and the bias vector of one frame, one word each #}
-{% macro phase(first, last) %}
-{% for j in range(nvec + 1) %}
-{% set t = j // cin %}
-{% set c = j % cin %}
-{% set bias = (j == nvec) %}
- MULT.RC.VE {{ 'LR0' if j == 0 else 'LR3' }} {{ 'CR1' if bias else 'LR' ~ c }} 0 LR0 {{ cr.dsc }}.L {{ cr.qf_weights }}.L ; {{ 'ACC.ADD.FIRST' if (first and j == 0) else 'ACC.ADD' }}
-{%- if j == 0 %} ; SET LR3 CR0{% else %} ; INC LR3 {{ cout }}{% endif %}
-{%- if not bias and c == 0 and t < taps - 1 %} ; INC LR4 {{ 1 if (t + 1) % kw != 0 else wp - kw }}{% endif %}
-{%- if not bias and c == cin - 1 and t < taps - 1 %}{% if (t + 1) % kw == 0 %} ; INC LR4 1{% endif %} ; LD.MULT R0 LR4 {{ cr.pad }}{% endif %}
-{%- if j == nvec - 1 and not last %} ; LD.MULT R0 LR4 {{ cr.pad }} ; SET LR4 LR12{% endif %}
-{%- if j in (4, 10, 16, 24) %} ; INC.MODP2 LR13 LR1 3 ; INC.MODP2 LR14 LR9 9 ; LD.MULT.CYCLIC LR13 {{ cr.weights }} LR14{% endif %}
-{%- if last and j == 1 %} ; INC LR6 1{% endif %}
-{%- if last and j == 2 %} ; INC LR5 {{ stride }}{% endif %}
-{%- if last and bias %} ; ACTIVATE.QUANTIZE generic {{ cr.dsc }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR8 ; SET LR4 LR5 ; BLT.S LR6 LR10 pix{% endif %} ;;
-{% endfor %}
-{% endmacro %}
  SET LR13 CR0 ;;
 {% for i in range(5) %}
  LD.LUT {{ i }} {{ cr.lut }} LR13 ;;
  INC LR13 1 ;;
 {% endfor %}
-{% if groups == 1 %}
- SET LR0 CR0 ; SET LR1 CR1 ; SET LR2 CR1 ;;
- INC LR2 1 ;;
- SET LR13 CR0 ; SET LR14 CR0 ;;
-{% for i in range(4) %}
- LD.MULT.CYCLIC LR13 {{ cr.weights }} LR14 ;;
- INC LR13 1 ; INC LR14 128 ;;
-{% endfor %}
-{{ buildpad() }}
- SET LR3 CR0 ; SET LR4 CR0 ; SET LR5 CR0 ;;
- SET LR6 CR0 ; SET LR7 CR0 ; SET LR8 CR0 ;;
- SET LR9 CR0 ; SET LR10 CR0 ; SET LR11 CR0 ;;
- DEC LR8 1 ; INC LR9 128 ; SET LR13 CR0 ;;
- INC LR13 2 ; SET LR14 LR9 ;;
- INC LR14 128 ;;
-{{ step('LR10', wo) }}
-{{ step('LR11', ho) }}
-oy:
- SET LR6 CR0 ;;
-pix:
- LD.MULT R0 LR4 {{ cr.pad }} ; SET LR12 LR5 ; INC LR8 1 ;;
-{{ phase(True, False) }}
-{{ phase(False, True) }}
- INC LR7 1 ;;
-{{ step('LR5', stride * wp - wo * stride) }}
- SET LR4 LR5 ; BLT.S LR7 LR11 oy ;;
- HALT ;;
-{% else %}
 {# depthwise: weight rows 0 and 1 into the two R_CYCLIC slots (LR0 = 0, LR1 = 128) #}
  SET LR0 CR0 ; SET LR13 CR0 ; SET LR1 CR0 ;;
  LD.MULT.CYCLIC LR13 {{ cr.weights }} LR0 ; INC LR1 128 ; INC LR13 1 ;;
@@ -107,10 +62,10 @@ pix:
 {{ step('LR11', ho) }}
 pix:
  LD.MULT R0 LR4 {{ cr.pad }} ; SET LR4 LR5 ;;
-{% for t in range(9) %}
+{% for t in range(taps) %}
  MULT.RC.VV LR0 R0 0 LR0 {{ cr.dsc }}.L {{ cr.qf_weights }}.L ; {{ 'ACC.ADD.FIRST' if t == 0 else 'ACC.ADD' }} ; LD.MULT.CYCLIC LR13 {{ cr.weights }} LR0 ; INC LR13 1{% if t == 0 %} ; INC LR6 1{% endif %} ;;
- MULT.RC.VV LR1 R0 0 LR0 {{ cr.dsc }}.L {{ cr.qf_weights }}.L ; ACC.ADD ; LD.MULT.CYCLIC LR13 {{ cr.weights }} LR1 ; INC LR13 1{% if t == 0 %} ; INC LR5 {{ stride }}{% endif %}{% if t < 8 and (t + 1) % 3 == 0 %} ; INC LR4 {{ wp - 3 }}{% endif %} ;;
-{% if t < 8 %}
+ MULT.RC.VV LR1 R0 0 LR0 {{ cr.dsc }}.L {{ cr.qf_weights }}.L ; ACC.ADD ; LD.MULT.CYCLIC LR13 {{ cr.weights }} LR1 ; INC LR13 1{% if t == 0 %} ; INC LR5 {{ stride }}{% endif %}{% if t < taps - 1 and (t + 1) % kw == 0 %} ; INC LR4 {{ wp - kw }}{% endif %} ;;
+{% if t < taps - 1 %}
  LD.MULT R0 LR4 {{ cr.pad }} ; INC LR4 1 ;;
 {% endif %}
 {% endfor %}
@@ -120,4 +75,4 @@ pix:
 {{ step('LR5', stride * wp - wo * stride) }}
  BLT.S LR7 LR11 pix ;;
  HALT ;;
-{% endif %}
+

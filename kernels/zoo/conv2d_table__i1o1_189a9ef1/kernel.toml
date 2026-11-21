@@ -4,44 +4,44 @@ formats = ["e1", "e2"]
 [params.act_out0]
 type = "str"
 choices = ["hardswish", "silu"]
-default = "silu"
+default = "hardswish"
 [params.bias]
 type = "bool"
 default = true
 [params.cin]
 type = "int"
-choices = [3, 64]
-default = 3
+choices = [64, 96, 120, 128]
+default = 64
 [params.cout]
 type = "int"
-choices = [16, 64]
-default = 16
+choices = [64, 96, 120, 128]
+default = 64
 [params.groups]
 type = "int"
-choices = [1, 64]
-default = 1
+choices = [64, 96, 120, 128]
+default = 64
 [params.h]
 type = "int"
-min = 3
-max = 256
+min = 5
+max = 128
 default = 8
 [params.w]
 type = "int"
-min = 3
-max = 256
+min = 5
+max = 128
 default = 8
 [params.kh]
 type = "int"
-choices = [3]
-default = 3
+choices = [3, 5]
+default = 5
 [params.kw]
 type = "int"
-choices = [3]
-default = 3
+choices = [3, 5]
+default = 5
 [params.padding]
 type = "int"
-choices = [1]
-default = 1
+choices = [1, 2]
+default = 2
 [params.stride]
 type = "int"
 min = 1
@@ -58,7 +58,7 @@ dsi = "ds(cin)"
 shape = ["h", "w", 128]
 range = [-2, 2]
 [inputs.weights]
-shape = ["8 + 12 * (groups // 64)", 128]
+shape = ["2 * (kh * kw + 1)", 128]
 range = [-1, 1]
 [inputs.lut]
 shape = [5, 128]
@@ -83,11 +83,19 @@ tolerance = { e1 = "NX8_STEP", e2 = "NX8_STEP" }
 [cases.default]
 h = 8
 w = 8
-[cases.depthwise]
-h = 8
-w = 8
 cin = 64
 cout = 64
 groups = 64
+stride = 2
+formats = ["e2"]
+[cases.k3]
+h = 8
+w = 8
+cin = 96
+cout = 96
+groups = 96
+kh = 3
+kw = 3
+padding = 1
 stride = 1
 formats = ["e2"]
