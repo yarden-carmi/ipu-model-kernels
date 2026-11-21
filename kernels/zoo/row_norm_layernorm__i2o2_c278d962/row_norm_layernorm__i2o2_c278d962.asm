@@ -41,7 +41,7 @@
  {{ next_chunk(label) }}
 {% endmacro %}
 {% macro average(label) %}
- {# Split the reduced sum, then broadcast its reduction lane. #}
+ {# Split the reduced sum and broadcast its reduction lane. #}
  {{ save(0,3) }}
  {% for j in range(3) %}
  {{ load(j) }}
@@ -72,6 +72,7 @@
 row_loop:
  ADD LR6 LR2 {{ cr.K }} ;;
  {{ reset_chunks() }}
+ {# Reduce around the first element to preserve small variations on biased rows. #}
  LD.MULT R0 LR5 {{ cr.in0 }} ;;
  MULT.EE LR0 CR1 0 LR0 CR15.L {{ q }} ; ACC.ADD.FIRST ;;
  {{ save(26,1) }}
@@ -159,18 +160,12 @@ weight_loop:
  INC LR7 1 ;;
  BLT.S LR7 LR8 weight_loop ;;
  {{ save(9,3) }}
- LD.MULT.CYCLIC LR5 {{ cr.in0 }} LR0 ;;
+ LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;
+ INC LR9 1 ;;
+ LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR3 ;;
+ INC LR9 1 ;;
  {% for n in range(9,12) %}
- {{ load(n) }}{{ mul(first=loop.first) }}
- {% endfor %}
- {{ at('LR12',26) }}{{ at('LR13',30) }}
-subtract_mean:
- LD.MULT.CYCLIC LR12 {{ cr.tmp }} LR0 ;;
- {% for n in range(9,12) %}
- {{ load(n) }}
- MULT.RC.VV LR0 R0 0 LR0 CR15.L {{ q }} ; ACC.SUB ;;
- INC LR12 1 ;;
- BLT.S LR12 LR13 subtract_mean ;;
+ {{ load(n) }}{{ mul(first=loop.first) }}{{ mul(slot='LR3') }}
  {% endfor %}
  SET LR10 LR11 ;;
  {% for i in range(3) %}

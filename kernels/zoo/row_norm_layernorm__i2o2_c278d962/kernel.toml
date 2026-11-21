@@ -1,23 +1,59 @@
 [kernel]
 op = "row_norm"
-formats = ["e2"]
+formats = ["e3"]
 
 [params.kind]
 type = "str"
 choices = ["layernorm"]
+default = "layernorm"
 [params.channels]
 type = "int"
 min = 128
-max = 1152
+max = 4096
 multiple_of = 128
+default = 512
 [params.rows]
 type = "int"
 min = 1
 max = 4096
+default = 64
 [params.eps]
 type = "float"
 min = 0.0
 max = 1.0
+default = 0.00001
+[params.in0_d0]
+type = "int"
+min = 1
+max = 4096
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 64
+[params.in0_d2]
+type = "int"
+min = 128
+max = 4096
+multiple_of = 128
+default = 512
+[params.out0_d0]
+type = "int"
+min = 1
+max = 4096
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 64
+[params.out0_d2]
+type = "int"
+min = 128
+max = 4096
+multiple_of = 128
+default = 512
 
 [derived]
 half = "1277440"
@@ -25,8 +61,7 @@ K = "channels // 128"
 M = "rows * K"
 
 [inputs.in0]
-shape = ["M", 128]
-range = [-2.0, 2.0]
+shape = ["in0_d0 * in0_d1 * (in0_d2 // 128)", 128]
 [inputs.gamma]
 shape = ["3 * K", 128]
 [inputs.beta]
@@ -38,7 +73,7 @@ shape = [128]
 [scratch.tmp]
 shape = ["32 + 2 * K", 128]
 [outputs.out0]
-shape = ["M", 128]
+shape = ["out0_d0 * out0_d1 * (out0_d2 // 128)", 128]
 
 [abi]
 in0 = "CR2"
@@ -55,10 +90,6 @@ epsilon = "CR12"
 half = "CR13"
 
 [golden]
-tolerance = { e2 = "NX8_STEP" }
+tolerance = { e3 = "NX8_STEP" }
 
 [cases.default]
-kind = "layernorm"
-channels = 384
-rows = 3
-eps = 1e-6
