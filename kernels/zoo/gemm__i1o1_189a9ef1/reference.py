@@ -49,48 +49,40 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.default(_v(ins[0], [1, 16, 56, 56], [50176, 3136, 56, 1], 0), module.op0_weight)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 128, 128], [1048576, 16384, 128, 1], 0), module.op0_weight)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 16, 56, 56], [50176, 3136, 56, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 32, 128, 128], [524288, 16384, 128, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 16, 56, 56])}
+    return {"out0": _out(op1, [1, 32, 128, 128])}
 # ---- end of the frozen reference ----
-
 
 import numpy as np
 import torch
 
 
-def _e1_rows(rows):
-    """Each row of 128 rounded to the signed e1m6 grid at its own row scale, as the host writes a constant row."""
-    out = np.zeros_like(rows)
-    for r in range(rows.shape[0]):
-        v32 = rows[r].astype(np.float32)
-        top = float(np.max(np.abs(v32)))
-        if top == 0.0 or not np.isfinite(top):
-            continue
-        e = int(np.frexp(np.float32(top))[1]) - 1
-        step = 2.0 ** (e - 6)
-        mag = np.minimum(np.floor(np.abs(v32.astype(np.float64)) / step + 0.5) * step, (2.0 - 2.0 ** -6) * 2.0 ** e)
-        out[r] = np.sign(v32) * mag
-    return out
-
-
 def fold(module, **params):
-    """Rows of 128 lanes (output channel in lane): bias hi, bias lo, then for each input channel its hi row and lo row
-    (BN folded in; lo = the e1 rounding of what hi left over), and one zero row that the streaming reads last."""
+    """Rows of 128 lanes (output channel in lane): bias hi, bias lo, then for each input channel its hi row and lo row,
+    and one zero row that the streaming reads last. Batch norm is folded in when the module has one (op0_weight / op1_*),
+    otherwise the plain weight and bias. hi is on a power-of-two grid of its row exponent (4 bits below the top, held
+    exactly by every format with 4 or more mantissa bits); lo is what hi left over (the host rounds it)."""
     n, k = int(params["n"]), int(params["k"])
-    w = module.op0_weight.to(torch.float64).reshape(n, k)
-    scale = module.op1_weight.to(torch.float64) / torch.sqrt(module.op1_running_var.to(torch.float64) + 1e-5)
-    b = module.op1_bias.to(torch.float64) - module.op1_running_mean.to(torch.float64) * scale
-    wf = (w * scale.reshape(-1, 1)).numpy()
-    vec = np.zeros((k + 1, 128), dtype=np.float64)
-    vec[0, :n] = b.numpy()
-    vec[1:, :n] = wf.T
-    hi = _e1_rows(vec)
-    lo = _e1_rows(vec - hi)
-    out = np.zeros((2 * k + 3, 128), dtype=np.float64)
+    if hasattr(module, "op1_weight"):
+        scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
+        weight = module.op0_weight.double().reshape(n, k) * scale.reshape(n, 1)
+        bias = module.op1_bias.double() - module.op1_running_mean.double() * scale
+    else:
+        weight = module.weight.double().reshape(n, k)
+        bias = module.bias.double().reshape(n) if getattr(module, "bias", None) is not None else torch.zeros(n, dtype=torch.float64)
+    vec = torch.zeros((k + 1, 128), dtype=torch.float64)
+    if params.get("bias", True):
+        vec[0, :n] = bias
+    vec[1:, :n] = weight.T
+    _, exp = torch.frexp(vec.abs().amax(dim=1, keepdim=True))
+    step = torch.ldexp(torch.ones_like(exp, dtype=vec.dtype), exp - 4)
+    hi = torch.round(vec / step) * step
+    lo = vec - hi
+    out = torch.zeros((2 * k + 3, 128), dtype=torch.float64)
     out[0], out[1] = hi[0], lo[0]
     out[2:2 * k + 2:2] = hi[1:]
     out[3:2 * k + 2:2] = lo[1:]
-    return {"w": out}
+    return {"w": out.numpy()}

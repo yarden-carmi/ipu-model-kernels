@@ -1,6 +1,6 @@
 [kernel]
 op = "gemm"
-formats = ["e1"]
+formats = ["e1", "e2"]
 [params.bias]
 type = "bool"
 default = true
@@ -78,7 +78,7 @@ m = "CR8"
 km1 = "CR9"
 dsn = "CR10"
 [golden]
-tolerance = { e1 = "NX8_STEP" }
+tolerance = { e1 = "NX8_STEP", e2 = "NX8_STEP" }
 [cases.default]
 m = 5
 k = 16
