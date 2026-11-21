@@ -1,6 +1,6 @@
 [kernel]
 op = "row_softmax"
-formats = ["e1", "e2"]
+formats = ["e2"]
 
 [params.n]
 type = "int"
@@ -42,7 +42,6 @@ K = "ceil(n / 128)"
 M = "rows * K"
 active = "ds(128)"
 part = "ds(n - (K - 1) * 128)"
-scratch_formats = "312 * 65536 + 56"
 [inputs.in0]
 shape = ["in0_d0", "in0_d1", "in0_d2", "ceil(in0_d3 / 128)", 128]
 range = [-2, 2]
@@ -57,7 +56,6 @@ shape = ["K", 128]
 [abi]
 in0 = "CR2"
 out0 = "CR3"
-scratch_formats = "CR4"
 tmp = "CR5"
 qf_in0 = "CR6"
 qf_out0 = "CR10"
@@ -67,5 +65,6 @@ exps = "CR9"
 roots = "CR11"
 part = "CR14"
 active = "CR15"
-
+[golden]
+tolerance = { e2 = "NX8_STEP" }
 [cases.default]
