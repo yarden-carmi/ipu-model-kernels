@@ -3,21 +3,21 @@ op = "bmm"
 formats = ["e2"]
 
 [params]
-b = {type="int", min=1, max=16, default=16}
-k = {type="int", min=1, max=512, default=256}
-m = {type="int", min=1, max=512, default=256}
-n = {type="int", min=1, max=512, default=36}
-in0_d0 = {type="int", min=1, max=4, default=4}
-in0_d1 = {type="int", min=1, max=16, default=4}
-in0_d2 = {type="int", min=1, max=512, default=256}
-in0_d3 = {type="int", min=1, max=512, default=256}
-in1_d0 = {type="int", min=1, max=4, default=4}
-in1_d1 = {type="int", min=1, max=512, default=256}
-in1_d2 = {type="int", min=1, max=1024, default=432}
-out0_d0 = {type="int", min=1, max=4, default=4}
-out0_d1 = {type="int", min=1, max=16, default=4}
-out0_d2 = {type="int", min=1, max=512, default=256}
-out0_d3 = {type="int", min=1, max=512, default=36}
+b = {type="int", min=1, max=256, default=12}
+k = {type="int", min=1, max=4096, default=256}
+m = {type="int", min=1, max=4096, default=256}
+n = {type="int", min=1, max=4096, default=32}
+in0_d0 = {type="int", min=1, max=256, default=1}
+in0_d1 = {type="int", min=1, max=512, default=12}
+in0_d2 = {type="int", min=1, max=4096, default=256}
+in0_d3 = {type="int", min=1, max=4096, default=256}
+in1_d0 = {type="int", min=1, max=256, default=1}
+in1_d1 = {type="int", min=1, max=4096, default=256}
+in1_d2 = {type="int", min=1, max=4096, default=384}
+out0_d0 = {type="int", min=1, max=256, default=1}
+out0_d1 = {type="int", min=1, max=512, default=12}
+out0_d2 = {type="int", min=1, max=4096, default=256}
+out0_d3 = {type="int", min=1, max=4096, default=32}
 
 [inputs.in0]
 shape = ["in0_d0", "in0_d1", "in0_d2", "ak*128"]
@@ -52,6 +52,7 @@ dsk = "CR12"
 qf_out0 = "CR13"
 kcm1 = "CR14"
 bgap = "CR15"
+qf_in1 = "LR11"
 out0_d1 = "LR14"
 agap = "LR15"
 
