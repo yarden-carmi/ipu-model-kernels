@@ -1,23 +1,23 @@
 [kernel]
 op = "bmm"
-formats = ["e2"]
+formats = ["e3"]
 
 [params]
-b = {type="int", min=1, max=65536, default=16}
-k = {type="int", min=1, max=65536, default=64}
-m = {type="int", min=1, max=65536, default=64}
-n = {type="int", min=1, max=65536, default=48}
-in0_d0 = {type="int", min=1, max=65536, default=4}
-in0_d1 = {type="int", min=1, max=65536, default=4}
-in0_d2 = {type="int", min=1, max=65536, default=64}
-in0_d3 = {type="int", min=1, max=65536, default=64}
-in1_d0 = {type="int", min=1, max=65536, default=4}
-in1_d1 = {type="int", min=1, max=65536, default=64}
-in1_d2 = {type="int", min=1, max=65536, default=576}
-out0_d0 = {type="int", min=1, max=65536, default=4}
-out0_d1 = {type="int", min=1, max=65536, default=4}
-out0_d2 = {type="int", min=1, max=65536, default=64}
-out0_d3 = {type="int", min=1, max=65536, default=48}
+b = {type="int", min=1, max=65536, default=12}
+k = {type="int", min=1, max=65536, default=50}
+m = {type="int", min=1, max=65536, default=50}
+n = {type="int", min=1, max=65536, default=64}
+in0_d0 = {type="int", min=1, max=65536, default=1}
+in0_d1 = {type="int", min=1, max=65536, default=12}
+in0_d2 = {type="int", min=1, max=65536, default=50}
+in0_d3 = {type="int", min=1, max=65536, default=50}
+in1_d0 = {type="int", min=1, max=65536, default=1}
+in1_d1 = {type="int", min=1, max=65536, default=50}
+in1_d2 = {type="int", min=1, max=65536, default=768}
+out0_d0 = {type="int", min=1, max=65536, default=1}
+out0_d1 = {type="int", min=1, max=65536, default=12}
+out0_d2 = {type="int", min=1, max=65536, default=50}
+out0_d3 = {type="int", min=1, max=65536, default=64}
 
 [inputs.in0]
 shape = ["in0_d0", "in0_d1", "in0_d2", "ceil(in0_d3/128)*128"]
@@ -31,7 +31,6 @@ shape = ["out0_d0", "out0_d1", "out0_d2", "ceil(out0_d3/128)*128"]
 [derived]
 brows = "ceil(in1_d2/128)"
 group_stride = "in1_d1*brows"
-value_offset = "in1_d2-in0_d1*n"
 ds = "ds(128) + ds((n-1)%128+1)*65536"
 
 [abi]
@@ -46,7 +45,6 @@ ds = "CR9"
 qf_in0 = "CR10"
 qf_in1 = "CR11"
 qf_out0 = "CR12"
-value_offset = "CR13"
 group_stride = "CR14"
 in0_d1 = "CR15"
 in1_d0 = "LR15"
