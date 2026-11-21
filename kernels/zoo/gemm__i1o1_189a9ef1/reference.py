@@ -49,16 +49,16 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.default(_v(ins[0], [1, 256, 32, 32], [262144, 1024, 32, 1], 0), module.op0_weight)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 384, 16, 16], [98304, 256, 16, 1], 0), module.op0_weight)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 96, 32, 32], [98304, 1024, 32, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 128, 16, 16], [32768, 256, 16, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 96, 32, 32])}
+    return {"out0": _out(op1, [1, 128, 16, 16])}
 # ---- end of the frozen reference ----
 
 
 def _digits(rows):
-    """Split each row into a leading digit and an independently scaled residual."""
+    """Split into a leading digit and a separately quantized residual."""
     _, exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
     step = torch.ldexp(torch.ones_like(rows[..., :1]), exp - 4)
     hi = torch.round(rows / step) * step

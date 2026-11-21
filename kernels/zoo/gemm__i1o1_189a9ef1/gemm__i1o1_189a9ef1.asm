@@ -25,8 +25,7 @@ init:
     {{ bias_mac('LR0', 'ADD.FIRST') }} ; {{ weight('LR1') }} ;;
     {{ bias_mac('LR1', 'ADD') }} ;;
 {% else %}
-    {# Initialize with arithmetic zero rather than loading an NX8 zero bias row. #}
-    MULT.EE LR0 CR0 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST {% if k > 128 %}; LD.MULT R0 LR8 {{ cr.in0 }}{% endif %} ;;
+    MULT.EE LR0 CR0 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
 {% endif %}
 channel:
 {% if k > 128 %}
