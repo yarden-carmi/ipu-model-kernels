@@ -53,35 +53,33 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 144, 32, 32], [147456, 1024, 32, 1], 0), module.op0_weight)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 240, 8, 8], [15360, 64, 8, 1], 0), module.op0_weight)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 96, 32, 32], [98304, 1024, 32, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 160, 8, 8], [10240, 64, 8, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.silu_.default(_v(op1, [1, 96, 32, 32], [98304, 1024, 32, 1], 0))
+    r0 = aten.silu_.default(_v(op1, [1, 160, 8, 8], [10240, 64, 8, 1], 0))
     op2 = _pick(r0, 0)  # step 0
-    r0 = aten.cat.default([_v(ins[1], [1, 96, 32, 32], [98304, 1024, 32, 1], 0), _v(op2, [1, 96, 32, 32], [98304, 1024, 32, 1], 0)], 1)
+    r0 = aten.cat.default([_v(ins[1], [1, 160, 8, 8], [10240, 64, 8, 1], 0), _v(op2, [1, 160, 8, 8], [10240, 64, 8, 1], 0)], 1)
     op3 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op3, [1, 192, 32, 32])}
+    return {"out0": _out(op3, [1, 320, 8, 8])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Fold inference BN and align the coefficient vectors to output lanes."""
-    n, k = params["n"], params["k"]
+    def split(rows):
+        _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
+        step = torch.ldexp(torch.ones_like(rows[..., :1]), exponent - 4)
+        coarse = torch.round(rows / step) * step
+        return torch.stack((coarse, rows - coarse), dim=-2).contiguous()
+
+    n, k = params['n'], params['k']
+    start = n % 128
+    end = (-(start + n)) % 128
     scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
     weight = module.op0_weight.double().reshape(n, k) * scale[:, None]
-    bias = module.op1_bias.double() - module.op1_running_mean.double() * scale
-    first = params["in1_d1"] % 128
-    blocks = (params["out0_d1"] + 127) // 128 - params["in1_d1"] // 128
-    rows = weight.new_zeros((blocks, k + 1, 128))
-    for block in range(blocks):
-        lo = max(0, block * 128 - first)
-        hi = min(n, (block + 1) * 128 - first)
-        dst = slice(first + lo - block * 128, first + hi - block * 128)
-        if params["bias"]:
-            rows[block, 0, dst] = bias[lo:hi]
-        rows[block, 1:, dst] = weight[lo:hi].T
-    _, exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
-    coarse_step = torch.ldexp(torch.ones_like(rows[..., :1]), exp - 4)
-    coarse = torch.round(rows / coarse_step) * coarse_step
-    return {"coeff": torch.stack((coarse, rows - coarse), dim=2)}
+    rows = torch.nn.functional.pad(weight.T, (start, end)).reshape(k, -1, 128)
+    result = {'w': split(rows.transpose(0, 1))}
+    if params['bias']:
+        bias = module.op1_bias - module.op1_running_mean * scale
+        result['b'] = split(torch.nn.functional.pad(bias, (start, end)).reshape(-1, 128))
+    return result

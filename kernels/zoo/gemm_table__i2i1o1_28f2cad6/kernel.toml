@@ -2,13 +2,6 @@
 op = "gemm_table"
 formats = ["e2"]
 
-[params.act_out0]
-type = "str"
-choices = ["silu"]
-default = "silu"
-[params.bias]
-type = "bool"
-default = true
 [params.m]
 type = "int"
 min = 16
@@ -17,15 +10,22 @@ multiple_of = 16
 default = 64
 [params.k]
 type = "int"
-min = 8
+min = 16
 max = 16384
-multiple_of = 8
+multiple_of = 16
 default = 240
 [params.n]
 type = "int"
 min = 1
 max = 16384
 default = 160
+[params.bias]
+type = "bool"
+default = true
+[params.act_out0]
+type = "str"
+choices = ["silu"]
+default = "silu"
 [params.in0_d0]
 type = "int"
 min = 1
@@ -33,15 +33,15 @@ max = 16384
 default = 4
 [params.in0_d1]
 type = "int"
-min = 16
-max = 16384
-multiple_of = 16
-default = 16
-[params.in0_d2]
-type = "int"
 min = 8
 max = 16384
 multiple_of = 8
+default = 16
+[params.in0_d2]
+type = "int"
+min = 16
+max = 16384
+multiple_of = 16
 default = 240
 [params.in1_d0]
 type = "int"
@@ -85,44 +85,52 @@ max = 16384
 default = 8
 
 [derived]
-prefix = "in1_d1 // 128"
-blocks = "ceil(out0_d1 / 128)"
+blocks = "ceil(out0_d1 / 128) - n // 128"
+copy_width = "ceil(in1_d1 / 128)"
+out_width = "ceil(out0_d1 / 128)"
 full = "ds(128)"
-tail = "ds((out0_d1 - 1) % 128 + 1)"
-map_lo = "50462976"
-map_hi = "117835012"
+mi = "m"
+ki = "k"
+copy_tail = "ds((n - 1) % 128 + 1)"
 
 [inputs.in0]
-shape = ["in0_d0", "in0_d1 * in0_d2 // 128", 128]
+shape = ["in0_d0 * ceil(in0_d1 * in0_d2 / 128)", 128]
 range = [-2, 2]
 [inputs.in1]
-shape = ["in1_d0", "in1_d2", "in1_d3", "ceil(in1_d1 / 128)", 128]
+shape = ["in1_d0 * in1_d2 * in1_d3 * copy_width", 128]
 range = [-2, 2]
-[inputs.coeff]
-shape = ["blocks - prefix", "k + 1", 2, 128]
+[inputs.w]
+shape = ["blocks", "k", 2, 128]
 range = [-1, 1]
+[inputs.b]
+shape = ["blocks", 2, 128]
+range = [-1, 1]
+when = "bias"
 [inputs.lut]
 shape = [5, 128]
 range = [0, 0]
-[scratch.activated]
+[scratch.copy]
 shape = [1, 128]
 [outputs.out0]
-shape = ["out0_d0", "out0_d2", "out0_d3", "blocks", 128]
+shape = ["out0_d0 * out0_d2 * out0_d3 * out_width", 128]
 
 [abi]
 in0 = "CR2"
 in1 = "CR3"
-coeff = "CR4"
-lut = "CR5"
-activated = "CR6"
-out0 = "CR7"
-qf_in0 = "CR8"
-qf_in1 = "CR9"
-qf_out0 = "CR10"
-full = "CR11"
-tail = "CR12"
-m = "CR13"
-map_lo = "CR14"
-map_hi = "CR15"
+out0 = "CR4"
+w = "CR5"
+b = "CR6"
+lut = "CR7"
+copy = "CR8"
+qf_in0 = "CR9"
+qf_in1 = "CR10"
+qf_out0 = "CR11"
+full = "CR12"
+mi = "CR13"
+ki = "CR14"
+copy_tail = "CR15"
 
 [cases.default]
+
+[golden]
+tolerance = { e2 = "NX8_STEP" }
