@@ -2,8 +2,7 @@
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;;
 {% endmacro %}
 
-// in0 groups are in (patch, position-within-patch) storage order;
-// in1 and out0 groups are in (position-within-patch, patch) order.
+// in0 spatial index = patch * positions + position.
     SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
     INC LR2 128 ; SET LR6 CR0 ;;
 position:
