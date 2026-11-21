@@ -1,0 +1,93 @@
+[kernel]
+op = "unary_neg"
+formats = ["e2"]
+
+[params.fn]
+type = "str"
+choices = ["neg"]
+default = "neg"
+
+[params.numel]
+type = "int"
+min = 128
+max = 589824
+multiple_of = 128
+default = 196608
+
+[params.in0_d0]
+type = "int"
+min = 1
+max = 1
+default = 1
+
+[params.in0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 256
+
+[params.in0_d2]
+type = "int"
+min = 128
+max = 8192
+multiple_of = 128
+default = 1536
+
+[params.out0_d0]
+type = "int"
+min = 1
+max = 1
+default = 1
+
+[params.out0_d1]
+type = "int"
+min = 1
+max = 64
+default = 12
+
+[params.out0_d2]
+type = "int"
+min = 1
+max = 4096
+default = 256
+
+[params.out0_d3]
+type = "int"
+min = 128
+max = 128
+default = 128
+
+[derived]
+chunks = "in0_d2 // 128"
+ds = "ds(128)"
+c64 = "64"
+c128 = "128"
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d1", "in0_d2"]
+range = [-10.0, 10.0]
+
+[inputs.sgn]
+shape = [1, 128]
+range = [-1.0, 1.0]
+
+[outputs.out0]
+shape = ["out0_d0", "out0_d1", "out0_d2", "out0_d3"]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+sgn = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR12"
+ds = "CR6"
+chunks = "CR7"
+c64 = "CR8"
+c128 = "CR9"
+out0_d1 = "CR10"
+out0_d2 = "CR11"
+
+[golden]
+tolerance = { e2 = "EXACT" }
+
+[cases.default]
