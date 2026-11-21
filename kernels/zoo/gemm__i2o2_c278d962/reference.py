@@ -20,6 +20,16 @@ def _l(res, k, shape, stride, offset):
     return _v(t, shape, stride, offset)
 
 
+def _p(t, shape):
+    """A parameter read at the shape its record read it (a view of it: reshaped, or expanded)."""
+    if list(t.shape) == list(shape):
+        return t
+    n = 1
+    for d in shape:
+        n *= int(d)
+    return t.reshape(tuple(shape)) if t.numel() == n else t.expand(tuple(shape))
+
+
 def _pick(res, k):
     """Result k of a record (one tensor, or a tuple of them)."""
     return res[k] if isinstance(res, (tuple, list)) else res
@@ -39,15 +49,22 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.linear.default(_v(ins[0], [1, 196, 3072], [602112, 3072, 1], 0), module.weight, module.bias)
+    r0 = aten.linear.default(_v(ins[0], [4, 256, 144], [36864, 144, 1], 0), module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 196, 768])}
+    return {"out0": _out(op0, [4, 256, 432])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    n, k = int(params['n']), int(params['k'])
-    result = {'w': module.weight.detach().t().contiguous().reshape(k * (n // 128), 128)}
-    if params['bias']:
-        result['b'] = module.bias.detach().contiguous()
-    return result
+    """Arrange each output tile as bias then reduction vectors, in radix-16 planes."""
+    weight = module.weight.detach().double()
+    n, k = weight.shape
+    bias = module.bias.detach().double() if params["bias"] else weight.new_zeros(n)
+    data = torch.cat((bias[:, None], weight), dim=1)
+    data = torch.nn.functional.pad(data, (0, 0, 0, (-n) % 128))
+    rows = data.reshape(-1, 128, k + 1).transpose(1, 2)
+    exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))[1]
+    digits = torch.ldexp(rows.abs(), 12 - exp).round().long().clamp(max=4095)
+    planes = [torch.ldexp(((digits >> shift) & 15) * rows.sign(), exp + shift - 12)
+              for shift in (8, 4, 0)]
+    return {"w": torch.stack(planes, dim=2).reshape(-1, 128).float()}

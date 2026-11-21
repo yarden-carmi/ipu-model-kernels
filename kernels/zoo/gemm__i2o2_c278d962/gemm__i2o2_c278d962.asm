@@ -1,51 +1,39 @@
-    SET LR0 CR0 ;;
-    SET LR2 CR0 ;;
-    SET LR7 CR0 ;;
-    SET LR11 CR0 ;;
-    SET LR5 CR0 ;;
-m_loop:
-    SET LR6 CR0 ;;
-nb_loop:
-    SET LR4 LR6 ;;
-    SUB LR4 LR4 {{ cr.NB }} ;;
-    SET LR8 LR11 ;;
-    SUB LR8 LR8 CR1 ;;
-    LD.MULT.CYCLIC LR6 {{ cr.w }} LR2 ;;
-    MULT.RC.VE LR2 CR0 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
-    SET LR9 {{ cr.K }} ;;
-kb_loop:
-    LD.MULT R0 LR8 {{ cr.in0 }} ; INC LR8 1 ;;
-    SET LR3 CR0 ;;
-    SUB LR3 LR3 CR1 ;;
-{% macro preload() %}
-    LD.MULT.CYCLIC LR4 {{ cr.w }} LR2 ; ADD LR4 LR4 {{ cr.NB }} ; INC.MODP2 LR2 {{ cr.c128 }} 9 ;;
+{# Each weight vector has three signed digit rows. Ping-pong the
+   digit loads with the multiplier, holding one input chunk in R0. #}
+{% macro load(slot) %}LD.MULT.CYCLIC LR4 {{ cr.w }} {{ slot }} ; INC LR4 1{% endmacro %}
+{% macro dot(scalar, first=false) %}
+    {{ load('LR0') }}{% if not first %} ; INC LR3 1{% endif %} ;;
+{% for p in range(3) %}
+    MULT.RC.VE {{ 'LR1' if p % 2 else 'LR0' }} {{ scalar }} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{% if first and p == 0 %}.FIRST{% endif %}{% if p < 2 %} ; {{ load('LR0' if p % 2 else 'LR1') }}{% elif not first %} ; BNE LR3 LR7 loop_lane{% endif %} ;;
+{% endfor %}
 {% endmacro %}
-{% for i in range(4) %}
-{{ preload() }}
-{% endfor %}
-{% macro multiply(load) %}
-    MULT.RC.VE LR2 LR3 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD ; {% if load %}LD.MULT.CYCLIC LR4 {{ cr.w }} LR2 ; ADD LR4 LR4 {{ cr.NB }} ; {% endif %}INC LR3 1 ; INC.MODP2 LR2 {{ cr.c128 }} 9 ;;
+{% macro store(ds) %}
+    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR5 ;;
 {% endmacro %}
-    SET LR10 {{ cr.c31 }} ;;
-inner:
-{% for i in range(31) %}
-{{ multiply(true) }}
-{% endfor %}
-    DEC LR10 1 ;;
-    BNE LR10 CR0 inner ;;
-{% for i in range(4) %}
-{{ multiply(false) }}
-{% endfor %}
-    DEC LR9 1 ;;
-    BNE LR9 CR0 kb_loop ;;
-{% if bias %}
-    LD.MULT.CYCLIC LR6 {{ cr.b }} LR2 ;;
-    MULT.RC.VE LR2 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD ;;
-{% endif %}
-    ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR7 ;;
-    INC LR7 1 ; INC LR6 1 ;;
-    BLT.S LR6 {{ cr.NB }} nb_loop ;;
-    ADD LR11 LR11 {{ cr.K }} ;;
-    INC LR5 1 ;;
-    BLT.S LR5 {{ cr.m }} m_loop ;;
+    SET LR0 CR0 ; SET LR1 {{ cr.width }} ; SET LR5 CR0 ;;
+    SET LR8 CR0 ; SET LR10 {{ cr.rows }} ;;
+row:
+    SET LR4 CR0 ; SET LR6 {{ cr.tiles }} ;;
+    DEC LR4 1 ;;
+tile:
+    SET LR2 LR8 ; SET LR9 {{ cr.chunks }} ;;
+    DEC LR2 1 ;;
+{{ dot('CR1' if bias else 'CR0', true) }}
+chunk:
+    LD.MULT R0 LR2 {{ cr.in0 }} ; INC LR2 1 ; DEC LR9 1 ;;
+    SET LR3 CR0 ; SET LR7 {{ cr.full_end }} ; BNE LR9 CR0 lane ;;
+    SET LR7 {{ cr.tail_end }} ;;
+lane:
+    DEC LR3 1 ;;
+loop_lane:
+{{ dot('LR3') }}
+    BNE LR9 CR0 chunk ;;
+    DEC LR6 1 ;;
+    BEQ LR6 CR0 last_tile ;;
+{{ store(cr.full) }}
+    INC LR5 1 ; B tile ;;
+last_tile:
+{{ store(cr.tail) }}
+    INC LR5 1 ; ADD LR8 LR8 {{ cr.chunks }} ; DEC LR10 1 ;;
+    BNE LR10 CR0 row ;;
     HALT ;;
