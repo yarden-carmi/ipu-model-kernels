@@ -3,8 +3,8 @@
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;;
 {% endmacro %}
 
-// Visit groups in y,b order: the view's starting flat offset b+d0*y
-// advances by one per group. LR4:LR5 tracks its padded row base and column.
+// Traverse (d1,d0) groups in storage-offset order for the strided view.
+// LR4:LR5 is the padded row base and column of each group's first element.
 y_loop:
     SET LR1 LR13 ; SET LR15 {{ cr.width_batch }}.H ;;
 batch:
