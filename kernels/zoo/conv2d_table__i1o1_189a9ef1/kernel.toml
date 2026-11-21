@@ -1,0 +1,91 @@
+[kernel]
+op = "conv2d_table"
+formats = ["e1"]
+[params.act_out0]
+type = "str"
+choices = ["hardswish"]
+default = "hardswish"
+[params.bias]
+type = "bool"
+default = true
+[params.cin]
+type = "int"
+min = 3
+max = 3
+default = 3
+[params.cout]
+type = "int"
+min = 16
+max = 16
+default = 16
+[params.groups]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.h]
+type = "int"
+min = 3
+max = 250
+default = 8
+[params.w]
+type = "int"
+min = 3
+max = 250
+default = 8
+[params.kh]
+type = "int"
+min = 3
+max = 3
+default = 3
+[params.kw]
+type = "int"
+min = 3
+max = 3
+default = 3
+[params.padding]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.stride]
+type = "int"
+min = 1
+max = 2
+default = 2
+[derived]
+hp = "h + 2 * padding"
+wp = "w + 2 * padding"
+ho = "(h + 2 * padding - kh) // stride + 1"
+wo = "(w + 2 * padding - kw) // stride + 1"
+dsc = "ds(cout)"
+dsi = "ds(cin)"
+[inputs.in0]
+shape = ["h", "w", 128]
+range = [-2, 2]
+[inputs.weights]
+shape = [8, 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[scratch.pad]
+shape = ["hp * wp", 128]
+[outputs.out0]
+shape = ["ho", "wo", 128]
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+weights = "CR4"
+lut = "CR5"
+pad = "CR6"
+qf_in0 = "CR7"
+qf_weights = "CR8"
+qf_out0 = "CR9"
+dsc = "CR10"
+dsi = "CR11"
+[golden]
+tolerance = { e1 = "NX8_STEP" }
+[cases.default]
+h = 8
+w = 8
