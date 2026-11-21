@@ -1,88 +1,89 @@
 [kernel]
 op = "gemm"
 formats = ["e2", "e3"]
-[params.m]
-type = "int"
-min = 1
-max = 65536
-default = 64
-[params.k]
-type = "int"
-min = 1
-max = 4096
-default = 240
-[params.n]
-type = "int"
-min = 1
-max = 4096
-default = 720
+
 [params.bias]
 type = "bool"
 default = true
+[params.k]
+type = "int"
+min = 1
+max = 16384
+default = 144
+[params.m]
+type = "int"
+min = 1
+max = 16384
+default = 1024
+[params.n]
+type = "int"
+min = 1
+max = 16384
+default = 432
 [params.in0_d0]
 type = "int"
 min = 1
-max = 65536
+max = 16384
 default = 4
 [params.in0_d1]
 type = "int"
 min = 1
-max = 65536
-default = 16
+max = 16384
+default = 256
 [params.in0_d2]
 type = "int"
 min = 1
-max = 4096
-default = 240
+max = 16384
+default = 144
 [params.out0_d0]
 type = "int"
 min = 1
-max = 65536
+max = 16384
 default = 4
 [params.out0_d1]
 type = "int"
 min = 1
-max = 65536
-default = 16
+max = 16384
+default = 256
 [params.out0_d2]
 type = "int"
 min = 1
-max = 4096
-default = 720
+max = 16384
+default = 432
+
 [derived]
 chunks = "ceil(in0_d2 / 128)"
-group_stride = "in0_d1 * chunks"
-count = "out0_d1"
+blocks = "ceil(out0_d1 / 128)"
+tail = "ds((out0_d1 - 1) % 128 + 1)"
+full = "ds(128)"
+pitch = "in0_d1 * chunks"
+batch_end = "out0_d0 * pitch"
+weight_stride = "1 + 6 * chunks"
 width = "128"
-groups = "out0_d0"
-channels = "out0_d2"
-tail = "ds(1 + (out0_d1 - 1) % 128)"
+
 [inputs.in0]
-shape = ["in0_d0 * group_stride", 128]
+shape = ["in0_d0 * pitch", 128]
 range = [-2, 2]
 [inputs.w]
-shape = ["n * chunks * 3", 128]
-range = [-2, 2]
-[inputs.b]
-shape = ["3 * n", 128]
-range = [-2, 2]
-when = "bias"
+shape = ["out0_d2 * weight_stride", 128]
+range = [-1, 1]
 [outputs.out0]
-shape = ["out0_d0 * out0_d2 * ceil(out0_d1 / 128)", 128]
+shape = ["out0_d0 * out0_d2 * blocks", 128]
+
 [abi]
 in0 = "CR2"
 w = "CR3"
 out0 = "CR4"
-b = "CR5"
-count = "CR6"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
 chunks = "CR7"
-channels = "CR8"
-qf_in0 = "CR9"
-qf_out0 = "CR10"
-width = "CR11"
-groups = "CR12"
-group_stride = "CR13"
-tail = "CR14"
-[golden]
-tolerance = { e2 = "NX8_STEP", e3 = "NX8_STEP" }
+full = "CR8"
+tail = "CR9"
+pitch = "CR10"
+batch_end = "CR11"
+weight_stride = "CR12"
+width = "CR13"
+out0_d2 = "CR14"
+in0_d1 = "CR15"
+
 [cases.default]

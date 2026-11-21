@@ -49,28 +49,23 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.linear.default(_v(ins[0], [4, 16, 240], [3840, 240, 1], 0), module.weight, module.bias)
+    r0 = aten.linear.default(_v(ins[0], [4, 256, 144], [36864, 144, 1], 0), module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [4, 16, 720])}
+    return {"out0": _out(op0, [4, 256, 432])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    n, k = params['n'], params['k']
-    padded = torch.nn.functional.pad(module.weight.detach().reshape(n, k), (0, (-k) % 128))
-
-    def digits(rows):
-        parts = []
-        for _ in range(2):
-            _, exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
-            step = torch.ldexp(torch.ones_like(rows[..., :1]), exp - 5)
-            lead = (rows / step).round() * step
-            parts.append(lead)
-            rows = rows - lead
-        return (*parts, rows)
-
-    result = {'w': torch.stack(digits(padded.reshape(n, -1, 128)), dim=2).reshape(-1, 128)}
-    if params['bias']:
-        b = module.bias.detach().reshape(n, 1).expand(n, 128)
-        result['b'] = torch.cat(digits(b), dim=0)
-    return result
+    """Lay out one bias row and six signed radix-16 planes per chunk."""
+    weights = module.weight.detach().double()
+    n, k = weights.shape
+    padded = torch.nn.functional.pad(weights, (0, (-k) % 128))
+    rows = padded.reshape(n, -1, 128)
+    exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))[1]
+    digits = torch.ldexp(rows.abs(), 24 - exp).round().long().clamp(max=16777215)
+    planes = [torch.ldexp(((digits >> shift) & 15) * rows.sign(), exp + shift - 24)
+              for shift in (0, 4, 8, 12, 16, 20)]
+    b = module.bias.detach() if params["bias"] else weights.new_zeros(n)
+    return {"w": torch.cat((b.reshape(n, 1, 1).expand(n, 1, 128),
+                            torch.stack(planes, dim=2).flatten(1, 2)), dim=1)
+            .reshape(-1, 128).float()}
