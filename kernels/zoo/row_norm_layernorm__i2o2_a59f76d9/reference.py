@@ -20,6 +20,16 @@ def _l(res, k, shape, stride, offset):
     return _v(t, shape, stride, offset)
 
 
+def _p(t, shape):
+    """A parameter read at the shape its record read it (a view of it: reshaped, or expanded)."""
+    if list(t.shape) == list(shape):
+        return t
+    n = 1
+    for d in shape:
+        n *= int(d)
+    return t.reshape(tuple(shape)) if t.numel() == n else t.expand(tuple(shape))
+
+
 def _pick(res, k):
     """Result k of a record (one tensor, or a tuple of them)."""
     return res[k] if isinstance(res, (tuple, list)) else res
@@ -39,22 +49,36 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.layer_norm.default(_v(ins[0], [1, 256, 1024], [262144, 1, 256], 0), [1024], module.weight, module.bias, 1e-06)
+    r0 = aten.layer_norm.default(_v(ins[0], [4, 256, 144], [1, 4, 1024], 0), [144], module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 256, 1024])}
+    return {"out0": _out(op0, [4, 256, 144])}
 # ---- end of the frozen reference ----
 
+
 def fold(module, **params):
-    def split(t):
-        rem = t.flatten().reshape(-1, 128)
+    ch = int(params["channels"])
+    K = -(-ch // 128)
+
+    def pad(t):
+        t = t.reshape(-1).to(torch.float32)
+        out = torch.zeros(K * 128, dtype=torch.float32)
+        out[: t.numel()] = t
+        return out
+
+    def split(tensor):
+        residual = tensor.reshape(-1, 128)
         parts = []
-        for i in range(2):
-            step = 2. ** (torch.floor(torch.log2(rem.abs().amax(1, keepdim=True).clamp_min(1e-30))) - 3)
-            hi = torch.round(rem / step) * step
-            parts.append(hi)
-            rem = rem - hi
-        parts.append(rem)
-        return torch.cat(parts).reshape(3, -1)
-    return {"gamma": split(module.weight), "beta": split(module.bias),
-            "crow": split(torch.full((128,), 1 / params['channels'])),
-            "epsilon": torch.full((128,), params['eps'])}
+        for _ in range(2):
+            peak = residual.abs().amax(1, keepdim=True).clamp_min(1e-30)
+            step = 2.0 ** (torch.floor(torch.log2(peak)) - 4)
+            part = torch.round(residual / step) * step
+            parts.append(part)
+            residual = residual - part
+        return torch.cat([*parts, residual])
+
+    return {
+        "gamma": split(pad(module.weight)),
+        "beta": split(pad(module.bias)),
+        "crow": split(torch.full((128,), 1 / ch)),
+        "epsilon": torch.full((128,), params["eps"]),
+    }
