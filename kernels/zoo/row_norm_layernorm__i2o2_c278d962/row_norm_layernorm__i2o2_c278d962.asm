@@ -35,11 +35,6 @@
  INC LR5 1 ;;
  BLT.S LR5 LR6 {{ label }} ;;
 {% endmacro %}
-{% macro center_save(label) %}
- {{ encode('LR9',3) }}
- INC LR9 1 ;;
- {{ next_chunk(label) }}
-{% endmacro %}
 {% macro average(label) %}
  {# Split the reduced sum and broadcast its reduction lane. #}
  {{ save(0,3) }}
@@ -85,7 +80,9 @@ center_loop:
  LD.MULT R0 LR5 {{ cr.in0 }} ;;
  {{ scalar(first=true) }}
  {% for n in range(27,30) %}{{ load(n) }}{{ scalar('SUB') }}{% endfor %}
- {{ center_save('center_loop') }}
+ {{ encode('LR9',3) }}
+ INC LR9 1 ;;
+ {{ next_chunk('center_loop') }}
 
  {{ reset_chunks() }}{{ scalar(first=true,imm='CR0') }}
 variance_loop:
