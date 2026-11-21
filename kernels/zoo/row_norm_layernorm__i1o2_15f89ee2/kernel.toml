@@ -1,0 +1,101 @@
+[kernel]
+op = "row_norm"
+formats = ["e1", "e2"]
+
+[params.kind]
+type = "str"
+choices = ["layernorm"]
+default = "layernorm"
+[params.channels]
+type = "int"
+min = 129
+max = 4096
+default = 144
+[params.rows]
+type = "int"
+min = 1
+max = 4096
+default = 8
+[params.eps]
+type = "float"
+min = 0.0
+max = 1.0
+default = 1e-5
+[params.in0_d0]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 65535
+default = 144
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65535
+default = 4
+[params.in0_d3]
+type = "int"
+min = 1
+max = 65535
+default = 2
+[params.out0_d0]
+type = "int"
+min = 4
+max = 4
+default = 4
+[params.out0_d1]
+type = "int"
+min = 1
+max = 65535
+default = 2
+[params.out0_d2]
+type = "int"
+min = 129
+max = 4096
+default = 144
+
+[derived]
+half = "1277440"
+K = "ceil(channels / 128)"
+K4 = "4 * K"
+M = "rows * K"
+dsl = "ds(channels - 128 * (K - 1))"
+[inputs.in0]
+shape = ["in0_d0 * in0_d2 * in0_d3 * K", 128]
+range = [-2.0, 2.0]
+[inputs.gamma]
+shape = ["3 * K", 128]
+[inputs.beta]
+shape = ["3 * K", 128]
+[inputs.crow]
+shape = [3, 128]
+[inputs.epsilon]
+shape = [128]
+[scratch.tmp]
+shape = ["32 + 3 * K", 128]
+[outputs.out0]
+shape = ["M", 128]
+
+[abi]
+in0 = "CR2"
+gamma = "CR3"
+beta = "CR4"
+out0 = "CR5"
+qf_out0 = "CR6"
+crow = "CR7"
+tmp = "CR8"
+qf_in0 = "CR9"
+K = "CR10"
+M = "CR11"
+epsilon = "CR12"
+half = "CR13"
+dsl = "CR14"
+K4 = "LR13"
+
+[golden]
+tolerance = { e1 = "NX8_STEP", e2 = "NX8_STEP" }
+
+[cases.default]
