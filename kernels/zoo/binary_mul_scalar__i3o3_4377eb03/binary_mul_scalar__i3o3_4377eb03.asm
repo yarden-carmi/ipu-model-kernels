@@ -1,22 +1,15 @@
-    SET LR0 CR0 ;;
-    SET LR1 CR0 ;;
-    SET LR2 CR0 ;;
-group:
-    SET LR3 CR1 ;;
-chunk:
-    LD.MULT R0 LR1 {{ cr.in0 }} ;;
-    MULT.VE LR0 {{ cr.s3 if format == 'fp32' else cr.s0 }} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
-{% for s in ([] if format == 'fp32' else [cr.s1, cr.s2]) %}
-    MULT.VE LR0 {{ s }} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ;;
-{% endfor %}
-    BEQ LR3 {{ cr.chunks }} tail ;;
-    ACTIVATE.QUANTIZE identity {{ cr.full }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;;
-    INC LR1 1 ;;
-    INC LR3 1 ;;
-    BNE LR3 CR0 chunk ;;
-tail:
-    ACTIVATE.QUANTIZE identity {{ cr.tail }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;;
-    INC LR1 1 ;;
-    INC LR2 1 ;;
-    BLT.S LR2 {{ cr.groups }} group ;;
-    HALT ;;
+{% macro crow(v) %}
+ LD.MULT.CYCLIC LR1 {{ cr.in0 }} LR0 ;;
+ MULT.RC.VE LR0 LR0 0 LR0 {{ v }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
+ ACTIVATE.QUANTIZE identity {{ v }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;;
+ INC LR1 1 ;;
+{% endmacro %}
+ SET LR0 CR0 ;;
+ LD.MULT R0 LR0 {{ cr.operand }} ;;
+ SET LR1 CR0 ;;
+loop:
+{{ crow(cr.full) }}
+{{ crow(cr.full) }}
+{{ crow(cr.tail) }}
+ BLT.S LR1 {{ cr.rows }} loop ;;
+ HALT ;;

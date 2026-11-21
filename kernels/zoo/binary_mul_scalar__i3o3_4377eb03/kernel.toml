@@ -1,76 +1,86 @@
 [kernel]
 op = "binary_mul_scalar"
-formats = ["e2", "e4"]
+formats = ["e1"]
+
 [params.broadcast]
 type = "str"
 choices = ["scalar"]
 default = "scalar"
+
 [params.const]
 type = "int"
 min = 1
 max = 1
 default = 1
+
 [params.inner]
 type = "int"
 min = 0
 max = 0
 default = 0
+
 [params.numel]
 type = "int"
 min = 1
-max = 2147483647
-default = 786432
+max = 1000000000
+default = 396294
+
 [params.op]
 type = "str"
 choices = ["mul"]
 default = "mul"
+
 [params.in0_d0]
 type = "int"
 min = 1
-max = 65536
+max = 1
 default = 1
+
 [params.in0_d1]
 type = "int"
 min = 1
-max = 65536
-default = 12
+max = 1024
+default = 6
+
 [params.in0_d2]
 type = "int"
 min = 1
-max = 65536
-default = 256
+max = 1024
+default = 257
+
 [params.in0_d3]
 type = "int"
-min = 1
-max = 65536
-default = 256
-[inputs.in0]
-shape = ["groups", "chunks * 128"]
-range = [-2.0, 2.0]
-[outputs.out0]
-shape = ["groups", "chunks * 128"]
+min = 257
+max = 257
+default = 257
+
 [derived]
-groups = "in0_d0 * in0_d1 * in0_d2"
-chunks = "ceil(in0_d3 / 128)"
+rows = "in0_d0 * in0_d1 * in0_d2 * 3"
 full = "ds(128)"
-tail = "ds((in0_d3 - 1) % 128 + 1)"
-s0 = "65536 + 124 * 256 + 53"
-s1 = "65536 + 111 * 256 + 30"
-s2 = "65536 + 102 * 256 + 77"
-s3 = "1043662067"
+tail = "ds(in0_d3 - 256)"
+
+[inputs.in0]
+shape = ["rows", 128]
+range = [-2.0, 2.0]
+
+[inputs.operand]
+shape = [1]
+range = [0.125, 0.125]
+
+[outputs.out0]
+shape = ["rows", 128]
+
 [abi]
 in0 = "CR2"
 out0 = "CR3"
 qf_in0 = "CR4"
 qf_out0 = "CR5"
-groups = "CR6"
-chunks = "CR7"
-full = "CR8"
+rows = "CR6"
+full = "CR7"
 tail = "CR9"
-s0 = "CR10"
-s1 = "CR11"
-s2 = "CR12"
-s3 = "CR13"
-[golden]
-tolerance = { e2 = "EXACT", e4 = "EXACT" }
+operand = "CR8"
+
 [cases.default]
+
+[golden]
+tolerance = { e1 = "EXACT" }
