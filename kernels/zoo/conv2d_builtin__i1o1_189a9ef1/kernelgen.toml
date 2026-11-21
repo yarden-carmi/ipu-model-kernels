@@ -1,0 +1,12 @@
+chain = ["conv2d"]
+chain_in = ["in0"]
+chain_out = ["out0"]
+notes = "Depthwise 3x3 convolution with channels along the lanes: the input is copied once into a zero padded scratch, then each output pixel is nine lane-wise multiplies (hi and lo frames of the BN-folded weights, streamed through two R_CYCLIC slots) plus the folded bias, with the relu in the store."
+[layout.in0]
+lanes = 1
+rows = [0, 2, 3]
+[view.in0]
+kind = "whole"
+[layout.out0]
+lanes = 1
+rows = [0, 2, 3]
