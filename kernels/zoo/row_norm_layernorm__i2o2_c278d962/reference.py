@@ -20,16 +20,6 @@ def _l(res, k, shape, stride, offset):
     return _v(t, shape, stride, offset)
 
 
-def _p(t, shape):
-    """A parameter read at the shape its record read it (a view of it: reshaped, or expanded)."""
-    if list(t.shape) == list(shape):
-        return t
-    n = 1
-    for d in shape:
-        n *= int(d)
-    return t.reshape(tuple(shape)) if t.numel() == n else t.expand(tuple(shape))
-
-
 def _pick(res, k):
     """Result k of a record (one tensor, or a tuple of them)."""
     return res[k] if isinstance(res, (tuple, list)) else res
@@ -49,23 +39,23 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.layer_norm.default(_v(ins[0], [1, 64, 512], [32768, 512, 1], 0), [512], module.weight, module.bias)
+    r0 = aten.layer_norm.default(_v(ins[0], [1, 257, 384], [98688, 384, 1], 0), [384], module.weight, module.bias, 1e-06)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 64, 512])}
+    return {"out0": _out(op0, [1, 257, 384])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    def split(t):
-        rem = t.reshape(-1, 128)
+    def split(tensor):
+        residual = tensor.reshape(-1, 128)
         parts = []
         for _ in range(2):
-            peak = rem.abs().amax(1, keepdim=True).clamp_min(1e-30)
+            peak = residual.abs().amax(1, keepdim=True).clamp_min(1e-30)
             step = 2.0 ** (torch.floor(torch.log2(peak)) - 4)
-            hi = torch.round(rem / step) * step
-            parts.append(hi)
-            rem = rem - hi
-        return torch.cat([*parts, rem])
+            part = torch.round(residual / step) * step
+            parts.append(part)
+            residual = residual - part
+        return torch.cat([*parts, residual])
 
     return {
         "gamma": split(module.weight),

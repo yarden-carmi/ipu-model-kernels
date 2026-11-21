@@ -11,8 +11,8 @@
 {% macro scalar(op='ADD',first=false,imm='CR1') %}
  MULT.VE LR0 {{ imm }} 0 LR0 CR15.L {{ q }} ; ACC.{{ op }}{% if first %}.FIRST{% endif %} ;;
 {% endmacro %}
-{% macro mul(first=false,slot='LR0') %}
- MULT.RC.VV {{ slot }} R0 0 LR0 CR15.L {{ q }} ; ACC.ADD{% if first %}.FIRST{% endif %} ;;
+{% macro mul(first=false,slot='LR0',op='ADD') %}
+ MULT.RC.VV {{ slot }} R0 0 LR0 CR15.L {{ q }} ; ACC.{{ op }}{% if first %}.FIRST{% endif %} ;;
 {% endmacro %}
 {% macro encode(reg,pieces) %}
  {% for i in range(pieces) %}
@@ -36,7 +36,7 @@
  BLT.S LR5 LR6 {{ label }} ;;
 {% endmacro %}
 {% macro center_save(label) %}
- {{ encode('LR9',2) }}
+ {{ encode('LR9',3) }}
  INC LR9 1 ;;
  {{ next_chunk(label) }}
 {% endmacro %}
@@ -69,54 +69,40 @@
 {% endmacro %}
 
  {{ at('LR0',0) }}{{ at('LR2',0) }}{{ at('LR3',128) }}
+ ADD LR4 LR3 LR3 ;;
+ ADD LR12 LR4 LR3 ;;
 row_loop:
  ADD LR6 LR2 {{ cr.K }} ;;
- {{ reset_chunks() }}
- {# Reduce around the first element to preserve small variations on biased rows. #}
- LD.MULT R0 LR5 {{ cr.in0 }} ;;
- MULT.EE LR0 CR1 0 LR0 CR15.L {{ q }} ; ACC.ADD.FIRST ;;
- {{ save(26,1) }}
-anchor_loop:
- LD.MULT R0 LR5 {{ cr.in0 }} ;;
- {{ scalar(first=true) }}{{ load(26) }}{{ scalar('SUB') }}
- {{ center_save('anchor_loop') }}
-
  {{ reset_chunks() }}{{ scalar(first=true,imm='CR0') }}
 sum_loop:
- {% for i in range(2) %}
- LD.MULT R0 LR9 {{ cr.tmp }} ;;
+ LD.MULT R0 LR5 {{ cr.in0 }} ;;
  MULT.VE LR0 CR1 0 LR0 CR15.L {{ q }} ; AGG.SUM LR0 CR15.L ;;
- INC LR9 1 ;;
- {% endfor %}
  {{ next_chunk('sum_loop') }}
  {{ average('mean_scale') }}{{ save(27,3) }}
 
  {{ reset_chunks() }}
 center_loop:
- LD.MULT R0 LR9 {{ cr.tmp }} ;;
+ LD.MULT R0 LR5 {{ cr.in0 }} ;;
  {{ scalar(first=true) }}
- INC LR9 1 ;;
- LD.MULT R0 LR9 {{ cr.tmp }} ;;
- {{ scalar() }}
- DEC LR9 1 ;;
  {% for n in range(27,30) %}{{ load(n) }}{{ scalar('SUB') }}{% endfor %}
  {{ center_save('center_loop') }}
 
  {{ reset_chunks() }}{{ scalar(first=true,imm='CR0') }}
 variance_loop:
- {% for i in range(2) %}
- LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;
- LD.MULT R0 LR9 {{ cr.tmp }} ;;
+ SET LR1 LR9 ;;
+ ADD LR7 LR9 CR1 ;;
+ INC LR7 2 ;;
+variance_parts:
+ LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
+ SET LR10 LR9 ;;
+variance_products:
+ LD.MULT R0 LR10 {{ cr.tmp }} ;;
  MULT.RC.VV LR0 R0 0 LR0 CR15.L {{ q }} ; AGG.SUM LR0 CR15.L ;;
- {% if not i %}
- INC LR9 1 ;;
- LD.MULT R0 LR9 {{ cr.tmp }} ;;
- {% for j in range(2) %}
- MULT.RC.VV LR0 R0 0 LR0 CR15.L {{ q }} ; AGG.SUM LR0 CR15.L ;;
- {% endfor %}
- {% endif %}
- {% endfor %}
- INC LR9 1 ;;
+ INC LR10 1 ;;
+ BLT.S LR10 LR7 variance_products ;;
+ INC LR1 1 ;;
+ BLT.S LR1 LR7 variance_parts ;;
+ SET LR9 LR7 ;;
  {{ next_chunk('variance_loop') }}
  {{ average('variance_scale') }}
  LD.MULT R0 LR0 {{ cr.epsilon }} ;;
@@ -160,13 +146,20 @@ weight_loop:
  INC LR7 1 ;;
  BLT.S LR7 LR8 weight_loop ;;
  {{ save(9,3) }}
- LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;
- INC LR9 1 ;;
- LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR3 ;;
- INC LR9 1 ;;
- {% for n in range(9,12) %}
- {{ load(n) }}{{ mul(first=loop.first) }}{{ mul(slot='LR3') }}
+ {# Apply the centering terms directly, avoiding another rounding of the numerator. #}
+ LD.MULT.CYCLIC LR5 {{ cr.in0 }} LR0 ;;
+ {% for n,slot in [(27,'LR3'),(28,'LR4'),(29,'LR12')] %}
+ {{ at('LR1',n) }}
+ LD.MULT.CYCLIC LR1 {{ cr.tmp }} {{ slot }} ;;
  {% endfor %}
+ {{ scalar(first=true,imm='CR0') }}
+ {{ at('LR1',9) }}{{ at('LR7',12) }}
+apply_weight:
+ LD.MULT R0 LR1 {{ cr.tmp }} ;;
+ {{ mul() }}
+ {% for slot in ['LR3','LR4','LR12'] %}{{ mul(slot=slot,op='SUB') }}{% endfor %}
+ INC LR1 1 ;;
+ BLT.S LR1 LR7 apply_weight ;;
  SET LR10 LR11 ;;
  {% for i in range(3) %}
  LD.MULT R0 LR10 {{ cr.beta }} ;;
