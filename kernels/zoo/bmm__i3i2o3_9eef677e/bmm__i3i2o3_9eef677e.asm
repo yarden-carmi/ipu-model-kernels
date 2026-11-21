@@ -4,46 +4,52 @@ head:
 row:
     SET LR6 CR0 ; SET LR7 LR2 ;;
 tile:
-    SET LR8 LR1 ; SET LR11 LR7 ; SET LR12 CR0 ;;
-    SET LR13 CR0 ;;
-    // Load a second B row only when the tile crosses the physical boundary.
-    ADD LR14 LR6 LR9 ;;
-    BLT.S LR14 {{ cr.n }} full_tile ;;
+    SET LR8 LR1 ; SET LR11 LR7 ; SET LR13 {{ cr.k }} ;;
+    LD.MULT R0 LR8 {{ cr.in0 }} ;;
+    MULT.VE LR15 CR0 0 LR15 {{ cr.ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
     SET LR14 {{ cr.n }} ;;
     SUB LR14 LR14 LR6 ;;
-    B count_ready ;;
-full_tile:
+    BLE.S LR14 LR9 width_ready ;;
     SET LR14 LR9 ;;
-count_ready:
+width_ready:
     ADD LR14 LR14 LR3 ;;
-{% macro product(first) %}
-    LD.MULT R0 LR8 {{ cr.in0 }} ;;
+    BGT.S LR14 LR9 split_chunk ;;
+
+{% macro reduce(tag, split) %}
+{{ tag }}_chunk:
+    SET LR12 CR0 ; SET LR14 LR13 ;;
+    BLE.S LR14 LR9 {{ tag }}_inner ;;
+    SET LR14 LR9 ;;
+{{ tag }}_inner:
+{% if split %}
     LD.MULT.CYCLIC LR11 {{ cr.in1 }} LR15 ;;
-    BLE.S LR14 LR9 loaded_{{ first }} ;;
     INC LR11 1 ;;
-    LD.MULT.CYCLIC LR11 {{ cr.in1 }} LR9 ; DEC LR11 1 ;;
-loaded_{{ first }}:
-    MULT.RC.VE LR3 LR12 0 LR15 {{ cr.dsfull }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{{ '.FIRST' if first else '' }} ;;
+    LD.MULT.CYCLIC LR11 {{ cr.in1 }} LR9 ;;
+    DEC LR11 1 ;;
+{% else %}
+    LD.MULT.CYCLIC LR11 {{ cr.in1 }} LR15 ;;
+{% endif %}
+    MULT.RC.VE LR3 LR12 0 LR15 {{ cr.ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ;;
+    INC LR12 1 ; ADD LR11 LR11 {{ cr.brows }} ;;
+    BLT.S LR12 LR14 {{ tag }}_inner ;;
+    SUB LR13 LR13 LR14 ; INC LR8 1 ;;
+    BEQ LR13 CR0 store ;;
+    LD.MULT R0 LR8 {{ cr.in0 }} ;;
+    B {{ tag }}_chunk ;;
 {% endmacro %}
-    {{ product(true) }}
-    B advance ;;
-inner:
-    {{ product(false) }}
-advance:
-    INC LR13 1 ; INC.MODP2 LR12 CR1 7 ; ADD LR11 LR11 {{ cr.brows }} ;;
-    BNE LR12 CR0 same_chunk ;;
-    INC LR8 1 ;;
-same_chunk:
-    BLT.S LR13 {{ cr.k }} inner ;;
+    {{ reduce('single', false) }}
+    {{ reduce('split', true) }}
+
+store:
     INC LR6 128 ;;
     BLT.S LR6 {{ cr.n }} store_full ;;
-{% macro store(half) %}
-    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.dsfull }}.{{ half }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR0 ;;
+{% macro output(half) %}
+    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.ds }}.{{ half }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR0 ;;
 {% endmacro %}
-    {{ store('H') }}
+    {{ output('H') }}
     B stored ;;
 store_full:
-    {{ store('L') }}
+    {{ output('L') }}
 stored:
     INC LR0 1 ; INC LR7 1 ;;
     BLT.S LR6 {{ cr.n }} tile ;;
