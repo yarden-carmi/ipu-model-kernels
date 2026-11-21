@@ -3,6 +3,11 @@
    digits for bias and each reduction lane. Residual row of output row (b, p) and tile t: (4 * p + b) * tiles + t
    (LR11 walks it; LR13 = its row base - 1, LR14 = b * tiles - 1, LR12 counts the p of one b down). #}
 {% set tiles_n = (out0_d2 + 127) // 128 %}
+{% macro setp(r) %}
+{% for k in range(0, out0_d1, 255) %}
+    INC {{ r }} {{ [255, out0_d1 - k]|min }} ;;
+{% endfor %}
+{% endmacro %}
 {% macro dot(s, first=false, advance=false) %}
     LD.MULT.CYCLIC LR4 {{ cr.w }} LR0 ; INC LR4 1 {% if advance %}; INC LR3 1 ; DEC LR7 1{% endif %} ;;
 {% for p in range(6) %}
@@ -15,8 +20,9 @@
     SET LR0 CR0 ; SET LR1 {{ cr.slot }} ; SET LR5 CR0 ;;
     SET LR8 CR0 ; SET LR9 CR0 ; SET LR10 {{ cr.rows }} ;;
     DEC LR9 1 ; SET LR12 CR0 ; SET LR13 CR0 ;;
-    DEC LR13 1 ; INC LR12 {{ out0_d1 }} ; SET LR14 CR0 ;;
+    DEC LR13 1 ; SET LR14 CR0 ;;
     DEC LR14 1 ;;
+{{ setp('LR12') }}
 row:
     SET LR4 CR0 ; SET LR6 {{ cr.tiles }} ; SET LR11 LR13 ;;
     DEC LR4 1 ;;
@@ -49,7 +55,8 @@ last_tile:
     INC LR13 {{ 4 * tiles_n }} ; DEC LR12 1 ; DEC LR10 1 ;;
     BNE LR12 CR0 same_b ;;
     INC LR14 {{ tiles_n }} ; SET LR12 CR0 ;;
-    SET LR13 LR14 ; INC LR12 {{ out0_d1 }} ;;
+    SET LR13 LR14 ;;
+{{ setp('LR12') }}
 same_b:
     BNE LR10 CR0 row ;;
     HALT ;;
