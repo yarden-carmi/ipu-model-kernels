@@ -51,7 +51,7 @@
  {{ save(dest) }}
 {% endmacro %}
 
-{# Convert the strided first view to paired channel rows while adding in1. #}
+{# Map the first input's dense view offset to the padded physical rows. #}
 {% macro gather(label,ds,count) %}
  SET LR2 CR0 ; SET LR3 CR0 ; SET LR12 CR0 ;;
  INC LR12 {{ count }} ;;
@@ -62,7 +62,7 @@
 {{ label }}_lo:
  LD.MULT R0 LR10 {{ cr.in0 }} ;;
  MULT.EE LR11 CR1 0 LR0 CR15.L {{ q }} ; ACC.RESHAPE LRD0 LRD2 7 ;;
- ADDBI LRD2 1 ; INC LR6 {{ 2 * ((in0_d0 * in0_d1) // s1_channels) }} ; INC LR7 {{ (in0_d0 * in0_d1) % s1_channels }} ;;
+ ADDBI LRD2 1 ; INC LR6 {{ 2 * ((in0_d0 * in0_d1) // in0_d2) }} ; INC LR7 {{ (in0_d0 * in0_d1) % in0_d2 }} ;;
  BLT.S LR7 LR15 {{ label }}_nowrap ;;
  SUB LR7 LR7 LR15 ; INC LR6 2 ;;
 {{ label }}_nowrap:
@@ -80,13 +80,13 @@
  SET LR0 CR0 ; SET LR9 CR0 ; SET LR13 CR0 ;;
  SET LR1 CR0 ; SET LR8 CR0 ; SET LR15 CR0 ;;
  INC LR8 128 ; INC LR15 128 ;;
- INC LR15 {{ s1_channels - 128 }} ;;
+ INC LR15 {{ in0_d2 - 128 }} ;;
 outer_view:
  SET LR4 CR0 ; SET LR5 LR13 ; SET LR14 CR0 ;;
 view_row:
  SET LR6 LR4 ; SET LR7 LR5 ;;
  {{ gather('full','CR15.L',128) }}
- {{ gather('tail','CR14.L',s1_channels - 128) }}
+ {{ gather('tail',cr.dsl ~ '.L',s1_channels - 128) }}
  INC LR5 {{ in0_d0 }} ; INC LR14 1 ;;
  BLT.S LR5 LR15 view_nowrap ;;
  SUB LR5 LR5 LR15 ; INC LR4 2 ;;
@@ -100,8 +100,7 @@ view_nowrap:
  INC LR10 {{ in0_d0 }} ;;
  BLT.S LR13 LR10 outer_view ;;
 
-{# The add preserves the dense stride order of its first operand, so each
-   assembled logical row is directly a normalization row. #}
+{# Add preserves the stride order of the first view. Normalize its logical rows. #}
  SET LR14 CR0 ; SET LR13 CR0 ; SET LR2 CR0 ;;
  {% for digit in (s1_rows|string) %}
  {% if not loop.first %}
@@ -112,12 +111,12 @@ view_nowrap:
  {% endif %}
  INC LR13 {{ digit }} ;;
  {% endfor %}
-norm_gather:
+norm_row:
  SET LR8 CR0 ;;
  INC LR8 3 ;;
  {{ scalar(first=true,imm='CR0') }}
  SET LR3 LR2 ;;
- {% for ds in ['CR15.L','CR14.L'] %}
+ {% for ds in ['CR15.L',cr.dsl ~ '.L'] %}
  {% for i in range(2) %}
  LD.MULT R0 LR3 {{ cr.sum }} ;;
  MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ q }} ; AGG.SUM LR0 {{ ds }} ;;
@@ -128,7 +127,7 @@ norm_gather:
 
  SET LR9 CR0 ;;
  INC LR9 32 ;;
- {% for ds in ['CR15.L','CR14.L'] %}
+ {% for ds in ['CR15.L',cr.dsl ~ '.L'] %}
  LD.MULT R0 LR2 {{ cr.sum }} ;;
  {{ scalar(first=true,ds=ds) }}
  INC LR2 1 ; LD.MULT R0 LR2 {{ cr.sum }} ;;
@@ -169,7 +168,7 @@ variance_products:
  INC LR1 1 ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
  {{ mul() }}
  {{ save(17) }}
- {# Double the Newton factor; folded gamma compensates. #}
+ {# Newton refinement: fold half into gamma. #}
  {{ load(8,true) }}
  {% for i in range(3) %}
  MULT.RC.VE LR0 CR1 0 LR0 CR15.L {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %} ;;
@@ -177,7 +176,7 @@ variance_products:
  {% for n in [17,18] %}{{ load(n) }}{{ scalar('SUB') }}{% endfor %}
  {{ save(19) }}
 
- {% for chunk,ds in [(0,'CR15.L'),(1,'CR14.L')] %}
+ {% for chunk,ds in [(0,'CR15.L'),(1,cr.dsl ~ '.L')] %}
  SET LR10 CR0 ; SET LR7 CR0 ;;
  {% if chunk %}INC LR10 {{ chunk }} ;;{% endif %}
  {{ scalar(first=true,imm='CR0') }}
@@ -211,5 +210,5 @@ apply_weight_{{ chunk }}:
  INC LR14 1 ;;
  {% endfor %}
  DEC LR13 1 ;;
- BNE LR13 CR0 norm_gather ;;
+ BNE LR13 CR0 norm_row ;;
  HALT ;;

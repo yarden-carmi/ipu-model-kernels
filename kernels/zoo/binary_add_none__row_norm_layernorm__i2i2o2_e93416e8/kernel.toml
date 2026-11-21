@@ -34,16 +34,12 @@ min = 1
 [params.in0_d0]
 type = "int"
 default = 4
-min = 1
-max = 128
 [params.in0_d1]
 type = "int"
 default = 256
-min = 1
 [params.in0_d2]
 type = "int"
 default = 144
-choices = [144, 192, 240]
 [params.in1_d0]
 type = "int"
 default = 4
@@ -62,15 +58,14 @@ default = 256
 [params.out0_d2]
 type = "int"
 default = 144
+
 [derived]
 dsl = "ds(s1_channels - 128)"
 
 [inputs.in0]
 shape = ["in0_d0 * in0_d1 * ((in0_d2 + 127) // 128)", 128]
-range = [-2.0, 2.0]
 [inputs.in1]
 shape = ["in1_d0 * in1_d1 * ((in1_d2 + 127) // 128)", 128]
-range = [-2.0, 2.0]
 [inputs.gamma]
 shape = [6, 128]
 [inputs.beta]
