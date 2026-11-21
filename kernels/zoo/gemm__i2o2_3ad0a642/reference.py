@@ -39,20 +39,26 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.linear.default(_v(ins[0], [1, 50, 768], [38400, 768, 1], 0), module.weight, module.bias)
+    r0 = aten.linear.default(_v(ins[0], [1, 257, 384], [98688, 384, 1], 0), module.op0_weight, module.op0_bias)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 50, 768])}
+    r0 = aten.mul.Tensor(_v(op0, [1, 257, 384], [98688, 384, 1], 0), module.op1_lambda1)
+    op1 = _pick(r0, 0)  # step 0
+    return {"out0": _out(op1, [1, 257, 384])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    import torch
-    w = module.weight
-    n, k = w.shape
-    nc = n // 128
-    W = w.t().reshape(k, nc, 128).permute(1, 0, 2).reshape(nc * k, 128).contiguous()
-    bias = getattr(module, "bias", None)
-    if not params.get("bias", True) or bias is None:
-        bias = torch.zeros(n, dtype=w.dtype)
-    B = bias.reshape(nc, 128).contiguous()
-    return {"w": W, "bvec": B}
+    """Fuse the output scale and split each weight row into signed radix-eight digits."""
+    scale = module.op1_lambda1.detach()
+    weight = module.op0_weight.detach() * scale[:, None]
+    n, k = weight.shape
+    bias = module.op0_bias.detach() * scale if params['bias'] else weight.new_zeros(n)
+    tiles = (n + 127) // 128
+    data = torch.cat((bias[:, None], weight), dim=1)
+    data = torch.nn.functional.pad(data, (0, 0, 0, tiles * 128 - n))
+    rows = data.reshape(tiles, 128, k + 1).transpose(1, 2)
+    exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))[1]
+    digits = torch.ldexp(rows.abs().double(), 12 - exponent).round().long().clamp(max=4095)
+    planes = [torch.ldexp(((digits >> shift) & 7).to(rows.dtype) * rows.sign(),
+                          exponent + shift - 12) for shift in range(9, -1, -3)]
+    return {"w": torch.stack(planes, dim=2).reshape(-1, 128)}
