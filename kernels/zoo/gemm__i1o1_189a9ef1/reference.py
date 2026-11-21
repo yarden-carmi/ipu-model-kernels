@@ -49,40 +49,41 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 128, 128], [1048576, 16384, 128, 1], 0), module.op0_weight)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 256, 32, 32], [262144, 1024, 32, 1], 0), module.op0_weight)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 32, 128, 128], [524288, 16384, 128, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 96, 32, 32], [98304, 1024, 32, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 32, 128, 128])}
+    return {"out0": _out(op1, [1, 96, 32, 32])}
 # ---- end of the frozen reference ----
 
-import numpy as np
-import torch
+
+def _digits(rows):
+    """Split each row into a leading digit and an independently scaled residual."""
+    _, exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
+    step = torch.ldexp(torch.ones_like(rows[..., :1]), exp - 4)
+    hi = torch.round(rows / step) * step
+    return torch.stack((hi, rows - hi), dim=-2)
 
 
 def fold(module, **params):
-    """Rows of 128 lanes (output channel in lane): bias hi, bias lo, then for each input channel its hi row and lo row,
-    and one zero row that the streaming reads last. Batch norm is folded in when the module has one (op0_weight / op1_*),
-    otherwise the plain weight and bias. hi is on a power-of-two grid of its row exponent (4 bits below the top, held
-    exactly by every format with 4 or more mantissa bits); lo is what hi left over (the host rounds it)."""
-    n, k = int(params["n"]), int(params["k"])
-    if hasattr(module, "op1_weight"):
+    n, k = params["n"], params["k"]
+    source = getattr(module, "weight", getattr(module, "op0_weight", None))
+    weights = source.detach().double().reshape(n, k)
+    source_bias = getattr(module, "bias", getattr(module, "op0_bias", None))
+    bias = source_bias.detach().double().reshape(n) if params["bias"] and source_bias is not None else weights.new_zeros(n)
+    if hasattr(module, "op1_running_var"):
         scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
-        weight = module.op0_weight.double().reshape(n, k) * scale.reshape(n, 1)
-        bias = module.op1_bias.double() - module.op1_running_mean.double() * scale
-    else:
-        weight = module.weight.double().reshape(n, k)
-        bias = module.bias.double().reshape(n) if getattr(module, "bias", None) is not None else torch.zeros(n, dtype=torch.float64)
-    vec = torch.zeros((k + 1, 128), dtype=torch.float64)
-    if params.get("bias", True):
-        vec[0, :n] = bias
-    vec[1:, :n] = weight.T
-    _, exp = torch.frexp(vec.abs().amax(dim=1, keepdim=True))
-    step = torch.ldexp(torch.ones_like(exp, dtype=vec.dtype), exp - 4)
-    hi = torch.round(vec / step) * step
-    lo = vec - hi
-    out = torch.zeros((2 * k + 3, 128), dtype=torch.float64)
-    out[0], out[1] = hi[0], lo[0]
-    out[2:2 * k + 2:2] = hi[1:]
-    out[3:2 * k + 2:2] = lo[1:]
-    return {"w": out.numpy()}
+        weights = weights * scale[:, None]
+        bias = module.op1_bias.double() + (bias - module.op1_running_mean.double()) * scale
+
+    padded_k = ((k + 127) // 128) * 128
+    dots = torch.nn.functional.pad(weights, (0, padded_k - k)).reshape(n, -1, 128)
+    digits = _digits(dots)
+    if not params["bias"]:
+        return {"w_unbiased": digits.reshape(-1, 128)}
+    tiles = []
+    for start in range(0, n, 128):
+        tile_bias = bias[start:start + 128]
+        tile_bias = torch.nn.functional.pad(tile_bias, (0, 128 - tile_bias.numel()))
+        tiles.extend((_digits(tile_bias), digits[start:start + 128].reshape(-1, 128)))
+    return {"w": torch.cat(tiles)}
