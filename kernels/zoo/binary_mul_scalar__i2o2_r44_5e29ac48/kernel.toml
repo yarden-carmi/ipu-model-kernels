@@ -65,6 +65,7 @@ type = "int"
 min = 1
 max = 2147483647
 default = 256
+
 [inputs.in0]
 shape = ["groups", "chunks * 128"]
 range = [-2.0, 2.0]
@@ -75,13 +76,12 @@ shape = ["out0_d0 * out0_d1 * out0_d3", "ceil(out0_d2 / 128) * 128"]
 groups = "in0_d0 * in0_d1 * in0_d3"
 chunks = "ceil(in0_d2 / 128)"
 ds_pair = "ds((in0_d2 - 1) % 128 + 1) + ds(128) * 65536"
-# 2896 / 16384 approximates 1/sqrt(32). The FP32 differences
-# contribute 45/256 + 16/16384 and decode as zero in NX8.
+# 2896 / 16384 approximates 1/sqrt(32). Each encoding contributes
+# the coefficient only in its own arithmetic mode.
 fp_hi_base = "0x43010080"
 fp_hi = "fp_hi_base + 45 * 256"
 fp_lo_base = "0x40010080"
 fp_lo = "fp_lo_base + 16 * 256"
-# NX8 contributes 22/128 + 80/16384; these words are subnormal in FP32.
 nx_hi = "0x00017f96"
 nx_lo = "0x000178d0"
 
