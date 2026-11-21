@@ -1,0 +1,96 @@
+[kernel]
+op = "gemm"
+formats = ["e1", "e2", "e3"]
+
+[params.bias]
+type = "bool"
+default = false
+[params.k]
+type = "int"
+min = 1
+max = 4096
+default = 128
+[params.m]
+type = "int"
+min = 1
+max = 65536
+default = 256
+[params.n]
+type = "int"
+min = 1
+max = 4096
+default = 192
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 128
+[params.in0_d2]
+type = "int"
+min = 1
+max = 4096
+default = 16
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 192
+[params.out0_d2]
+type = "int"
+min = 1
+max = 4096
+default = 16
+[derived]
+conv = "min(1, max(n - out0_d2, out0_d2 - n, k - in0_d2, in0_d2 - k, m - in0_d0 * in0_d1, in0_d0 * in0_d1 - m))"
+spatial_width = "max(1, m // (in0_d0 * in0_d2))"
+chunks = "ceil(k / 128)"
+pack = "1 + min(1, max(n - out0_d2, out0_d2 - n)) * (1 - (m // (out0_d0 * out0_d2)) % 2) * min(1, 64 // out0_d2)"
+lane_out = "out0_d2 * pack"
+tiles = "ceil(lane_out / 128)"
+full = "ds(128)"
+tail = "ds(lane_out - 128 * (tiles - 1))"
+outer = "conv * out0_d0 + (1 - conv) * m"
+pitch = "conv * spatial_width * chunks + (1 - conv) * ceil(in0_d1 / 128)"
+in_batch = "conv * in0_d2 * pitch + (1 - conv) * k * pitch"
+height = "conv * in0_d2 + (1 - conv) * in0_d1"
+width = "128"
+weight_rows = "(conv * n + (1 - conv) * tiles) * (2 + 2 * (conv * chunks + (1 - conv) * k))"
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d2 * (1 - conv + conv * spatial_width) * ceil(in0_d1 / 128)", 128]
+range = [-2, 2]
+[inputs.w]
+shape = ["weight_rows", 128]
+range = [-1, 1]
+[outputs.out0]
+shape = ["out0_d0 * out0_d1 * (1 - conv + conv * spatial_width) * tiles // pack", 128]
+
+[abi]
+in0 = "CR2"
+w = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+chunks = "CR7"
+tiles = "CR8"
+full = "CR9"
+tail = "CR10"
+outer = "CR11"
+pitch = "CR12"
+width = "CR13"
+k = "CR14"
+n = "CR15"
+in_batch = "LR1"
+height = "LR2"
+
+[cases.default]
