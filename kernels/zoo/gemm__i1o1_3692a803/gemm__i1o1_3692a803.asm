@@ -1,51 +1,63 @@
-    SET LR0 CR0 ;;
-    SET LR2 CR0 ;;
-    SET LR7 CR0 ;;
-    SET LR11 CR0 ;;
-    SET LR5 CR0 ;;
-m_loop:
-    SET LR6 CR0 ;;
-nb_loop:
-    SET LR4 LR6 ;;
-    SUB LR4 LR4 {{ cr.NB }} ;;
-    SET LR8 LR11 ;;
-    SUB LR8 LR8 CR1 ;;
-    LD.MULT.CYCLIC LR6 {{ cr.w }} LR2 ;;
-    MULT.RC.VE LR2 CR0 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
-    SET LR9 {{ cr.K }} ;;
-kb_loop:
-    LD.MULT R0 LR8 {{ cr.in0 }} ; INC LR8 1 ;;
-    SET LR3 CR0 ;;
-    SUB LR3 LR3 CR1 ;;
-{% macro preload() %}
-    LD.MULT.CYCLIC LR4 {{ cr.w }} LR2 ; ADD LR4 LR4 {{ cr.NB }} ; INC.MODP2 LR2 {{ cr.c128 }} 9 ;;
+{# Weights are contiguous in reduction order for each output tile.
+   Two cyclic slots overlap the next weight load with the current MAC. #}
+{% macro mac(slot, next_slot) %}
+    MULT.RC.VE {{ slot }} LR3 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; LD.MULT.CYCLIC LR4 {{ cr.w }} {{ next_slot }} ; INC LR3 1 ; INC LR4 1 ;;
 {% endmacro %}
-{% macro multiply(load) %}
-    MULT.RC.VE LR2 LR3 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD ; {% if load %}LD.MULT.CYCLIC LR4 {{ cr.w }} LR2 ; ADD LR4 LR4 {{ cr.NB }} ; {% endif %}INC LR3 1 ; INC.MODP2 LR2 {{ cr.c128 }} 9 ;;
+{% macro store(ds) %}
+    ACTIVATE.QUANTIZE identity {{ ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR7 ;;
 {% endmacro %}
-{% for i in range(4) %}
-{{ preload() }}
-{% endfor %}
-    SET LR10 {{ cr.c31 }} ;;
-inner:
-{% for i in range(4) %}
-{{ multiply(true) }}
-{% endfor %}
-    DEC LR10 1 ;;
-    BNE LR10 CR0 inner ;;
-{% for i in range(4) %}
-{{ multiply(false) }}
-{% endfor %}
-    DEC LR9 1 ;;
-    BNE LR9 CR0 kb_loop ;;
+{% macro bias_digit() %}
+    LD.MULT R0 LR12 {{ cr.b }} ; INC LR12 1 ;;
+    MULT.VE LR0 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ;;
+{% endmacro %}
+    SET LR0 CR0 ; SET LR1 {{ cr.width }} ; SET LR2 CR0 ;;
+    SET LR5 CR0 ; SET LR7 CR0 ;;
+row:
+    SET LR4 CR0 ; SET LR6 CR0 ;;
 {% if bias %}
-    LD.MULT.CYCLIC LR6 {{ cr.b }} LR2 ;;
-    MULT.RC.VE LR2 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD ;;
+    SET LR12 CR0 ;;
 {% endif %}
-    ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR7 ;;
-    INC LR7 1 ; INC LR6 1 ;;
-    BLT.S LR6 {{ cr.NB }} nb_loop ;;
-    ADD LR11 LR11 {{ cr.K }} ;;
-    INC LR5 1 ;;
-    BLT.S LR5 {{ cr.m }} m_loop ;;
+    DEC LR4 1 ;;
+tile:
+    SET LR8 LR2 ; SET LR9 {{ cr.chunks }} ;;
+{% if bias %}
+    LD.MULT R0 LR12 {{ cr.b }} ;;
+    MULT.VE LR0 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
+{% for i in range(7) %}
+{{ bias_digit() }}
+{% endfor %}
+    INC LR12 1 ;;
+{% else %}
+    MULT.VE LR0 CR0 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
+{% endif %}
+chunk:
+    LD.MULT R0 LR8 {{ cr.in0 }} ; SET LR11 {{ cr.planes }} ;;
+    INC LR8 1 ;;
+plane:
+    SET LR3 CR0 ; SET LR10 {{ cr.groups }} ;;
+    LD.MULT.CYCLIC LR4 {{ cr.w }} LR0 ; INC LR4 1 ; DEC LR3 1 ;;
+group:
+{% for i in range(15) %}
+{{ mac('LR0', 'LR1') }}
+{{ mac('LR1', 'LR0') }}
+{% endfor %}
+{{ mac('LR0', 'LR1') }}
+    DEC LR10 1 ;;
+    BEQ LR10 CR0 last ;;
+{{ mac('LR1', 'LR0') }}
+    B group ;;
+last:
+    MULT.RC.VE LR1 LR3 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR3 1 ;;
+    DEC LR11 1 ;;
+    BNE LR11 CR0 plane ;;
+    DEC LR9 1 ;;
+    BNE LR9 CR0 chunk ;;
+    INC LR6 1 ;;
+    BEQ LR6 {{ cr.tiles }} tail ;;
+{{ store(cr.full) }}
+    INC LR7 1 ; B tile ;;
+tail:
+{{ store(cr.tail) }}
+    INC LR7 1 ; INC LR5 1 ; ADD LR2 LR2 {{ cr.chunks }} ;;
+    BLT.S LR5 {{ cr.out0_d0 }} row ;;
     HALT ;;

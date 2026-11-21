@@ -20,6 +20,16 @@ def _l(res, k, shape, stride, offset):
     return _v(t, shape, stride, offset)
 
 
+def _p(t, shape):
+    """A parameter read at the shape its record read it (a view of it: reshaped, or expanded)."""
+    if list(t.shape) == list(shape):
+        return t
+    n = 1
+    for d in shape:
+        n *= int(d)
+    return t.reshape(tuple(shape)) if t.numel() == n else t.expand(tuple(shape))
+
+
 def _pick(res, k):
     """Result k of a record (one tensor, or a tuple of them)."""
     return res[k] if isinstance(res, (tuple, list)) else res
@@ -36,53 +46,34 @@ def _sub(module, prefix):
     return types.SimpleNamespace(**{k[len(prefix):]: v for k, v in vars(module).items() if k.startswith(prefix)})
 
 
-# the replacement's recorded code (§4.6), the operation of op0
-import torch
-
-_STEP_PARAMS = {'bias': False, 'k': 32128, 'm': 32, 'n': 512}
-
-def forward(module, *inputs):
-    """Step 2 of 3 of the replacement (gemm): the matrix product."""
-    p = _STEP_PARAMS
-    b, m, k, n = (int(p.get(x, 1)) for x in ("b", "m", "k", "n"))
-    a = inputs[0].to(torch.float64).reshape(b, m, k)
-    if len(inputs) > 1:
-        c = inputs[1].to(torch.float64)
-        c = c.reshape(b, n, k).transpose(-1, -2) if "gemm" == "bmm_nt" else c.reshape(b, k, n)
-    else:
-        c = getattr(module, "weight", getattr(module, "table", None))
-        if c is None:
-            raise ValueError("gemm needs a second operand and none is given")
-        c = c.to(torch.float64)
-        c = c if tuple(c.shape) == (k, n) else c.t() if tuple(c.shape) == (n, k) else c.reshape(k, n)
-        c = c.expand(b, k, n)
-    y = a @ c
-    if "gemm" == "bmm_nt" and p.get("scale") not in (None, ""):
-        y = y * float(p["scale"])
-    if p.get("bias") and getattr(module, "bias", None) is not None:
-        y = y + module.bias.to(torch.float64)
-    return y.to(torch.float32)
-
-
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    op0 = forward(module, _v(ins[0], [32, 32128], [32128, 1], 0))  # the replacement (step 0)
-    return {"out0": _out(op0, [32, 512])}
+    r0 = aten.linear.default(_v(ins[0], [1, 768], [768, 1], 0), module.weight)
+    op0 = _pick(r0, 0)  # step 0
+    return {"out0": _out(op0, [1, 512])}
 # ---- end of the frozen reference ----
 
 
+def _planes(rows):
+    # Two-bit digits at a common exponent per row. Each digit is exactly
+    # representable even in the signed format with just one mantissa bit.
+    _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
+    digits = torch.round(torch.ldexp(rows.abs().double(), 16 - exponent)).long().clamp(max=65535)
+    return [torch.ldexp(((digits >> shift) & 3).to(rows.dtype) * rows.sign(), exponent + shift - 16)
+            for shift in range(14, -1, -2)]
+
+
 def fold(module, **params):
-    n, k = int(params['n']), int(params['k'])
-    source = getattr(module, 'weight', getattr(module, 'table', None)).detach()
-    if tuple(source.shape) != (k, n):
-        source = source.t() if tuple(source.shape) == (n, k) else source.reshape(k, n)
-    kp, np = ((k + 127) // 128) * 128, ((n + 127) // 128) * 128
-    w = source.new_zeros((kp, np))
-    w[:k, :n] = source
-    result = {'w': w.reshape(-1, 128).contiguous()}
-    if params['bias']:
-        b = source.new_zeros(np)
-        b[:n] = module.bias.detach()
-        result['b'] = b.reshape(-1, 128)
+    """Pack weights in output-tile, reduction-index, output-lane order."""
+    w = module.weight.detach()
+    n, k = w.shape
+    tiles = (n + 127) // 128
+    depth = ((k + 127) // 128) * 128
+    padded = torch.nn.functional.pad(w, (0, depth - k, 0, tiles * 128 - n))
+    rows = padded.reshape(tiles, 128, depth).transpose(1, 2).reshape(tiles, depth // 128, 128, 128)
+    result = {"w": torch.stack(_planes(rows), dim=2).reshape(-1, 128)}
+    if params["bias"]:
+        bias = torch.nn.functional.pad(module.bias.detach(), (0, tiles * 128 - n)).reshape(tiles, 128)
+        result["b"] = torch.stack(_planes(bias), dim=1).reshape(-1, 128)
     return result
