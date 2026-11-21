@@ -52,7 +52,7 @@
  {{ save(dest) }}
 {% endmacro %}
 
-{# Gather the strided view from stored input rows, leaving the sum in view order. #}
+{# Gather the strided input view in channel order, and preserve the sum in two parts. #}
 {% macro gather(label,ds,count) %}
  SET LR2 CR0 ; SET LR3 CR0 ; SET LR12 CR0 ;;
  INC LR12 {{ count }} ;;
@@ -101,7 +101,6 @@ view_nowrap:
  INC LR10 {{ in0_d0 }} ;;
  BLT.S LR13 LR10 outer_view ;;
 
-{# Add preserves the stride order of the first view. Normalize its logical rows. #}
  SET LR14 CR0 ; SET LR13 CR0 ; SET LR2 CR0 ;;
  {% for digit in (s1_rows|string) %}
  {% if not loop.first %}
@@ -169,7 +168,7 @@ variance_products:
  INC LR1 1 ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
  {{ mul() }}
  {{ save(17) }}
- {# Newton refinement: half is folded into gamma. #}
+ {# Refine the rsqrt seed; the factor of one half is folded into gamma. #}
  {{ load(8,true) }}
  {% for i in range(3) %}
  MULT.RC.VE LR0 CR1 0 LR0 CR15.L {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %} ;;
