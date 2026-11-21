@@ -1,55 +1,101 @@
 [kernel]
 op = "gemm_table"
-formats = ["e2"]
+formats = ["e1"]
 [params.act_out0]
 type = "str"
-choices = ["silu"]
-default = "silu"
+choices = ["hardsigmoid"]
+default = "hardsigmoid"
 [params.bias]
 type = "bool"
 default = true
-[params.m]
-type = "int"
-min = 1
-max = 16384
-default = 5
 [params.k]
 type = "int"
 min = 1
-max = 128
-default = 16
+max = 4096
+default = 130
 [params.n]
 type = "int"
 min = 1
-max = 128
-default = 64
+max = 4096
+default = 130
+[params.m]
+type = "int"
+min = 1
+max = 65535
+default = 2
+[params.in0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 130
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65535
+default = 2
+[params.in0_d3]
+type = "int"
+min = 1
+max = 65535
+default = 1
+[params.out0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 130
+[params.out0_d2]
+type = "int"
+min = 1
+max = 65535
+default = 2
+[params.out0_d3]
+type = "int"
+min = 1
+max = 65535
+default = 1
 [derived]
-km1 = "k - 1"
-dsn = "ds(n)"
+K = "ceil(k / 128)"
+Km1 = "ceil(k / 128) - 1"
+NB = "ceil(n / 128)"
+cm1 = "k - 128 * (ceil(k / 128) - 1) - 2"
+fm1 = "126"
+valid = "ds(128)"
+lastv = "ds(n - 128 * (ceil(n / 128) - 1))"
 [inputs.in0]
-shape = ["m", 128]
+shape = ["m", "K * 128"]
 range = [-2, 2]
 [inputs.w]
-shape = ["2 * k + 3", 128]
+shape = ["NB * (k + 1) + 1", 128]
 range = [-1, 1]
+[outputs.out0]
+shape = ["m", "NB * 128"]
 [inputs.lut]
 shape = [5, 128]
 range = [0, 0]
-[outputs.out0]
-shape = ["m", 128]
 [abi]
+lut = "CR13"
 in0 = "CR2"
-out0 = "CR3"
-w = "CR4"
-lut = "CR5"
-qf_in0 = "CR6"
-qf_out0 = "CR7"
-m = "CR8"
-km1 = "CR9"
-dsn = "CR10"
+w = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+m = "CR7"
+K = "CR8"
+Km1 = "CR9"
+NB = "CR10"
+cm1 = "CR11"
+fm1 = "CR12"
+valid = "CR15"
+lastv = "CR14"
 [golden]
-tolerance = { e2 = "NX8_STEP" }
+tolerance = { e1 = "NX8_STEP" }
 [cases.default]
-m = 5
-k = 16
-n = 64
+m = 2
