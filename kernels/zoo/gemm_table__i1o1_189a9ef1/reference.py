@@ -49,30 +49,41 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.default(_v(ins[0], [1, 8, 1, 1], [8, 1, 1, 1], 0), module.weight, module.bias)
+    import types
+    ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
+    module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
+                                      for k, v in vars(module).items()})
+    r0 = aten.conv2d.default(_v(ins[0], [1, 16, 128, 128], [262144, 16384, 128, 1], 0), module.op0_weight)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.hardsigmoid.default(_v(op0, [1, 16, 1, 1], [16, 1, 1, 1], 0))
+    r0 = aten.batch_norm.default(_v(op0, [1, 64, 128, 128], [1048576, 16384, 128, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 16, 1, 1])}
+    r0 = aten.silu_.default(_v(op1, [1, 64, 128, 128], [1048576, 16384, 128, 1], 0))
+    op2 = _pick(r0, 0)  # step 0
+    return {"out0": _out(op2, [1, 64, 128, 128])}
 # ---- end of the frozen reference ----
 
 
-import numpy as np
-import torch
-
-
 def fold(module, **params):
-    """Rows of 128 lanes (output channel in lane), per block of 128 output channels: the bias row, then one row per input
-    channel (that channel's weight of every output channel); one zero row at the end, which the streaming reads last."""
+    """Fuse inference batch norm and arrange constants in output-lane blocks."""
     n, k = int(params["n"]), int(params["k"])
     nb = (n + 127) // 128
-    w = module.weight.to(torch.float64).reshape(n, k).numpy()
-    b = np.zeros(n)
-    if params.get("bias") and getattr(module, "bias", None) is not None:
-        b = module.bias.to(torch.float64).reshape(n).numpy()
-    out = np.zeros((nb * (k + 1) + 1, 128), dtype=np.float64)
-    for j in range(nb):
-        lo, hi = j * 128, min(n, j * 128 + 128)
-        out[j * (k + 1), :hi - lo] = b[lo:hi]
-        out[j * (k + 1) + 1:(j + 1) * (k + 1), :hi - lo] = w[lo:hi].T
-    return {"w": out}
+    scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
+    weight = module.op0_weight.double().reshape(n, k) * scale.reshape(n, 1)
+    bias = module.op1_bias.double() - module.op1_running_mean.double() * scale
+    rows = torch.zeros((nb * (k + 1), 128), dtype=torch.float64)
+    for block in range(nb):
+        lo, hi = 128 * block, min(n, 128 * (block + 1))
+        base = block * (k + 1)
+        if params.get("bias"):
+            rows[base, :hi - lo] = bias[lo:hi]
+        rows[base + 1:base + k + 1, :hi - lo] = weight[lo:hi].T
+    # Keep the coarse part on a power-of-two grid so it survives NX8
+    # encoding exactly. Give the small residual its own shared exponent.
+    active = rows
+    _, exp = torch.frexp(active.abs().amax(dim=1, keepdim=True))
+    step = torch.ldexp(torch.ones_like(exp, dtype=rows.dtype), exp - 4)
+    coarse = torch.round(active / step) * step
+    packed = torch.zeros((2 * active.shape[0], 128), dtype=rows.dtype)
+    packed[::2] = coarse
+    packed[1::2] = active - coarse
+    return {"coeff": packed.numpy()}
