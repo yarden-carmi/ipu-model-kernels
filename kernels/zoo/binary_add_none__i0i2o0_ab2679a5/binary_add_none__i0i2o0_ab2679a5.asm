@@ -1,51 +1,44 @@
-// For output (a,b,c), the first view reads flat offset (c*B+b)*A+a.
-// LR1 and LR4 track the remainder and quotient in the stored in0 plane.
-// A group of A adjacent offsets cannot straddle a plane boundary.
-{% set A = out0_d0 %}
-{% set C = out0_d2 %}
-{% set chunks = (C + 127) // 128 %}
-{% macro channel(a) %}
-    LD.MULT R0 LR2 {{ cr.in0 }} {% if a > 0 %}; INC LR8 1 ; INC LR9 128{% endif %} ;;
-    MULT.EE LR4 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; AGG.SUM.FIRST LR8 {{ cr.ds1 }}.L ; INC LR2 1 ;;
-    MULT.RC.VE LR9 CR1 0 LR0 CR15.L {{ cr.qf_in1 }}.L ; AGG.SUM LR8 {{ cr.ds1 }}.L ;;
+// in0's view offset is ((column * height + row) * channels + channel).
+// Split that offset into a physical row (LR1) and a storage lane (LR2).
+{% macro wrap(label) %}
+{{ label }}:
+    BLT.S LR1 {{ cr.plane }} {{ label }}_done ;;
+    SUB LR1 LR1 {{ cr.plane }} ; INC LR2 1 ; B {{ label }} ;;
+{{ label }}_done:
 {% endmacro %}
-    SET LR0 CR0 ; SET LR3 CR0 ; SET LR5 CR0 ;;
-    SET LR14 {{ cr.out0_d1 }} ; SET LR15 CR0 ;;
-row_loop:
-    SET LR1 LR5 ; SET LR4 CR0 ; SET LR13 LR15 ;;
-    SET LR7 LR15 ;;
-    INC LR7 {{ chunks }} ;;
-chunk_loop:
-    SET LR11 LR13 ; SET LR12 CR0 ;;
-    LD.MULT.CYCLIC LR11 {{ cr.in1 }} LR12 ;;
-{% for a in range(1,A) %}
-    ADD LR11 LR11 {{ cr.plane1 }} ; INC LR12 128 ; LD.MULT.CYCLIC LR11 {{ cr.in1 }} LR12 ;;
-{% endfor %}
-    SET LR6 CR0 ; SET LR10 CR0 ; INC LR13 1 ;;
-{% if C % 128 != 0 %}
-    INC LR10 {{ C % 128 }} ;;
-    {% if chunks > 1 %}
-    BNE LR13 LR7 full_chunk ;;
-    B column_loop ;;
-full_chunk:
-    SET LR10 CR0 ;;
-    INC LR10 128 ;;
-    {% endif %}
-{% else %}
-    INC LR10 128 ;;
-{% endif %}
-column_loop:
-    SET LR2 LR1 ; SET LR8 CR0 ; SET LR9 LR6 ;;
-{% for a in range(A) %}
-    {{ channel(a) }}
-{% endfor %}
+
+    SET LR0 CR0 ; SET LR3 CR0 ; SET LR4 CR0 ;;
+    SET LR6 CR0 ; SET LR13 {{ cr.out0_d1 }} ;;
+row:
+    SET LR1 LR4 ; SET LR2 CR0 ; SET LR7 {{ cr.out0_d2 }} ;;
+    {{ wrap('row_wrap') }}
+    SET LR15 CR0 ; INC LR14 0 ;;
+    INC LR15 128 ;;
+chunk:
+    // Cache one row per in1 channel in the four cyclic slots.
+    SET LR11 CR0 ; SET LR12 LR6 ; SET LR10 CR0 ;;
+load_channel:
+    LD.MULT.CYCLIC LR12 {{ cr.in1 }} LR11 ;;
+    ADD LR12 LR12 {{ cr.channel_rows }} ; INC LR11 128 ; INC LR10 1 ;;
+    BLT.S LR10 {{ cr.out0_d0 }} load_channel ;;
+    SET LR8 CR0 ; INC LR6 1 ;;
+pixel:
+    SET LR10 CR0 ; SET LR9 LR8 ;;
+channel:
+    LD.MULT R0 LR1 {{ cr.in0 }} ;;
+    MULT.EE LR2 CR1 0 LR0 {{ cr.one }}.L {{ cr.qf_in0 }}.L ; AGG.SUM.FIRST LR10 {{ cr.one }}.L ; INC LR1 1 ;;
+    MULT.RC.VE LR9 CR1 0 LR0 {{ cr.one }}.L {{ cr.qf_in1 }}.L ; AGG.SUM LR10 {{ cr.one }}.L ;;
+    INC LR10 1 ; INC LR9 128 ;;
+    {{ wrap('channel_wrap') }}
+    BLT.S LR10 {{ cr.out0_d0 }} channel ;;
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.active }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR3 ;;
-    INC LR3 1 ; INC LR6 1 ; ADD LR1 LR1 {{ cr.view_step }} ;;
-    DEC LR10 1 ; BLT.S LR1 {{ cr.in0_rows }} no_wrap ;;
-    SUB LR1 LR1 {{ cr.in0_rows }} ; INC LR4 1 ;;
-no_wrap:
-    BNE LR10 CR0 column_loop ;;
-    BLT.S LR13 LR7 chunk_loop ;;
-    INC LR5 {{ A }} ; SET LR15 LR13 ; DEC LR14 1 ;;
-    BNE LR14 CR0 row_loop ;;
+    INC LR3 1 ; DEC LR7 1 ; INC LR8 1 ;;
+    BEQ LR7 CR0 next_row ;;
+    ADD LR1 LR1 {{ cr.gap }} ;;
+    {{ wrap('pixel_wrap') }}
+    BLT.S LR8 LR15 pixel ;;
+    B chunk ;;
+next_row:
+    ADD LR4 LR4 {{ cr.out0_d0 }} ; DEC LR13 1 ;;
+    BNE LR13 CR0 row ;;
     HALT ;;
