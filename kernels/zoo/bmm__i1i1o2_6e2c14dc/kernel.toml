@@ -1,62 +1,110 @@
 [kernel]
 op = "bmm"
-formats = ["e3"]
+formats = ["e2"]
+
 [params.b]
 type = "int"
 min = 1
-max = 16
-default = 12
+max = 65535
+default = 6
 [params.k]
 type = "int"
 min = 1
-max = 64
+max = 65535
 default = 64
 [params.m]
 type = "int"
 min = 1
-max = 128
-default = 50
+max = 65535
+default = 257
 [params.n]
 type = "int"
 min = 1
-max = 128
-default = 50
+max = 65535
+default = 257
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 65535
+default = 257
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65535
+default = 384
+[params.in1_d0]
+type = "int"
+min = 1
+max = 65535
+default = 1
+[params.in1_d1]
+type = "int"
+min = 1
+max = 65535
+default = 257
+[params.in1_d2]
+type = "int"
+min = 1
+max = 65535
+default = 384
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 65535
+default = 6
+[params.out0_d2]
+type = "int"
+min = 1
+max = 65535
+default = 257
+[params.out0_d3]
+type = "int"
+min = 1
+max = 65535
+default = 257
+
 [inputs.in0]
-shape = [1, "b*k", 128]
+shape = ["in0_d0", "in0_d2", "mc*128"]
 range = [-2, 2]
 [inputs.in1]
-shape = [1, "b*k", 128]
+shape = ["in1_d0", "in1_d2", "nc*128"]
 range = [-2, 2]
 [outputs.out0]
-shape = [1, "b", "n", 128]
+shape = ["out0_d0", "out0_d1", "out0_d3", "ceil(out0_d2/128)*128"]
+
 [derived]
-dsfull = "ds(128) + 65536*ds((m-1)%128+1)"
+mc = "ceil(in0_d1/128)"
+nc = "ceil(in1_d1/128)"
+ds = "ds(128) + 65536*ds((m-1)%128+1)"
+heads = "out0_d1"
+gap0 = "(in0_d2-k*heads)*mc"
+gap1 = "(in1_d2-k*heads)*nc"
+
 [abi]
 in0 = "CR2"
 in1 = "CR3"
 out0 = "CR4"
-b = "CR5"
-k = "CR6"
-n = "CR7"
-dsfull = "CR10"
-qf_in0 = "CR11"
-qf_in1 = "CR12"
-qf_out0 = "CR13"
-m = "LR15"
+qf_in0 = "CR5"
+qf_in1 = "CR6"
+qf_out0 = "CR7"
+k = "CR8"
+n = "CR9"
+mc = "CR10"
+nc = "CR11"
+ds = "CR12"
+heads = "CR13"
+gap0 = "CR14"
+gap1 = "CR15"
+b = "LR15"
+
 [cases.default]
-b = 12
-k = 64
-m = 50
-n = 50
-
-[cases.one]
-b = 1
-k = 1
-m = 1
-n = 1
-
-[cases.wide]
-b = 2
-k = 7
-m = 128
-n = 100
