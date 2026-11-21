@@ -13,25 +13,25 @@ default = true
 type = "int"
 min = 1
 max = 512
-default = 128
+default = 3
 [params.cout]
 type = "int"
 min = 1
 max = 512
-default = 128
+default = 16
 [params.groups]
 type = "int"
 min = 1
 max = 512
-default = 128
+default = 1
 [params.h]
 type = "int"
-min = 3
+min = 1
 max = 256
 default = 8
 [params.w]
 type = "int"
-min = 3
+min = 1
 max = 256
 default = 8
 [params.kh]
@@ -59,15 +59,15 @@ default = 1
 type = "int"
 min = 1
 max = 512
-default = 128
+default = 3
 [params.in0_d2]
 type = "int"
-min = 3
+min = 1
 max = 256
 default = 8
 [params.in0_d3]
 type = "int"
-min = 3
+min = 1
 max = 256
 default = 8
 [params.out0_d0]
@@ -78,15 +78,15 @@ default = 1
 type = "int"
 min = 1
 max = 512
-default = 128
+default = 16
 [params.out0_d2]
 type = "int"
-min = 2
+min = 1
 max = 256
 default = 8
 [params.out0_d3]
 type = "int"
-min = 2
+min = 1
 max = 256
 default = 8
 
@@ -94,11 +94,11 @@ default = 8
 ic = "ceil(in0_d1 / 128)"
 oc = "ceil(out0_d1 / 128)"
 ds128 = "ds(128)"
-rep = "2"
-orows = "3 + 9 * cin * rep"
-wrows = "(1 // groups) * (oc * orows) + (1 - 1 // groups) * (20 * oc + 1)"
-padrows = "(in0_d2 + 2) * (in0_d3 + 2) * ic"
-wic = "in0_d3 * ic"
+cm1 = "cin - 1"
+dense = "1 // groups"
+plane_chunks = "1 + dense * (ic - 1)"
+weight_block = "dense * (18 * cin + 2) + (1 - dense) * 20"
+wrows = "weight_block * oc + 1"
 
 [inputs.in0]
 shape = ["in0_d0", "in0_d2", "in0_d3", "ic", 128]
@@ -110,7 +110,7 @@ range = [-1, 1]
 shape = [5, 128]
 range = [0, 0]
 [scratch.pad]
-shape = ["padrows", 128]
+shape = ["(in0_d2 + 2) * (in0_d3 + 2) * plane_chunks", 128]
 [outputs.out0]
 shape = ["out0_d0", "out0_d2", "out0_d3", "oc", 128]
 
@@ -124,26 +124,10 @@ qf_in0 = "CR7"
 qf_weights = "CR8"
 qf_out0 = "CR9"
 ds128 = "CR10"
-ic = "CR11"
 oc = "CR12"
-orows = "CR13"
-padrows = "CR14"
-wic = "CR15"
+cm1 = "CR13"
+weight_block = "CR14"
 
 [golden]
 tolerance = { e1 = "NX8_STEP", e2 = "NX8_STEP" }
 [cases.default]
-[cases.dense]
-groups = 1
-cin = 16
-cout = 16
-h = 8
-w = 8
-stride = 1
-in0_d1 = 16
-in0_d2 = 8
-in0_d3 = 8
-out0_d1 = 16
-out0_d2 = 8
-out0_d3 = 8
-formats = ["e2"]
