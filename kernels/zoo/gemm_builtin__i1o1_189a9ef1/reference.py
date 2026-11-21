@@ -53,55 +53,41 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 16, 56, 56], [50176, 3136, 56, 1], 0), module.op0_weight)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 16, 1, 1], [16, 1, 1, 1], 0), module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 72, 56, 56], [225792, 3136, 56, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.relu_.default(_v(op0, [1, 8, 1, 1], [8, 1, 1, 1], 0))
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.relu_.default(_v(op1, [1, 72, 56, 56], [225792, 3136, 56, 1], 0))
-    op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 72, 56, 56])}
+    return {"out0": _out(op1, [1, 8, 1, 1])}
 # ---- end of the frozen reference ----
 
 
-import numpy as np
 import torch
 
 
-def _e1_rows(rows, fe=2, fm=5):
-    """Each row of 128 rounded to the signed NX8 grid (fe exponent bits, fm mantissa bits) at its own row scale, as the host writes a constant row."""
-    out = np.zeros_like(rows)
-    emax = (1 << fe) - 1
-    for r in range(rows.shape[0]):
-        v = rows[r].astype(np.float32).astype(np.float64)
-        top = float(np.max(np.abs(v)))
-        if top == 0.0 or not np.isfinite(top):
-            continue
-        e = int(np.frexp(np.float32(top))[1]) - 1
-        low = e - (emax - 1)
-        mag = np.abs(v)
-        lev = np.where(mag >= 2.0 ** low, np.floor(np.log2(np.maximum(mag, 1e-300))), low)
-        step = 2.0 ** (lev - fm)
-        q = np.floor(mag / step + 0.5) * step
-        q = np.minimum(q, (2.0 - 2.0 ** -fm) * 2.0 ** e)
-        out[r] = np.sign(v) * q
-    return out
-
-
 def fold(module, **params):
-    """Rows of 128 lanes (output channel in lane): bias hi, bias lo, then for each input channel its hi row and lo row
-    (BN folded in; lo = the e2 rounding of what hi left over), and one zero row that the streaming reads last."""
+    """Rows of 128 lanes (output channel in lane), per block of 128 output channels: the bias row, then one row per input
+    channel (batch norm folded in when the module has one); each followed by its residual: the coarse row is on a
+    power-of-two grid of its own row exponent (5 significant bits), the residual is what it left over (the host rounds it)."""
     n, k = int(params["n"]), int(params["k"])
-    w = module.op0_weight.to(torch.float64).reshape(n, k)
-    scale = module.op1_weight.to(torch.float64) / torch.sqrt(module.op1_running_var.to(torch.float64) + 1e-5)
-    b = module.op1_bias.to(torch.float64) - module.op1_running_mean.to(torch.float64) * scale
-    wf = (w * scale.reshape(-1, 1)).numpy()
-    vec = np.zeros((k + 1, 128), dtype=np.float64)
-    vec[0, :n] = b.numpy()
-    vec[1:, :n] = wf.T
-    hi = _e1_rows(vec)
-    lo = _e1_rows(vec - hi)
-    out = np.zeros((2 * k + 3, 128), dtype=np.float64)
-    out[0], out[1] = hi[0], lo[0]
-    out[2:2 * k + 2:2] = hi[1:]
-    out[3:2 * k + 2:2] = lo[1:]
-    return {"w": out}
+    nb = (n + 127) // 128
+    if hasattr(module, "op1_weight"):
+        scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
+        weight = module.op0_weight.double().reshape(n, k) * scale.reshape(n, 1)
+        bias = module.op1_bias.double() - module.op1_running_mean.double() * scale
+    else:
+        weight = module.weight.double().reshape(n, k)
+        bias = module.bias.double().reshape(n) if getattr(module, "bias", None) is not None else torch.zeros(n, dtype=torch.float64)
+    rows = torch.zeros((nb * (k + 1), 128), dtype=torch.float64)
+    for block in range(nb):
+        lo, hi = 128 * block, min(n, 128 * (block + 1))
+        base = block * (k + 1)
+        if params.get("bias"):
+            rows[base, :hi - lo] = bias[lo:hi]
+        rows[base + 1:base + k + 1, :hi - lo] = weight[lo:hi].T
+    _, exp = torch.frexp(rows.abs().amax(dim=1, keepdim=True))
+    step = torch.ldexp(torch.ones_like(exp, dtype=rows.dtype), exp - 4)
+    coarse = torch.round(rows / step) * step
+    packed = torch.zeros((2 * rows.shape[0], 128), dtype=rows.dtype)
+    packed[::2] = coarse
+    packed[1::2] = rows - coarse
+    return {"coeff": packed.numpy()}

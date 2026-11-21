@@ -1,6 +1,7 @@
 [kernel]
 op = "gemm_builtin"
-formats = ["e2"]
+formats = ["e1"]
+
 [params.act_out0]
 type = "str"
 choices = ["relu"]
@@ -8,21 +9,21 @@ default = "relu"
 [params.bias]
 type = "bool"
 default = true
-[params.m]
-type = "int"
-min = 1
-max = 16384
-default = 5
 [params.k]
 type = "int"
 min = 1
-max = 128
+max = 4096
 default = 16
 [params.n]
 type = "int"
 min = 1
-max = 128
-default = 16
+max = 4096
+default = 64
+[params.m]
+type = "int"
+min = 1
+max = 65535
+default = 4
 [params.in0_d0]
 type = "int"
 choices = [1]
@@ -30,18 +31,18 @@ default = 1
 [params.in0_d1]
 type = "int"
 min = 1
-max = 128
+max = 4096
 default = 16
 [params.in0_d2]
 type = "int"
 min = 1
-max = 16384
-default = 5
+max = 65535
+default = 2
 [params.in0_d3]
 type = "int"
 min = 1
-max = 16384
-default = 1
+max = 65535
+default = 2
 [params.out0_d0]
 type = "int"
 choices = [1]
@@ -49,41 +50,51 @@ default = 1
 [params.out0_d1]
 type = "int"
 min = 1
-max = 128
-default = 16
+max = 4096
+default = 64
 [params.out0_d2]
 type = "int"
 min = 1
-max = 16384
-default = 5
+max = 65535
+default = 2
 [params.out0_d3]
 type = "int"
 min = 1
-max = 16384
-default = 1
+max = 65535
+default = 2
+
 [derived]
-km1 = "k - 1"
-dsn = "ds(n)"
+K = "ceil(k / 128)"
+Km1 = "ceil(k / 128) - 1"
+NB = "ceil(n / 128)"
+cm1 = "k - 128 * (ceil(k / 128) - 1) - 1"
+fm1 = "127"
+valid = "ds(128)"
+lastv = "ds(n - 128 * (ceil(n / 128) - 1))"
+
 [inputs.in0]
-shape = ["m", 128]
+shape = ["m", "K * 128"]
 range = [-2, 2]
-[inputs.w]
-shape = ["2 * k + 3", 128]
+[inputs.coeff]
+shape = ["2 * NB * (k + 1)", 128]
 range = [-1, 1]
 [outputs.out0]
-shape = ["m", 128]
+shape = ["m", "NB * 128"]
+
 [abi]
 in0 = "CR2"
-out0 = "CR3"
-w = "CR4"
-qf_in0 = "CR6"
-qf_out0 = "CR7"
-m = "CR8"
-km1 = "CR9"
-dsn = "CR10"
-[golden]
-tolerance = { e2 = "NX8_STEP" }
+coeff = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+m = "CR7"
+K = "CR8"
+Km1 = "CR9"
+NB = "CR10"
+cm1 = "CR11"
+fm1 = "CR12"
+valid = "CR15"
+lastv = "CR14"
+
 [cases.default]
-m = 5
-k = 16
-n = 16
+m = 4
