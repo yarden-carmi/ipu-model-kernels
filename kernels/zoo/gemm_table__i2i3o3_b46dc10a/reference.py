@@ -53,31 +53,32 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 144, 32, 32], [147456, 1024, 32, 1], 0), module.op0_weight)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 192, 16, 16], [49152, 256, 16, 1], 0), module.op0_weight)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 96, 32, 32], [98304, 1024, 32, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 128, 16, 16], [32768, 256, 16, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.silu_.default(_v(op1, [1, 96, 32, 32], [98304, 1024, 32, 1], 0))
+    r0 = aten.silu_.default(_v(op1, [1, 128, 16, 16], [32768, 256, 16, 1], 0))
     op2 = _pick(r0, 0)  # step 0
-    r0 = aten.cat.default([_v(ins[1], [1, 96, 32, 32], [98304, 1024, 32, 1], 0), _v(op2, [1, 96, 32, 32], [98304, 1024, 32, 1], 0)], 1)
+    r0 = aten.cat.default([_v(ins[1], [1, 128, 16, 16], [32768, 256, 16, 1], 0), _v(op2, [1, 128, 16, 16], [32768, 256, 16, 1], 0)], 1)
     op3 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op3, [1, 192, 32, 32])}
+    return {"out0": _out(op3, [1, 256, 16, 16])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
+    """Fold inference batch norm, then keep a high and residual FP8 row."""
     def split(rows):
         _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
         step = torch.ldexp(torch.ones_like(rows[..., :1]), exponent - 4)
-        coarse = torch.round(rows / step) * step
-        return torch.stack((coarse, rows - coarse), dim=-2).contiguous()
+        high = torch.round(rows / step) * step
+        return torch.stack((high, rows - high), dim=-2).contiguous()
 
     n, k = params['n'], params['k']
     scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
-    weight = module.op0_weight.double().reshape(n, k) * scale.reshape(n, 1)
+    weight = module.op0_weight.double().reshape(n, k) * scale[:, None]
     rows = torch.nn.functional.pad(weight, (0, (-k) % 128)).reshape(n, -1, 128)
     result = {'w': split(rows)}
     if params['bias']:
         bias = module.op1_bias - module.op1_running_mean * scale
-        result['b'] = split(bias.reshape(n, 1).expand(n, 128))
+        result['b'] = split(bias[:, None].expand(n, 128))
     return result

@@ -4,6 +4,8 @@
     ACTIVATE.QUANTIZE {{ fn }} {{ ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;;
     INC LR1 1 ;;
 {% endmacro %}
+{# LR7 walks packed NCHW channel rows for this spatial tile.
+   With a half row of padding elided, odd channels start 64 lanes into a row. #}
 {% macro mac(odd) %}
     LD.MULT.CYCLIC LR7 {{ cr.in0 }} LR0 {% if odd %}; ADD LR11 LR7 LR14{% endif %} ;;
 {% if odd %}
