@@ -1,0 +1,73 @@
+[kernel]
+op = "gemm"
+formats = ["e3"]
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 768
+max = 768
+default = 768
+[params.m]
+type = "int"
+min = 50
+max = 50
+default = 50
+[params.n]
+type = "int"
+min = 768
+max = 768
+multiple_of = 128
+default = 768
+[params.in0_d1]
+type = "int"
+min = 12
+max = 12
+default = 12
+[params.in0_d2]
+type = "int"
+min = 50
+max = 50
+default = 50
+[params.in0_d3]
+type = "int"
+min = 64
+max = 64
+default = 64
+[inputs.in0]
+shape = ["k", 128]
+range = [-2.0, 2.0]
+[inputs.w]
+shape = ["(n // 128) * k", 128]
+range = [-1.0, 1.0]
+[inputs.bvec]
+shape = ["n // 128", 128]
+range = [-1.0, 1.0]
+[outputs.out0]
+shape = ["m * (n // 128)", 128]
+[derived]
+nc = "n // 128"
+ds = "ds(128)"
+[abi]
+in0 = "CR2"
+w = "CR3"
+bvec = "CR4"
+out0 = "CR5"
+qf_in0 = "CR6"
+qf_out0 = "CR7"
+k = "CR8"
+m = "CR9"
+nc = "CR10"
+ds = "CR11"
+in0_d1 = "CR12"
+in0_d2 = "CR13"
+in0_d3 = "CR14"
+[cases.default]
+m = 50
+k = 768
+n = 768
+bias = true
+in0_d1 = 12
+in0_d2 = 50
+in0_d3 = 64
