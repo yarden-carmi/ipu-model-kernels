@@ -1,0 +1,92 @@
+[kernel]
+op = "gemm"
+formats = ["e2", "e3"]
+
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 16384
+default = 240
+[params.m]
+type = "int"
+min = 1
+max = 16384
+default = 64
+[params.n]
+type = "int"
+min = 1
+max = 16384
+default = 240
+[params.in0_d0]
+type = "int"
+min = 1
+max = 16384
+default = 4
+[params.in0_d1]
+type = "int"
+min = 1
+max = 16384
+default = 16
+[params.in0_d2]
+type = "int"
+min = 1
+max = 16384
+default = 240
+[params.out0_d0]
+type = "int"
+min = 1
+max = 16384
+default = 4
+[params.out0_d1]
+type = "int"
+min = 1
+max = 16384
+default = 16
+[params.out0_d2]
+type = "int"
+min = 1
+max = 16384
+default = 240
+
+[derived]
+tiles = "ceil(out0_d1 / 128)"
+in_tiles = "ceil(in0_d1 / 128)"
+chunks = "ceil(k / 128)"
+end = "(k - 1) % 128"
+full = "ds(128)"
+tail = "ds((out0_d1 - 1) % 128 + 1)"
+width = "128"
+full_end = "127"
+in_skip = "(k - 1) * in_tiles"
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d2 * in_tiles", 128]
+range = [-2, 2]
+[inputs.w]
+shape = ["2 * n * (chunks + 1)", 128]
+range = [-1, 1]
+[outputs.out0]
+shape = ["out0_d0 * out0_d2 * tiles", 128]
+
+[abi]
+in0 = "CR2"
+w = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+tiles = "CR7"
+full = "CR8"
+tail = "CR9"
+chunks = "CR10"
+end = "CR11"
+width = "CR12"
+full_end = "CR13"
+n = "CR14"
+out0_d0 = "CR15"
+in_tiles = "LR14"
+in_skip = "LR15"
+
+[cases.default]
