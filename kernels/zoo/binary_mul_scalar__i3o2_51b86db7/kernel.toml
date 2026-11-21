@@ -1,0 +1,105 @@
+[kernel]
+op = "binary_mul_scalar"
+formats = ["e3"]
+
+[params.broadcast]
+type = "str"
+choices = ["scalar"]
+default = "scalar"
+[params.const]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.numel]
+type = "int"
+min = 1
+max = 2147483647
+default = 30000
+[params.op]
+type = "str"
+choices = ["mul"]
+default = "mul"
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 12
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 50
+[params.in0_d3]
+type = "int"
+min = 1
+max = 65536
+default = 50
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 12
+[params.out0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 50
+[params.out0_d3]
+type = "int"
+min = 1
+max = 65536
+default = 50
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d1 * in0_d2", "ceil(in0_d3 / 128) * 128"]
+range = [-2.0, 2.0]
+[outputs.out0]
+shape = ["out0_d0 * out0_d1 * out0_d3", "ceil(out0_d2 / 128) * 128"]
+[scratch.tmp]
+shape = [1, 128]
+
+[derived]
+ic = "ceil(in0_d3 / 128)"
+oc = "ceil(out0_d2 / 128)"
+w = "out0_d3"
+planes = "out0_d0 * out0_d1"
+plane_rows = "in0_d2 * ic"
+full = "ds(128)"
+last = "(out0_d2 - 1) % 128 + 1"
+tail = "ds(last)"
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+qf_in0 = "CR4"
+qf_out0 = "CR5"
+ic = "CR6"
+oc = "CR7"
+w = "CR8"
+planes = "CR9"
+plane_rows = "CR10"
+full = "CR11"
+last = "CR12"
+tail = "CR13"
+tmp = "CR14"
+
+[golden]
+tolerance = { e3 = "EXACT" }
+
+[cases.default]
