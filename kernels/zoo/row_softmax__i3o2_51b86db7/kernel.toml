@@ -1,92 +1,97 @@
 [kernel]
 op = "row_softmax"
 formats = ["e3"]
+
 [params.n]
 type = "int"
 min = 1
-max = 128
-default = 50
+max = 4096
+default = 64
 [params.rows]
 type = "int"
 min = 1
-max = 1048576
-default = 600
+max = 8192
+default = 512
 [params.in0_d0]
 type = "int"
 min = 1
-max = 1024
+max = 8192
 default = 1
 [params.in0_d1]
 type = "int"
 min = 1
-max = 65536
-default = 12
+max = 8192
+default = 8
 [params.in0_d2]
 type = "int"
 min = 1
-max = 128
-default = 50
+max = 8192
+default = 64
 [params.in0_d3]
 type = "int"
 min = 1
-max = 128
-default = 50
+max = 4096
+default = 64
 [params.out0_d0]
 type = "int"
 min = 1
-max = 1024
+max = 8192
 default = 1
 [params.out0_d1]
 type = "int"
 min = 1
-max = 65536
-default = 12
+max = 8192
+default = 8
 [params.out0_d2]
 type = "int"
 min = 1
-max = 128
-default = 50
+max = 8192
+default = 64
 [params.out0_d3]
 type = "int"
 min = 1
-max = 128
-default = 50
+max = 4096
+default = 64
 [derived]
 K = "ceil(n / 128)"
 M = "rows * K"
 active = "ds(128)"
-outpart = "ds(out0_d2)"
-c256 = "256"
-batchstride = "out0_d2 * n"
-part = "ds(n)"
+part = "ds(n - (K - 1) * 128)"
+outpart = "ds(out0_d2 - (ceil(out0_d2 / 128) - 1) * 128)"
+batchstride = "out0_d2 * K"
+
 [inputs.in0]
-shape = ["in0_d0", "in0_d1", "in0_d2", 128]
+shape = ["in0_d0", "in0_d1", "in0_d2", "ceil(in0_d3 / 128)", 128]
 range = [-2, 2]
 [outputs.out0]
-shape = ["out0_d0", "out0_d1", "out0_d3", 128]
-[scratch.exps]
-shape = [1, 128]
+shape = ["out0_d0", "out0_d1", "out0_d3", "ceil(out0_d2 / 128)", 128]
 [scratch.tmp]
 shape = [12, 128]
+[scratch.exps]
+shape = ["K", 128]
+[scratch.roots]
+shape = ["K", 128]
 [scratch.norm]
-shape = ["rows * n", 128]
+shape = ["M", 128]
+
 [abi]
 in0 = "CR2"
 out0 = "CR3"
+batchstride = "CR4"
 tmp = "CR5"
 qf_in0 = "CR6"
 K = "CR7"
 M = "CR8"
 exps = "CR9"
 qf_out0 = "CR10"
-norm = "CR11"
+roots = "CR11"
 outpart = "CR12"
-c256 = "CR13"
-batchstride = "CR4"
+norm = "CR13"
 part = "CR14"
 active = "CR15"
+out0_d2 = "LR14"
+n = "LR15"
+
 [golden]
 tolerance = { e3 = "NX8_STEP" }
 [cases.default]
-n = 50
-rows = 600
