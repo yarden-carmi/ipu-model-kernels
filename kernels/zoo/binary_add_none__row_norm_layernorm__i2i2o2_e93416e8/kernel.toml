@@ -19,6 +19,8 @@ choices = ["add"]
 [params.s1_channels]
 type = "int"
 default = 144
+min = 129
+max = 256
 [params.s1_eps]
 type = "float"
 default = 0.00001
@@ -29,15 +31,21 @@ choices = ["layernorm"]
 [params.s1_rows]
 type = "int"
 default = 1024
+min = 1
 [params.in0_d0]
 type = "int"
 default = 4
+min = 1
+max = 128
 [params.in0_d1]
 type = "int"
 default = 256
+min = 1
 [params.in0_d2]
 type = "int"
 default = 144
+min = 129
+max = 256
 [params.in1_d0]
 type = "int"
 default = 4
@@ -56,17 +64,8 @@ default = 256
 [params.out0_d2]
 type = "int"
 default = 144
-
 [derived]
-half = "1277440"
-c128 = "128"
-channels = "s1_channels"
 dsl = "ds(s1_channels - 128)"
-m = "s1_rows * 2"
-d0 = "in0_d0"
-d1 = "in0_d1"
-stride_rows = "2 * ((in0_d0 * in0_d1) // s1_channels)"
-stride_lane = "(in0_d0 * in0_d1) % s1_channels"
 
 [inputs.in0]
 shape = ["in0_d0 * in0_d1 * ((in0_d2 + 127) // 128)", 128]
@@ -85,7 +84,7 @@ shape = [128]
 [scratch.tmp]
 shape = [40, 128]
 [scratch.sum]
-shape = ["2 * m", 128]
+shape = ["4 * s1_rows", 128]
 [outputs.out0]
 shape = ["out0_d0 * out0_d1 * ((out0_d2 + 127) // 128)", 128]
 

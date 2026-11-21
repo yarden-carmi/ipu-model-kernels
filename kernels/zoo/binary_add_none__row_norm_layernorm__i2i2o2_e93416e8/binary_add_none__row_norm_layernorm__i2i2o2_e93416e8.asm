@@ -7,8 +7,8 @@
 {% macro scalar(op='ADD',first=false,imm='CR1',ds='CR15.L',x='') %}
  MULT.VE LR0 {{ imm }} 0 LR0 {{ ds }} {{ q }} ; ACC.{{ op }}{% if first %}.FIRST{% endif %} {{ x }} ;;
 {% endmacro %}
-{% macro mul(first=false,slot='LR0',op='ADD',x='') %}
- MULT.RC.VV {{ slot }} R0 0 LR0 CR15.L {{ q }} ; ACC.{{ op }}{% if first %}.FIRST{% endif %} {{ x }} ;;
+{% macro mul(first=false,slot='LR0',x='') %}
+ MULT.RC.VV {{ slot }} R0 0 LR0 CR15.L {{ q }} ; ACC.ADD{% if first %}.FIRST{% endif %} {{ x }} ;;
 {% endmacro %}
 {% macro encode(reg,pieces,ds='CR15.L',pre='') %}
  {% for i in range(pieces) %}
@@ -40,23 +40,18 @@
  BLT.S LR10 LR7 {{ label }} ;;
 {% endmacro %}
 {% macro product(a,b,dest) %}
- {% for i in range(2) %}
- {{ load(a+i,true) }}
+ {% for i in range(3) %}
+ {{ load(a+i if i < 2 else 22,true) }}
  {{ load(b) }}{{ mul(first=(i==0)) }}
+ {% if i < 2 %}
  INC LR1 1 ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
  {{ mul() }}
+ {% endif %}
  {% endfor %}
- {% if a == 11 %}{{ load(22,true) }}{{ load(b) }}{{ mul() }}{% endif %}
  {{ save(dest) }}
 {% endmacro %}
 
-{# Gather the first view row into ACC, then add the matching contiguous input row. #}
- SET LR0 CR0 ; SET LR9 CR0 ; SET LR13 CR0 ;;
- SET LR1 CR0 ;;
-outer_view:
- SET LR4 CR0 ; SET LR5 LR13 ; SET LR14 CR0 ;;
-view_row:
- SET LR6 LR4 ; SET LR7 LR5 ; SET LR8 CR0 ;;
+{# Convert the strided first view to paired channel rows while adding in1. #}
 {% macro gather(label,ds,count) %}
  SET LR2 CR0 ; SET LR3 CR0 ; SET LR12 CR0 ;;
  INC LR12 {{ count }} ;;
@@ -81,8 +76,15 @@ view_row:
  INC LR9 1 ; ACTIVATE.QUANTIZE identity {{ ds }} {{ q }} {{ cr.sum }} LR9 ;;
  INC LR9 1 ; INC LR1 1 ;;
 {% endmacro %}
- INC LR8 128 ; SET LR15 CR0 ;;
- INC LR15 {{ s1_channels }} ;;
+
+ SET LR0 CR0 ; SET LR9 CR0 ; SET LR13 CR0 ;;
+ SET LR1 CR0 ; SET LR8 CR0 ; SET LR15 CR0 ;;
+ INC LR8 128 ; INC LR15 128 ;;
+ INC LR15 {{ s1_channels - 128 }} ;;
+outer_view:
+ SET LR4 CR0 ; SET LR5 LR13 ; SET LR14 CR0 ;;
+view_row:
+ SET LR6 LR4 ; SET LR7 LR5 ;;
  {{ gather('full','CR15.L',128) }}
  {{ gather('tail','CR14.L',s1_channels - 128) }}
  INC LR5 {{ in0_d0 }} ; INC LR14 1 ;;
@@ -92,18 +94,24 @@ view_nowrap:
  SET LR10 CR0 ;;
  INC LR10 {{ in0_d1 // 2 }} ;;
  ADD LR10 LR10 LR10 ;;
+ {% if in0_d1 % 2 %}INC LR10 1 ;;{% endif %}
  BLT.S LR14 LR10 view_row ;;
  INC LR13 1 ; SET LR10 CR0 ;;
  INC LR10 {{ in0_d0 }} ;;
  BLT.S LR13 LR10 outer_view ;;
 
-{# ATen's add preserves its first operand's dense stride order, so the
-   recorded norm view reads the same logical rows as the add. #}
+{# The add preserves the dense stride order of its first operand, so each
+   assembled logical row is directly a normalization row. #}
  SET LR14 CR0 ; SET LR13 CR0 ; SET LR2 CR0 ;;
- INC LR13 {{ s1_rows // 8 }} ;;
+ {% for digit in (s1_rows|string) %}
+ {% if not loop.first %}
  ADD LR13 LR13 LR13 ;;
- ADD LR13 LR13 LR13 ;;
- ADD LR13 LR13 LR13 ;;
+ ADD LR3 LR13 LR13 ;;
+ ADD LR3 LR3 LR3 ;;
+ ADD LR13 LR13 LR3 ;;
+ {% endif %}
+ INC LR13 {{ digit }} ;;
+ {% endfor %}
 norm_gather:
  SET LR8 CR0 ;;
  INC LR8 3 ;;
@@ -161,14 +169,13 @@ variance_products:
  INC LR1 1 ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
  {{ mul() }}
  {{ save(17) }}
- {# Newton correction y <- y(1.5 - 0.5*v*y*y). #}
+ {# Double the Newton factor; folded gamma compensates. #}
  {{ load(8,true) }}
- MULT.RC.VE LR0 CR1 0 LR0 CR15.L {{ q }} ; ACC.ADD.FIRST ;;
- MULT.RC.VE LR0 CR1 0 LR0 CR15.L {{ q }} ; ACC.ADD ;;
- MULT.RC.VE LR0 CR1 0 LR0 CR15.L {{ q }} ; ACC.ADD ;;
+ {% for i in range(3) %}
+ MULT.RC.VE LR0 CR1 0 LR0 CR15.L {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %} ;;
+ {% endfor %}
  {% for n in [17,18] %}{{ load(n) }}{{ scalar('SUB') }}{% endfor %}
  {{ save(19) }}
- {# The correction above is doubled; compensate in the folded weights. #}
 
  {% for chunk,ds in [(0,'CR15.L'),(1,'CR14.L')] %}
  SET LR10 CR0 ; SET LR7 CR0 ;;
