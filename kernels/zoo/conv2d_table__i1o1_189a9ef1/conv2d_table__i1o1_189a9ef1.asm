@@ -28,7 +28,8 @@
 {% set bias = (j == nvec) %}
  MULT.RC.VE {{ 'LR0' if j == 0 else 'LR3' }} {{ 'CR1' if bias else 'LR' ~ c }} 0 LR0 {{ cr.dsc }}.L {{ cr.qf_weights }}.L ; {{ 'ACC.ADD.FIRST' if (first and j == 0) else 'ACC.ADD' }}
 {%- if j == 0 %} ; SET LR3 CR0{% else %} ; INC LR3 {{ cout }}{% endif %}
-{%- if not bias and c == 0 and t < taps - 1 %} ; INC LR4 {{ 1 if (t + 1) % kw != 0 else wp - kw + 1 }}{% endif %}
+{%- if not bias and c == 0 and t < taps - 1 %} ; INC LR4 {{ 1 if (t + 1) % kw != 0 else wp - kw }}{% endif %}
+{%- if not bias and c == 2 and t < taps - 1 and (t + 1) % kw == 0 %} ; INC LR4 1{% endif %}
 {%- if not bias and c == cin - 1 and t < taps - 1 %} ; LD.MULT R0 LR4 {{ cr.pad }}{% endif %}
 {%- if j == nvec - 1 and not last %} ; LD.MULT R0 LR4 {{ cr.pad }} ; SET LR4 LR12{% endif %}
 {%- if j in (4, 10, 16, 24) %} ; INC.MODP2 LR13 LR1 3 ; INC.MODP2 LR14 LR9 9 ; LD.MULT.CYCLIC LR13 {{ cr.weights }} LR14{% endif %}
