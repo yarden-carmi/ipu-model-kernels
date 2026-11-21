@@ -1,0 +1,138 @@
+[kernel]
+op = "conv2d_table"
+formats = ["e1", "e2"]
+
+[params.act_out0]
+type = "str"
+choices = ["silu"]
+default = "silu"
+[params.bias]
+type = "bool"
+default = true
+[params.cin]
+type = "int"
+min = 1
+max = 512
+default = 3
+[params.cout]
+type = "int"
+min = 1
+max = 512
+default = 16
+[params.groups]
+type = "int"
+min = 1
+max = 512
+default = 1
+[params.h]
+type = "int"
+min = 1
+max = 256
+default = 8
+[params.w]
+type = "int"
+min = 1
+max = 256
+default = 8
+[params.kh]
+type = "int"
+choices = [3]
+default = 3
+[params.kw]
+type = "int"
+choices = [3]
+default = 3
+[params.padding]
+type = "int"
+choices = [1]
+default = 1
+[params.stride]
+type = "int"
+min = 1
+max = 2
+default = 1
+[params.in0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 512
+default = 3
+[params.in0_d2]
+type = "int"
+min = 1
+max = 256
+default = 8
+[params.in0_d3]
+type = "int"
+min = 1
+max = 256
+default = 8
+[params.out0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 512
+default = 16
+[params.out0_d2]
+type = "int"
+min = 1
+max = 256
+default = 8
+[params.out0_d3]
+type = "int"
+min = 1
+max = 256
+default = 8
+
+[derived]
+ic = "ceil(in0_d1 / 128)"
+oc = "ceil(out0_d1 / 128)"
+pack = "1 + min(1, 64 // in0_d2) * (1 - in0_d3 % 2)"
+plane_rows = "(in0_d3 // pack) * ceil(in0_d2 / 128)"
+ds128 = "ds(128)"
+cm1 = "cin - 1"
+dense = "min(1, max(cin - groups, groups - cin) + max(cout - groups, groups - cout))"
+plane_chunks = "1 + dense * (ic - 1)"
+weight_block = "dense * (18 * cin + 2) + (1 - dense) * 20"
+wrows = "weight_block * oc + 1"
+chunk_pitch = "128 * plane_rows"
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d1", "plane_rows", 128]
+range = [-2, 2]
+[inputs.weights]
+shape = ["wrows", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[scratch.pad]
+shape = ["2 * (in0_d2 + 2) * (in0_d3 + 2) * plane_chunks", 128]
+[outputs.out0]
+shape = ["out0_d0", "out0_d2", "out0_d3", "oc", 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+weights = "CR4"
+lut = "CR5"
+pad = "CR6"
+qf_in0 = "CR7"
+qf_weights = "CR8"
+qf_out0 = "CR9"
+ds128 = "CR10"
+plane_rows = "CR11"
+oc = "CR12"
+cm1 = "CR13"
+weight_block = "CR14"
+chunk_pitch = "CR15"
+
+[golden]
+tolerance = { e1 = "NX8_STEP", e2 = "NX8_STEP" }
+[cases.default]
