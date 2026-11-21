@@ -1,22 +1,24 @@
 [kernel]
 op = "bmm"
-formats = ["e2", "e3", "e4"]
+formats = ["e3"]
+
 [params]
 b = {type="int", min=1, max=65536, default=12}
-k = {type="int", min=1, max=65536, default=256}
-m = {type="int", min=1, max=65536, default=256}
-n = {type="int", min=1, max=65536, default=32}
+k = {type="int", min=1, max=65536, default=50}
+m = {type="int", min=1, max=65536, default=50}
+n = {type="int", min=1, max=65536, default=64}
 in0_d0 = {type="int", min=1, max=65536, default=1}
 in0_d1 = {type="int", min=1, max=65536, default=12}
-in0_d2 = {type="int", min=1, max=65536, default=256}
-in0_d3 = {type="int", min=1, max=65536, default=256}
+in0_d2 = {type="int", min=1, max=65536, default=50}
+in0_d3 = {type="int", min=1, max=65536, default=50}
 in1_d0 = {type="int", min=1, max=65536, default=1}
-in1_d1 = {type="int", min=1, max=65536, default=256}
-in1_d2 = {type="int", min=1, max=65536, default=384}
+in1_d1 = {type="int", min=1, max=65536, default=50}
+in1_d2 = {type="int", min=1, max=65536, default=768}
 out0_d0 = {type="int", min=1, max=65536, default=1}
 out0_d1 = {type="int", min=1, max=65536, default=12}
-out0_d2 = {type="int", min=1, max=65536, default=256}
-out0_d3 = {type="int", min=1, max=65536, default=32}
+out0_d2 = {type="int", min=1, max=65536, default=50}
+out0_d3 = {type="int", min=1, max=65536, default=64}
+
 [inputs.in0]
 shape = ["in0_d0", "in0_d1", "in0_d2", "ceil(in0_d3/128)*128"]
 range = [-2, 2]
@@ -25,14 +27,12 @@ shape = ["in1_d0", "in1_d1", "ceil(in1_d2/128)*128"]
 range = [-2, 2]
 [outputs.out0]
 shape = ["out0_d0", "out0_d1", "out0_d2", "ceil(out0_d3/128)*128"]
-[scratch.trans]
-shape = ["k", "ceil(m/128)*128"]
+
 [derived]
-dsfull = "ds(128) + ds((n-1)%128+1)*65536"
-kc = "ceil(in0_d3/128)"
-mc = "ceil(n/128)"
+arows = "ceil(in0_d3/128)"
 brows = "ceil(in1_d2/128)"
-astride = "m*kc"
+dsfull = "ds(128) + ds((n-1)%128+1)*65536"
+
 [abi]
 in0 = "CR2"
 in1 = "CR3"
@@ -46,11 +46,8 @@ dsfull = "CR10"
 qf_in0 = "CR11"
 qf_in1 = "CR12"
 qf_out0 = "CR13"
-mc = "CR14"
-trans = "CR15"
-kc = "LR10"
-astride = "LR11"
+arows = "LR10"
+
 [golden]
-tolerance = {e2="EXACT", e3="EXACT", e4="EXACT"}
+tolerance = {e3="EXACT"}
 [cases.default]
-b = 12
