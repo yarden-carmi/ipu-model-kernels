@@ -1,0 +1,62 @@
+[kernel]
+op = "bmm"
+formats = ["e3"]
+[params.b]
+type = "int"
+min = 1
+max = 16
+default = 12
+[params.k]
+type = "int"
+min = 1
+max = 64
+default = 64
+[params.m]
+type = "int"
+min = 1
+max = 128
+default = 50
+[params.n]
+type = "int"
+min = 1
+max = 128
+default = 50
+[inputs.in0]
+shape = [1, "b*k", 128]
+range = [-2, 2]
+[inputs.in1]
+shape = [1, "b*k", 128]
+range = [-2, 2]
+[outputs.out0]
+shape = [1, "b", "n", 128]
+[derived]
+dsfull = "ds(128) + 65536*ds((m-1)%128+1)"
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+b = "CR5"
+k = "CR6"
+n = "CR7"
+dsfull = "CR10"
+qf_in0 = "CR11"
+qf_in1 = "CR12"
+qf_out0 = "CR13"
+m = "LR15"
+[cases.default]
+b = 12
+k = 64
+m = 50
+n = 50
+
+[cases.one]
+b = 1
+k = 1
+m = 1
+n = 1
+
+[cases.wide]
+b = 2
+k = 7
+m = 128
+n = 100
