@@ -21,6 +21,10 @@ default = 256
 [params.bias]
 type = "bool"
 default = true
+[params.act_out0]
+type = "str"
+choices = ["gelu_tanh"]
+default = "gelu_tanh"
 [derived]
 c31 = "31"
 K = "k / 128"
@@ -30,7 +34,7 @@ c128 = "128"
 shape = [1, "m", "k"]
 range = [-2, 2]
 [inputs.w]
-shape = ["k * NB", 128]
+shape = ["(k + 4) * NB", 128]
 range = [-2, 2]
 [inputs.b]
 shape = ["n"]
@@ -56,10 +60,6 @@ lut = "CR10"
 c128 = "CR11"
 [golden]
 tolerance = { e3 = "NX8_STEP" }
-[params.act_out0]
-type = "str"
-choices = ["gelu_tanh"]
-default = "gelu_tanh"
 [cases.default]
 m = 2
 k = 128

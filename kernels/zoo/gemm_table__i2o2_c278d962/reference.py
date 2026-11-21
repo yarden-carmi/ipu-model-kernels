@@ -49,7 +49,9 @@ def reference(module, *ins, _round=None, **params):
 
 def fold(module, **params):
     n, k = int(params['n']), int(params['k'])
-    result = {'w': module.weight.detach().t().contiguous().reshape(k * (n // 128), 128)}
+    nb = n // 128
+    w = module.weight.detach().t().contiguous().reshape(k * nb, 128)
+    result = {'w': torch.cat([w, torch.zeros(4 * nb, 128)], dim=0).contiguous()}
     if params['bias']:
         result['b'] = module.bias.detach().contiguous()
     return result
