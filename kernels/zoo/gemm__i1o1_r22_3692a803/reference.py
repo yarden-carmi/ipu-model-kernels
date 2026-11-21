@@ -56,8 +56,7 @@ def reference(module, *ins, _round=None, **params):
 
 
 def _planes(rows):
-    # Two-bit digits at a common exponent per row. Each digit is exactly
-    # representable even in the signed format with just one mantissa bit.
+    # Two-bit signed digits share a row exponent and survive NX8 encoding.
     _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
     digits = torch.round(torch.ldexp(rows.abs().double(), 16 - exponent)).long().clamp(max=65535)
     return [torch.ldexp(((digits >> shift) & 3).to(rows.dtype) * rows.sign(), exponent + shift - 16)
@@ -65,15 +64,17 @@ def _planes(rows):
 
 
 def fold(module, **params):
-    """Pack weights in output-tile, reduction-index, output-lane order."""
-    w = module.weight.detach()
-    n, k = w.shape
-    tiles = (n + 127) // 128
-    depth = ((k + 127) // 128) * 128
-    padded = torch.nn.functional.pad(w, (0, depth - k, 0, tiles * 128 - n))
-    rows = padded.reshape(tiles, 128, depth).transpose(1, 2).reshape(tiles, depth // 128, 128, 128)
-    result = {"w": torch.stack(_planes(rows), dim=2).reshape(-1, 128)}
-    if params["bias"]:
-        bias = torch.nn.functional.pad(module.bias.detach(), (0, tiles * 128 - n)).reshape(tiles, 128)
-        result["b"] = torch.stack(_planes(bias), dim=1).reshape(-1, 128)
+    """Each tile has one 128-output weight row per input scalar."""
+    n, k = int(params['n']), int(params['k'])
+    tiles, chunks = (n + 127) // 128, (k + 127) // 128
+    source = module.weight.detach().reshape(n, k)
+    weights = source.new_zeros(tiles * 128, chunks * 128)
+    weights[:n, :k] = source
+    packed = weights.reshape(tiles, 128, chunks * 128).transpose(1, 2)
+    packed = packed.reshape(tiles, chunks, 128, 128)
+    result = {'w': torch.stack(_planes(packed), dim=2).reshape(-1, 128)}
+    if params['bias']:
+        bias = source.new_zeros(tiles * 128)
+        bias[:n] = module.bias.detach().reshape(n)
+        result['b'] = torch.stack(_planes(bias.view(tiles, 128)), dim=1).reshape(-1, 128)
     return result

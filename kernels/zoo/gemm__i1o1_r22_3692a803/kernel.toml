@@ -2,81 +2,81 @@
 op = "gemm"
 formats = ["e3"]
 
-[params.bias]
-type = "bool"
-default = false
 [params.m]
 type = "int"
 min = 1
-max = 16384
+max = 65536
 default = 1
 [params.k]
 type = "int"
 min = 1
-max = 16384
+max = 65536
 default = 768
 [params.n]
 type = "int"
 min = 1
-max = 16384
+max = 65536
 default = 512
+[params.bias]
+type = "bool"
+default = false
 [params.in0_d0]
 type = "int"
 min = 1
-max = 16384
+max = 65536
 default = 1
 [params.in0_d1]
 type = "int"
 min = 1
-max = 16384
+max = 65536
 default = 768
 [params.out0_d0]
 type = "int"
 min = 1
-max = 16384
+max = 65536
 default = 1
 [params.out0_d1]
 type = "int"
 min = 1
-max = 16384
+max = 65536
 default = 512
 
 [derived]
 chunks = "ceil(in0_d1 / 128)"
 tiles = "ceil(out0_d1 / 128)"
-full = "ds(128)"
-tail = "ds(out0_d1 - 128 * (tiles - 1))"
+tail = "ds((out0_d1 - 1) % 128 + 1)"
 width = "128"
-groups = "4"
+groups = "31"
 planes = "8"
 
 [inputs.in0]
-shape = ["in0_d0 * chunks", 128]
+shape = ["in0_d0", "in0_d1"]
 range = [-2, 2]
 [inputs.w]
 shape = ["tiles * chunks * planes * 128", 128]
-range = [-1, 1]
+range = [-2, 2]
 [inputs.b]
 shape = ["tiles * planes", 128]
-range = [-1, 1]
+range = [-2, 2]
 when = "bias"
 [outputs.out0]
-shape = ["out0_d0 * tiles", 128]
+shape = ["out0_d0", "out0_d1"]
 
 [abi]
 in0 = "CR2"
 w = "CR3"
 b = "CR4"
 out0 = "CR5"
-qf_in0 = "CR6"
-qf_out0 = "CR7"
-chunks = "CR8"
-tiles = "CR9"
-full = "CR10"
+chunks = "CR6"
+tiles = "CR7"
+m = "CR8"
+qf_in0 = "CR9"
+qf_out0 = "CR10"
 tail = "CR11"
 width = "CR12"
 groups = "CR13"
-out0_d0 = "CR14"
-planes = "CR15"
+planes = "CR14"
 
+[golden]
+tolerance = { e3 = "NX8_STEP" }
 [cases.default]
