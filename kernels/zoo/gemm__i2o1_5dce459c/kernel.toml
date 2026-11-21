@@ -8,67 +8,62 @@ default = true
 [params.k]
 type = "int"
 min = 1
-max = 16384
-default = 144
+max = 4096
+default = 240
 [params.m]
 type = "int"
 min = 1
-max = 16384
-default = 1024
+max = 65536
+default = 64
 [params.n]
 type = "int"
 min = 1
-max = 16384
-default = 432
+max = 4096
+default = 720
 [params.in0_d0]
 type = "int"
 min = 1
-max = 16384
+max = 65536
 default = 4
 [params.in0_d1]
 type = "int"
 min = 1
-max = 16384
-default = 256
+max = 65536
+default = 16
 [params.in0_d2]
 type = "int"
 min = 1
-max = 16384
-default = 144
+max = 4096
+default = 240
 [params.out0_d0]
 type = "int"
 min = 1
-max = 16384
+max = 65536
 default = 4
 [params.out0_d1]
 type = "int"
 min = 1
-max = 16384
-default = 256
+max = 65536
+default = 16
 [params.out0_d2]
 type = "int"
 min = 1
-max = 16384
-default = 432
+max = 4096
+default = 720
 
 [derived]
-chunks = "ceil(in0_d2 / 128)"
-blocks = "ceil(out0_d1 / 128)"
-tail = "ds((out0_d1 - 1) % 128 + 1)"
+chunks = "ceil(k / 128)"
 full = "ds(128)"
-pitch = "in0_d1 * chunks"
-batch_end = "out0_d0 * pitch"
-weight_stride = "1 + 6 * chunks"
-width = "128"
+one = "ds(1)"
 
 [inputs.in0]
-shape = ["in0_d0 * pitch", 128]
+shape = ["in0_d0 * in0_d1 * chunks", 128]
 range = [-2, 2]
 [inputs.w]
-shape = ["out0_d2 * weight_stride", 128]
+shape = ["5 * n * (chunks + 1)", 128]
 range = [-1, 1]
 [outputs.out0]
-shape = ["out0_d0 * out0_d2 * blocks", 128]
+shape = ["out0_d0 * out0_d2 * ceil(out0_d1 / 128)", 128]
 
 [abi]
 in0 = "CR2"
@@ -78,12 +73,9 @@ qf_in0 = "CR5"
 qf_out0 = "CR6"
 chunks = "CR7"
 full = "CR8"
-tail = "CR9"
-pitch = "CR10"
-batch_end = "CR11"
-weight_stride = "CR12"
-width = "CR13"
-out0_d2 = "CR14"
-in0_d1 = "CR15"
+one = "CR9"
+out0_d0 = "CR10"
+out0_d1 = "CR11"
+n = "CR12"
 
 [cases.default]

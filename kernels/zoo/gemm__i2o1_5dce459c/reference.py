@@ -49,23 +49,22 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.linear.default(_v(ins[0], [4, 256, 144], [36864, 144, 1], 0), module.weight, module.bias)
+    r0 = aten.linear.default(_v(ins[0], [4, 16, 240], [3840, 240, 1], 0), module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [4, 256, 432])}
+    return {"out0": _out(op0, [4, 16, 720])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Lay out one bias row and six signed radix-16 planes per chunk."""
-    weights = module.weight.detach().double()
-    n, k = weights.shape
-    padded = torch.nn.functional.pad(weights, (0, (-k) % 128))
-    rows = padded.reshape(n, -1, 128)
+    """Pack each feature's K chunks and optional bias as signed radix-16 digits."""
+    weight = module.weight.detach().double()
+    n, k = weight.shape
+    rows = torch.nn.functional.pad(weight, (0, (-k) % 128)).reshape(n, -1, 128)
+    bias = module.bias.detach().double() if params["bias"] else weight.new_zeros(n)
+    bias = torch.nn.functional.pad(bias[:, None], (0, 127))
+    rows = torch.cat((rows, bias[:, None]), dim=1)
     exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))[1]
-    digits = torch.ldexp(rows.abs(), 24 - exp).round().long().clamp(max=16777215)
-    planes = [torch.ldexp(((digits >> shift) & 15) * rows.sign(), exp + shift - 24)
-              for shift in (0, 4, 8, 12, 16, 20)]
-    b = module.bias.detach() if params["bias"] else weights.new_zeros(n)
-    return {"w": torch.cat((b.reshape(n, 1, 1).expand(n, 1, 128),
-                            torch.stack(planes, dim=2).flatten(1, 2)), dim=1)
-            .reshape(-1, 128).float()}
+    digits = torch.ldexp(rows.abs(), 20 - exp).round().long().clamp(max=1048575)
+    planes = [torch.ldexp(((digits >> shift) & 15) * rows.sign(), exp + shift - 20)
+              for shift in (16, 12, 8, 4, 0)]
+    return {"w": torch.stack(planes, dim=2).reshape(-1, 128).float()}
