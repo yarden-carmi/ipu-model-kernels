@@ -1,27 +1,24 @@
 [kernel]
 op = "conv2d_table"
-formats = ["e1"]
+formats = ["e1", "e2"]
 [params.act_out0]
 type = "str"
 choices = ["hardswish", "silu"]
-default = "hardswish"
+default = "silu"
 [params.bias]
 type = "bool"
 default = true
 [params.cin]
 type = "int"
-min = 3
-max = 3
+choices = [3, 64]
 default = 3
 [params.cout]
 type = "int"
-min = 16
-max = 16
+choices = [16, 64]
 default = 16
 [params.groups]
 type = "int"
-min = 1
-max = 1
+choices = [1, 64]
 default = 1
 [params.h]
 type = "int"
@@ -35,18 +32,15 @@ max = 256
 default = 8
 [params.kh]
 type = "int"
-min = 3
-max = 3
+choices = [3]
 default = 3
 [params.kw]
 type = "int"
-min = 3
-max = 3
+choices = [3]
 default = 3
 [params.padding]
 type = "int"
-min = 1
-max = 1
+choices = [1]
 default = 1
 [params.stride]
 type = "int"
@@ -64,7 +58,7 @@ dsi = "ds(cin)"
 shape = ["h", "w", 128]
 range = [-2, 2]
 [inputs.weights]
-shape = [8, 128]
+shape = ["8 + 12 * (groups // 64)", 128]
 range = [-1, 1]
 [inputs.lut]
 shape = [5, 128]
@@ -85,7 +79,15 @@ qf_out0 = "CR9"
 dsc = "CR10"
 dsi = "CR11"
 [golden]
-tolerance = { e1 = "NX8_STEP" }
+tolerance = { e1 = "NX8_STEP", e2 = "NX8_STEP" }
 [cases.default]
 h = 8
 w = 8
+[cases.depthwise]
+h = 8
+w = 8
+cin = 64
+cout = 64
+groups = 64
+stride = 1
+formats = ["e2"]
