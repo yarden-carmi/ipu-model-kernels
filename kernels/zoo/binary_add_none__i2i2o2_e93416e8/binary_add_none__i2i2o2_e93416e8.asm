@@ -1,48 +1,41 @@
-    SET LR0 CR0 ;;
-    SET LR8 CR0 ;;
-    SET LR9 CR0 ;;
-    SET LR10 CR0 ;;
-    SET LR11 CR0 ;;
+// Visit output groups in y,b order so the raw starting offset b+d0*y
+// increases by one between groups. LR4:LR5 is its padded row base and column.
+y_loop:
+    SET LR1 LR13 ; SET LR15 {{ cr.width_batch }}.H ;;
 batch:
-    SET LR12 CR0 ;;
-    SET LR13 CR0 ;;
-    SET LR14 CR0 ;;
-row:
-    ADD LR4 LR10 LR13 ;;
-    SET LR5 LR14 ;;
-    SET LR15 CR0 ;;
+    SET LR6 LR4 ; SET LR7 LR5 ; SET LR12 {{ cr.width_batch }}.L ;;
 chunk:
-    SET LR1 CR0 ;;
-    SET LR2 CR0 ;;
-    SET LR3 CR0 ;;
-    SET LR6 CR0 ;;
-    SET LR7 CR0 ;;
+    SET LR2 CR0 ; SET LR3 CR0 ; SET LR14 CR0 ;;
+    SET LR10 CR0 ; BNE LR12 CR1 full_count ;;
+    SET LR10 {{ cr.tail }}.H ; BEQ LR0 CR0 gather ;;
+full_count:
+    INC LR10 128 ;;
 gather:
-    LD.MULT R0 LR4 {{ cr.in0 }} ;;
-    MULT.EE LR5 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.RESHAPE LRD6 LRD2 0 ;;
-    ADDBI LRD2 1 ;;
-    ADD LR4 LR4 {{ cr.step_row }} ;;
-    ADD LR5 LR5 {{ cr.step_lane }} ;;
-    BLT.S LR5 {{ cr.limit }} next ;;
-    SUB LR5 LR5 {{ cr.limit }} ;;
-    INC LR4 1 ;;
-next:
-    INC LR1 1 ;;
-    BLT.S LR1 {{ cr.limit }} gather ;;
-    LD.MULT R0 LR8 {{ cr.in1 }} ;;
+    SET LR8 LR6 ; SET LR9 LR7 ; BLT.S LR7 {{ cr.col_limit }}.H first_row ;;
+lane_wrap:
+    INC LR8 1 ; SUB LR9 LR9 {{ cr.col_limit }}.H ;;
+    BGE.S LR9 {{ cr.col_limit }}.H lane_wrap ;;
+first_row:
+    LD.MULT R0 LR8 {{ cr.in0 }} ;;
+    ADD LR6 LR6 {{ cr.stride_rows }} ; ADD LR7 LR7 {{ cr.stride_cols }} ; INC LR14 1 ;;
+    MULT.EE LR9 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.RESHAPE LRD2 LRD2 0 ; BLT.S LR7 {{ cr.col_limit }}.L no_wrap ;;
+    SUB LR7 LR7 {{ cr.col_limit }}.L ; ADD LR6 LR6 {{ cr.width_batch }}.L ;;
+no_wrap:
+    ADDBI LRD2 1 ; BLT.S LR14 LR10 gather ;;
+    LD.MULT R0 LR1 {{ cr.in1 }} ; BNE LR12 CR1 full_store ;;
+    MULT.VE LR0 CR1 0 LR0 {{ cr.tail }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ;;
+    ACTIVATE.QUANTIZE identity {{ cr.tail }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ; BEQ LR0 CR0 stored ;;
+full_store:
     MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf_in1 }}.L ; ACC.ADD ;;
-    ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR8 ;;
-    INC LR8 1 ;;
-    INC LR15 1 ;;
-    BLT.S LR15 {{ cr.width_rows }} chunk ;;
-    INC LR14 1 ;;
-    BLT.S LR14 {{ cr.limit }} y_next ;;
-    SET LR14 CR0 ;;
-    INC LR13 1 ;;
-y_next:
-    INC LR12 1 ;;
-    BLT.S LR12 {{ cr.in0_d1 }} row ;;
-    ADD LR10 LR10 {{ cr.batch_rows }} ;;
-    INC LR11 1 ;;
-    BLT.S LR11 {{ cr.in0_d0 }} batch ;;
+    ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;;
+stored:
+    INC LR1 1 ; DEC LR12 1 ;;
+    BNE LR12 CR0 chunk ;;
+    INC LR5 1 ; ADD LR1 LR1 {{ cr.jump }} ; DEC LR15 1 ;;
+    BLT.S LR5 {{ cr.col_limit }}.L batch_next ;;
+    SET LR5 CR0 ; ADD LR4 LR4 {{ cr.width_batch }}.L ;;
+batch_next:
+    BNE LR15 CR0 batch ;;
+    ADD LR13 LR13 {{ cr.width_batch }}.L ;;
+    BLT.S LR13 {{ cr.batch_rows }} y_loop ;;
     HALT ;;

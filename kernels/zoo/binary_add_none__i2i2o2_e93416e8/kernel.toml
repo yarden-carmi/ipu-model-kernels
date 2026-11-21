@@ -1,6 +1,6 @@
 [kernel]
 op = "binary_add"
-formats = ["e3"]
+formats = ["e2"]
 [params.broadcast]
 type = "str"
 choices = ["none"]
@@ -18,12 +18,12 @@ default = "add"
 type = "int"
 min = 1
 max = 16777216
-default = 262144
+default = 147456
 [params.in0_d0]
 type = "int"
 min = 1
 max = 1024
-default = 1
+default = 4
 [params.in0_d1]
 type = "int"
 min = 1
@@ -31,15 +31,14 @@ max = 16384
 default = 256
 [params.in0_d2]
 type = "int"
-min = 128
+min = 1
 max = 16384
-multiple_of = 128
-default = 1024
+default = 144
 [params.in1_d0]
 type = "int"
 min = 1
 max = 1024
-default = 1
+default = 4
 [params.in1_d1]
 type = "int"
 min = 1
@@ -47,15 +46,14 @@ max = 16384
 default = 256
 [params.in1_d2]
 type = "int"
-min = 128
+min = 1
 max = 16384
-multiple_of = 128
-default = 1024
+default = 144
 [params.out0_d0]
 type = "int"
 min = 1
 max = 1024
-default = 1
+default = 4
 [params.out0_d1]
 type = "int"
 min = 1
@@ -63,24 +61,28 @@ max = 16384
 default = 256
 [params.out0_d2]
 type = "int"
-min = 128
+min = 1
 max = 16384
-multiple_of = 128
-default = 1024
+default = 144
 [derived]
-step_row = "in0_d1 // 128"
-step_lane = "in0_d1 % 128"
-width_rows = "in0_d2 // 128"
-batch_rows = "in0_d1 * width_rows"
-limit = "128"
+width = "ceil(out0_d2 / 128)"
+rows = "out0_d0 * out0_d1 * width"
+valid = "out0_d2 - (width - 1) * 128"
+tail = "ds(valid) + 65536 * valid"
+width_batch = "width + 65536 * out0_d0"
+batch_rows = "out0_d1 * width"
+jump = "batch_rows - width"
+stride_rows = "(in0_d0 * in0_d1 // in0_d2) * width"
+stride_cols = "in0_d0 * in0_d1 % in0_d2"
+col_limit = "in0_d2 + 65536 * 128"
 [inputs.in0]
-shape = ["in0_d0", "in0_d1", "in0_d2"]
+shape = ["in0_d0", "in0_d1", "ceil(in0_d2 / 128) * 128"]
 range = [-2, 2]
 [inputs.in1]
-shape = ["in1_d0", "in1_d1", "in1_d2"]
+shape = ["in1_d0", "in1_d1", "ceil(in1_d2 / 128) * 128"]
 range = [-2, 2]
 [outputs.out0]
-shape = ["out0_d0", "out0_d1", "out0_d2"]
+shape = ["out0_d0", "out0_d1", "width * 128"]
 [abi]
 in0 = "CR2"
 in1 = "CR3"
@@ -88,13 +90,11 @@ out0 = "CR4"
 qf_in0 = "CR5"
 qf_in1 = "CR6"
 qf_out0 = "CR7"
-step_row = "CR8"
-step_lane = "CR9"
-width_rows = "CR10"
-in0_d1 = "CR11"
-in0_d0 = "CR12"
-batch_rows = "CR13"
-limit = "CR14"
+batch_rows = "CR8"
+width_batch = "CR9"
+tail = "CR10"
+stride_rows = "CR11"
+stride_cols = "CR12"
+col_limit = "CR13"
+jump = "CR14"
 [cases.default]
-[golden]
-tolerance = { e3 = "EXACT" }
