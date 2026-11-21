@@ -1,38 +1,48 @@
+{# A and the output share the M lane axis. Broadcast each B scalar
+   across one A tile and retain the sum in FP32 until the final store. #}
     SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
-    SET LR3 CR0 ; SET LR10 CR0 ; SET LR11 CR0 ;;
+    SET LR3 CR0 ; SET LR4 CR0 ; SET LR5 CR0 ;;
+    SET LR10 CR0 ; SET LR13 CR0 ;;
 head:
-    SET LR4 CR0 ;;
+    SET LR12 CR0 ;;
 column:
-    SET LR5 CR0 ;;
-chunk:
-    ADD LR6 LR1 LR5 ; SET LR7 LR2 ; SET LR8 CR0 ;;
-    LD.MULT R0 LR7 {{ cr.in1 }} ;;
-    LD.MULT.CYCLIC LR6 {{ cr.in0 }} LR0 ;;
-    MULT.RC.VE LR0 LR11 0 LR0 {{ cr.dsfull }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
-    INC LR8 1 ; ADD LR6 LR6 {{ cr.mc }} ; ADD LR7 LR7 {{ cr.brows }} ;;
-    BGE.S LR8 {{ cr.k }} store ;;
+    SET LR6 CR0 ; SET LR14 LR2 ;;
+tile:
+    SET LR7 LR14 ; SET LR8 LR1 ; SET LR9 CR0 ;;
+{% macro product(first) %}
+    LD.MULT R0 LR8 {{ cr.in1 }} ;;
+    LD.MULT.CYCLIC LR7 {{ cr.in0 }} LR0 ;;
+    MULT.RC.VE LR0 LR3 0 LR0 {{ cr.ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{{ '.FIRST' if first else '' }} ; ADD LR7 LR7 {{ cr.mc }} ; ADD LR8 LR8 {{ cr.brows }} ; INC LR9 1 ;;
+{% endmacro %}
+    {{ product(true) }}
+    B check_k ;;
 inner:
-    LD.MULT R0 LR7 {{ cr.in1 }} ;;
-    LD.MULT.CYCLIC LR6 {{ cr.in0 }} LR0 ;;
-    MULT.RC.VE LR0 LR11 0 LR0 {{ cr.dsfull }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ;;
-    INC LR8 1 ; ADD LR6 LR6 {{ cr.mc }} ; ADD LR7 LR7 {{ cr.brows }} ;;
-    BLT.S LR8 {{ cr.k }} inner ;;
-store:
-    INC LR5 1 ;;
-    BLT.S LR5 {{ cr.mc }} full ;;
-    ACTIVATE.QUANTIZE identity {{ cr.dstail }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR10 ;;
-    B stored ;;
-full:
-    ACTIVATE.QUANTIZE identity {{ cr.dsfull }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR10 ;;
-stored:
+    {{ product(false) }}
+check_k:
+    BLT.S LR9 {{ cr.k }} inner ;;
+    INC LR6 1 ;;
+    BEQ LR6 {{ cr.mc }} tail ;;
+{% macro output(half) %}
+    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.ds }}.{{ half }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR10 ;;
     INC LR10 1 ;;
-    BLT.S LR5 {{ cr.mc }} chunk ;;
-    INC LR11 1 ; INC LR4 1 ;;
-    BLT.S LR4 {{ cr.n }} column ;;
-    INC.MODP2 LR11 LR0 7 ;;
-    BNE LR11 CR0 same_pair ;;
+{% endmacro %}
+    {{ output('L') }}
+    INC LR14 1 ;;
+    B tile ;;
+tail:
+    {{ output('H') }}
+    INC LR12 1 ; INC.MODP2 LR3 CR1 7 ;;
+    BNE LR3 CR0 same_chunk ;;
+    INC LR1 1 ;;
+same_chunk:
+    BLT.S LR12 {{ cr.n }} column ;;
+    INC LR13 1 ; INC LR4 1 ;;
+    BGE.S LR13 {{ cr.b }} done ;;
+    SUB LR2 LR7 LR6 ;;
     INC LR2 1 ;;
-same_pair:
-    ADD LR1 LR1 LR15 ; INC LR3 1 ;;
-    BLT.S LR3 {{ cr.b }} head ;;
+    BNE LR4 LR15 head ;;
+    ADD LR1 LR5 LR11 ; SET LR3 CR0 ; SET LR4 CR0 ;;
+    SET LR5 LR1 ;;
+    B head ;;
+done:
     HALT ;;

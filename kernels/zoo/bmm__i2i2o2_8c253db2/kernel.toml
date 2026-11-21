@@ -1,116 +1,54 @@
 [kernel]
 op = "bmm"
-formats = ["e3", "e2", "e4"]
-[params.b]
-type = "int"
-min = 1
-max = 65536
-default = 12
-[params.k]
-type = "int"
-min = 1
-max = 65536
-default = 50
-[params.m]
-type = "int"
-min = 1
-max = 65536
-default = 50
-[params.n]
-type = "int"
-min = 64
-max = 128
-multiple_of = 64
-default = 64
-[params.in0_d0]
-type = "int"
-min = 1
-max = 65536
-default = 1
-[params.in0_d1]
-type = "int"
-min = 1
-max = 65536
-default = 12
-[params.in0_d2]
-type = "int"
-min = 1
-max = 65536
-default = 50
-[params.in0_d3]
-type = "int"
-min = 1
-max = 65536
-default = 50
-[params.in1_d0]
-type = "int"
-min = 1
-max = 65536
-default = 1
-[params.in1_d1]
-type = "int"
-min = 1
-max = 65536
-default = 50
-[params.in1_d2]
-type = "int"
-min = 1
-max = 65536
-default = 768
-[params.out0_d0]
-type = "int"
-min = 1
-max = 65536
-default = 1
-[params.out0_d1]
-type = "int"
-min = 1
-max = 65536
-default = 12
-[params.out0_d2]
-type = "int"
-min = 1
-max = 65536
-default = 50
-[params.out0_d3]
-type = "int"
-min = 1
-max = 128
-default = 64
+formats = ["e3"]
+
+[params]
+b = {type="int", min=1, max=65536, default=12}
+k = {type="int", min=1, max=65536, default=50}
+m = {type="int", min=1, max=65536, default=50}
+n = {type="int", min=1, max=65536, default=64}
+in0_d0 = {type="int", min=1, max=65536, default=1}
+in0_d1 = {type="int", min=1, max=65536, default=12}
+in0_d2 = {type="int", min=1, max=65536, default=50}
+in0_d3 = {type="int", min=1, max=65536, default=50}
+in1_d0 = {type="int", min=1, max=65536, default=1}
+in1_d1 = {type="int", min=1, max=65536, default=50}
+in1_d2 = {type="int", min=1, max=65536, default=768}
+out0_d0 = {type="int", min=1, max=65536, default=1}
+out0_d1 = {type="int", min=1, max=65536, default=12}
+out0_d2 = {type="int", min=1, max=65536, default=50}
+out0_d3 = {type="int", min=1, max=65536, default=64}
+
 [inputs.in0]
 shape = ["in0_d0", "in0_d1", "in0_d3", "ceil(in0_d2/128)*128"]
-range = [-2, 2]
+range = [0, 1]
 [inputs.in1]
-shape = ["in1_d0", "in1_d1", "ceil(in1_d2/128)*128"]
+shape = ["in1_d0", "in1_d1", "brows*128"]
 range = [-2, 2]
 [outputs.out0]
-shape = ["out0_d0", "out0_d1", "out0_d3", "ceil(out0_d2/128)*128"]
+shape = ["out0_d0", "out0_d1", "out0_d3", "mc*128"]
+
 [derived]
-dsfull = "ds(128)"
-dstail = "ds((m-1)%128+1)"
 brows = "ceil(in1_d2/128)"
-mc = "ceil(in0_d2/128)"
-astride = "k*mc"
+mc = "ceil(out0_d2/128)"
+bgap = "in1_d1*brows"
+ds = "ds(128)+65536*ds((m-1)%128+1)"
+
 [abi]
 in0 = "CR2"
 in1 = "CR3"
 out0 = "CR4"
-b = "CR5"
-k = "CR6"
-m = "CR7"
-n = "CR8"
-brows = "CR9"
-dstail = "CR10"
-qf_in0 = "CR11"
-qf_in1 = "CR12"
-qf_out0 = "CR13"
-dsfull = "CR14"
-mc = "CR15"
-astride = "LR15"
-[golden]
-tolerance = { e3 = "EXACT", e2 = "EXACT", e4 = "EXACT" }
+b = "CR6"
+k = "CR7"
+m = "CR8"
+n = "CR9"
+brows = "CR10"
+mc = "CR11"
+ds = "CR12"
+qf_in0 = "CR13"
+qf_in1 = "CR14"
+qf_out0 = "CR15"
+bgap = "LR11"
+out0_d1 = "LR15"
+
 [cases.default]
-b = 12
-k = 50
-m = 50
-n = 64
