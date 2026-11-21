@@ -1,0 +1,123 @@
+[kernel]
+op = "binary_mul_scalar"
+formats = ["e2"]
+
+[params.broadcast]
+type = "str"
+choices = ["scalar"]
+default = "scalar"
+[params.const]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.op]
+type = "str"
+choices = ["mul"]
+default = "mul"
+[params.numel]
+type = "int"
+min = 1
+max = 2147483647
+default = 49152
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 4
+[params.in0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 64
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 576
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 4
+[params.out0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 4
+[params.out0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 64
+[params.out0_d3]
+type = "int"
+min = 1
+max = 128
+default = 48
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d2", "chunks * 128"]
+range = [-2.0, 2.0]
+[outputs.out0]
+shape = ["out0_d0", "channels", "chunks * 128"]
+
+[derived]
+chunks = "ceil(out0_d2 / 128)"
+channels = "out0_d1 * out0_d3"
+rows = "out0_d0 * channels * chunks"
+active_rows = "channels * chunks"
+skip = "(in0_d2 - channels) * chunks"
+valid = "ds((out0_d2 - 1) % 128 + 1)"
+full = "ds(128)"
+ds_pair = "valid + full * 65536"
+# Integer Newton iteration for sqrt(head width), in Q16.
+radicand = "out0_d3 * 4294967296"
+r0 = "1048576"
+r1 = "(r0 + radicand // r0) // 2"
+r2 = "(r1 + radicand // r1) // 2"
+r3 = "(r2 + radicand // r2) // 2"
+r4 = "(r3 + radicand // r3) // 2"
+r5 = "(r4 + radicand // r4) // 2"
+r6 = "(r5 + radicand // r5) // 2"
+r7 = "(r6 + radicand // r6) // 2"
+r8 = "(r7 + radicand // r7) // 2"
+factor = "(1073741824 + r8 // 2) // r8"
+hi = "factor // 128"
+lo = "factor % 128"
+# In FP32 the differences encode coarse/256 and fine/16384. In NX8
+# the low byte 0x80 is the unsigned e1 zero code for all four CRs.
+coarse = "min(255, factor // 64)"
+fine = "factor - coarse * 64"
+fp_hi_base = "0x43010080"
+fp_hi = "fp_hi_base + 256 * coarse"
+fp_lo_base = "0x40010080"
+fp_lo = "fp_lo_base + 256 * fine"
+# Unsigned e1 digits with block scales 0 and -7, respectively.
+# As FP32 these words are subnormals and have negligible effect.
+nx_hi = "0x00017f00 + (128 + hi) % 256"
+nx_lo = "0x00017880 + lo"
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+qf_in0 = "CR4"
+qf_out0 = "CR5"
+rows = "CR6"
+ds_pair = "CR7"
+nx_hi = "CR8"
+nx_lo = "CR9"
+fp_hi = "CR10"
+fp_hi_base = "CR11"
+fp_lo = "CR12"
+fp_lo_base = "CR13"
+active_rows = "CR14"
+skip = "CR15"
+chunks = "LR6"
+
+[cases.default]
