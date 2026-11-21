@@ -53,48 +53,49 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 3, 224, 224], [150528, 50176, 224, 1], 0), module.op0_weight, None, [2, 2], [1, 1])
+    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 128, 128], [1048576, 16384, 128, 1], 0), module.op0_weight, None, [1, 1], [1, 1], [1, 1], 64)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 16, 112, 112], [200704, 12544, 112, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 64, 128, 128], [1048576, 16384, 128, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.hardswish_.default(_v(op1, [1, 16, 112, 112], [200704, 12544, 112, 1], 0))
+    r0 = aten.silu_.default(_v(op1, [1, 64, 128, 128], [1048576, 16384, 128, 1], 0))
     op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 16, 112, 112])}
+    return {"out0": _out(op2, [1, 64, 128, 128])}
 # ---- end of the frozen reference ----
-
 
 import numpy as np
 import torch
 
 
-def _e1_rows(rows):
-    """Each row of 128 rounded to the signed e1m6 grid at its own row scale, as the host writes a constant row."""
+def _rows(rows, bits):
+    """Each row of 128 rounded to multiples of 2**(e - bits), e the exponent of the row's largest magnitude: values
+    every NX8 format with that many mantissa bits holds exactly at the row's own scale."""
     out = np.zeros_like(rows)
     for r in range(rows.shape[0]):
-        v32 = rows[r].astype(np.float32)
-        top = float(np.max(np.abs(v32)))
+        v = rows[r].astype(np.float64)
+        top = float(np.max(np.abs(v)))
         if top == 0.0 or not np.isfinite(top):
             continue
-        e = int(np.frexp(np.float32(top))[1]) - 1
-        step = 2.0 ** (e - 6)
-        mag = np.minimum(np.floor(np.abs(v32.astype(np.float64)) / step + 0.5) * step, (2.0 - 2.0 ** -6) * 2.0 ** e)
-        out[r] = np.sign(v32) * mag
+        e = int(np.frexp(top)[1]) - 1
+        step = 2.0 ** (e - bits)
+        mag = np.minimum(np.floor(np.abs(v) / step + 0.5) * step, (2.0 - 2.0 ** -bits) * 2.0 ** e)
+        out[r] = np.sign(v) * mag
     return out
 
 
 def fold(module, **params):
-    """Two frames of 4 rows: the BN-folded weights (27 vectors of cout lanes, tap-major, channel-minor) and the folded
-    bias as vector 27, rounded to e1 (hi), then the remainder rounded to e1 (lo): the pair carries about 14 bits."""
+    """20 rows of 128 lanes (channel c in lane c): tap-major (ky * 3 + kx), each a hi row then a lo row of the BN-folded
+    depthwise weights, then the folded bias as a hi row and a lo row. lo = what hi left over (exact: the host rounds it to the run's format)."""
     w = module.op0_weight.to(torch.float64)
-    co, ci, kh, kw = w.shape
+    co, _, kh, kw = w.shape
     scale = module.op1_weight.to(torch.float64) / torch.sqrt(module.op1_running_var.to(torch.float64) + 1e-5)
-    wf = w * scale.reshape(-1, 1, 1, 1)
-    b = module.op1_bias.to(torch.float64) - module.op1_running_mean.to(torch.float64) * scale
-    vecs = wf.permute(2, 3, 1, 0).reshape(-1, co)
-    vecs = torch.cat([vecs, b.reshape(1, co)], 0).numpy()
-    frame = np.zeros(4 * 128, dtype=np.float64)
-    frame[:vecs.size] = vecs.reshape(-1)
-    rows = frame.reshape(4, 128)
-    hi = _e1_rows(rows)
-    lo = _e1_rows(rows - hi)
-    return {'weights': np.concatenate([hi, lo], 0)}
+    wf = (w * scale.reshape(-1, 1, 1, 1)).reshape(co, kh * kw).t().numpy()
+    b = (module.op1_bias.to(torch.float64) - module.op1_running_mean.to(torch.float64) * scale).numpy()
+    vecs = np.zeros((kh * kw + 1, 128), dtype=np.float64)
+    vecs[:kh * kw, :co] = wf
+    vecs[kh * kw, :co] = b
+    hi = _rows(vecs, 5)
+    lo = vecs - hi
+    out = np.zeros((2 * (kh * kw + 1), 128), dtype=np.float64)
+    out[0::2] = hi
+    out[1::2] = lo
+    return {'weights': out}
