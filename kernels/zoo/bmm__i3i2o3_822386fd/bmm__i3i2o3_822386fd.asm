@@ -1,64 +1,60 @@
-{# Each B column exposes a contiguous K window in the cyclic register.
-   Reduce each dot directly into the corresponding output lane. #}
-    SET LR7 LR6 ; SET LR14 CR0 ; SET LR15 CR0 ;;
-    INC LR14 128 ; INC LR15 128 ;;
+    INC LR13 128 ; SET LR14 CR0 ;;
+group:
+    SET LR4 CR0 ; SET LR3 CR0 ;;
+    {% for i in range(4) %}
+    ADD LR3 LR3 {{ cr.k }} ;;
+    {% endfor %}
+normalize:
+    BLT.S LR3 LR13 head ;;
+    SUB LR3 LR3 LR13 ; INC LR2 1 ;;
+    B normalize ;;
 head:
-    SET LR3 LR2 ; SET LR4 CR0 ;;
+    SET LR5 LR1 ; SET LR6 CR0 ;;
 row:
-    SET LR12 LR7 ; SET LR13 CR0 ; LD.MULT R0 LR3 {{ cr.in0 }} ;;
+    LD.MULT R0 LR5 {{ cr.in0 }} ; SET LR7 LR2 ; SET LR8 {{ cr.n }} ;;
 tile:
-    SET LR11 {{ cr.nk }}.L ; SET LR10 CR0 ; SET LR9 LR12 ;;
-    SUB LR11 LR11 LR13 ;;
-    BLT.S LR11 LR14 width_ready ;;
-    SET LR11 LR14 ;;
+    SET LR12 LR8 ; SET LR9 LR7 ; SET LR11 CR0 ;;
+    BLE.S LR12 LR13 width_ready ;;
+    SET LR12 LR13 ;;
 width_ready:
-    ADD LR12 LR8 {{ cr.nk }}.H ;;
-    BLT.S LR14 LR12 split ;;
-
-{% macro dot_loop(split) %}
-{% set label = 'split' if split else 'single' %}
-{{ label }}:
+    ADD LR10 LR3 {{ cr.k }} ;;
+    BGT.S LR10 LR13 split ;;
+{% macro dots(tag, split) %}
+{{ tag }}:
+    LD.MULT.CYCLIC LR9 {{ cr.in1 }} LR14 ;;
 {% if split %}
-    LD.MULT.CYCLIC LR9 {{ cr.in1 }} LR0 ; ADD LR12 LR9 CR1 ;;
-    LD.MULT.CYCLIC LR12 {{ cr.in1 }} LR15 ;;
-{% else %}
-    LD.MULT.CYCLIC LR9 {{ cr.in1 }} LR0 ;;
-{% endif %}
-    ADD LR9 LR9 {{ cr.bsteps }}.L ;
-    MULT.RC.VV LR8 R0 0 LR0 {{ cr.dsk }}.L {{ cr.qf_in1 }}.L ; AGG.SUM.FIRST LR10 {{ cr.dsk }}.L ;;
+    SET LR10 LR9 ;;
     INC LR10 1 ;;
-    BLT.S LR10 LR11 {{ label }} ;;
+    LD.MULT.CYCLIC LR10 {{ cr.in1 }} LR13 ;;
+{% endif %}
+    MULT.RC.VV LR3 R0 0 LR14 {{ cr.dsk }}.L {{ cr.qf_in0 }}.L ; AGG.SUM.FIRST LR11 {{ cr.dsk }}.L ; ADD LR9 LR9 {{ cr.brows }} ;;
+    INC LR11 1 ;;
+    BLT.S LR11 LR12 {{ tag }} ;;
 {% endmacro %}
-    {{ dot_loop(false) }}
+    {{ dots('single', false) }}
     B store ;;
-    {{ dot_loop(true) }}
-
+    {{ dots('split', true) }}
 store:
-    ADD LR13 LR13 LR11 ; SET LR12 LR9 ;;
-    BLT.S LR13 {{ cr.nk }}.L full ;;
+    SUB LR8 LR8 LR12 ;;
+    BNE LR8 CR0 store_full ;;
 {% macro output(half) %}
-    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.dsn }}.{{ half }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;;
-    INC LR1 1 ;;
+    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.dsout }}.{{ half }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR0 ;;
+    INC LR0 1 ;;
 {% endmacro %}
     {{ output('H') }}
-    ADD LR3 LR3 {{ cr.asteps }}.L ; INC LR4 1 ;;
-    BLT.S LR4 {{ cr.m }} row ;;
-    BGE.S LR1 {{ cr.outrows }} done ;;
-    INC LR5 1 ; INC LR2 1 ;;
-    BGE.S LR5 {{ cr.heads_lane }}.L group ;;
-
-    ADD LR8 LR8 {{ cr.nk }}.H ;;
-    BLT.S LR8 LR14 head ;;
-    DEC LR8 128 ; INC LR7 1 ;;
-    B head ;;
-group:
-    {# LR9 ended one column past N; discard the current head's row shift. #}
-    SUB LR9 LR9 LR7 ; SUB LR2 LR3 {{ cr.asteps }}.H ;;
-    ADD LR6 LR6 LR9 ; SET LR8 {{ cr.heads_lane }}.H ; SET LR5 CR0 ;;
-    SET LR7 LR6 ;;
-    B head ;;
-full:
+    ADD LR5 LR5 {{ cr.in0_d1 }} ; INC LR6 1 ;;
+    BLT.S LR6 {{ cr.m }} row ;;
+    DEC LR15 1 ; INC LR4 1 ;;
+    BEQ LR15 CR0 done ;;
+    BGE.S LR4 {{ cr.in0_d1 }} next_group ;;
+    INC LR1 1 ; ADD LR3 LR3 {{ cr.k }} ;;
+    B normalize ;;
+next_group:
+    SUB LR1 LR5 LR4 ; ADD LR2 LR2 {{ cr.group_gap }} ;;
+    INC LR1 1 ;;
+    B group ;;
+store_full:
     {{ output('L') }}
-    B tile ;;
+    SET LR7 LR9 ; B tile ;;
 done:
     HALT ;;
