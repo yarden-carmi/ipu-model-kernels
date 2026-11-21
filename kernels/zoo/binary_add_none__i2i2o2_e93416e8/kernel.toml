@@ -1,6 +1,7 @@
 [kernel]
 op = "binary_add"
 formats = ["e2"]
+
 [params.broadcast]
 type = "str"
 choices = ["none"]
@@ -18,7 +19,7 @@ default = "add"
 type = "int"
 min = 1
 max = 16777216
-default = 147456
+default = 49152
 [params.in0_d0]
 type = "int"
 min = 1
@@ -28,12 +29,12 @@ default = 4
 type = "int"
 min = 1
 max = 16384
-default = 256
+default = 64
 [params.in0_d2]
 type = "int"
 min = 1
 max = 16384
-default = 144
+default = 192
 [params.in1_d0]
 type = "int"
 min = 1
@@ -43,12 +44,12 @@ default = 4
 type = "int"
 min = 1
 max = 16384
-default = 256
+default = 64
 [params.in1_d2]
 type = "int"
 min = 1
 max = 16384
-default = 144
+default = 192
 [params.out0_d0]
 type = "int"
 min = 1
@@ -58,31 +59,33 @@ default = 4
 type = "int"
 min = 1
 max = 16384
-default = 256
+default = 64
 [params.out0_d2]
 type = "int"
 min = 1
 max = 16384
-default = 144
+default = 192
 [derived]
 width = "ceil(out0_d2 / 128)"
-rows = "out0_d0 * out0_d1 * width"
+in_width = "ceil(in0_d2 / 128)"
 valid = "out0_d2 - (width - 1) * 128"
 tail = "ds(valid) + 65536 * valid"
 width_batch = "width + 65536 * out0_d0"
 batch_rows = "out0_d1 * width"
 jump = "batch_rows - width"
-stride_rows = "(in0_d0 * in0_d1 // in0_d2) * width"
+stride_rows = "(in0_d0 * in0_d1 // in0_d2) * in_width"
 stride_cols = "in0_d0 * in0_d1 % in0_d2"
 col_limit = "in0_d2 + 65536 * 128"
+
 [inputs.in0]
-shape = ["in0_d0", "in0_d1", "ceil(in0_d2 / 128) * 128"]
+shape = ["in0_d0", "in0_d1", "in_width * 128"]
 range = [-2, 2]
 [inputs.in1]
 shape = ["in1_d0", "in1_d1", "ceil(in1_d2 / 128) * 128"]
 range = [-2, 2]
 [outputs.out0]
 shape = ["out0_d0", "out0_d1", "width * 128"]
+
 [abi]
 in0 = "CR2"
 in1 = "CR3"
@@ -97,4 +100,6 @@ stride_rows = "CR11"
 stride_cols = "CR12"
 col_limit = "CR13"
 jump = "CR14"
+in_width = "LR11"
+
 [cases.default]

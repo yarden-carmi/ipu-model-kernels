@@ -1,5 +1,10 @@
-// Visit output groups in y,b order so the raw starting offset b+d0*y
-// increases by one between groups. LR4:LR5 is its padded row base and column.
+{% macro add_store(ds) %}
+    MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ cr.qf_in1 }}.L ; ACC.ADD ;;
+    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;;
+{% endmacro %}
+
+// Visit groups in y,b order: the view's starting flat offset b+d0*y
+// advances by one per group. LR4:LR5 tracks its padded row base and column.
 y_loop:
     SET LR1 LR13 ; SET LR15 {{ cr.width_batch }}.H ;;
 batch:
@@ -19,21 +24,20 @@ first_row:
     LD.MULT R0 LR8 {{ cr.in0 }} ;;
     ADD LR6 LR6 {{ cr.stride_rows }} ; ADD LR7 LR7 {{ cr.stride_cols }} ; INC LR14 1 ;;
     MULT.EE LR9 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.RESHAPE LRD2 LRD2 0 ; BLT.S LR7 {{ cr.col_limit }}.L no_wrap ;;
-    SUB LR7 LR7 {{ cr.col_limit }}.L ; ADD LR6 LR6 {{ cr.width_batch }}.L ;;
+    SUB LR7 LR7 {{ cr.col_limit }}.L ; ADD LR6 LR6 LR11 ;;
 no_wrap:
     ADDBI LRD2 1 ; BLT.S LR14 LR10 gather ;;
     LD.MULT R0 LR1 {{ cr.in1 }} ; BNE LR12 CR1 full_store ;;
-    MULT.VE LR0 CR1 0 LR0 {{ cr.tail }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ;;
-    ACTIVATE.QUANTIZE identity {{ cr.tail }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ; BEQ LR0 CR0 stored ;;
+    {{ add_store(cr.tail ~ '.L') }}
+    BEQ LR0 CR0 stored ;;
 full_store:
-    MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf_in1 }}.L ; ACC.ADD ;;
-    ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;;
+    {{ add_store('CR15.L') }}
 stored:
     INC LR1 1 ; DEC LR12 1 ;;
     BNE LR12 CR0 chunk ;;
     INC LR5 1 ; ADD LR1 LR1 {{ cr.jump }} ; DEC LR15 1 ;;
     BLT.S LR5 {{ cr.col_limit }}.L batch_next ;;
-    SET LR5 CR0 ; ADD LR4 LR4 {{ cr.width_batch }}.L ;;
+    SET LR5 CR0 ; ADD LR4 LR4 LR11 ;;
 batch_next:
     BNE LR15 CR0 batch ;;
     ADD LR13 LR13 {{ cr.width_batch }}.L ;;
