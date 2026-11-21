@@ -56,17 +56,15 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    ch = int(params["channels"])
-    K = -(-ch // 128)
+    channels = int(params["channels"])
 
     def pad(t):
-        t = t.reshape(-1).to(torch.float32)
-        out = torch.zeros(K * 128, dtype=torch.float32)
-        out[: t.numel()] = t
+        out = torch.zeros(256, dtype=torch.float32)
+        out[:channels] = t.reshape(-1)
         return out
 
-    def split(tensor):
-        residual = tensor.reshape(-1, 128)
+    def split(t):
+        residual = t.reshape(-1, 128)
         parts = []
         for _ in range(2):
             peak = residual.abs().amax(1, keepdim=True).clamp_min(1e-30)
@@ -79,6 +77,6 @@ def fold(module, **params):
     return {
         "gamma": split(pad(module.weight)),
         "beta": split(pad(module.bias)),
-        "crow": split(torch.full((128,), 1 / ch)),
+        "crow": split(torch.full((128,), 1 / channels)),
         "epsilon": torch.full((128,), params["eps"]),
     }
