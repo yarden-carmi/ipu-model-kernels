@@ -59,7 +59,7 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    ch = int(params["s1_channels"])
+    ch = params["s1_channels"]
 
     def pad(t):
         return torch.nn.functional.pad(t.reshape(-1).float(), (0, (-ch) % 128))

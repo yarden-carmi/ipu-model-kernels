@@ -52,7 +52,21 @@
  {{ save(dest) }}
 {% endmacro %}
 
-{# Gather the strided input view in channel order, and preserve the sum in two parts. #}
+{# Construct small and large bounds without relying on immediate width. #}
+{% macro set_int(reg,value,aux) %}
+ SET {{ reg }} CR0 ;;
+ {% for digit in (value|string) %}
+ {% if not loop.first %}
+ ADD {{ reg }} {{ reg }} {{ reg }} ;;
+ ADD {{ aux }} {{ reg }} {{ reg }} ;;
+ ADD {{ aux }} {{ aux }} {{ aux }} ;;
+ ADD {{ reg }} {{ reg }} {{ aux }} ;;
+ {% endif %}
+ INC {{ reg }} {{ digit }} ;;
+ {% endfor %}
+{% endmacro %}
+
+{# Walk the channel stride in logical storage coordinates, then select the packed row. #}
 {% macro gather(label,ds,count) %}
  SET LR2 CR0 ; SET LR3 CR0 ; SET LR12 CR0 ;;
  INC LR12 {{ count }} ;;
@@ -101,16 +115,8 @@ view_nowrap:
  INC LR10 {{ in0_d0 }} ;;
  BLT.S LR13 LR10 outer_view ;;
 
- SET LR14 CR0 ; SET LR13 CR0 ; SET LR2 CR0 ;;
- {% for digit in (s1_rows|string) %}
- {% if not loop.first %}
- ADD LR13 LR13 LR13 ;;
- ADD LR3 LR13 LR13 ;;
- ADD LR3 LR3 LR3 ;;
- ADD LR13 LR13 LR3 ;;
- {% endif %}
- INC LR13 {{ digit }} ;;
- {% endfor %}
+ SET LR14 CR0 ; SET LR2 CR0 ;;
+ {{ set_int('LR13',s1_rows,'LR3') }}
 norm_row:
  SET LR8 CR0 ;;
  INC LR8 3 ;;
