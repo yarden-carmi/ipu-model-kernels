@@ -53,58 +53,49 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 96, 28, 28], [75264, 784, 28, 1], 0), module.op0_weight, None, [2, 2], [2, 2], [1, 1], 96)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 3, 256, 256], [196608, 65536, 256, 1], 0), module.op0_weight, None, [2, 2], [1, 1])
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 96, 14, 14], [18816, 196, 14, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 16, 128, 128], [262144, 16384, 128, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.hardswish_.default(_v(op1, [1, 96, 14, 14], [18816, 196, 14, 1], 0))
+    r0 = aten.silu_.default(_v(op1, [1, 16, 128, 128], [262144, 16384, 128, 1], 0))
     op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 96, 14, 14])}
+    return {"out0": _out(op2, [1, 16, 128, 128])}
 # ---- end of the frozen reference ----
-
-import numpy as np
-import torch
-
-
-def _rows(rows, bits):
-    """Each row of 128 rounded to multiples of 2**(e - bits), e the exponent of the row's largest magnitude: values
-    every NX8 format with that many mantissa bits holds exactly at the row's own scale."""
-    out = np.zeros_like(rows)
-    for r in range(rows.shape[0]):
-        v = rows[r].astype(np.float64)
-        top = float(np.max(np.abs(v)))
-        if top == 0.0 or not np.isfinite(top):
-            continue
-        e = int(np.frexp(top)[1]) - 1
-        step = 2.0 ** (e - bits)
-        mag = np.minimum(np.floor(np.abs(v) / step + 0.5) * step, (2.0 - 2.0 ** -bits) * 2.0 ** e)
-        out[r] = np.sign(v) * mag
-    return out
 
 
 def fold(module, **params):
-    """Depthwise: 2 * (kh * kw + 1) rows of 128 lanes (channel c in lane c), tap-major (ky * kw + kx), each a hi row then a
-    lo row of the folded weights, then the folded bias as a hi row and a lo row; lo = what hi left over. Accepts the
-    conv + batch norm form (op0_weight, op0_bias optional, op1_*) and the plain form (weight, bias)."""
-    if hasattr(module, "op1_weight"):
-        w = module.op0_weight.to(torch.float64)
-        scale = module.op1_weight.to(torch.float64) / torch.sqrt(module.op1_running_var.to(torch.float64) + 1e-5)
-        b0 = getattr(module, "op0_bias", None)
-        b0 = b0.to(torch.float64) if b0 is not None else torch.zeros(w.shape[0], dtype=torch.float64)
-        wf = w * scale.reshape(-1, 1, 1, 1)
-        b = module.op1_bias.to(torch.float64) + (b0 - module.op1_running_mean.to(torch.float64)) * scale
+    import numpy as np
+
+    if hasattr(module, 'op0_weight'):
+        weight = module.op0_weight.double()
+        bias = getattr(module, 'op0_bias', None)
+        bias = bias.double() if bias is not None else torch.zeros_like(weight[:, 0, 0, 0])
+        if hasattr(module, 'op1_running_var'):
+            scale = module.op1_weight.double() / (module.op1_running_var.double() + 1e-5).sqrt()
+            bias = module.op1_bias.double() + (bias - module.op1_running_mean.double()) * scale
+            weight = weight * scale[:, None, None, None]
     else:
-        wf = module.weight.to(torch.float64)
-        b = getattr(module, "bias", None)
-        b = b.to(torch.float64) if b is not None else torch.zeros(wf.shape[0], dtype=torch.float64)
-    co, _, kh, kw = wf.shape
-    wd = wf.reshape(co, kh * kw).t().numpy()
-    vecs = np.zeros((kh * kw + 1, 128), dtype=np.float64)
-    vecs[:kh * kw, :co] = wd
-    vecs[kh * kw, :co] = b.numpy()
-    hi = _rows(vecs, 5)
-    lo = vecs - hi
-    out = np.zeros((2 * (kh * kw + 1), 128), dtype=np.float64)
-    out[0::2] = hi
-    out[1::2] = lo
-    return {'weights': out}
+        weight = module.weight.double()
+        bias = getattr(module, 'bias', None)
+        bias = bias.double() if bias is not None else torch.zeros_like(weight[:, 0, 0, 0])
+    co, ci, kh, kw = weight.shape
+    groups = params['groups']
+    if groups != 1 and not (groups == params['cin'] == co):
+        # The broadcast path uses a dense vector per input channel; groups
+        # occupy diagonal blocks of that matrix.
+        expanded = weight.new_zeros(co, ci * groups, kh, kw)
+        per_group = co // groups
+        for g in range(groups):
+            outs = slice(g * per_group, (g + 1) * per_group)
+            expanded[outs, g * ci:(g + 1) * ci] = weight[outs]
+        weight = expanded
+        ci *= groups
+    rows = np.zeros((1 + kh * kw * ci, 128))
+    rows[0, :co] = bias.numpy()
+    rows[1:, :co] = weight.permute(2, 3, 1, 0).reshape(-1, co).numpy()
+    # Split on the five-mantissa-bit grid, exact for both e1 and e2.
+    exponent = np.frexp(np.max(np.abs(rows), axis=1, keepdims=True))[1] - 1
+    step = np.exp2(exponent.astype(float) - 5)
+    hi = np.sign(rows) * np.minimum(np.floor(np.abs(rows) / step + 0.5), 63) * step
+    frames = np.stack((hi, rows - hi), axis=1).reshape(-1, 128)
+    return {'weights': np.pad(frames, ((0, 1), (0, 0)))}

@@ -3,45 +3,48 @@ op = "conv2d_table"
 formats = ["e1", "e2"]
 [params.act_out0]
 type = "str"
-choices = ["hardswish", "silu"]
-default = "hardswish"
+choices = ["silu", "hardswish"]
+default = "silu"
 [params.bias]
 type = "bool"
 default = true
 [params.cin]
 type = "int"
-choices = [64, 96, 120, 128]
-default = 64
+min = 1
+max = 128
+default = 3
 [params.cout]
 type = "int"
-choices = [64, 96, 120, 128]
-default = 64
+min = 1
+max = 128
+default = 16
 [params.groups]
 type = "int"
-choices = [64, 96, 120, 128]
-default = 64
+min = 1
+max = 128
+default = 1
 [params.h]
 type = "int"
 min = 5
-max = 128
+max = 256
 default = 8
 [params.w]
 type = "int"
 min = 5
-max = 128
+max = 256
 default = 8
 [params.kh]
 type = "int"
 choices = [3, 5]
-default = 5
+default = 3
 [params.kw]
 type = "int"
 choices = [3, 5]
-default = 5
+default = 3
 [params.padding]
 type = "int"
 choices = [1, 2]
-default = 2
+default = 1
 [params.stride]
 type = "int"
 min = 1
@@ -52,13 +55,14 @@ hp = "h + 2 * padding"
 wp = "w + 2 * padding"
 ho = "(h + 2 * padding - kh) // stride + 1"
 wo = "(w + 2 * padding - kw) // stride + 1"
-dsc = "ds(cout)"
 dsi = "ds(cin)"
+dso = "ds(cout)"
+weight_channels = "1 + (cin - 1) * min(1, cin + cout - 2 * groups)"
 [inputs.in0]
 shape = ["h", "w", 128]
 range = [-2, 2]
 [inputs.weights]
-shape = ["2 * (kh * kw + 1)", 128]
+shape = ["2 * (1 + kh * kw * weight_channels) + 1", 128]
 range = [-1, 1]
 [inputs.lut]
 shape = [5, 128]
@@ -76,26 +80,8 @@ pad = "CR6"
 qf_in0 = "CR7"
 qf_weights = "CR8"
 qf_out0 = "CR9"
-dsc = "CR10"
-dsi = "CR11"
+dsi = "CR10"
+dso = "CR11"
 [golden]
 tolerance = { e1 = "NX8_STEP", e2 = "NX8_STEP" }
 [cases.default]
-h = 8
-w = 8
-cin = 64
-cout = 64
-groups = 64
-stride = 2
-formats = ["e2"]
-[cases.k3]
-h = 8
-w = 8
-cin = 96
-cout = 96
-groups = 96
-kh = 3
-kw = 3
-padding = 1
-stride = 1
-formats = ["e2"]
