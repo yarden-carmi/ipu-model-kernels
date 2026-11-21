@@ -1,11 +1,15 @@
 {% set q = cr.qf_in0 ~ '.L' %}
 {% macro at(reg,n) %}
  SET {{ reg }} CR0 ;;
- {% if n %}INC {{ reg }} {{ n }} ;;{% endif %}
+ {{ adj(reg,n) }}
+{% endmacro %}
+{% macro adj(reg,d) %}
+ {% for k in range((d|abs) // 255) %}{{ 'INC' if d > 0 else 'DEC' }} {{ reg }} 255 ;;{% endfor %}
+ {% if (d|abs) % 255 %}{{ 'INC' if d > 0 else 'DEC' }} {{ reg }} {{ (d|abs) % 255 }} ;;{% endif %}
 {% endmacro %}
 {% macro load(n,cy=false) %}
- SET LR1 CR0 ;;
- {% if n %}INC LR1 {{ n }} ; {% endif %}{% if cy %}LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
+ {{ at('LR1',n) }}
+ {% if cy %}LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
  {% else %}LD.MULT R0 LR1 {{ cr.tmp }} ;;{% endif %}
 {% endmacro %}
 {% macro scalar(op='ADD',first=false,imm='CR1',ds='CR15.L',tail='') %}
@@ -49,16 +53,8 @@
  {% if a == 11 %}{{ load(22,true) }}{{ load(b) }}{{ mul() }}{% endif %}
  {{ save(dest) }}
 {% endmacro %}
-{% macro adj(reg,d) %}
- {% for k in range((d|abs) // 255) %}{{ 'INC' if d > 0 else 'DEC' }} {{ reg }} 255 ;;{% endfor %}
- {% if (d|abs) % 255 %}{{ 'INC' if d > 0 else 'DEC' }} {{ reg }} {{ (d|abs) % 255 }} ;;{% endif %}
-{% endmacro %}
-{% macro setc(reg,v) %}
- SET {{ reg }} CR0 ;;
- {{ adj(reg,v) }}
-{% endmacro %}
 
-{# In each residue class c = j + T*m, source lanes stay fixed as m changes. #}
+{# Gather the strided view in output row order by grouping fixed source lanes. #}
 {% set eu = namespace(a=rows, b=channels) %}
 {% for _ in range(24) %}{% if eu.b %}{% set t = eu.b %}{% set eu.b = eu.a % eu.b %}{% set eu.a = t %}{% endif %}{% endfor %}
 {% set M = eu.a %}
@@ -66,7 +62,7 @@
 {% set step = 2 * (rows // M) %}
 {% set r = 127 % T %}
 {% macro group(label,ja,jb,n,mhi,h) %}
- {{ setc('LR14',jb) }}{{ setc('LR11',ja) }}
+ {{ at('LR14',jb) }}{{ at('LR11',ja) }}
 {{ label }}_group:
  SET LR10 LR7 ; SET LR6 LR8 ; SET LR2 CR0 ;;
  SET LR3 CR0 ; SET LR12 CR0 ;;
@@ -88,9 +84,8 @@
  BNE LR11 LR14 {{ label }}_group ;;
 {% endmacro %}
 
-{# Gather p+c*rows. The view interleaves the four batches in p. #}
  SET LR0 CR0 ; SET LR4 CR0 ; SET LR5 CR0 ;;
- {{ setc('LR1',rows) }}{{ setc('LR9',40) }}{{ setc('LR13',rows // 2) }}
+ {{ at('LR1',rows) }}{{ at('LR9',40) }}{{ at('LR13',rows // 2) }}
 gather:
  {% for h in range(2) %}
  SET LR7 LR4 ; SET LR8 LR5 ;;
@@ -126,12 +121,11 @@ gather_no_wrap:
 gather_next:
  BNE LR1 CR0 gather ;;
 
-{# Normalize both chunks of each gathered row. #}
  SET LR0 CR0 ; SET LR2 CR0 ; SET LR3 CR0 ;;
  DEC LR2 1 ; INC LR3 128 ; SET LR14 CR0 ;;
  ADD LR4 LR3 LR3 ; INC LR14 40 ; SET LR8 CR0 ;;
  ADD LR12 LR4 LR3 ; INC LR8 3 ;;
- {{ setc('LR13',rows) }}
+ {{ at('LR13',rows) }}
 row_loop:
  {{ scalar(first=true,imm='CR0',tail='; SET LR5 LR14 ; DEC LR13 1') }}
  {% for ds in ['CR15.L',cr.dsl ~ '.L'] %}
@@ -172,7 +166,7 @@ variance_products:
  LD.MULT R0 LR1 {{ cr.tmp }} ;;
  {{ scalar('SUB') }}{{ save(22,1) }}
 
- {# Two Newton corrections for the quantized reciprocal square root. #}
+ {# Refine the approximate inverse standard deviation twice. #}
  {{ load(8,true) }}{{ load(8) }}{{ mul(first=true) }}{{ save(13) }}
  {{ product(11,13,15) }}
  {{ load(8,true) }}{{ load(15) }}{{ mul(first=true) }}
@@ -206,8 +200,7 @@ weight_loop:
  {{ save(9,3) }}
  LD.MULT.CYCLIC LR5 {{ cr.tmp }} LR0 ;;
  {% for n,slot in [(27,'LR3'),(28,'LR4'),(29,'LR12')] %}
- SET LR1 CR0 ;;
- INC LR1 {{ n }} ; LD.MULT.CYCLIC LR1 {{ cr.tmp }} {{ slot }} ;;
+ {{ at('LR1',n) }}LD.MULT.CYCLIC LR1 {{ cr.tmp }} {{ slot }} ;;
  {% endfor %}
  {{ scalar(first=true,imm='CR0') }}
  {{ at('LR1',9) }}{{ at('LR7',12) }}

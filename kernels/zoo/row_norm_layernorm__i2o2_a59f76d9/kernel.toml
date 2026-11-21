@@ -1,7 +1,6 @@
 [kernel]
 op = "row_norm"
 formats = ["e2"]
-
 [params.kind]
 type = "str"
 choices = ["layernorm"]
@@ -73,7 +72,6 @@ shape = [128]
 shape = ["40 + 2 * rows", 128]
 [outputs.out0]
 shape = ["out0_d0 * out0_d1 * 2", 128]
-
 [abi]
 in0 = "CR2"
 gamma = "CR3"
@@ -88,7 +86,6 @@ cC = "CR11"
 epsilon = "CR12"
 half = "CR13"
 dsl = "CR14"
-
 [golden]
 tolerance = { e2 = "NX8_STEP" }
 
