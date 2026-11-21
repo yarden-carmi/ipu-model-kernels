@@ -49,49 +49,28 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    import types
-    ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
-    module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
-                                      for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 64, 64], [262144, 4096, 64, 1], 0), module.op0_weight)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 8, 1, 1], [8, 1, 1, 1], 0), module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 256, 64, 64], [1048576, 4096, 64, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.hardsigmoid.default(_v(op0, [1, 16, 1, 1], [16, 1, 1, 1], 0))
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.silu_.default(_v(op1, [1, 256, 64, 64], [1048576, 4096, 64, 1], 0))
-    op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 256, 64, 64])}
+    return {"out0": _out(op1, [1, 16, 1, 1])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Fold inference batch norm, then split each row into coarse and residual."""
+    """Pack one bias row and k weight rows per output-channel block."""
     n, k = params["n"], params["k"]
-    if hasattr(module, "op0_weight"):
-        scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
-        weight = module.op0_weight.double().reshape(n, k) * scale[:, None]
-        bias = module.op1_bias.double() - module.op1_running_mean.double() * scale
-    else:
-        weight = module.weight.double().reshape(n, k)
-        bias = getattr(module, "bias", None)
-    if bias is None or not params["bias"]:
-        bias = weight.new_zeros(n)
+    weight = module.weight.double().reshape(n, k)
+    bias = module.bias.double().reshape(n) if params["bias"] else weight.new_zeros(n)
+    blocks = (n + 127) // 128
+    rows = weight.new_zeros((blocks, k + 1, 128))
+    for b in range(blocks):
+        lo, hi = b * 128, min(n, (b + 1) * 128)
+        rows[b, 0, :hi - lo] = bias[lo:hi]
+        rows[b, 1:, :hi - lo] = weight[lo:hi].T
 
-    if (params["m"] != params["in0_d0"] * params["in0_d1"]
-            or k != params["in0_d2"] or n != params["out0_d2"]):
-        blocks = (n + 127) // 128
-        rows = weight.new_zeros((blocks, k + 1, 128))
-        for b in range(blocks):
-            lo, hi = b * 128, min(n, (b + 1) * 128)
-            rows[b, 0, :hi - lo] = bias[lo:hi]
-            rows[b, 1:, :hi - lo] = weight[lo:hi].T
-    else:
-        chunks = (k + 127) // 128
-        rows = weight.new_zeros((n, chunks + 1, 128))
-        rows[:, 0, 0] = bias
-        rows[:, 1:, :].reshape(n, -1)[:, :k] = weight
-
-    rows = rows.reshape(-1, 128)
-    _, exp = torch.frexp(rows.abs().amax(dim=1, keepdim=True))
-    step = torch.ldexp(torch.ones_like(exp, dtype=rows.dtype), exp - 4)
+    # Quantize the coarse and residual components on separate row grids.
+    _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
+    step = torch.ldexp(torch.ones_like(rows[..., :1]), exponent - 4)
     coarse = torch.round(rows / step) * step
-    return {"coeff": torch.stack((coarse, rows - coarse), dim=1).reshape(-1, 128)}
+    return {"coeff": torch.stack((coarse, rows - coarse), dim=-2).reshape(-1, 128)}
