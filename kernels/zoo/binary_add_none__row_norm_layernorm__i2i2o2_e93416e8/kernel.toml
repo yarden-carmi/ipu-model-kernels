@@ -1,7 +1,6 @@
 [kernel]
 op = "binary_add_none__row_norm_layernorm"
 formats = ["e2"]
-
 [params.s0_broadcast]
 type = "str"
 default = "none"
@@ -61,7 +60,6 @@ default = 144
 
 [derived]
 dsl = "ds(s1_channels - 128)"
-
 [inputs.in0]
 shape = ["in0_d0 * in0_d1 * ((in0_d2 + 127) // 128)", 128]
 [inputs.in1]
@@ -80,7 +78,6 @@ shape = [40, 128]
 shape = ["4 * s1_rows", 128]
 [outputs.out0]
 shape = ["out0_d0 * out0_d1 * ((out0_d2 + 127) // 128)", 128]
-
 [abi]
 in0 = "CR2"
 in1 = "CR3"
@@ -95,7 +92,6 @@ beta = "CR11"
 crow = "CR12"
 epsilon = "CR13"
 dsl = "CR14"
-
 [golden]
 tolerance = { e2 = "NX8_STEP" }
 

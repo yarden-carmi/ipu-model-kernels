@@ -52,7 +52,6 @@
  {{ save(dest) }}
 {% endmacro %}
 
-{# Construct small and large bounds without relying on immediate width. #}
 {% macro set_int(reg,value,aux) %}
  SET {{ reg }} CR0 ;;
  {% for digit in (value|string) %}
@@ -66,7 +65,7 @@
  {% endfor %}
 {% endmacro %}
 
-{# Walk the channel stride in logical storage coordinates, then select the packed row. #}
+{# Convert each strided view coordinate to its padded storage row and lane. #}
 {% macro gather(label,ds,count) %}
  SET LR2 CR0 ; SET LR3 CR0 ; SET LR12 CR0 ;;
  INC LR12 {{ count }} ;;
@@ -174,7 +173,7 @@ variance_products:
  INC LR1 1 ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
  {{ mul() }}
  {{ save(17) }}
- {# Refine the rsqrt seed; the factor of one half is folded into gamma. #}
+ {# Newton refinement of rsqrt; the factor of one half is folded into gamma. #}
  {{ load(8,true) }}
  {% for i in range(3) %}
  MULT.RC.VE LR0 CR1 0 LR0 CR15.L {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %} ;;
