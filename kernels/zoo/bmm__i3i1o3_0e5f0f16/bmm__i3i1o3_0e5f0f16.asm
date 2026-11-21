@@ -1,5 +1,5 @@
-{# Stream RHS vectors along N and broadcast the matching element of A.
-   Keep each output tile in the accumulator until the K reduction is done. #}
+{# A is physically interleaved by head in the view. Stream B along N
+   and broadcast one A value at a time into the output tile. #}
     SET LR3 CR0 ; SET LR4 CR0 ; SET LR11 CR0 ;;
     SET LR12 CR0 ;;
 batch:
