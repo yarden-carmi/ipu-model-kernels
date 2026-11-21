@@ -1,53 +1,45 @@
-    SET LR0 CR0 ;;
-    SET LR2 CR0 ;;
-    SET LR5 CR0 ;;
-    SET LR7 CR0 ;;
-    SET LR11 CR0 ;;
-    SET LR13 CR0 ;;
-    SET LR14 CR0 ;;
-m_loop:
-    SET LR6 CR0 ;;
-nb_loop:
-    SET LR8 LR11 ;;
-    SET LR3 LR13 ;;
-    SET LR12 LR14 ;;
-    SET LR4 LR6 ;;
-    ADD LR4 LR4 LR4 ;;
-    ADD LR4 LR4 LR4 ;;
-    SET LR10 LR4 ;;
-    SET LR9 {{ cr.k }} ;;
-    LD.MULT.CYCLIC LR6 {{ cr.w }} LR2 ;;
-    MULT.RC.VE LR2 CR0 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
-k_loop:
-    LD.MULT R0 LR8 {{ cr.in0 }} ;;
-{% macro term(base, offset, src) %}
-    LD.MULT.CYCLIC {{ offset }} {{ base }} LR2 ;;
-    MULT.RC.VE LR2 {{ src }} 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD ;;
-    INC {{ offset }} 1 ;;
+{# Flat merge cursor (LR8, LR9) skips physical padding at each d3 boundary.
+   Each output tile streams six weight digits for bias and each reduction lane. #}
+{% macro dot(s, first=false, advance=false) %}
+    LD.MULT.CYCLIC LR4 {{ cr.w }} LR0 ; INC LR4 1 {% if advance %}; INC LR3 1 ; DEC LR7 1{% endif %} ;;
+{% for p in range(6) %}
+    MULT.RC.VE {{ 'LR1' if p % 2 else 'LR0' }} {{ s }} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{% if first and p == 0 %}.FIRST{% endif %}{% if p < 5 %} ; LD.MULT.CYCLIC LR4 {{ cr.w }} {{ 'LR0' if p % 2 else 'LR1' }} ; INC LR4 1{% endif %} ;;
+{% endfor %}
 {% endmacro %}
-{% for i in range(4) %}
-{{ term(cr.w, 'LR4', 'LR3') }}
-{% endfor %}
-    ADD LR4 LR4 {{ cr.WS }} ;;
-    INC LR3 1 ; INC LR12 1 ;;
-    BNE LR12 {{ cr.in0_d3 }} not_end ;;
-    SET LR12 CR0 ; SET LR3 CR0 ; INC LR8 1 ;;
-    BEQ CR0 CR0 advance ;;
-not_end:
-    BNE LR3 {{ cr.c128 }} advance ;;
-    SET LR3 CR0 ; INC LR8 1 ;;
-advance:
+{% macro store(ds) %}
+    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR5 ;;
+{% endmacro %}
+    SET LR0 CR0 ; SET LR1 {{ cr.slot }} ; SET LR5 CR0 ;;
+    SET LR8 CR0 ; SET LR9 CR0 ; SET LR10 {{ cr.rows }} ;;
     DEC LR9 1 ;;
-    BNE LR9 CR0 k_loop ;;
+row:
+    SET LR4 CR0 ; SET LR6 {{ cr.tiles }} ;;
+    DEC LR4 1 ;;
+tile:
+    SET LR2 LR8 ; SET LR3 LR9 ; SET LR7 {{ cr.k }} ;;
 {% if bias %}
-{% for i in range(4) %}
-{{ term(cr.b, 'LR10', 'CR1') }}
-{% endfor %}
+{{ dot('CR1', true) }}
+{% else %}
+{{ dot('CR0', true) }}
 {% endif %}
-    ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR7 ;;
-    INC LR7 1 ; INC LR6 1 ;;
-    BLT.S LR6 {{ cr.NB }} nb_loop ;;
-    SET LR11 LR8 ; SET LR13 LR3 ; SET LR14 LR12 ;;
-    INC LR5 1 ;;
-    BLT.S LR5 {{ cr.m }} m_loop ;;
+load_input:
+    LD.MULT R0 LR2 {{ cr.in0 }} ;;
+lane:
+{{ dot('LR3', false, true) }}
+    BEQ LR3 {{ cr.last_lane }} next_input ;;
+    BNE LR7 CR0 lane ;;
+    B store_tile ;;
+next_input:
+    INC LR2 1 ; SET LR3 CR0 ;;
+    DEC LR3 1 ; BNE LR7 CR0 load_input ;;
+store_tile:
+    DEC LR6 1 ;;
+    BEQ LR6 CR0 last_tile ;;
+{{ store(cr.full) }}
+    INC LR5 1 ; B tile ;;
+last_tile:
+{{ store(cr.tail) }}
+    INC LR5 1 ; SET LR8 LR2 ; SET LR9 LR3 ;;
+    DEC LR10 1 ;;
+    BNE LR10 CR0 row ;;
     HALT ;;

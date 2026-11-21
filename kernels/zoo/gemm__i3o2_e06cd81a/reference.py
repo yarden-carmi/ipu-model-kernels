@@ -39,33 +39,23 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.linear.default(_v(ins[0], [1, 257, 384], [98688, 384, 1], 0), module.op0_weight, module.op0_bias)
+    r0 = aten.linear.default(_v(ins[0], [1, 50, 768], [38400, 768, 1], 0), module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.mul.Tensor(_v(op0, [1, 257, 384], [98688, 384, 1], 0), module.op1_lambda1)
-    op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 257, 384])}
+    return {"out0": _out(op0, [1, 50, 768])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    n, k = int(params['n']), int(params['k'])
-    np = ((n + 127) // 128) * 128
-    weight = module.op0_weight.detach() * module.op1_lambda1.detach().reshape(-1, 1)
-    w = weight.new_zeros((k, np))
-    w[:, :n] = weight.t()
-    def split(t):
-        r = t.reshape(-1, 128).clone()
-        parts = []
-        for _ in range(4):
-            e = torch.frexp(r.abs().amax(dim=1, keepdim=True))[1]
-            step = torch.pow(2.0, e.float() - 5)
-            p = torch.round(r / step) * step
-            parts.append(p)
-            r = r - p
-        return torch.stack(parts, dim=1).reshape(-1, 128).contiguous()
-    result = {'w': split(w)}
-    if params['bias']:
-        b = weight.new_zeros(np)
-        b[:n] = module.op0_bias.detach() * module.op1_lambda1.detach()
-        result['b'] = split(b)
-    return result
+    """Pack output tiles with bias first and six signed radix-four digits per row."""
+    weight = module.weight.detach()
+    n, k = weight.shape
+    tiles = (n + 127) // 128
+    bias = module.bias.detach() if params["bias"] else weight.new_zeros(n)
+    data = torch.cat((bias[:, None], weight), dim=1)
+    data = torch.nn.functional.pad(data, (0, 0, 0, tiles * 128 - n))
+    rows = data.reshape(tiles, 128, k + 1).transpose(1, 2)
+    exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))[1]
+    digits = torch.ldexp(rows.abs().double(), 12 - exponent).round().long().clamp(max=4095)
+    planes = [torch.ldexp(((digits >> shift) & 3).to(rows.dtype) * rows.sign(),
+                          exponent + shift - 12) for shift in range(10, -1, -2)]
+    return {"w": torch.stack(planes, dim=2).reshape(-1, 128)}
