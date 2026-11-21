@@ -6,7 +6,9 @@
 {% endmacro %}
 {% macro addr(reg, value) %}
     SET {{ reg }} CR0 ;;
+{% if value %}
     INC {{ reg }} {{ value }} ;;
+{% endif %}
 {% endmacro %}
 {% macro tiles(label) %}
     SET LR7 CR0 ;;
@@ -20,6 +22,19 @@
 {{ label }}_tail:
 {{ caller(part) }}
 {% endmacro %}
+    SET LR0 CR0 ;;
+{{ addr('LR11',128) }}
+    SET LR9 CR0 ;;
+    SET LR10 LR11 ;;
+    SET LR12 LR11 ;;
+    INC LR12 128 ;;
+    SET LR13 LR12 ;;
+    INC LR13 128 ;;
+
+{# Generate 1 and a split log2(e)/2. #}
+{{ addr('LR1',7) }}
+{{ clear() }}
+    ACTIVATE.QUANTIZE exp2 {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
 {% macro coefficient(power, numerator, row) %}
 {{ addr('LR1',7) }}
     LD.MULT R0 LR1 {{ cr.tmp }} ;;
@@ -40,26 +55,14 @@ numerator_{{ row }}:
     BNE LR6 CR0 numerator_{{ row }} ;;
     ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
 {% endmacro %}
-    SET LR0 CR0 ;;
-{{ addr('LR11',128) }}
-    SET LR9 CR0 ;;
-    SET LR10 LR11 ;;
-    SET LR12 LR11 ;;
-    INC LR12 128 ;;
-    SET LR13 LR12 ;;
-    INC LR13 128 ;;
-
-{# Generate one and split log2(e)/2 into exactly representable terms. #}
-{{ addr('LR1',7) }}
-{{ clear() }}
-    ACTIVATE.QUANTIZE exp2 {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
 {% for p,k,r in [(5,23,5),(13,21,6),(19,18,8),(26,19,9)] %}
 {{ coefficient(p,k,r) }}
 {% endfor %}
-{# Scale roots by 2^16 before squaring; preserve the FP32 exp grid. #}
+{# Keep squared numerators scaled up by 2^32 across the scratch store. #}
 {{ coefficient(16,1,10) }}
     ACTIVATE.QUANTIZE reciprocal {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
     LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR12 ;;
+{# Round scaled subnormal numerators to the FP32 exp grid. #}
 {{ coefficient(94,1,11) }}
     LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR13 ;;
     SET LR2 CR0 ;;
@@ -115,7 +118,7 @@ max_ready:
     MULT.RC.VV LR9 R0 0 LR0 {{ ds }} {{ q }} ; AGG.SUM LR0 {{ ds }} ;;
     INC LR3 1 ;;
 {% endcall %}
-{# Split the sum, then refine its reciprocal with r * (1 - sum * r). #}
+{# Carry the sum as two quantized pieces into a broadcast reciprocal. #}
     ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR0 ;;
     LD.MULT R0 LR0 {{ cr.tmp }} ;;
     MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB ;;
@@ -126,6 +129,7 @@ max_ready:
     INC LR1 1 ;;
     ACTIVATE.QUANTIZE reciprocal {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
     LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR10 ;;
+{# Refine the rounded reciprocal with r + r * (1 - sum * r). #}
     SET LR1 CR1 ;;
     LD.MULT R1 LR1 {{ cr.tmp }} ;;
     LD.MULT R0 LR0 {{ cr.tmp }} ;;
