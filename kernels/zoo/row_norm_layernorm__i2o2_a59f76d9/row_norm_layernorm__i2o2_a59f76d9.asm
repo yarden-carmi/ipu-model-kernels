@@ -49,22 +49,22 @@
  {% if a == 11 %}{{ load(22,true) }}{{ load(b) }}{{ mul() }}{% endif %}
  {{ save(dest) }}
 {% endmacro %}
+{% macro adj(reg,d) %}
+ {% for k in range((d|abs) // 255) %}{{ 'INC' if d > 0 else 'DEC' }} {{ reg }} 255 ;;{% endfor %}
+ {% if (d|abs) % 255 %}{{ 'INC' if d > 0 else 'DEC' }} {{ reg }} {{ (d|abs) % 255 }} ;;{% endif %}
+{% endmacro %}
 {% macro setc(reg,v) %}
  SET {{ reg }} CR0 ;;
- {% for k in range(v // 255) %}INC {{ reg }} 255 ;;{% endfor %}
- {% if v % 255 %}INC {{ reg }} {{ v % 255 }} ;;{% endif %}
+ {{ adj(reg,v) }}
 {% endmacro %}
-{# Group c = j + T*m: stepping m advances an integral number of stored rows. #}
+
+{# In each residue class c = j + T*m, source lanes stay fixed as m changes. #}
 {% set eu = namespace(a=rows, b=channels) %}
 {% for _ in range(24) %}{% if eu.b %}{% set t = eu.b %}{% set eu.b = eu.a % eu.b %}{% set eu.a = t %}{% endif %}{% endfor %}
 {% set M = eu.a %}
 {% set T = channels // M %}
 {% set step = 2 * (rows // M) %}
 {% set r = 127 % T %}
-{% macro adj(reg,d) %}
- {% for k in range((d|abs) // 255) %}{{ 'INC' if d > 0 else 'DEC' }} {{ reg }} 255 ;;{% endfor %}
- {% if (d|abs) % 255 %}{{ 'INC' if d > 0 else 'DEC' }} {{ reg }} {{ (d|abs) % 255 }} ;;{% endif %}
-{% endmacro %}
 {% macro group(label,ja,jb,n,mhi,h) %}
  {{ setc('LR14',jb) }}{{ setc('LR11',ja) }}
 {{ label }}_group:
@@ -88,7 +88,7 @@
  BNE LR11 LR14 {{ label }}_group ;;
 {% endmacro %}
 
-{# Gather flat p+c*rows from the handed layout, placing p in output order. #}
+{# Gather p+c*rows. The view interleaves the four batches in p. #}
  SET LR0 CR0 ; SET LR4 CR0 ; SET LR5 CR0 ;;
  {{ setc('LR1',rows) }}{{ setc('LR9',40) }}{{ setc('LR13',rows // 2) }}
 gather:
@@ -126,7 +126,7 @@ gather_no_wrap:
 gather_next:
  BNE LR1 CR0 gather ;;
 
-{# Normalize the two chunks of each gathered row. #}
+{# Normalize both chunks of each gathered row. #}
  SET LR0 CR0 ; SET LR2 CR0 ; SET LR3 CR0 ;;
  DEC LR2 1 ; INC LR3 128 ; SET LR14 CR0 ;;
  ADD LR4 LR3 LR3 ; INC LR14 40 ; SET LR8 CR0 ;;
@@ -172,7 +172,7 @@ variance_products:
  LD.MULT R0 LR1 {{ cr.tmp }} ;;
  {{ scalar('SUB') }}{{ save(22,1) }}
 
- {# Two Newton corrections on the quantized rsqrt, keeping residuals. #}
+ {# Two Newton corrections for the quantized reciprocal square root. #}
  {{ load(8,true) }}{{ load(8) }}{{ mul(first=true) }}{{ save(13) }}
  {{ product(11,13,15) }}
  {{ load(8,true) }}{{ load(15) }}{{ mul(first=true) }}
