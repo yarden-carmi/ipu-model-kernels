@@ -66,12 +66,11 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    """Fold inference batch norm, then keep a high and residual FP8 row."""
     def split(rows):
         _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
         step = torch.ldexp(torch.ones_like(rows[..., :1]), exponent - 4)
-        high = torch.round(rows / step) * step
-        return torch.stack((high, rows - high), dim=-2).contiguous()
+        coarse = torch.round(rows / step) * step
+        return torch.stack((coarse, rows - coarse), dim=-2).contiguous()
 
     n, k = params['n'], params['k']
     scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
