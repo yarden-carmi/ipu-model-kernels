@@ -13,21 +13,29 @@ tile:
     SET LR8 LR4 ;;
 width_ready:
     SET LR9 CR0 ; ADD LR10 LR1 CR0 ;;
-{% macro chunk(tag, first) %}
+{% macro chunk(tag, first, dsn) %}
     ADD LR3 LR7 LR9 ; SET LR4 CR0 ; LD.MULT R0 LR10 {{ cr.in0 }} ;;
 {{ tag }}:
     LD.MULT.CYCLIC LR3 {{ cr.in1 }} LR11 ;;
-    MULT.RC.VV LR11 R0 0 LR11 {{ cr.output_ds }}.L {{ cr.qf_in0 }}.L ; AGG.SUM{{ '.FIRST' if first else '' }} LR4 {{ cr.output_ds }}.L ; ADD LR3 LR3 {{ cr.bk }} ;;
+    MULT.RC.VV LR11 R0 0 LR11 {{ cr.output_ds }}.L {{ cr.qf_in0 }}.L ; AGG.SUM{{ '.FIRST' if first else '' }} LR4 {{ dsn }} ; ADD LR3 LR3 {{ cr.bk }} ;;
     INC LR4 1 ;;
     BLT.S LR4 LR8 {{ tag }} ;;
     INC LR9 1 ; INC LR10 1 ;;
 {% endmacro %}
-    {{ chunk('first_column', true) }}
+    BLT.S LR9 {{ cr.kcm1 }} first_full ;;
+    {{ chunk('first_last', true, cr.dsk ~ '.L') }}
+    B check_chunk ;;
+first_full:
+    {{ chunk('first_full_l', true, cr.output_ds ~ '.L') }}
     B check_chunk ;;
 next_chunk:
-    {{ chunk('next_column', false) }}
+    BLT.S LR9 {{ cr.kcm1 }} next_full ;;
+    {{ chunk('next_last', false, cr.dsk ~ '.L') }}
+    B check_chunk ;;
+next_full:
+    {{ chunk('next_full_l', false, cr.output_ds ~ '.L') }}
 check_chunk:
-    BLT.S LR9 {{ cr.kc }} next_chunk ;;
+    BGE.S {{ cr.kcm1 }} LR9 next_chunk ;;
     ADD LR6 LR6 LR8 ;;
     BLT.S LR6 {{ cr.n }} full_tile ;;
 {% macro store(half) %}
