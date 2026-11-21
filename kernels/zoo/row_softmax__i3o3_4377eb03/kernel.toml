@@ -1,56 +1,58 @@
 [kernel]
 op = "row_softmax"
 formats = ["e2"]
+
 [params.n]
 type = "int"
 min = 1
 max = 4096
-default = 257
+default = 256
 [params.rows]
 type = "int"
 min = 1
 max = 8192
-default = 1542
+default = 4096
 [params.in0_d0]
 type = "int"
 min = 1
 max = 8192
-default = 1
+default = 4
 [params.in0_d1]
 type = "int"
 min = 1
 max = 8192
-default = 6
+default = 4
 [params.in0_d2]
 type = "int"
 min = 1
 max = 8192
-default = 257
+default = 256
 [params.in0_d3]
 type = "int"
 min = 1
 max = 4096
-default = 257
+default = 256
 [params.out0_d0]
 type = "int"
 min = 1
 max = 8192
-default = 1
+default = 4
 [params.out0_d1]
 type = "int"
 min = 1
 max = 8192
-default = 6
+default = 4
 [params.out0_d2]
 type = "int"
 min = 1
 max = 8192
-default = 257
+default = 256
 [params.out0_d3]
 type = "int"
 min = 1
 max = 4096
-default = 257
+default = 256
+
 [derived]
 K = "ceil(n / 128)"
 M = "rows * K"

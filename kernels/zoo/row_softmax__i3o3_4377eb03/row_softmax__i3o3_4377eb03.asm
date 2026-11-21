@@ -62,7 +62,7 @@ numerator_{{ row }}:
 {{ coefficient(16,1,10) }}
     ACTIVATE.QUANTIZE reciprocal {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
     LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR12 ;;
-{# The bias rounds scaled subnormal numerators to the FP32 exp grid. #}
+{# Round scaled subnormal numerators to the FP32 exp grid. #}
 {{ coefficient(94,1,11) }}
     LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR13 ;;
     SET LR2 CR0 ;;
@@ -129,6 +129,20 @@ max_ready:
     INC LR1 1 ;;
     ACTIVATE.QUANTIZE reciprocal {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
     LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR10 ;;
+{# Refine the rounded reciprocal with r + r * (1 - sum * r). #}
+    SET LR1 CR1 ;;
+    LD.MULT R1 LR1 {{ cr.tmp }} ;;
+    LD.MULT R0 LR0 {{ cr.tmp }} ;;
+{{ addr('LR5',7) }}
+    LD.MULT.CYCLIC LR5 {{ cr.tmp }} LR9 ;;
+    MULT.RC.VE LR9 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ;;
+    MULT.RC.VE LR10 LR0 0 LR0 {{ full }} {{ q }} ; ACC.SUB ;;
+    MULT.RC.VE LR10 LR11 0 LR0 {{ full }} {{ q }} ; ACC.SUB ;;
+    INC LR1 2 ;;
+    ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
+    LD.MULT R0 LR1 {{ cr.tmp }} ;;
+    MULT.RC.VV LR10 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ;;
+    ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
     SET LR3 CR0 ;;
     SET LR4 LR2 ;;
 {% call(ds) tiles('output') %}
@@ -143,6 +157,9 @@ max_ready:
     LD.MULT R1 LR3 {{ cr.exps }} ;;
     MULT.RC.VV LR10 R0 0 LR0 {{ ds }} {{ q }} ; ACC.ADD.FIRST ;;
     MULT.RC.VV LR10 R1 0 LR0 {{ ds }} {{ q }} ; ACC.ADD ;;
+    LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR9 ;;
+    MULT.RC.VV LR9 R0 0 LR0 {{ ds }} {{ q }} ; ACC.ADD ;;
+    MULT.RC.VV LR9 R1 0 LR0 {{ ds }} {{ q }} ; ACC.ADD ;;
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR4 ;;
     INC LR3 1 ;;
     INC LR4 1 ;;
