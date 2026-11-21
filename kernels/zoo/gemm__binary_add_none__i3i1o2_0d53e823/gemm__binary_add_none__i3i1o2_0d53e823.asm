@@ -1,4 +1,6 @@
-{# R0 holds a reduction chunk. The cyclic register ping-pongs weight planes. #}
+{# Stream the folded digit rows through two cyclic slots. R0 holds one packed
+   reduction chunk, then the residual. LR9 follows the patches view's p-major
+   row order while LR5 writes the output in batch-major order. #}
 {% macro prime() %}
     LD.MULT.CYCLIC LR4 {{ cr.w }} LR0 ; INC LR4 1 ;;
 {% endmacro %}
@@ -34,7 +36,6 @@ lane:
 final_lane:
 {{ dot('LR3') }}
     INC LR2 1 ; BNE LR7 CR0 load_input ;;
-store_tile:
     LD.MULT R0 LR9 {{ cr.in1 }} ; DEC LR6 1 ;;
     BEQ LR6 CR0 last_tile ;;
 {{ store(cr.full) }}

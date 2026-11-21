@@ -66,7 +66,7 @@ default = 1
 [params.in1_d1]
 type = "int"
 min = 1
-max = 65536
+max = 4096
 default = 144
 [params.in1_d2]
 type = "int"
@@ -93,6 +93,7 @@ type = "int"
 min = 1
 max = 4096
 default = 144
+
 [derived]
 tiles = "ceil(out0_d2 / 128)"
 rows = "out0_d0 * out0_d1"
@@ -103,10 +104,10 @@ full = "ds(128)"
 slot = "128"
 
 [inputs.in0]
-shape = ["rows * krows", 128]
+shape = ["ceil(in0_d0 * in0_d1 * in0_d2 / ceil(s0_k / in0_d3)) * ceil(ceil(s0_k / in0_d3) * in0_d3 / 128)", 128]
 range = [-2, 2]
 [inputs.in1]
-shape = ["rows * tiles", 128]
+shape = ["in1_d0 * in1_d2 * in1_d3 * ceil(in1_d1 / 128)", 128]
 range = [-2, 2]
 [inputs.w]
 shape = ["tiles * (s0_k + 1) * 6", 128]

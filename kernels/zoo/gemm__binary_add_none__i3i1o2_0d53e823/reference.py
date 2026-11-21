@@ -59,14 +59,14 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    """Transpose output tiles and split each row into exactly encodable planes."""
+    """Tile by output channel and encode each reduction row in radix-four planes."""
     weight = module.weight.detach()
-    n, _ = weight.shape
+    n, k = weight.shape
     tiles = (n + 127) // 128
     bias = module.bias.detach() if params["s0_bias"] else weight.new_zeros(n)
     data = torch.cat((bias[:, None], weight), dim=1)
     data = torch.nn.functional.pad(data, (0, 0, 0, tiles * 128 - n))
-    rows = data.reshape(tiles, 128, -1).transpose(1, 2)
+    rows = data.reshape(tiles, 128, k + 1).transpose(1, 2)
     exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))[1]
     digits = torch.ldexp(rows.abs().double(), 12 - exponent).round().long().clamp(max=4095)
     planes = [torch.ldexp(((digits >> shift) & 3).to(rows.dtype) * rows.sign(),
