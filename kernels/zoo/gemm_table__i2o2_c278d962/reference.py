@@ -20,6 +20,16 @@ def _l(res, k, shape, stride, offset):
     return _v(t, shape, stride, offset)
 
 
+def _p(t, shape):
+    """A parameter read at the shape its record read it (a view of it: reshaped, or expanded)."""
+    if list(t.shape) == list(shape):
+        return t
+    n = 1
+    for d in shape:
+        n *= int(d)
+    return t.reshape(tuple(shape)) if t.numel() == n else t.expand(tuple(shape))
+
+
 def _pick(res, k):
     """Result k of a record (one tensor, or a tuple of them)."""
     return res[k] if isinstance(res, (tuple, list)) else res
@@ -39,19 +49,41 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.linear.default(_v(ins[0], [1, 256, 1024], [262144, 1024, 1], 0), module.weight, module.bias)
+    r0 = aten.linear.default(_v(ins[0], [4, 256, 144], [36864, 144, 1], 0), module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.gelu.default(_v(op0, [1, 256, 4096], [1048576, 4096, 1], 0), approximate='tanh')
+    r0 = aten.silu.default(_v(op0, [4, 256, 288], [73728, 288, 1], 0))
     op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 256, 4096])}
+    return {"out0": _out(op1, [4, 256, 288])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    n, k = int(params['n']), int(params['k'])
-    nb = n // 128
-    w = module.weight.detach().t().contiguous().reshape(k * nb, 128)
-    result = {'w': torch.cat([w, torch.zeros(4 * nb, 128)], dim=0).contiguous()}
-    if params['bias']:
-        result['b'] = module.bias.detach().contiguous()
-    return result
+    k, n = params['k'], params['n']
+    if hasattr(module, 'op1_running_var'):
+        scale = module.op1_weight.detach().double() * torch.rsqrt(module.op1_running_var.detach().double() + 1e-5)
+        weight = module.op0_weight.detach().double().reshape(n, k) * scale[:, None]
+        bias = module.op1_bias.detach().double() - module.op1_running_mean.detach().double() * scale
+        if getattr(module, 'op0_bias', None) is not None:
+            bias = bias + module.op0_bias.detach().double() * scale
+    else:
+        weight = module.weight.detach().reshape(n, k)
+        bias = (module.bias.detach().reshape(n) if params['bias'] else weight.new_zeros(n))
+    if params['m'] * k > params['in0_d0'] * params['in0_d1'] * params['in0_d2']:
+        kb = (k + 127) // 128
+        rows = weight.new_zeros(n, kb + 1, 128)
+        rows[:, 0, 0] = bias
+        rows[:, 1:].reshape(n, kb * 128)[:, :k] = weight
+        _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
+        step = torch.ldexp(torch.ones_like(rows[..., :1]), exponent - 4)
+        coarse = torch.round(rows / step) * step
+        residual = rows - coarse
+        _, exponent = torch.frexp(residual.abs().amax(dim=-1, keepdim=True))
+        step = torch.ldexp(torch.ones_like(rows[..., :1]), exponent - 4)
+        middle = torch.round(residual / step) * step
+        rows = torch.stack((coarse, middle, residual - middle), dim=1)
+    else:
+        nb = (n + 127) // 128
+        channels = torch.nn.functional.pad(torch.cat((bias[:, None], weight), dim=1),
+                                           (0, 0, 0, nb * 128 - n))
+        rows = channels.reshape(nb, 128, k + 1).transpose(1, 2).contiguous()
+    return {'coeff': rows.reshape(-1, 128)}

@@ -1,82 +1,100 @@
 [kernel]
-op = "gemm_gelu_tanh"
-formats = ["e3"]
+op = "gemm_table"
+formats = ["e2"]
+
+[params.k]
+type = "int"
+min = 1
+max = 4096
+default = 144
+[params.n]
+type = "int"
+min = 1
+max = 4096
+default = 288
 [params.m]
 type = "int"
 min = 1
-max = 1024
-default = 2
-[params.k]
-type = "int"
-min = 128
-max = 1024
-multiple_of = 128
-default = 128
-[params.n]
-type = "int"
-min = 128
-max = 4096
-multiple_of = 128
-default = 256
+max = 65535
+default = 1024
 [params.bias]
 type = "bool"
 default = true
 [params.act_out0]
 type = "str"
-choices = ["gelu_tanh"]
-default = "gelu_tanh"
+choices = ["silu"]
+default = "silu"
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 4
+[params.in0_d1]
+type = "int"
+min = 1
+max = 65535
+default = 256
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65535
+default = 144
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 4
+[params.out0_d1]
+type = "int"
+min = 1
+max = 65535
+default = 256
+[params.out0_d2]
+type = "int"
+min = 1
+max = 65535
+default = 288
+
 [derived]
-c31 = "31"
-K = "k / 128"
-NB = "n / 128"
-c128 = "128"
+I = "ceil(in0_d2 / 128)"
+O = "ceil(out0_d2 / 128)"
+D = "m * k / (in0_d0 * in0_d1 * in0_d2)"
+E = "m * n / (out0_d0 * out0_d1 * out0_d2)"
+S = "I * D"
+T = "O * E"
+IR = "in0_d0 * in0_d1 * S"
+OR = "out0_d0 * out0_d1 * T"
+K = "ceil(k / 128)"
+tail = "ds(out0_d2 - 128 * (O - 1))"
+full = "ds(128)"
+W = "max(2 - D, 0) * O * (k + 1) + min(D - 1, 1) * 3 * n * (K + 1)"
+
 [inputs.in0]
-shape = [1, "m", "k"]
+shape = ["IR", 128]
 range = [-2, 2]
-[inputs.w]
-shape = ["(k + 4) * NB", 128]
-range = [-2, 2]
-[inputs.b]
-shape = ["n"]
-range = [-2, 2]
-when = "bias"
+[inputs.coeff]
+shape = ["W", 128]
+range = [-1, 1]
 [inputs.lut]
 shape = [5, 128]
 range = [0, 0]
 [outputs.out0]
-shape = [1, "m", "n"]
+shape = ["OR", 128]
+
 [abi]
 in0 = "CR2"
-w = "CR3"
+coeff = "CR3"
 out0 = "CR4"
-b = "CR5"
-m = "CR6"
-K = "CR7"
-NB = "CR8"
-qf_in0 = "CR9"
-qf_out0 = "CR12"
-c31 = "CR13"
-lut = "CR10"
-c128 = "CR11"
-[golden]
-tolerance = { e3 = "NX8_STEP" }
+lut = "CR5"
+qf_in0 = "CR6"
+qf_out0 = "CR7"
+k = "CR8"
+O = "CR9"
+S = "CR10"
+OR = "CR11"
+K = "CR12"
+n = "CR13"
+tail = "CR14"
+full = "CR15"
+
 [cases.default]
-m = 2
-k = 128
-n = 256
-bias = true
-[cases.multiblock]
-m = 3
-k = 256
-n = 256
-bias = true
-[cases.full_k]
-m = 1
-k = 768
-n = 128
-bias = true
-[cases.no_bias]
-m = 2
-k = 256
-n = 128
-bias = false
