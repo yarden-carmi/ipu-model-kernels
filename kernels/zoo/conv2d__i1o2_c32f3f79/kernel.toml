@@ -1,98 +1,100 @@
 [kernel]
 op = "conv2d"
 formats = ["e2"]
+
 [params.bias]
 type = "bool"
 default = true
+
 [params.cin]
 type = "int"
-min = 1
-max = 128
+min = 3
+max = 3
 default = 3
+
 [params.cout]
 type = "int"
-min = 128
-max = 1152
+min = 384
+max = 384
 multiple_of = 128
-default = 128
+default = 384
+
 [params.groups]
 type = "int"
 min = 1
 max = 1
 default = 1
+
 [params.h]
 type = "int"
 min = 1
-max = 1024
-default = 4
+max = 224
+default = 28
+
 [params.w]
 type = "int"
 min = 1
-max = 1024
-default = 4
+max = 224
+default = 28
+
 [params.kh]
 type = "int"
-min = 1
-max = 16
-default = 2
+min = 14
+max = 14
+default = 14
+
 [params.kw]
 type = "int"
-min = 1
-max = 16
-default = 2
+min = 14
+max = 14
+default = 14
+
 [params.padding]
 type = "int"
 min = 0
-max = 16
+max = 0
 default = 0
+
 [params.stride]
 type = "int"
-min = 1
-max = 16
-default = 2
+min = 14
+max = 14
+default = 14
+
 [derived]
 ho = "(h + 2 * padding - kh) // stride + 1"
 wo = "(w + 2 * padding - kw) // stride + 1"
 blocks = "cout // 128"
 full = "ds(128)"
-endrows = "out0_d1 * blocks"
+
 [inputs.in0]
 shape = ["h", "w", 128]
 range = [-2, 2]
+
 [inputs.weights]
 shape = ["blocks", "1 + kh * kw * cin", 128]
 range = [-1, 1]
-[outputs.out0]
-shape = [1, "ho * wo + 101", "cout"]
-[inputs.tokens]
-shape = [101, "cout"]
+
+[inputs.cls]
+shape = ["blocks", 128]
 range = [-1, 1]
+
+[outputs.out0]
+shape = [1, "ho * wo + 1", "cout"]
+
 [abi]
 in0 = "CR2"
-tokens = "CR12"
 weights = "CR3"
 out0 = "CR4"
 qf_in0 = "CR5"
-qf_weights = "CR6"
-qf_out0 = "CR7"
-qf_tokens = "CR13"
+qf_out0 = "CR6"
+cls = "CR7"
 blocks = "CR8"
 h = "CR9"
 w = "CR10"
-endrows = "CR11"
 full = "CR15"
-[params.out0_d1]
-type = "int"
-min = 1
-max = 1048576
-default = 105
+
 [cases.default]
-[cases.patch16]
-h = 16
-w = 32
-kh = 16
-kw = 16
-stride = 16
-cout = 384
+
 [golden]
 tolerance = { e2 = "NX8_STEP" }

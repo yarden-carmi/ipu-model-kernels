@@ -39,15 +39,13 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.default(_v(ins[0], [1, 3, 512, 864], [1327104, 442368, 864, 1], 0), module.op0_weight, module.op0_bias, [16, 16])
+    r0 = aten.conv2d.default(_v(ins[0], [1, 3, 224, 224], [150528, 50176, 224, 1], 0), module.op0_weight, module.op0_bias, [14, 14])
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.cat.default([module.op1_cls_token, _v(op0, [1, 1728, 384], [663552, 1, 1728], 0), module.op1_detection_tokens], 1)
+    r0 = aten.cat.default([module.op1_cls_token, _v(op0, [1, 256, 384], [98304, 1, 256], 0)], 1)
     op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 1829, 384])}
+    return {"out0": _out(op1, [1, 257, 384])}
 # ---- end of the frozen reference ----
 
-
-import torch
 
 def fold(module, **params):
     w = module.op0_weight.to(torch.float64)
@@ -55,6 +53,5 @@ def fold(module, **params):
     rows = torch.zeros(co // 128, 1 + kh * kw * ci, 128, dtype=torch.float64)
     rows[:, 1:] = w.reshape(co // 128, 128, ci, kh, kw).permute(0, 3, 4, 2, 1).reshape(co // 128, -1, 128)
     if params.get('bias'):
-        b = module.op0_bias
-        rows[:, 0] = b.reshape(-1, 128)
-    return {'weights': rows, 'tokens': torch.cat([module.op1_cls_token, module.op1_detection_tokens], 1).reshape(-1, 128)}
+        rows[:, 0] = module.op0_bias.to(torch.float64).reshape(-1, 128)
+    return {'weights': rows, 'cls': module.op1_cls_token.to(torch.float64).reshape(-1, 128)}
