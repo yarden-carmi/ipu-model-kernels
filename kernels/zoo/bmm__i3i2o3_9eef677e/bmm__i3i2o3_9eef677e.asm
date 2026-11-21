@@ -15,7 +15,7 @@ width_ready:
     ADD LR14 LR14 LR3 ;;
     BGT.S LR14 LR9 split_chunk ;;
 
-{# LR3 is the head's lane offset in B; a split vector wraps into the
+{# LR3 is the head's lane offset in B. A split vector wraps into the
    next physical row in the cyclic register. LR15 stays zero. #}
 {% macro reduce(tag, split) %}
 {{ tag }}_chunk:
@@ -23,13 +23,11 @@ width_ready:
     BLE.S LR14 LR9 {{ tag }}_inner ;;
     SET LR14 LR9 ;;
 {{ tag }}_inner:
-{% if split %}
     LD.MULT.CYCLIC LR11 {{ cr.in1 }} LR15 ;;
+{% if split %}
     INC LR11 1 ;;
     LD.MULT.CYCLIC LR11 {{ cr.in1 }} LR9 ;;
     DEC LR11 1 ;;
-{% else %}
-    LD.MULT.CYCLIC LR11 {{ cr.in1 }} LR15 ;;
 {% endif %}
     MULT.RC.VE LR3 LR12 0 LR15 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ;;
     INC LR12 1 ; ADD LR11 LR11 {{ cr.brows }} ;;
