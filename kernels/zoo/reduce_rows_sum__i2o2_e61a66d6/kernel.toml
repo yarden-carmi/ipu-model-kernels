@@ -1,0 +1,84 @@
+[kernel]
+op = "reduce_rows"
+formats = ["e3"]
+[params.kind]
+type = "str"
+choices = ["sum"]
+default = "sum"
+[params.n]
+type = "int"
+min = 1
+max = 65535
+default = 12
+[params.rows]
+type = "int"
+min = 1
+max = 2147483647
+default = 600
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 2
+[params.in0_d1]
+type = "int"
+min = 1
+max = 65535
+default = 3
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65535
+default = 300
+[params.in0_d3]
+type = "int"
+min = 1
+max = 65535
+default = 12
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 2
+[params.out0_d1]
+type = "int"
+min = 1
+max = 65535
+default = 3
+[params.out0_d2]
+type = "int"
+min = 1
+max = 65535
+default = 300
+[derived]
+rb = "ceil(in0_d2 / 128)"
+g = "in0_d0 * in0_d1"
+total = "in0_d0 * in0_d1 * ceil(in0_d2 / 128)"
+skip = "(in0_d3 - 1) * ceil(in0_d2 / 128)"
+valid = "ds(128)"
+rbm1 = "ceil(in0_d2 / 128) - 1"
+lastv = "ds(in0_d2 - 128 * (ceil(in0_d2 / 128) - 1))"
+[inputs.in0]
+shape = ["in0_d0", "in0_d1", "in0_d3", "rb * 128"]
+[inputs.one]
+shape = [1, 128]
+[outputs.out0]
+shape = ["out0_d0", "out0_d1", "rb * 128"]
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+one = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+rb = "CR7"
+in0_d3 = "CR8"
+skip = "CR9"
+total = "CR10"
+valid = "CR15"
+lastv = "CR14"
+rbm1 = "CR11"
+[golden]
+tolerance = { e3 = "NX8_STEP" }
+[cases.default]
+n = 12
+rows = 600
