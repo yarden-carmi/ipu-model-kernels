@@ -1,6 +1,6 @@
 [kernel]
 op = "reduce_rows_mean"
-formats = ["e1"]
+formats = ["e1", "e2"]
 [params.kind]
 type = "str"
 choices = ["mean"]
@@ -61,6 +61,8 @@ shape = ["n", "cb * 128"]
 [inputs.rinv]
 shape = [2, 128]
 range = [0, 1]
+[scratch.tmp]
+shape = ["cb", 128]
 [outputs.out0]
 shape = ["cb", 128]
 [abi]
@@ -74,7 +76,8 @@ cb = "CR8"
 cbm1 = "CR9"
 valid = "CR15"
 lastv = "CR14"
+tmp = "CR10"
 [golden]
-tolerance = { e1 = "NX8_STEP" }
+tolerance = { e1 = "NX8_STEP", e2 = "NX8_STEP" }
 [cases.default]
 n = 12

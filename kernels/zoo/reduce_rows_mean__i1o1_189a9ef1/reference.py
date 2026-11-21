@@ -49,9 +49,9 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.mean.dim(_v(ins[0], [1, 16, 56, 56], [50176, 3136, 56, 1], 0), [2, 3], True)
+    r0 = aten.adaptive_avg_pool2d.default(_v(ins[0], [1, 640, 8, 8], [40960, 64, 8, 1], 0), [1, 1])
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 16, 1, 1])}
+    return {"out0": _out(op0, [1, 640, 1, 1])}
 # ---- end of the frozen reference ----
 
 
