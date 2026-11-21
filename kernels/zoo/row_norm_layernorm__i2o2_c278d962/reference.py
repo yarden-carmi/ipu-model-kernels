@@ -39,22 +39,27 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.layer_norm.default(_v(ins[0], [1, 256, 384], [98304, 384, 1], 0), [384], module.weight, module.bias, 1e-12)
+    r0 = aten.layer_norm.default(_v(ins[0], [1, 257, 384], [98688, 384, 1], 0), [384], module.weight, module.bias, 1e-06)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 256, 384])}
+    return {"out0": _out(op0, [1, 257, 384])}
 # ---- end of the frozen reference ----
+
 
 def fold(module, **params):
     def split(t):
-        rem = t.flatten().reshape(-1, 128)
+        rem = t.reshape(-1, 128)
         parts = []
-        for i in range(2):
-            step = 2. ** (torch.floor(torch.log2(rem.abs().amax(1, keepdim=True).clamp_min(1e-30))) - 3)
+        for _ in range(2):
+            peak = rem.abs().amax(1, keepdim=True).clamp_min(1e-30)
+            step = 2.0 ** (torch.floor(torch.log2(peak)) - 4)
             hi = torch.round(rem / step) * step
             parts.append(hi)
             rem = rem - hi
-        parts.append(rem)
-        return torch.cat(parts).reshape(3, -1)
-    return {"gamma": split(module.weight), "beta": split(module.bias),
-            "crow": split(torch.full((128,), 1 / params['channels'])),
-            "epsilon": torch.full((128,), params['eps'])}
+        return torch.cat([*parts, rem])
+
+    return {
+        "gamma": split(module.weight),
+        "beta": split(module.bias),
+        "crow": split(torch.full((128,), 1 / params["channels"])),
+        "epsilon": torch.full((128,), params["eps"]),
+    }

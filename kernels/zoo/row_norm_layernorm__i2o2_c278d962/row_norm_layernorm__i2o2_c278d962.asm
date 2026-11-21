@@ -1,94 +1,96 @@
-{% set q = cr.qf_in0 %}
-{% macro at(n) %}
- SET LR1 CR0 ;;
- INC LR1 {{ n }} ;;
+{% set q = cr.qf_in0 ~ '.L' %}
+{% macro at(reg,n) %}
+ SET {{ reg }} CR0 ;;
+ {% if n %}INC {{ reg }} {{ n }} ;;{% endif %}
 {% endmacro %}
-{% macro load(n,cy=false,slot='LR0') %}
- {{ at(n) }}
- {% if cy %}LD.MULT.CYCLIC LR1 {{ cr.tmp }} {{ slot }} ;;
+{% macro load(n,cy=false) %}
+ {{ at('LR1',n) }}
+ {% if cy %}LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
  {% else %}LD.MULT R0 LR1 {{ cr.tmp }} ;;{% endif %}
 {% endmacro %}
-{% macro mul(op='ADD',first=false,slot='LR0') %}
- MULT.RC.VV {{ slot }} R0 0 LR0 CR15.L {{ q }}.L ; ACC.{{ op }}{% if first %}.FIRST{% endif %} ;;
+{% macro scalar(op='ADD',first=false,imm='CR1') %}
+ MULT.VE LR0 {{ imm }} 0 LR0 CR15.L {{ q }} ; ACC.{{ op }}{% if first %}.FIRST{% endif %} ;;
 {% endmacro %}
-{% macro scalar(op='ADD',first=false) %}
- MULT.VE LR0 CR1 0 LR0 CR15.L {{ q }}.L ; ACC.{{ op }}{% if first %}.FIRST{% endif %} ;;
+{% macro mul(first=false,slot='LR0') %}
+ MULT.RC.VV {{ slot }} R0 0 LR0 CR15.L {{ q }} ; ACC.ADD{% if first %}.FIRST{% endif %} ;;
 {% endmacro %}
-{% macro save(n,pieces=2) %}
- {{ at(n) }}
+{% macro encode(reg,pieces) %}
  {% for i in range(pieces) %}
- ACTIVATE.QUANTIZE identity CR15.L {{ q }}.L {{ cr.tmp }} LR1 ;;
- {% if i+1 < pieces %}
- LD.MULT R0 LR1 {{ cr.tmp }} ;;
+ ACTIVATE.QUANTIZE identity CR15.L {{ q }} {{ cr.tmp }} {{ reg }} ;;
+ {% if not loop.last %}
+ LD.MULT R0 {{ reg }} {{ cr.tmp }} ;;
  {{ scalar('SUB') }}
- INC LR1 1 ;;
+ INC {{ reg }} 1 ;;
  {% endif %}
  {% endfor %}
 {% endmacro %}
-{% macro product(a,b,dest) %}
- {{ load(a,true) }}{{ load(b) }}{{ mul(first=true) }}
- {{ load(b+1) }}{{ mul() }}
- {{ load(a+1,true) }}{{ load(b) }}{{ mul() }}
- {{ load(b+1) }}{{ mul() }}
- {% if a == 11 %}{{ load(22,true) }}{{ load(b) }}{{ mul() }}{% endif %}
- {{ save(dest) }}
+{% macro save(n,pieces=2) %}
+ {{ at('LR1',n) }}{{ encode('LR1',pieces) }}
+{% endmacro %}
+{% macro reset_chunks() %}
+ SET LR5 LR2 ;;
+ {{ at('LR9',32) }}
+{% endmacro %}
+{% macro next_chunk(label) %}
+ INC LR5 1 ;;
+ BLT.S LR5 LR6 {{ label }} ;;
+{% endmacro %}
+{% macro center_save(label) %}
+ {{ encode('LR9',2) }}
+ INC LR9 1 ;;
+ {{ next_chunk(label) }}
 {% endmacro %}
 {% macro average(label) %}
- SET LR10 CR0 ;;
- SET LR7 CR0 ;;
- INC LR7 3 ;;
- MULT.VE LR0 CR0 0 LR0 CR15.L {{ q }}.L ; ACC.ADD.FIRST ;;
+ {# Split the reduced sum, then broadcast its reduction lane. #}
+ {{ save(0,3) }}
+ {% for j in range(3) %}
+ {{ load(j) }}
+ MULT.EE LR0 CR1 0 LR0 CR15.L {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %} ;;
+ {% endfor %}
+ {{ save(3,3) }}
+ {{ at('LR10',0) }}{{ at('LR7',3) }}
+ {{ scalar(first=true,imm='CR0') }}
 {{ label }}:
  LD.MULT.CYCLIC LR10 {{ cr.crow }} LR0 ;;
- {% for j in range(3) %}{{ load(3+j) }}{{ mul() }}{% endfor %}
+ {% for j in range(3,6) %}{{ load(j) }}{{ mul() }}{% endfor %}
  INC LR10 1 ;;
  BLT.S LR10 LR7 {{ label }} ;;
 {% endmacro %}
-{% macro save_center() %}
- ACTIVATE.QUANTIZE identity CR15.L {{ q }}.L {{ cr.tmp }} LR9 ;;
- LD.MULT R0 LR9 {{ cr.tmp }} ;;
- {{ scalar('SUB') }}
- INC LR9 1 ;;
- ACTIVATE.QUANTIZE identity CR15.L {{ q }}.L {{ cr.tmp }} LR9 ;;
- INC LR9 1 ;;
- INC LR5 1 ;;
+{% macro product(a,b,dest) %}
+ {% for i in range(2) %}
+ {{ load(a+i,true) }}
+ {{ load(b) }}{{ mul(first=(i==0)) }}
+ INC LR1 1 ;;
+ LD.MULT R0 LR1 {{ cr.tmp }} ;;
+ {{ mul() }}
+ {% endfor %}
+ {% if a == 11 %}{{ load(22,true) }}{{ load(b) }}{{ mul() }}{% endif %}
+ {{ save(dest) }}
 {% endmacro %}
- SET LR0 CR0 ;;
- SET LR2 CR0 ;;
- SET LR3 CR0 ;;
- INC LR3 128 ;;
+
+ {{ at('LR0',0) }}{{ at('LR2',0) }}{{ at('LR3',128) }}
 row_loop:
- SET LR5 LR2 ;;
  ADD LR6 LR2 {{ cr.K }} ;;
+ {{ reset_chunks() }}
  LD.MULT R0 LR5 {{ cr.in0 }} ;;
- MULT.EE LR0 CR1 0 LR0 CR15.L {{ q }}.L ; ACC.ADD.FIRST ;;
+ MULT.EE LR0 CR1 0 LR0 CR15.L {{ q }} ; ACC.ADD.FIRST ;;
  {{ save(26,1) }}
- SET LR9 CR0 ;;
- INC LR9 32 ;;
 anchor_loop:
  LD.MULT R0 LR5 {{ cr.in0 }} ;;
- {{ scalar(first=true) }}{{ load(26) }}{{ scalar('SUB') }}{{ save_center() }}
- BLT.S LR5 LR6 anchor_loop ;;
- SET LR5 LR2 ;;
- SET LR9 CR0 ;;
- INC LR9 32 ;;
- MULT.VE LR0 CR0 0 LR0 CR15.L {{ q }}.L ; ACC.ADD.FIRST ;;
+ {{ scalar(first=true) }}{{ load(26) }}{{ scalar('SUB') }}
+ {{ center_save('anchor_loop') }}
+
+ {{ reset_chunks() }}{{ scalar(first=true,imm='CR0') }}
 sum_loop:
  {% for i in range(2) %}
  LD.MULT R0 LR9 {{ cr.tmp }} ;;
- MULT.VE LR0 CR1 0 LR0 CR15.L {{ q }}.L ; AGG.SUM LR0 CR15.L ;;
+ MULT.VE LR0 CR1 0 LR0 CR15.L {{ q }} ; AGG.SUM LR0 CR15.L ;;
  INC LR9 1 ;;
  {% endfor %}
- INC LR5 1 ;;
- BLT.S LR5 LR6 sum_loop ;;
- {{ save(0,3) }}
- {% for n in [0,1,2] %}{{ load(n) }}
- MULT.EE LR0 CR1 0 LR0 CR15.L {{ q }}.L ; ACC.ADD{% if loop.first %}.FIRST{% endif %} ;;
- {% endfor %}
- {{ save(3,3) }}{{ average('mean_scale') }}{{ save(6,3) }}
- SET LR5 LR2 ;;
- SET LR9 CR0 ;;
- INC LR9 32 ;;
+ {{ next_chunk('sum_loop') }}
+ {{ average('mean_scale') }}{{ save(27,3) }}
+
+ {{ reset_chunks() }}
 center_loop:
  LD.MULT R0 LR9 {{ cr.tmp }} ;;
  {{ scalar(first=true) }}
@@ -96,90 +98,89 @@ center_loop:
  LD.MULT R0 LR9 {{ cr.tmp }} ;;
  {{ scalar() }}
  DEC LR9 1 ;;
- {% for n in [6,7,8] %}{{ load(n) }}{{ scalar('SUB') }}{% endfor %}
- {{ save_center() }}
- BLT.S LR5 LR6 center_loop ;;
- MULT.VE LR0 CR0 0 LR0 CR15.L {{ q }}.L ; ACC.ADD.FIRST ;;
- SET LR5 LR2 ;;
- SET LR9 CR0 ;;
- INC LR9 32 ;;
+ {% for n in range(27,30) %}{{ load(n) }}{{ scalar('SUB') }}{% endfor %}
+ {{ center_save('center_loop') }}
+
+ {{ reset_chunks() }}{{ scalar(first=true,imm='CR0') }}
 variance_loop:
- LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;
- LD.MULT R0 LR9 {{ cr.tmp }} ;;
- MULT.RC.VV LR0 R0 0 LR0 CR15.L {{ q }}.L ; AGG.SUM LR0 CR15.L ;;
- INC LR9 1 ;;
- LD.MULT R0 LR9 {{ cr.tmp }} ;;
  {% for i in range(2) %}
- MULT.RC.VV LR0 R0 0 LR0 CR15.L {{ q }}.L ; AGG.SUM LR0 CR15.L ;;
- {% endfor %}
  LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;
- MULT.RC.VV LR0 R0 0 LR0 CR15.L {{ q }}.L ; AGG.SUM LR0 CR15.L ;;
+ LD.MULT R0 LR9 {{ cr.tmp }} ;;
+ MULT.RC.VV LR0 R0 0 LR0 CR15.L {{ q }} ; AGG.SUM LR0 CR15.L ;;
+ {% if not i %}
  INC LR9 1 ;;
- INC LR5 1 ;;
- BLT.S LR5 LR6 variance_loop ;;
- {{ save(0,3) }}
- {% for n in [0,1,2] %}{{ load(n) }}
- MULT.EE LR0 CR1 0 LR0 CR15.L {{ q }}.L ; ACC.ADD{% if loop.first %}.FIRST{% endif %} ;;
+ LD.MULT R0 LR9 {{ cr.tmp }} ;;
+ {% for j in range(2) %}
+ MULT.RC.VV LR0 R0 0 LR0 CR15.L {{ q }} ; AGG.SUM LR0 CR15.L ;;
  {% endfor %}
- {{ save(3,3) }}{{ average('variance_scale') }}
+ {% endif %}
+ {% endfor %}
+ INC LR9 1 ;;
+ {{ next_chunk('variance_loop') }}
+ {{ average('variance_scale') }}
  LD.MULT R0 LR0 {{ cr.epsilon }} ;;
- {{ scalar() }}{{ at(8) }}
- ACTIVATE.QUANTIZE rsqrt CR15.L {{ q }}.L {{ cr.tmp }} LR1 ;;
+ {{ scalar() }}{{ at('LR1',8) }}
+ ACTIVATE.QUANTIZE rsqrt CR15.L {{ q }} {{ cr.tmp }} LR1 ;;
  {{ save(11) }}
  LD.MULT R0 LR1 {{ cr.tmp }} ;;
  {{ scalar('SUB') }}{{ save(22,1) }}
+
+ {# Refine the quantized reciprocal square root using residual products. #}
  {{ load(8,true) }}{{ load(8) }}{{ mul(first=true) }}{{ save(13) }}
  {{ product(11,13,15) }}
- {{ load(8,true) }}{{ load(15) }}{{ mul(first=true) }}{{ load(16) }}{{ mul() }}{{ save(17) }}
- MULT.RC.VE LR0 CR1 0 LR0 CR15.L {{ q }}.L ; ACC.ADD.FIRST ;;
- MULT.RC.VE LR0 {{ cr.half }} 0 LR0 CR15.L {{ q }}.L ; ACC.ADD ;;
- {% for n in [17,18] %}{{ load(n) }}
- MULT.VE LR0 {{ cr.half }} 0 LR0 CR15.L {{ q }}.L ; ACC.SUB ;;
- {% endfor %}
+ {{ load(8,true) }}{{ load(15) }}{{ mul(first=true) }}
+ INC LR1 1 ;;
+ LD.MULT R0 LR1 {{ cr.tmp }} ;;
+ {{ mul() }}
+ {{ save(17) }}
+ MULT.RC.VE LR0 CR1 0 LR0 CR15.L {{ q }} ; ACC.ADD.FIRST ;;
+ MULT.RC.VE LR0 {{ cr.half }} 0 LR0 CR15.L {{ q }} ; ACC.ADD ;;
+ {% for n in [17,18] %}{{ load(n) }}{{ scalar('SUB',imm=cr.half) }}{% endfor %}
  {{ save(19) }}
  {{ product(19,19,13) }}{{ product(11,13,15) }}{{ product(19,15,17) }}
- {% for n in [19,20] %}{{ load(n,true) }}
- MULT.RC.VE LR0 CR1 0 LR0 CR15.L {{ q }}.L ; ACC.ADD{% if loop.first %}.FIRST{% endif %} ;;
- MULT.RC.VE LR0 {{ cr.half }} 0 LR0 CR15.L {{ q }}.L ; ACC.ADD ;;
+ {% for n in [19,20] %}
+ {{ load(n,true) }}
+ MULT.RC.VE LR0 CR1 0 LR0 CR15.L {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %} ;;
+ MULT.RC.VE LR0 {{ cr.half }} 0 LR0 CR15.L {{ q }} ; ACC.ADD ;;
  {% endfor %}
- {% for n in [17,18] %}{{ load(n) }}
- MULT.VE LR0 {{ cr.half }} 0 LR0 CR15.L {{ q }}.L ; ACC.SUB ;;
- {% endfor %}
+ {% for n in [17,18] %}{{ load(n) }}{{ scalar('SUB',imm=cr.half) }}{% endfor %}
  {{ save(19) }}
- SET LR5 LR2 ;;
  LD.MULT R0 LR1 {{ cr.tmp }} ;;
  {{ scalar('SUB') }}{{ save(21,1) }}
- SET LR11 CR0 ;;
- SET LR9 CR0 ;;
- INC LR9 32 ;;
+
+ {{ reset_chunks() }}{{ at('LR11',0) }}{{ at('LR8',3) }}
 output_loop:
  SET LR10 LR11 ;;
- SET LR7 CR0 ;;
- SET LR8 CR0 ;;
- INC LR8 3 ;;
- MULT.VE LR0 CR0 0 LR0 CR15.L {{ q }}.L ; ACC.ADD.FIRST ;;
+ {{ at('LR7',0) }}{{ scalar(first=true,imm='CR0') }}
 weight_loop:
  LD.MULT.CYCLIC LR10 {{ cr.gamma }} LR0 ;;
- {{ load(19) }}{{ mul() }}{{ load(20) }}{{ mul() }}{{ load(21) }}{{ mul() }}
+ {% for n in range(19,22) %}{{ load(n) }}{{ mul() }}{% endfor %}
  ADD LR10 LR10 {{ cr.K }} ;;
  INC LR7 1 ;;
  BLT.S LR7 LR8 weight_loop ;;
  {{ save(9,3) }}
- LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;
- INC LR9 1 ;;
- LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR3 ;;
- INC LR9 1 ;;
- {% for n in [9,10,11] %}{{ load(n) }}{{ mul(first=loop.first) }}{{ mul(slot='LR3') }}{% endfor %}
+ LD.MULT.CYCLIC LR5 {{ cr.in0 }} LR0 ;;
+ {% for n in range(9,12) %}
+ {{ load(n) }}{{ mul(first=loop.first) }}
+ {% endfor %}
+ {{ at('LR12',26) }}{{ at('LR13',30) }}
+subtract_mean:
+ LD.MULT.CYCLIC LR12 {{ cr.tmp }} LR0 ;;
+ {% for n in range(9,12) %}
+ {{ load(n) }}
+ MULT.RC.VV LR0 R0 0 LR0 CR15.L {{ q }} ; ACC.SUB ;;
+ INC LR12 1 ;;
+ BLT.S LR12 LR13 subtract_mean ;;
+ {% endfor %}
  SET LR10 LR11 ;;
  {% for i in range(3) %}
  LD.MULT R0 LR10 {{ cr.beta }} ;;
  {{ scalar() }}
  ADD LR10 LR10 {{ cr.K }} ;;
  {% endfor %}
- ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR5 ;;
+ ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} CR15.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR5 ;;
  INC LR11 1 ;;
- INC LR5 1 ;;
- BLT.S LR5 LR6 output_loop ;;
- ADD LR2 LR2 {{ cr.K }} ;;
+ {{ next_chunk('output_loop') }}
+ SET LR2 LR6 ;;
  BLT.S LR2 {{ cr.M }} row_loop ;;
  HALT ;;
