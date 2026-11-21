@@ -1,0 +1,100 @@
+[kernel]
+op = "binary_add"
+formats = ["e2", "e3", "e4"]
+[params.broadcast]
+type = "str"
+choices = ["none"]
+default = "none"
+[params.inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.op]
+type = "str"
+choices = ["add"]
+default = "add"
+[params.numel]
+type = "int"
+min = 1
+max = 16777216
+default = 1280
+[params.in0_d0]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 256
+default = 20
+[params.in0_d2]
+type = "int"
+min = 1
+max = 64
+default = 8
+[params.in0_d3]
+type = "int"
+min = 1
+max = 64
+default = 8
+[params.in1_d0]
+type = "int"
+min = 4
+max = 4
+default = 4
+[params.in1_d1]
+type = "int"
+min = 1
+max = 1024
+default = 16
+[params.in1_d2]
+type = "int"
+min = 1
+max = 256
+default = 20
+[params.out0_d0]
+type = "int"
+min = 4
+max = 4
+default = 4
+[params.out0_d1]
+type = "int"
+min = 1
+max = 1024
+default = 16
+[params.out0_d2]
+type = "int"
+min = 1
+max = 256
+default = 20
+[derived]
+blocks = "ceil(out0_d2 / 128)"
+rows = "out0_d0 * out0_d1 * blocks"
+tail = "ds(out0_d2 - (ceil(out0_d2 / 128) - 1) * 128)"
+pstep = "(out0_d0 - 1) * blocks + 1"
+in0rows = "in0_d0 * in0_d2 * in0_d3 * blocks"
+[inputs.in0]
+shape = ["in0rows", 128]
+range = [-2, 2]
+[inputs.in1]
+shape = ["rows", 128]
+range = [-2, 2]
+[outputs.out0]
+shape = ["rows", 128]
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_in1 = "CR6"
+qf_out0 = "CR7"
+rows = "CR8"
+blocks = "CR9"
+tail = "CR10"
+pstep = "CR11"
+out0_d1 = "CR12"
+[golden]
+tolerance = { e3 = "EXACT" }
+[cases.default]
