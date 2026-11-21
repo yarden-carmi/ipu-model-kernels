@@ -11,16 +11,19 @@ type = "bool"
 default = true
 [params.cin]
 type = "int"
-choices = [3, 64, 96, 128, 256]
-default = 3
+min = 1
+max = 512
+default = 128
 [params.cout]
 type = "int"
-choices = [16, 64, 96, 128, 256]
-default = 16
+min = 1
+max = 512
+default = 128
 [params.groups]
 type = "int"
-choices = [1, 64, 128, 256]
-default = 1
+min = 1
+max = 512
+default = 128
 [params.h]
 type = "int"
 min = 3
@@ -54,8 +57,9 @@ choices = [1]
 default = 1
 [params.in0_d1]
 type = "int"
-choices = [3, 64, 96, 128, 256]
-default = 3
+min = 1
+max = 512
+default = 128
 [params.in0_d2]
 type = "int"
 min = 3
@@ -72,8 +76,9 @@ choices = [1]
 default = 1
 [params.out0_d1]
 type = "int"
-choices = [16, 64, 96, 128, 256]
-default = 16
+min = 1
+max = 512
+default = 128
 [params.out0_d2]
 type = "int"
 min = 2
@@ -89,9 +94,11 @@ default = 8
 ic = "ceil(in0_d1 / 128)"
 oc = "ceil(out0_d1 / 128)"
 ds128 = "ds(128)"
-cm2 = "cin - 1"
-g1 = "1 // groups"
-wrows = "g1 * (18 * cin + 2) + (1 - g1) * (20 * oc + 1)"
+rep = "2"
+orows = "3 + 9 * cin * rep"
+wrows = "(1 // groups) * (oc * orows) + (1 - 1 // groups) * (20 * oc + 1)"
+padrows = "(in0_d2 + 2) * (in0_d3 + 2) * ic"
+wic = "in0_d3 * ic"
 
 [inputs.in0]
 shape = ["in0_d0", "in0_d2", "in0_d3", "ic", 128]
@@ -103,7 +110,7 @@ range = [-1, 1]
 shape = [5, 128]
 range = [0, 0]
 [scratch.pad]
-shape = ["(in0_d2 + 2) * (in0_d3 + 2)", 128]
+shape = ["padrows", 128]
 [outputs.out0]
 shape = ["out0_d0", "out0_d2", "out0_d3", "oc", 128]
 
@@ -119,10 +126,24 @@ qf_out0 = "CR9"
 ds128 = "CR10"
 ic = "CR11"
 oc = "CR12"
-cin = "CR13"
-cm2 = "CR14"
-w = "CR15"
+orows = "CR13"
+padrows = "CR14"
+wic = "CR15"
 
 [golden]
 tolerance = { e1 = "NX8_STEP", e2 = "NX8_STEP" }
 [cases.default]
+[cases.dense]
+groups = 1
+cin = 16
+cout = 16
+h = 8
+w = 8
+stride = 1
+in0_d1 = 16
+in0_d2 = 8
+in0_d3 = 8
+out0_d1 = 16
+out0_d2 = 8
+out0_d3 = 8
+formats = ["e2"]
