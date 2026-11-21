@@ -1,7 +1,7 @@
 chain = ["gemm"]
 chain_in = ["in0"]
 chain_out = ["out0"]
-notes = "Channel-lane gemm: per input row and per block of 128 output channels, the bias row then one weight row per input channel, each multiplied by that channel read from the input row (MULT.RC.VE with an R0 element as the scalar), weight rows streamed through one R_CYCLIC slot, table function in the store."
+notes = "Channel-lane 1x1 conv as gemm (BN folded into hi+lo weight frames), weight rows streamed through one R_CYCLIC slot, fused SiLU table store."
 [layout.in0]
 lanes = 1
 rows = [0, 2, 3]
