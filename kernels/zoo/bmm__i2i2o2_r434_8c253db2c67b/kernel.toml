@@ -1,0 +1,57 @@
+[kernel]
+op = "bmm"
+formats = ["e2"]
+
+[params]
+b = {type="int", min=1, max=65535, default=6}
+k = {type="int", min=1, max=65535, default=257}
+m = {type="int", min=1, max=65535, default=257}
+n = {type="int", min=1, max=65535, default=64}
+in0_d0 = {type="int", min=1, max=65535, default=1}
+in0_d1 = {type="int", min=1, max=65535, default=6}
+in0_d2 = {type="int", min=1, max=65535, default=257}
+in0_d3 = {type="int", min=1, max=65535, default=257}
+in1_d0 = {type="int", min=1, max=65535, default=1}
+in1_d1 = {type="int", min=1, max=65535, default=257}
+in1_d2 = {type="int", min=1, max=65535, default=384}
+out0_d0 = {type="int", min=1, max=65535, default=1}
+out0_d1 = {type="int", min=1, max=65535, default=6}
+out0_d2 = {type="int", min=1, max=65535, default=257}
+out0_d3 = {type="int", min=1, max=65535, default=64}
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d1", "in0_d3", "ac*128"]
+range = [0, 1]
+[inputs.in1]
+shape = ["in1_d0", "in1_d1", "bc*128"]
+range = [-1, 1]
+[outputs.out0]
+shape = ["out0_d0", "out0_d1", "out0_d3", "mc*128"]
+
+[derived]
+ac = "ceil(in0_d2/128)"
+bc = "ceil(in1_d2/128)"
+mc = "ceil(out0_d2/128)"
+km = "k+65536*mc"
+ahead = "in0_d3*ac"
+bgroup = "in1_d1*bc*min(in1_d0-1,1)"
+nh = "n+65536*out0_d1"
+ds = "ds(128)+65536*ds((m-1)%128+1)"
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_in1 = "CR6"
+qf_out0 = "CR7"
+km = "CR8"
+bc = "CR9"
+ahead = "CR10"
+bgroup = "CR11"
+nh = "CR12"
+ds = "CR13"
+ac = "CR14"
+out0_d0 = "LR3"
+
+[cases.default]
