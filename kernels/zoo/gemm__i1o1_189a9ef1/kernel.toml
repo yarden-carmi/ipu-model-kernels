@@ -1,56 +1,85 @@
 [kernel]
 op = "gemm"
-formats = ["e3"]
+formats = ["e1"]
+[params.bias]
+type = "bool"
+default = true
 [params.m]
 type = "int"
 min = 1
-max = 1048576
-default = 3136
+max = 16384
+default = 5
 [params.k]
 type = "int"
 min = 1
-max = 4096
-default = 256
+max = 128
+default = 16
 [params.n]
 type = "int"
 min = 1
-max = 4096
-default = 64
-[params.bias]
-type = "bool"
-default = false
+max = 128
+default = 16
+[params.in0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 128
+default = 16
+[params.in0_d2]
+type = "int"
+min = 1
+max = 16384
+default = 5
+[params.in0_d3]
+type = "int"
+min = 1
+max = 16384
+default = 1
+[params.out0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 128
+default = 16
+[params.out0_d2]
+type = "int"
+min = 1
+max = 16384
+default = 5
+[params.out0_d3]
+type = "int"
+min = 1
+max = 16384
+default = 1
 [derived]
-K = "ceil(k / 128)"
-NB = "ceil(n / 128)"
-c128 = "128"
+km1 = "k - 1"
+dsn = "ds(n)"
 [inputs.in0]
-shape = ["m * K", 128]
+shape = ["m", 128]
 range = [-2, 2]
 [inputs.w]
-shape = ["NB * k", 128]
-range = [-2, 2]
-[inputs.b]
-shape = ["NB", 128]
-range = [-2, 2]
-when = "bias"
+shape = ["2 * k + 3", 128]
+range = [-1, 1]
 [outputs.out0]
-shape = ["m * NB", 128]
+shape = ["m", 128]
 [abi]
 in0 = "CR2"
-w = "CR3"
-out0 = "CR4"
-b = "CR5"
-m = "CR6"
-K = "CR7"
-NB = "CR8"
-qf_in0 = "CR9"
-qf_out0 = "CR10"
-c128 = "CR11"
-k = "CR12"
+out0 = "CR3"
+w = "CR4"
+qf_in0 = "CR6"
+qf_out0 = "CR7"
+m = "CR8"
+km1 = "CR9"
+dsn = "CR10"
 [golden]
-tolerance = { e3 = "NX8_STEP" }
+tolerance = { e1 = "NX8_STEP" }
 [cases.default]
-m = 3136
-k = 256
-n = 64
-bias = false
+m = 5
+k = 16
+n = 16
