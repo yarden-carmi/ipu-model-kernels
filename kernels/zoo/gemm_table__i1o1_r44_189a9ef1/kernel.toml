@@ -1,11 +1,11 @@
 [kernel]
 op = "gemm_table"
-formats = ["e2", "e1"]
+formats = ["e1"]
 
 [params.act_out0]
 type = "str"
-choices = ["silu"]
-default = "silu"
+choices = ["hardsigmoid"]
+default = "hardsigmoid"
 [params.bias]
 type = "bool"
 default = true
@@ -13,12 +13,12 @@ default = true
 type = "int"
 min = 1
 max = 4096
-default = 16
+default = 8
 [params.n]
 type = "int"
 min = 1
 max = 4096
-default = 64
+default = 16
 [params.m]
 type = "int"
 min = 1
@@ -33,7 +33,7 @@ default = 1
 type = "int"
 min = 1
 max = 4096
-default = 16
+default = 8
 [params.in0_d2]
 type = "int"
 min = 1
@@ -53,7 +53,7 @@ default = 1
 type = "int"
 min = 1
 max = 4096
-default = 64
+default = 16
 [params.out0_d2]
 type = "int"
 min = 1

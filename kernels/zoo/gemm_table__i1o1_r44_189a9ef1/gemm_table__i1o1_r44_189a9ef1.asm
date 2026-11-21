@@ -1,6 +1,6 @@
-{% macro part(src, op='ACC.ADD', ctrl='') %}
+{% macro part(src, op='ACC.ADD') %}
     LD.MULT.CYCLIC LR8 {{ cr.coeff }} LR0 ; INC LR8 1 ;;
-    MULT.RC.VE LR0 {{ src }} 0 LR0 {{ cr.valid }}.L {{ cr.qf_in0 }}.L ; {{ op }} {{ ctrl }} ;;
+    MULT.RC.VE LR0 {{ src }} 0 LR0 {{ cr.valid }}.L {{ cr.qf_in0 }}.L ; {{ op }} ;;
 {% endmacro %}
 {% macro chunk(limit, label) %}
     INC LR2 1 ; SET LR9 CR0 ;;
