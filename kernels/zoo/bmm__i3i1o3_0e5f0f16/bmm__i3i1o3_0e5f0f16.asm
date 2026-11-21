@@ -1,6 +1,7 @@
-{# B is already laid out in N vectors, so no transpose or intermediate rounding. #}
-    SET LR0 CR0 ; SET LR1 CR0 ; SET LR11 CR0 ;;
-    SET LR3 CR0 ; SET LR4 CR0 ; SET LR12 CR0 ;;
+{# Stream RHS vectors along N and broadcast the matching element of A.
+   Keep each output tile in the accumulator until the K reduction is done. #}
+    SET LR3 CR0 ; SET LR4 CR0 ; SET LR11 CR0 ;;
+    SET LR12 CR0 ;;
 batch:
     SET LR5 CR0 ; SET LR1 LR12 ;;
 row:
@@ -13,6 +14,7 @@ tile:
     MULT.RC.VE LR0 LR10 0 LR0 {{ cr.ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{{ '.FIRST' if first else '' }} ; ADD LR7 LR7 {{ cr.nchunks }} ; INC LR9 1 ;;
     INC.MODP2 LR10 CR1 7 ;;
 {% endmacro %}
+    SET LR0 CR0 ;;
     {{ product(true) }}
     B check_k ;;
 inner:
