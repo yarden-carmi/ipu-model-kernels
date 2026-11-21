@@ -1,4 +1,5 @@
 {% set q = cr.qf_in0 ~ '.L' %}
+{% set tail = cr.dsl ~ '.L' %}
 {% macro load(n,cy=false) %}
  SET LR1 CR0 ;;
  {% if cy %} INC LR1 {{ n }} ; LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
@@ -51,7 +52,7 @@
  {{ save(dest) }}
 {% endmacro %}
 
-{# Map the first input's dense view offset to the padded physical rows. #}
+{# Gather the strided view from stored input rows, leaving the sum in view order. #}
 {% macro gather(label,ds,count) %}
  SET LR2 CR0 ; SET LR3 CR0 ; SET LR12 CR0 ;;
  INC LR12 {{ count }} ;;
@@ -86,7 +87,7 @@ outer_view:
 view_row:
  SET LR6 LR4 ; SET LR7 LR5 ;;
  {{ gather('full','CR15.L',128) }}
- {{ gather('tail',cr.dsl ~ '.L',s1_channels - 128) }}
+ {{ gather('tail',tail,s1_channels - 128) }}
  INC LR5 {{ in0_d0 }} ; INC LR14 1 ;;
  BLT.S LR5 LR15 view_nowrap ;;
  SUB LR5 LR5 LR15 ; INC LR4 2 ;;
@@ -116,7 +117,7 @@ norm_row:
  INC LR8 3 ;;
  {{ scalar(first=true,imm='CR0') }}
  SET LR3 LR2 ;;
- {% for ds in ['CR15.L',cr.dsl ~ '.L'] %}
+ {% for ds in ['CR15.L',tail] %}
  {% for i in range(2) %}
  LD.MULT R0 LR3 {{ cr.sum }} ;;
  MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ q }} ; AGG.SUM LR0 {{ ds }} ;;
@@ -127,7 +128,7 @@ norm_row:
 
  SET LR9 CR0 ;;
  INC LR9 32 ;;
- {% for ds in ['CR15.L',cr.dsl ~ '.L'] %}
+ {% for ds in ['CR15.L',tail] %}
  LD.MULT R0 LR2 {{ cr.sum }} ;;
  {{ scalar(first=true,ds=ds) }}
  INC LR2 1 ; LD.MULT R0 LR2 {{ cr.sum }} ;;
@@ -168,7 +169,7 @@ variance_products:
  INC LR1 1 ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
  {{ mul() }}
  {{ save(17) }}
- {# Newton refinement: fold half into gamma. #}
+ {# Newton refinement: half is folded into gamma. #}
  {{ load(8,true) }}
  {% for i in range(3) %}
  MULT.RC.VE LR0 CR1 0 LR0 CR15.L {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %} ;;
@@ -176,7 +177,7 @@ variance_products:
  {% for n in [17,18] %}{{ load(n) }}{{ scalar('SUB') }}{% endfor %}
  {{ save(19) }}
 
- {% for chunk,ds in [(0,'CR15.L'),(1,cr.dsl ~ '.L')] %}
+ {% for chunk,ds in [(0,'CR15.L'),(1,tail)] %}
  SET LR10 CR0 ; SET LR7 CR0 ;;
  {% if chunk %}INC LR10 {{ chunk }} ;;{% endif %}
  {{ scalar(first=true,imm='CR0') }}
