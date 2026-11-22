@@ -22,12 +22,11 @@ row:
     SET LR6 CR0 ; SET LR11 LR9 ; SET LR12 LR10 ;;
     INC LR6 {{tiles}} ;;
 tile:
-    SET LR15 CR0 ; SET LR2 {{ cr.slot }} ; DEC LR6 1 ;;
+    SET LR2 {{ cr.slot }} ; DEC LR6 1 ;;
     BNE LR6 CR0 gather ;;
     SET LR2 CR0 ;;
     INC LR2 {{ (out0_d2 - 1) % 128 + 1 }} ;;
-{# The residual view address is b+B*p + M*c. Keep its quotient and
-   remainder by the stored channel width, then split that remainder into tiles. #}
+{# Quotient and remainder of residual view address b+B*p+M*c. #}
 gather:
     SET LR3 LR11 ; SET LR4 LR12 {% if rtiles > 1 %}; BLT.S LR12 {{ cr.slot }} load_residual{% endif %} ;;
 {% for i in range(1, rtiles) %}
