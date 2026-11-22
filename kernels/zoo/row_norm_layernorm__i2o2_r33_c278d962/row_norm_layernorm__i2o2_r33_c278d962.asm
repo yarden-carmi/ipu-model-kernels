@@ -1,19 +1,21 @@
-{% set q = cr.qf_in0 ~ '.L' %}
-{% set full = 'CR15.L' %}
+{% set q = cr.qf_gamma ~ '.L' %}
+{% set iq = cr.qf_in0 ~ '.L' %}
+{% set full = cr.tail ~ '.H' %}
+{% set tail = cr.tail ~ '.L' %}
 {% macro at(reg,n) %}
  SET {{ reg }} CR0 ;;
  {% if n %}INC {{ reg }} {{ n }} ;;{% endif %}
 {% endmacro %}
-{% macro load(n,cy=false,slot='LR0') %}
+{% macro load(n,cy=false) %}
  {{ at('LR1',n) }}
- {% if cy %}LD.MULT.CYCLIC LR1 {{ cr.tmp }} {{ slot }} ;;
+ {% if cy %}LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
  {% else %}LD.MULT R0 LR1 {{ cr.tmp }} ;;{% endif %}
 {% endmacro %}
-{% macro scalar(op='ADD',first=false,imm='CR1') %}
- MULT.VE LR0 {{ imm }} 0 LR0 {{ full }} {{ q }} ; ACC.{{ op }}{% if first %}.FIRST{% endif %} ;;
+{% macro scalar(op='ADD',first=false,imm='CR1',fmt=q) %}
+ MULT.VE LR0 {{ imm }} 0 LR0 {{ full }} {{ fmt }} ; ACC.{{ op }}{% if first %}.FIRST{% endif %} ;;
 {% endmacro %}
-{% macro mul(first=false,slot='LR0',op='ADD') %}
- MULT.RC.VV {{ slot }} R0 0 LR0 {{ full }} {{ q }} ; ACC.{{ op }}{% if first %}.FIRST{% endif %} ;;
+{% macro mul(first=false) %}
+ MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if first %}.FIRST{% endif %} ;;
 {% endmacro %}
 {% macro encode(reg,pieces,ds=full) %}
  {% for i in range(pieces) %}
@@ -29,7 +31,7 @@
  {{ at('LR1',n) }}{{ encode('LR1',pieces) }}
 {% endmacro %}
 {% macro average(label) %}
- {# Recover the reduced lane in three pieces, then broadcast and scale. #}
+ {# Broadcast lane zero of the running reduction, then scale by 1/channels. #}
  {{ save(0,3) }}
  {% for j in range(3) %}
  {{ load(j) }}
@@ -62,36 +64,34 @@
  INC LR5 1 ;;
  BLT.S LR5 LR6 {{ label }} ;;
 {% endmacro %}
+{% macro sum_chunk(ds) %}
+ LD.MULT R0 LR5 {{ cr.in0 }} ;;
+ MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ iq }} ; AGG.SUM LR0 {{ ds }} ;;
+{% endmacro %}
 {% macro store(ds) %}
  ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR5 ;;
 {% endmacro %}
 
  SET LR0 CR0 ; SET LR2 CR0 ;;
- {{ at('LR3',128) }}
- ADD LR4 LR3 LR3 ;;
- ADD LR12 LR4 LR3 ;;
 row_loop:
  ADD LR6 LR2 {{ cr.K }} ;;
  DEC LR6 1 ;;
  {{ reset_chunks() }}{{ scalar(first=true,imm='CR0') }}
- BLT.S LR5 LR6 sum_loop ;;
- BEQ LR0 CR0 sum_tail ;;
+ BEQ LR5 LR6 sum_tail ;;
 sum_loop:
- LD.MULT R0 LR5 {{ cr.in0 }} ;;
- MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ full }} ;;
+ {{ sum_chunk(full) }}
  {{ next_chunk('sum_loop') }}
 sum_tail:
- LD.MULT R0 LR5 {{ cr.in0 }} ;;
- MULT.VE LR0 CR1 0 LR0 {{ cr.tail }}.L {{ q }} ; AGG.SUM LR0 {{ cr.tail }}.L ;;
+ {{ sum_chunk(tail) }}
  {{ average('mean_scale') }}{{ save(27,3) }}
 
  {{ reset_chunks() }}
 center_loop:
  LD.MULT R0 LR5 {{ cr.in0 }} ;;
- {{ scalar(first=true) }}
+ {{ scalar(first=true,fmt=iq) }}
  {% for n in range(27,30) %}{{ load(n) }}{{ scalar('SUB') }}{% endfor %}
  BNE LR5 LR6 center_full ;;
- {{ encode('LR9',3,cr.tail ~ '.L') }}
+ {{ encode('LR9',3,tail) }}
  BEQ LR0 CR0 variance_start ;;
 center_full:
  {{ encode('LR9',3) }}
@@ -121,7 +121,7 @@ variance_products:
  LD.MULT R0 LR1 {{ cr.tmp }} ;;
  {{ scalar('SUB') }}{{ save(22,1) }}
 
- {# Two Newton corrections compensate for quantizing the rsqrt. #}
+ {# Two Newton corrections for the table and quantization error in rsqrt. #}
  {{ load(8,true) }}{{ load(8) }}{{ mul(first=true) }}{{ save(13) }}
  {{ product(11,13,15) }}
  {{ load(8,true) }}{{ load(15) }}{{ mul(first=true) }}
@@ -143,7 +143,8 @@ variance_products:
  LD.MULT R0 LR1 {{ cr.tmp }} ;;
  {{ scalar('SUB') }}{{ save(21,1) }}
 
- SET LR5 LR2 ; SET LR11 CR0 ;
+ {{ reset_chunks() }}
+ SET LR11 CR0 ;;
  {{ at('LR8',3) }}
  DEC LR6 1 ;;
 output_loop:
@@ -155,17 +156,13 @@ weight_loop:
  ADD LR10 LR10 {{ cr.K }} ; INC LR7 1 ;;
  BLT.S LR7 LR8 weight_loop ;;
  {{ save(9,3) }}
- {# Use the original input and mean directly for the affine numerator. #}
- LD.MULT.CYCLIC LR5 {{ cr.in0 }} LR0 ;;
- {% for n,slot in [(27,'LR3'),(28,'LR4'),(29,'LR12')] %}{{ load(n,true,slot) }}{% endfor %}
  {{ scalar(first=true,imm='CR0') }}
- {{ at('LR1',9) }}{{ at('LR7',12) }}
-apply_weight:
- LD.MULT R0 LR1 {{ cr.tmp }} ;;
- {{ mul() }}
- {% for slot in ['LR3','LR4','LR12'] %}{{ mul(slot=slot,op='SUB') }}{% endfor %}
- INC LR1 1 ;;
- BLT.S LR1 LR7 apply_weight ;;
+ ADD LR12 LR9 LR8 ;;
+apply_centered_part:
+ LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;
+ {% for n in range(9,12) %}{{ load(n) }}{{ mul() }}{% endfor %}
+ INC LR9 1 ;;
+ BLT.S LR9 LR12 apply_centered_part ;;
  SET LR10 LR11 ;;
  {% for i in range(3) %}
  LD.MULT R0 LR10 {{ cr.beta }} ;;
@@ -173,7 +170,7 @@ apply_weight:
  ADD LR10 LR10 {{ cr.K }} ;;
  {% endfor %}
  BNE LR5 LR6 output_full ;;
- {{ store(cr.tail ~ '.L') }}
+ {{ store(tail) }}
  ADD LR2 LR6 CR1 ;;
  BLT.S LR2 {{ cr.M }} row_loop ;;
  HALT ;;
