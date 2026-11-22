@@ -3,23 +3,25 @@
     SET LR7 CR0 ;;
     SET LR9 CR0 ;;
 n_loop:
-    SET LR2 CR0 ;;
+    SET LR2 CR0 ; ADD LR11 LR1 {{ cr.K }} ;;
+    DEC LR11 1 ;;
 m_loop:
     SET LR3 LR2 ;;
     SET LR4 LR1 ;;
-    SET LR5 CR0 ;;
-    SET LR6 CR0 ;;
     MULT.VE LR0 CR0 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
+weight_loop:
+    LD.MULT R0 LR4 {{ cr.w }} ; SET LR5 CR0 ; SET LR8 {{ cr.full_pipe_bound }} ; BNE LR4 LR11 preload ;;
+    SET LR8 {{ cr.tail_pipe_bound }} ;;
+preload:
+    LD.MULT.CYCLIC LR3 {{ cr.in0 }} LR0 ; DEC LR5 1 ; DEC LR8 1 ; BLT.S LR8 CR0 last_tap ;;
+# The cyclic load feeds the next word; stop prefetching at the row boundary.
+{% macro tap() %}
+    MULT.RC.VE LR0 LR5 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD
+{% endmacro %}
 k_loop:
-    LD.MULT R0 LR4 {{ cr.w }} ;;
-    LD.MULT.CYCLIC LR3 {{ cr.in0 }} LR0 ;;
-    MULT.RC.VE LR0 LR5 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD ;;
-    ADD LR3 LR3 {{ cr.MB }} ; INC LR6 1 ;;
-    INC.MODP2 LR5 CR1 7 ;;
-    BNE LR5 CR0 same_weight ;;
-    INC LR4 1 ;;
-same_weight:
-    BLT.S LR6 {{ cr.k }} k_loop ;;
+    {{ tap() }} ; LD.MULT.CYCLIC LR3 {{ cr.in0 }} LR0 ; ADD LR3 LR3 {{ cr.MB }} ; INC LR5 1 ; BLT.S LR5 LR8 k_loop ;;
+last_tap:
+    {{ tap() }} ; INC LR5 1 ; ADD LR3 LR3 {{ cr.MB }} ; INC LR4 1 ; BLT.S LR4 LR11 weight_loop ;;
 {% if bias %}
     LD.MULT R0 LR7 {{ cr.b }} ;;
     MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD ;;

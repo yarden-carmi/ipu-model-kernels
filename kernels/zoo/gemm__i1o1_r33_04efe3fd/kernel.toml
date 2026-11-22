@@ -23,6 +23,8 @@ default = true
 MB = "ceil(m / 128)"
 K = "ceil(k / 128)"
 tail_ds = "ds((m - 1) % 128 + 1)"
+full_pipe_bound = "126"
+tail_pipe_bound = "(k - 1) % 128 - 1"
 [inputs.in0]
 shape = [1, "k", "MB * 128"]
 range = [-2, 2]
@@ -40,12 +42,13 @@ in0 = "CR2"
 w = "CR3"
 out0 = "CR4"
 b = "CR5"
-k = "CR6"
+full_pipe_bound = "CR6"
 n = "CR7"
 MB = "CR8"
 K = "CR9"
 qf_in0 = "CR10"
 qf_out0 = "CR11"
+tail_pipe_bound = "CR12"
 tail_ds = "CR13"
 [golden]
 tolerance = { e2 = "NX8_STEP", e3 = "NX8_STEP" }
