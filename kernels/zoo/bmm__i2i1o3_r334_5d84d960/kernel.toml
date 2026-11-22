@@ -3,54 +3,49 @@ op = "bmm"
 formats = ["e2"]
 
 [params]
-b = {type="int", min=1, max=32767, default=6}
-k = {type="int", min=1, max=32767, default=64}
-m = {type="int", min=1, max=32767, default=257}
-n = {type="int", min=1, max=32767, default=257}
-in0_d0 = {type="int", min=1, max=32767, default=1}
-in0_d1 = {type="int", min=1, max=32767, default=257}
-in0_d2 = {type="int", min=1, max=32767, default=384}
-in1_d0 = {type="int", min=1, max=32767, default=1}
-in1_d1 = {type="int", min=1, max=32767, default=257}
-in1_d2 = {type="int", min=1, max=32767, default=384}
-out0_d0 = {type="int", min=1, max=32767, default=1}
-out0_d1 = {type="int", min=1, max=32767, default=6}
-out0_d2 = {type="int", min=1, max=32767, default=257}
-out0_d3 = {type="int", min=1, max=32767, default=257}
+b = {type="int", min=1, max=65536, default=12}
+k = {type="int", min=16, max=65536, multiple_of=16, default=64}
+m = {type="int", min=1, max=65536, default=256}
+n = {type="int", min=1, max=65536, default=256}
+in0_d0 = {type="int", min=1, max=1, default=1}
+in0_d1 = {type="int", min=1, max=65536, default=256}
+in0_d2 = {type="int", min=1, max=65536, default=768}
+in1_d0 = {type="int", min=1, max=1, default=1}
+in1_d1 = {type="int", min=1, max=65536, default=256}
+in1_d2 = {type="int", min=1, max=65536, default=768}
+out0_d0 = {type="int", min=1, max=1, default=1}
+out0_d1 = {type="int", min=1, max=65536, default=12}
+out0_d2 = {type="int", min=1, max=65536, default=256}
+out0_d3 = {type="int", min=1, max=65536, default=256}
 
 [inputs.in0]
-shape = ["in0_d0", "in0_d1", "ceil(in0_d2/128)*128"]
+shape = ["in0_d0*in0_d1*astride", 128]
 range = [-2, 2]
 [inputs.in1]
-shape = ["in1_d0", "in1_d2", "ceil(in1_d1/128)*128"]
+shape = ["in1_d0*in1_d2*tiles", 128]
 range = [-2, 2]
 [outputs.out0]
-shape = ["out0_d0", "out0_d1", "out0_d2", "ceil(out0_d3/128)*128"]
+shape = ["out0_d0*out0_d1*out0_d2*ceil(out0_d3/128)", 128]
 
 [derived]
-dsfull = "ds(128) + ds((n-1)%128+1)*65536"
-ac = "ceil(in0_d2/128)"
-bc = "ceil(in1_d1/128)"
-tiles = "ceil(n/128)"
-a_group = "ac*in0_d1"
-b_gap = "bc*(in1_d2-out0_d1*k)"
-k_heads = "k + out0_d1*65536"
-m_groups = "m + out0_d0*65536"
+astride = "ceil(in0_d2/128)"
+tiles = "ceil(in1_d1/128)"
+output_ds = "ds(128)+65536*ds((n-1)%128+1)"
+blocks = "k/16"
 
 [abi]
 in0 = "CR2"
 in1 = "CR3"
 out0 = "CR4"
-b_gap = "CR5"
-k_heads = "CR6"
-bc = "CR7"
-m_groups = "CR8"
-a_group = "CR9"
-dsfull = "CR10"
+blocks = "CR6"
+m = "CR7"
+tiles = "CR8"
+astride = "CR9"
+output_ds = "CR10"
 qf_in0 = "CR11"
 qf_in1 = "CR12"
 qf_out0 = "CR13"
-tiles = "CR14"
-ac = "CR15"
+out0_d1 = "LR6"
+k = "LR14"
 
 [cases.default]

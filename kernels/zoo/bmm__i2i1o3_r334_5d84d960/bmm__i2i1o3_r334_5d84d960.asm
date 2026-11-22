@@ -1,60 +1,54 @@
-// Stream RHS vectors across N, broadcasting A scalars from a resident row.
-{% macro product(first) %}
-    LD.MULT.CYCLIC LR9 {{ cr.in1 }} LR14 ; DEC LR13 1 ; INC LR11 1 ;;
-    MULT.RC.VE LR14 LR11 0 LR14 {{ cr.dsfull }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{{ '.FIRST' if first else '' }} ; ADD LR9 LR9 {{ cr.bc }} ; {{ 'BEQ LR13 CR0 end_segment' if first else 'BNE LR13 CR0 reduce' }} ;;
-{% endmacro %}
-{% macro segment(id) %}
-    SET LR13 CR0 ;;
-    INC LR13 128 ;;
-    SUB LR13 LR13 LR11 ; LD.MULT R0 LR10 {{ cr.in0 }} ;;
-    BLE.S LR13 LR12 segment_ready_{{ id }} ;;
-    SET LR13 LR12 ;;
-segment_ready_{{ id }}:
-    SUB LR12 LR12 LR13 ; DEC LR11 1 ;;
+{# RHS rows each hold up to 128 output columns at one K coordinate.
+   A 16-element K block cannot cross an A row, since heads are 16-aligned. #}
+{% macro block(first) %}
+    LD.MULT R0 LR11 {{ cr.in0 }} ;;
+    {% for i in range(16) %}
+    LD.MULT.CYCLIC LR9 {{ cr.in1 }} LR0 ;;
+    MULT.RC.VE LR0 LR15 0 LR0 {{ cr.output_ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{{ '.FIRST' if first and i == 0 else '' }} ; ADD LR9 LR9 {{ cr.tiles }} ;;
+    INC.MODP2 LR15 CR1 7 ;;
+    {% endfor %}
+    DEC LR12 1 ;;
+    BNE LR15 CR0 {{ 'first_check' if first else 'more_check' }} ;;
+    INC LR11 1 ;;
 {% endmacro %}
 {% macro store(half) %}
-    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.dsfull }}.{{ half }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR0 ;;
+    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.output_ds }}.{{ half }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR4 ;;
+    INC LR4 1 ;;
 {% endmacro %}
-    SET LR0 CR0 ; SET LR1 CR0 ; SET LR7 CR0 ;;
-    SET LR14 CR0 ; SET LR15 {{ cr.m_groups }}.H ;;
-group:
-    SET LR2 LR1 ; SET LR3 CR0 ; SET LR4 {{ cr.k_heads }}.H ;;
+
+    SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
+    SET LR3 CR0 ; SET LR4 CR0 ;;
 head:
-    SET LR5 LR2 ; SET LR6 {{ cr.m_groups }}.L ;;
+    SET LR7 LR1 ; SET LR8 {{ cr.m }} ;;
 row:
-    SET LR8 {{ cr.tiles }} ;;
+    SET LR10 CR0 ;;
 tile:
-    SET LR9 LR7 ; SET LR10 LR5 ; SET LR11 LR3 ;;
-    SET LR12 {{ cr.k_heads }}.L ;;
-    {{ segment('first') }}
-    {{ product(true) }}
-reduce:
-    {{ product(false) }}
-end_segment:
-    BEQ LR12 CR0 output ;;
-    INC LR10 1 ; SET LR11 CR0 ;;
-    {{ segment('later') }}
-    B reduce ;;
-output:
-    DEC LR8 1 ;;
-    BEQ LR8 CR0 tail ;;
-    {{ store('L') }}
-    INC LR0 1 ; INC LR7 1 ; B tile ;;
-tail:
+    ADD LR9 LR3 LR10 ; SET LR11 LR7 ; SET LR12 {{ cr.blocks }} ;;
+    SET LR15 LR2 ;;
+    {{ block(true) }}
+first_check:
+    BEQ LR12 CR0 store_tile ;;
+more:
+    {{ block(false) }}
+more_check:
+    BNE LR12 CR0 more ;;
+store_tile:
+    INC LR10 1 ;;
+    BLT.S LR10 {{ cr.tiles }} full ;;
     {{ store('H') }}
-    INC LR0 1 ; DEC LR6 1 ; ADD LR5 LR5 {{ cr.ac }} ;;
-    BEQ LR6 CR0 next_head ;;
-    SUB LR7 LR7 {{ cr.tiles }} ;;
-    INC LR7 1 ; B row ;;
-next_head:
-    SUB LR7 LR9 {{ cr.tiles }} ; DEC LR4 1 ; ADD LR3 LR3 {{ cr.k_heads }}.L ;;
-    INC LR7 1 ; SET LR11 CR0 ;;
+    ADD LR7 LR7 {{ cr.astride }} ; DEC LR8 1 ;;
+    BNE LR8 CR0 row ;;
+    DEC LR6 1 ;;
+    BEQ LR6 CR0 done ;;
+    SUB LR3 LR9 LR10 ; ADD LR2 LR2 LR14 ;;
+    INC LR3 1 ; SET LR11 CR0 ;;
     INC LR11 128 ;;
 normalize:
-    BLT.S LR3 LR11 normalized ;;
-    SUB LR3 LR3 LR11 ; INC LR2 1 ; B normalize ;;
-normalized:
-    BNE LR4 CR0 head ;;
-    ADD LR1 LR1 {{ cr.a_group }} ; ADD LR7 LR7 {{ cr.b_gap }} ; DEC LR15 1 ;;
-    BNE LR15 CR0 group ;;
+    BLT.S LR2 LR11 head ;;
+    SUB LR2 LR2 LR11 ; INC LR1 1 ;;
+    B normalize ;;
+full:
+    {{ store('L') }}
+    B tile ;;
+done:
     HALT ;;
