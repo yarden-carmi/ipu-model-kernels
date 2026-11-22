@@ -52,6 +52,7 @@ type = "int"
 min = 1
 max = 4096
 default = 50
+
 [derived]
 K = "ceil(n / 128)"
 M = "rows * K"
@@ -59,7 +60,7 @@ active = "ds(128)"
 part = "ds(n - (K - 1) * 128)"
 outpart = "ds(out0_d2 - (ceil(out0_d2 / 128) - 1) * 128)"
 batchstride = "out0_d2 * K"
-rootq = "qf(0, 4, 8, 0)"
+scratch_qf = "312 * 65536 + 56"
 
 [inputs.in0]
 shape = ["in0_d0", "in0_d1", "in0_d2", "ceil(in0_d3 / 128)", 128]
@@ -81,7 +82,7 @@ tmp = "CR5"
 qf_in0 = "CR6"
 K = "CR7"
 M = "CR8"
-rootq = "CR9"
+scratch_qf = "CR9"
 qf_out0 = "CR10"
 roots = "CR11"
 outpart = "CR12"
