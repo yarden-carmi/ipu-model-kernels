@@ -1,0 +1,56 @@
+[kernel]
+op = "bmm"
+formats = ["e2"]
+
+[params]
+b = {type="int", min=1, max=65536, default=6}
+k = {type="int", min=1, max=65536, default=64}
+m = {type="int", min=1, max=65536, default=257}
+n = {type="int", min=1, max=65536, default=257}
+in0_d0 = {type="int", min=1, max=65536, default=1}
+in0_d1 = {type="int", min=1, max=65536, default=257}
+in0_d2 = {type="int", min=1, max=65536, default=384}
+in1_d0 = {type="int", min=1, max=65536, default=1}
+in1_d1 = {type="int", min=1, max=65536, default=257}
+in1_d2 = {type="int", min=1, max=65536, default=384}
+out0_d0 = {type="int", min=1, max=65536, default=1}
+out0_d1 = {type="int", min=1, max=65536, default=6}
+out0_d2 = {type="int", min=1, max=65536, default=257}
+out0_d3 = {type="int", min=1, max=65536, default=257}
+
+[inputs.in0]
+shape = ["in0_d0*in0_d1*ceil(in0_d2/128)", 128]
+range = [-2, 2]
+[inputs.in1]
+shape = ["in1_d0*in1_d2*ceil(in1_d1/128)", 128]
+range = [-2, 2]
+[outputs.out0]
+shape = ["out0_d0*out0_d1*out0_d2*ceil(out0_d3/128)", 128]
+[derived]
+ds = "ds(128)+65536*ds((n-1)%128+1)"
+nc = "ceil(n/128)"
+ac = "ceil(in0_d2/128)"
+heads = "out0_d1"
+awrap = "in0_d1*ceil(in0_d2/128)-(out0_d1*k)//128"
+bwrap = "(in1_d2-out0_d1*k)*ceil(in1_d1/128)"
+bstep = "ceil(in1_d1/128)"
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+b = "CR5"
+k = "CR6"
+m = "CR7"
+nc = "CR8"
+ac = "CR9"
+ds = "CR10"
+qf_in0 = "CR11"
+qf_in1 = "CR12"
+qf_out0 = "CR13"
+bstep = "CR14"
+heads = "CR15"
+awrap = "LR14"
+bwrap = "LR13"
+
+[cases.default]
