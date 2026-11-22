@@ -1,6 +1,6 @@
 [kernel]
 op = "row_norm"
-formats = ["e1", "e2", "e3"]
+formats = ["e2"]
 
 [params.kind]
 type = "str"
@@ -10,11 +10,11 @@ default = "layernorm"
 type = "int"
 min = 1
 max = 4096
-default = 128
+default = 768
 [params.rows]
 type = "int"
 min = 1
-max = 65535
+max = 65536
 default = 256
 [params.eps]
 type = "float"
@@ -24,52 +24,56 @@ default = 1e-12
 [params.in0_d0]
 type = "int"
 min = 1
-max = 4096
+max = 65536
 default = 1
 [params.in0_d1]
 type = "int"
 min = 1
-max = 65535
+max = 65536
 default = 256
 [params.in0_d2]
 type = "int"
 min = 1
 max = 4096
-default = 128
+default = 768
 [params.out0_d0]
 type = "int"
 min = 1
-max = 4096
+max = 65536
 default = 1
 [params.out0_d1]
 type = "int"
 min = 1
-max = 65535
+max = 65536
 default = 256
 [params.out0_d2]
 type = "int"
 min = 1
 max = 4096
-default = 128
+default = 768
 
 [derived]
-tiles = "ceil(in0_d1 / 128)"
-batch_stride = "tiles * channels"
-chunks = "ceil(channels / 128)"
-tail = "ds(channels - 128 * (chunks - 1))"
-half = "1277440"
+stride = "ceil(in0_d1 / 128)"
+K = "ceil(channels / 128)"
+size = "rows * K"
+batch = "in0_d2 * stride"
+tail = "ds(channels - 128 * (K - 1)) + 65536 * ds(128)"
 
 [inputs.in0]
-shape = ["in0_d0 * in0_d2 * tiles", 128]
+shape = ["in0_d0", "in0_d2", "stride * 128"]
 range = [-2.0, 2.0]
 [inputs.affine]
-shape = ["6 * chunks", 128]
-[inputs.scale]
-shape = [4, 128]
+shape = ["6 * K", 128]
+[inputs.stats]
+shape = [6, 128]
 [scratch.tmp]
-shape = ["24 + 4 * chunks", 128]
+shape = [32, 128]
+[scratch.center_hi]
+shape = ["3 * K", 128]
+[scratch.trans]
+shape = ["3 * size", 128]
 [outputs.out0]
-shape = ["out0_d0 * out0_d1 * ceil(out0_d2 / 128)", 128]
+shape = ["out0_d0", "out0_d1", "ceil(out0_d2 / 128) * 128"]
 
 [abi]
 in0 = "CR2"
@@ -77,18 +81,17 @@ out0 = "CR3"
 qf_in0 = "CR4"
 qf_out0 = "CR5"
 affine = "CR6"
-scale = "CR7"
+stats = "CR7"
 tmp = "CR8"
-tiles = "CR9"
-batch_stride = "CR10"
-chunks = "CR11"
-in0_d0 = "LR8"
-in0_d1 = "LR9"
-half = "CR13"
-tail = "CR14"
-qf_affine = "CR12"
-
-[golden]
-tolerance = { e1 = "NX8_STEP", e2 = "NX8_STEP", e3 = "NX8_STEP" }
+stride = "CR9"
+size = "CR10"
+channels = "CR11"
+tail = "CR12"
+trans = "CR13"
+center_hi = "CR14"
+qf_affine = "CR15"
+batch = "LR13"
+in0_d1 = "LR14"
+K = "LR15"
 
 [cases.default]

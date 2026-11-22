@@ -56,21 +56,25 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    def split(t):
-        t = t.reshape(-1, 128).float()
+    k = (params['channels'] + 127) // 128
+
+    def split(x):
+        x = x.to(torch.float32)
         parts = []
         for _ in range(2):
-            peak = t.abs().amax(dim=1, keepdim=True).clamp_min(1e-30)
-            step = torch.exp2(torch.floor(torch.log2(peak)) - 4)
-            p = torch.round(t / step) * step
-            parts.append(p)
-            t = t - p
-        return torch.stack([*parts, t], dim=1)
+            peak = x.abs().amax(dim=-1, keepdim=True).clamp_min(1e-30)
+            step = 2.0 ** (torch.floor(torch.log2(peak)) - 4)
+            high = torch.round(x / step) * step
+            parts.append(high)
+            x = x - high
+        return torch.stack([*parts, x], dim=-2)
 
-    def pad(t):
-        return torch.nn.functional.pad(t.flatten(), (0, (-t.numel()) % 128))
+    def broadcast(x):
+        return x.reshape(-1, 1).expand(-1, 128).contiguous()
 
-    affine = torch.cat([split(pad(module.weight)), split(pad(module.bias))], dim=1)
-    scale = torch.cat([split(torch.full((128,), 1 / params['channels'])).reshape(3, 128),
-                       torch.full((1, 128), params['eps'])])
-    return {'affine': affine.reshape(-1, 128), 'scale': scale}
+    def tiles(t):
+        return torch.nn.functional.pad(t.flatten(), (0, 128 * k - t.numel())).reshape(k, 128)
+
+    affine = torch.cat((split(tiles(module.weight)), split(tiles(module.bias))), dim=1)
+    stats = torch.cat((split(torch.tensor([1.0 / params['channels']])).flatten(), torch.tensor([params['eps'], 1.0, 0.5])))
+    return {'affine': affine.reshape(-1, 128), 'stats': broadcast(stats)}
