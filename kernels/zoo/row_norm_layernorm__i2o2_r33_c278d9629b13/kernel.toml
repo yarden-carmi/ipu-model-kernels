@@ -10,7 +10,7 @@ default = "layernorm"
 type = "int"
 min = 1
 max = 4096
-default = 384
+default = 768
 [params.rows]
 type = "int"
 min = 1
@@ -35,7 +35,7 @@ default = 256
 type = "int"
 min = 1
 max = 4096
-default = 384
+default = 768
 [params.out0_d0]
 type = "int"
 min = 1
@@ -50,7 +50,7 @@ default = 256
 type = "int"
 min = 1
 max = 4096
-default = 384
+default = 768
 
 [derived]
 K = "(channels + 127) // 128"
@@ -90,4 +90,6 @@ half = "CR13"
 tail = "CR14"
 qf_gamma = "CR15"
 
+[golden]
+tolerance = { e2 = "NX8_STEP" }
 [cases.default]

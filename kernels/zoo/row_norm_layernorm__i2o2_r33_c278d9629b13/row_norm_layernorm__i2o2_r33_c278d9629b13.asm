@@ -31,7 +31,6 @@
  {{ at('LR1',n) }}{{ encode('LR1',pieces) }}
 {% endmacro %}
 {% macro average(label) %}
- {# Broadcast the reduction and multiply by the split reciprocal of channels. #}
  {{ save(0,3) }}
  {% for j in range(3) %}
  {{ load(j) }}
@@ -121,7 +120,7 @@ variance_products:
  LD.MULT R0 LR1 {{ cr.tmp }} ;;
  {{ scalar('SUB') }}{{ save(22,1) }}
 
- {# Refine the table estimate twice with y <- y * (1.5 - v*y*y/2). #}
+ {# Refine the table estimate with two Newton corrections. #}
  {{ load(8,true) }}{{ load(8) }}{{ mul(first=true) }}{{ save(13) }}
  {{ product(11,13,15) }}
  {{ load(8,true) }}{{ load(15) }}{{ mul(first=true) }}
