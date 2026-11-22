@@ -51,12 +51,12 @@ def reference(module, *ins, _round=None, **params):
     r_ = _round or (lambda t, where: t)
     r0 = aten.conv2d.default(_v(ins[0], [1, 384, 16, 16], [98304, 256, 16, 1], 0), module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 48, 16, 16])}
+    return {"out0": _out(op0, [1, 96, 16, 16])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Pack bias and weight rows into three signed radix-16 planes."""
+    """Pack bias and weights into three signed radix-16 planes per row."""
     n, k = int(params['n']), int(params['k'])
     weight = module.weight.detach().reshape(n, k).double()
     bias = module.bias.detach().reshape(n).double() if params['bias'] else weight.new_zeros(n)

@@ -1,4 +1,3 @@
-{# The contiguous convolution view places 128 spatial positions in each physical row. #}
 {% macro load(slot) %}LD.MULT.CYCLIC LR4 {{ cr.w }} {{ slot }} ; INC LR4 1{% endmacro %}
 {% macro planes(scalar, epilogue='', first=false) %}
 {% for p in range(3) %}
