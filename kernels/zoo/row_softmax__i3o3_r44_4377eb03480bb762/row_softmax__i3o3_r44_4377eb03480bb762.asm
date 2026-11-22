@@ -105,7 +105,7 @@ max_ready:
     INC LR4 1 ;;
 {% endcall %}
 
-{# Square roots and correct reciprocal using the residual of the sum. #}
+{# Square the roots and correct the reciprocal using the sum residual. #}
 {{ clear() }}
 {% call(ds) tiles('sum') %}
     LD.MULT R0 LR3 {{ cr.roots }} ;;
