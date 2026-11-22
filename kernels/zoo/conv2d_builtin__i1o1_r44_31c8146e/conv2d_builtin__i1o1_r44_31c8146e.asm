@@ -1,6 +1,7 @@
 {% set iw = in0_d3 %}
 {% set ih = in0_d2 %}
 {% set fast = in0_d1 == 1 and out0_d1 <= 128 %}
+{% set interior = fast and iw >= 3 and ih >= 3 and iw > stride + 1 %}
 {% macro move(r, n) %}
 {% for k in range(0, n|abs, 255) %}
  {{ 'INC' if n > 0 else 'DEC' }} {{ r }} {{ [255, (n|abs)-k]|min }} ;;
@@ -15,9 +16,11 @@
 {% endmacro %}
 {% macro store(ds) %}ACTIVATE.QUANTIZE {{ act_out0 }} {{ ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR3 ; INC LR3 1{% endmacro %}
 {% macro interior_tap(t) %}
+ {% if t > 0 %}
  LD.MULT R0 LR6 {{ cr.in0 }} ;;
+ {% endif %}
  {{ mul('LR8', 'LR8') }} ; {{ fetch('LR9') }}{% if t < 8 %} ; INC LR6 {{ iw - 2 if t % 3 == 2 else 1 }}{% endif %} ;;
- {{ mul('LR9', 'LR8') }} ; {% if t < 8 %}{{ fetch('LR8') }}{% else %}{{ store(cr.tail) }}{% endif %} ;;
+ {{ mul('LR9', 'LR8') }} ; {% if t < 8 %}{{ fetch('LR8') }}{% else %}{{ store(cr.tail) }} ; INC LR2 {{ stride }} ; INC LR1 {{ stride }} ; BLT.S LR1 LR5 interior_x{% endif %} ;;
 {% endmacro %}
 {% macro edge_tap(y, x) %}
 {% set name = 'tap_' ~ y ~ '_' ~ x %}
@@ -60,38 +63,53 @@ row_{{ y }}_end:
  SET LR13 CR0 ; DEC LR3 1 ;;
  {{ move('LR12', iw - 1) }}
  {{ move('LR13', ih - 1) }}
+{% if interior %}
+ # Keep both bias rows resident; only the two weight slots rotate.
+ SET LR14 CR0 ; SET LR15 CR0 ; SET LR5 CR0 ;;
+ INC LR14 255 ; INC LR15 255 ;;
+ INC LR14 1 ; INC LR15 129 ;;
+ LD.MULT.CYCLIC LR8 {{ cr.weights }} LR14 ;;
+ INC LR8 1 ;;
+ LD.MULT.CYCLIC LR8 {{ cr.weights }} LR15 ;;
+ SET LR8 CR0 ; INC LR5 {{ iw - 1 - stride }} ;;
+{% endif %}
 batch:
  SET LR0 CR0 ;;
 oy:
  SET LR1 CR0 ;;
 ox:
- SET LR4 CR0 ; SET LR5 CR0 ;;
- DEC LR4 1 ;;
-{% if fast and iw >= 3 and ih >= 3 %}
+{% if interior %}
  BEQ LR0 CR0 block ;;
  BEQ LR0 LR13 block ;;
  BEQ LR1 CR0 block ;;
  BEQ LR1 LR12 block ;;
- {{ fetch('LR8') }} ; SET LR6 LR2 ;;
- {{ mul('LR8', 'CR1', true) }} ; {{ fetch('LR9') }} ; DEC LR6 {{ iw + 1 }} ;;
- {{ mul('LR9', 'CR1') }} ; {{ fetch('LR8') }} ;;
+interior_x:
+ SET LR6 LR2 ; SET LR4 CR1 ;;
+ DEC LR6 {{ iw + 1 }} ;;
+ {{ mul('LR14', 'CR1', true) }} ; LD.MULT R0 LR6 {{ cr.in0 }} ;;
+ {{ mul('LR15', 'CR1') }} ; {{ fetch('LR8') }} ;;
 {% for t in range(9) %}{{ interior_tap(t) }}{% endfor %}
- BEQ LR8 CR0 advance ;;
+ BLT.S LR1 {{ cr.x_end }} ox ;;
+ BEQ LR8 CR0 next_row ;;
 {% endif %}
 block:
+ SET LR4 CR0 {% if not interior %}; SET LR5 CR0{% endif %} ;;
+ DEC LR4 1 ;;
+output_block:
  {{ pair('CR1', true) }}
 {% for y in range(3) %}{{ edge_row(y) }}{% endfor %}
 {% if out0_d1 > 128 %}
  INC LR5 1 ;;
  BGE.S LR5 {{ cr.blocks }} last_block ;;
  {{ store(cr.full) }} ;;
- BEQ LR8 CR0 block ;;
+ BEQ LR8 CR0 output_block ;;
 last_block:
 {% endif %}
  {{ store(cr.tail) }} ;;
 advance:
  INC LR2 {{ stride }} ; INC LR1 {{ stride }} ;;
  BLT.S LR1 {{ cr.x_end }} ox ;;
+next_row:
  {{ move('LR2', stride * (iw - out0_d3)) }}
  INC LR0 {{ stride }} ;;
  BLT.S LR0 {{ cr.y_end }} oy ;;
