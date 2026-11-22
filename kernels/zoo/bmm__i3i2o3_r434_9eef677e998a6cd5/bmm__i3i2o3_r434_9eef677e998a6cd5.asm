@@ -1,74 +1,59 @@
-    INC LR9 128 ;;
+{# Each A row supplies 128 successive K scalars. Stream B vectors into
+   the cyclic register, loading a second row only for a straddling tile. #}
+    SET LR15 CR0 ; SET LR0 CR0 ; SET LR1 CR0 ;;
+    INC LR15 128 ; SET LR13 CR0 ; SET LR14 CR0 ;;
+group:
+    SET LR2 LR1 ; SET LR3 CR0 ; SET LR4 {{ cr.mh }}.H ;;
 head:
-    SET LR5 CR0 ;;
+    SET LR5 {{ cr.mh }}.L ;;
 row:
-    SET LR6 CR0 ; SET LR7 LR2 ;;
+    SET LR6 LR2 ; SET LR7 {{ cr.n }} ;;
 tile:
-    ADD LR8 LR1 {{ cr.ka }}.H ; SET LR11 LR7 ; SET LR13 {{ cr.ka }}.L ;;
-    DEC LR8 1 ;;
-    MULT.VE LR15 CR0 0 LR15 {{ cr.ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
-    SET LR14 {{ cr.n }} ;;
-    SUB LR14 LR14 LR6 ;;
-    BLE.S LR14 LR9 width_ready ;;
-    SET LR14 LR9 ;;
+    SET LR8 LR0 ; SET LR9 LR6 ; SET LR10 {{ cr.k }} ;;
+    MULT.VE LR14 CR0 0 LR14 {{ cr.ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
+    SET LR11 LR7 ;;
+    BLE.S LR11 LR15 width_ready ;;
+    SET LR11 LR15 ;;
 width_ready:
-    ADD LR14 LR14 LR3 ;;
-    BGT.S LR14 LR9 split_chunk ;;
+    ADD LR11 LR11 LR3 ;;
+    BGT.S LR11 LR15 split_chunk ;;
 
-{# Stream keys backwards while selecting scalars from the resident A row. #}
 {% macro reduce(tag, split) %}
 {{ tag }}_chunk:
-    LD.MULT R0 LR8 {{ cr.in0 }} ; SET LR12 LR13 ;;
-    SUB LR14 LR15 CR1 ;;
-    INC.MODP2 LR12 LR14 7 ;;
+    SET LR12 LR10 ; SET LR11 CR0 ; LD.MULT R0 LR8 {{ cr.in0 }} ;;
+    INC LR8 1 ; DEC LR11 1 ; BLE.S LR12 LR15 {{ tag }}_ready ;;
+    SET LR12 LR15 ;;
+{{ tag }}_ready:
+    SUB LR10 LR10 LR12 ;;
+{{ tag }}_inner:
+    LD.MULT.CYCLIC LR9 {{ cr.in1 }} LR14 ; INC LR11 1 ;;
 {% if split %}
-    INC LR12 1 ;;
-{{ tag }}_inner:
-    LD.MULT.CYCLIC LR11 {{ cr.in1 }} LR15 ;;
-    LD.MULT.CYCLIC LR11 {{ cr.in1_next }} LR9 ;;
-    DEC LR12 1 ; DEC LR13 1 ; SUB LR11 LR11 {{ cr.bstride }}.L ; MULT.RC.VE LR3 LR12 0 LR15 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ; BGT.S LR12 CR1 {{ tag }}_inner ;;
-{% else %}
-    INC LR12 1 ; SET LR14 CR1 ; LD.MULT.CYCLIC LR11 {{ cr.in1 }} LR15 ;;
-    INC LR14 1 ; BLE.S LR12 CR1 {{ tag }}_last ;;
-{{ tag }}_inner:
-    DEC LR12 1 ; SUB LR11 LR11 {{ cr.bstride }}.L ; DEC LR13 1 ;
-    MULT.RC.VE LR3 LR12 0 LR15 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ;
-    LD.MULT.CYCLIC LR11 {{ cr.in1 }} LR15 ; BGT.S LR12 LR14 {{ tag }}_inner ;;
-{{ tag }}_last:
-    DEC LR12 1 ; SUB LR11 LR11 {{ cr.bstride }}.L ; DEC LR13 1 ;
-    MULT.RC.VE LR3 LR12 0 LR15 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ;;
+    LD.MULT.CYCLIC LR9 {{ cr.b_next }} LR15 ;;
 {% endif %}
-    DEC LR8 1 ;;
-    BNE LR13 CR0 {{ tag }}_chunk ;;
+    MULT.RC.VE LR3 LR11 0 LR14 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ; DEC LR12 1 ; ADD LR9 LR9 {{ cr.stride }}.L ; BGT.S LR12 CR1 {{ tag }}_inner ;;
+    BNE LR10 CR0 {{ tag }}_chunk ;;
     B store ;;
 {% endmacro %}
     {{ reduce('single', false) }}
     {{ reduce('split', true) }}
 
 store:
-    INC LR6 128 ;;
-    BLT.S LR6 {{ cr.n }} store_full ;;
+    BGT.S LR7 LR15 full ;;
 {% macro output(half) %}
-    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.ds }}.{{ half }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR0 ;;
+    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.ds }}.{{ half }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR13 ;;
+    INC LR13 1 ;;
 {% endmacro %}
     {{ output('H') }}
-    B stored ;;
-store_full:
-    {{ output('L') }}
-stored:
-    INC LR0 1 ; INC LR7 1 ;;
-    BLT.S LR6 {{ cr.n }} tile ;;
-    ADD LR1 LR1 {{ cr.ka }}.H ; INC LR5 1 ;;
-    BLT.S LR5 {{ cr.mh }}.L row ;;
-    INC LR4 1 ; INC LR10 1 ; ADD LR3 LR3 {{ cr.n }} ;;
-    BGE.S LR4 {{ cr.b }} done ;;
+    ADD LR0 LR0 {{ cr.stride }}.H ; DEC LR5 1 ; BGT.S LR5 CR1 row ;;
+    DEC LR4 1 ; ADD LR3 LR3 {{ cr.n }} ;;
+    BEQ LR4 CR0 next_group ;;
 normalize:
-    BLT.S LR3 LR9 next_head ;;
-    DEC LR3 128 ; INC LR2 1 ;;
-    B normalize ;;
-next_head:
-    BLT.S LR10 {{ cr.mh }}.H head ;;
-    ADD LR2 LR2 {{ cr.group_jump }} ; SET LR3 CR0 ; SET LR10 CR0 ;;
-    B head ;;
-done:
+    BLT.S LR3 LR15 head ;;
+    DEC LR3 128 ; INC LR2 1 ; B normalize ;;
+full:
+    {{ output('L') }}
+    DEC LR7 128 ; INC LR6 1 ; B tile ;;
+next_group:
+    ADD LR1 LR1 {{ cr.group_rows }} ;;
+    BNE LR1 {{ cr.all_group_rows }} group ;;
     HALT ;;

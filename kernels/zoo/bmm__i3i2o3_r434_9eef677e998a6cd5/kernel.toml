@@ -3,21 +3,21 @@ op = "bmm"
 formats = ["e2"]
 
 [params]
-b = {type="int", min=1, max=32767, default=6}
-k = {type="int", min=1, max=32767, default=257}
-m = {type="int", min=1, max=32767, default=257}
-n = {type="int", min=1, max=32640, default=64}
-in0_d0 = {type="int", min=1, max=32767, default=1}
-in0_d1 = {type="int", min=1, max=32767, default=6}
-in0_d2 = {type="int", min=1, max=32767, default=257}
-in0_d3 = {type="int", min=1, max=32767, default=257}
-in1_d0 = {type="int", min=1, max=32767, default=1}
-in1_d1 = {type="int", min=1, max=32767, default=257}
-in1_d2 = {type="int", min=1, max=4194176, default=384}
-out0_d0 = {type="int", min=1, max=32767, default=1}
-out0_d1 = {type="int", min=1, max=32767, default=6}
-out0_d2 = {type="int", min=1, max=32767, default=257}
-out0_d3 = {type="int", min=1, max=32640, default=64}
+b = {type="int", min=1, max=65535, default=6}
+k = {type="int", min=1, max=65535, default=257}
+m = {type="int", min=1, max=65535, default=257}
+n = {type="int", min=1, max=65535, default=64}
+in0_d0 = {type="int", min=1, max=65535, default=1}
+in0_d1 = {type="int", min=1, max=65535, default=6}
+in0_d2 = {type="int", min=1, max=65535, default=257}
+in0_d3 = {type="int", min=1, max=65535, default=257}
+in1_d0 = {type="int", min=1, max=65535, default=1}
+in1_d1 = {type="int", min=1, max=65535, default=257}
+in1_d2 = {type="int", min=1, max=8388480, default=384}
+out0_d0 = {type="int", min=1, max=65535, default=1}
+out0_d1 = {type="int", min=1, max=65535, default=6}
+out0_d2 = {type="int", min=1, max=65535, default=257}
+out0_d3 = {type="int", min=1, max=65535, default=64}
 
 [inputs.in0]
 shape = ["in0_d0", "in0_d1", "in0_d2", "arows*128"]
@@ -31,29 +31,27 @@ shape = ["out0_d0", "out0_d1", "out0_d2", "ceil(out0_d3/128)*128"]
 [derived]
 arows = "ceil(in0_d3/128)"
 brows = "ceil(in1_d2/128)"
-mh = "m + in0_d1*65536"
+stride = "brows + arows*65536"
 ds = "ds(128) + ds((n-1)%128+1)*65536"
-group_jump = "in1_d1*brows-(in0_d1*n)//128"
-in1_next = "base(in1)+1"
-ka = "k + arows*65536"
-bstride = "brows"
-last_key_row = "(k-1)*brows"
+mh = "m + in0_d1*65536"
+group_rows = "in1_d1*brows"
+all_group_rows = "(b//in0_d1)*group_rows"
+b_next = "base(in1)+1"
 
 [abi]
 in0 = "CR2"
 in1 = "CR3"
 out0 = "CR4"
-b = "CR5"
-ka = "CR6"
-mh = "CR7"
-n = "CR8"
-bstride = "CR9"
+all_group_rows = "CR5"
+k = "CR6"
+n = "CR7"
+mh = "CR8"
+stride = "CR9"
 ds = "CR10"
 qf_in0 = "CR11"
 qf_in1 = "CR12"
 qf_out0 = "CR13"
-group_jump = "CR14"
-in1_next = "CR15"
-last_key_row = "LR2"
+group_rows = "CR14"
+b_next = "CR15"
 
 [cases.default]
