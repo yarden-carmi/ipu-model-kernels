@@ -4,6 +4,9 @@
 {% macro product(coefficient, acc) %}
     MULT.VE LR14 {{ coefficient }} 0 LR14 {{ full }} {{ qi }} ; ACC.{{ acc }} ;;
 {% endmacro %}
+{% macro scatter() %}
+    MULT.RC.VE LR14 LR11 0 LR14 {{ full }} {{ qi }} ; ACC.RESHAPE LRD12 LRD12 7
+{% endmacro %}
     SET LR14 CR0 ; SET LR0 CR0 ; SET LR1 CR0 ;;
     SET LR3 CR0 ;;
 {# Build ones, then synthesize the scale in both arithmetic modes. #}
@@ -22,15 +25,15 @@ plane:
 column:
     SET LR4 LR10 ; SET LR7 CR0 ;;
 tile:
-    SET LR12 CR0 ; SET LR13 CR0 ; SET LR6 CR0 ;;
+    SET LR12 CR0 ; SET LR13 CR0 ; SET LR6 CR1 ;;
     SET LR8 LR9 ; INC LR7 1 ;;
     BNE LR7 {{ cr.oc }} gather ;;
     SET LR8 LR15 ;;
 gather:
     LD.MULT R0 LR4 {{ cr.in0 }} ;;
-    MULT.RC.VE LR14 LR11 0 LR14 {{ full }} {{ qi }} ; ACC.RESHAPE LRD12 LRD12 7 ;;
-    ADDBI LRD12 1 ; ADD LR4 LR4 {{ cr.ic }} ; INC LR6 1 ;;
-    BLT.S LR6 LR8 gather ;;
+    {{ scatter() }} ;;
+    {# Control sees the old LR6, which already counts the row just scattered. #}
+    ADDBI LRD12 1 ; ADD LR4 LR4 {{ cr.ic }} ; INC LR6 1 ; BLT.S LR6 LR8 gather ;;
 {% macro store(ds) %}
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR3 ;;
     INC LR3 1 ;;
