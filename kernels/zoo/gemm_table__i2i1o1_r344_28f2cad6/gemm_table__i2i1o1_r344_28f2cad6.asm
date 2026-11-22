@@ -10,21 +10,23 @@
     MULT.VE LR0 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in1 }}.L ; {{ acc }} ; INC LR2 1 ;;
 {% endmacro %}
 {% macro mac(i) %}
-    # The load sees LR writes from this word, so LR6 starts one row back.
-    LD.MULT R0 LR8 {{ cr.in0 }} ; INC LR6 1 ;;
-    LD.MULT.CYCLIC LR6 {{ cr.w }} LR0 ;;
+    LD.MULT R0 LR8 {{ cr.in0 }} ;;
+    # Consume the coarse row while loading the correction. The correction
+    # multiply in turn preloads the next tap's coarse row, except at tile end.
     LD.MULT.CYCLIC LR6 {{ cr.w }} LR11 ; MULT.RC.VE LR0 LR9 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR6 1 ;;
     MULT.RC.VE LR11 LR9 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD
+{% if i < 7 %}
+    ; INC LR6 1 ; LD.MULT.CYCLIC LR6 {{ cr.w }} LR0
+{% endif %}
 {% if m % 128 %}
-    ;;
+    ; BLT.S LR9 LR12 lane_ok_{{ i }} ;;
+    DEC LR9 128 ; INC LR8 1 ;;
+lane_ok_{{ i }}:
     INC LR9 {{ m % 128 }}
 {% if m >= 128 %}
     ; INC LR8 {{ m // 128 }}
 {% endif %}
     ;;
-    BLT.S LR9 LR11 lane_ok_{{ i }} ;;
-    DEC LR9 128 ; INC LR8 1 ;;
-lane_ok_{{ i }}:
 {% else %}
     ; INC LR8 {{ m // 128 }} ;;
 {% endif %}
@@ -57,6 +59,10 @@ copy_block:
     INC LR13 {{ blocks }} ; DEC LR6 1 ;;
 gemm_block:
     SET LR8 LR4 ; SET LR9 LR5 ; SET LR10 {{ cr.ki }} ;;
+{% if m % 128 %}
+    SET LR12 CR0 ;;
+    INC LR12 {{ 128 - m % 128 }} ;;
+{% endif %}
 {% if bias %}
     {{ bias_add(0, 'ACC.ADD.FIRST') }}
     {{ bias_add(1, 'ACC.ADD') }}
@@ -64,6 +70,7 @@ gemm_block:
     MULT.EE LR0 CR0 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
 {% endif %}
 k_loop:
+    INC LR6 1 ; LD.MULT.CYCLIC LR6 {{ cr.w }} LR0 ;;
 {% for i in range(8) %}
     {{ mac(i) }}
 {% endfor %}
