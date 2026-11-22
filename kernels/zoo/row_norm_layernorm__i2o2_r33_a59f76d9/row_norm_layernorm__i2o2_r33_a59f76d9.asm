@@ -71,12 +71,22 @@
 {{ label }}_low:
  {% set offset = T * mhi - 128 * h %}
  {% for k in range((offset + 126) // 127) %}ADDBI LRD2 {{ [127,offset - 127 * k]|min }} ;;{% endfor %}
+ {% if step <= 255 and T <= 128 %}
+ {# Prime R0, then load the next source row while scattering the current one. #}
+ DEC LR10 {{ step }} ; LD.MULT R0 LR10 {{ cr.in0 }}{% if n > 1 %} ; INC LR12 {{ n - 1 }}{% endif %} ;;
+ {% if n > 1 %}
+ {{ label }}_pipe:
+ DEC LR10 {{ step }} ; ADDBI LRD2 -{{ T }} ; DEC LR12 1 ; LD.MULT R0 LR10 {{ cr.in0 }} ; MULT.EE LR6 CR1 0 LR0 CR15.L {{ q }} ; ACC.RESHAPE LRD0 LRD2 7 ; BLT.S CR1 LR12 {{ label }}_pipe ;;
+ {% endif %}
+ ADDBI LRD2 -{{ T }} ; MULT.EE LR6 CR1 0 LR0 CR15.L {{ q }} ; ACC.RESHAPE LRD0 LRD2 7 ;;
+ {% else %}
  {{ adj('LR12',n) }}
 {{ label }}_elem:
  {% if step > 255 %}{{ adj('LR10',-step) }}{% endif %}
  {% if T > 128 %}ADDBI LRD2 -128 ;;{% endif %}
  {% if step <= 255 %}DEC LR10 {{ step }} ; {% endif %}ADDBI LRD2 -{{ T if T <= 128 else T - 128 }} ; DEC LR12 1 ; LD.MULT R0 LR10 {{ cr.in0 }} ;;
  MULT.EE LR6 CR1 0 LR0 CR15.L {{ q }} ; ACC.RESHAPE LRD0 LRD2 7 ; BNE LR12 CR0 {{ label }}_elem ;;
+ {% endif %}
  {% if 2 * (rows // channels) %}INC LR7 {{ 2 * (rows // channels) }} ; {% endif %}{% if rows % channels %}INC LR8 {{ rows % channels }} ; {% endif %}INC LR11 1 ;;
  BLT.S LR8 {{ cr.cC }} {{ label }}_next ;;
  SUB LR8 LR8 {{ cr.cC }} ; INC LR7 2 ;;
