@@ -1,0 +1,102 @@
+[kernel]
+op = "dual_scaled_byte_tile"
+formats = ["e2"]
+
+[params.cin]
+type = "int"
+min = 1
+max = 128
+default = 48
+[params.cout]
+type = "int"
+min = 1
+max = 128
+default = 48
+[params.h]
+type = "int"
+min = 1
+default = 16
+[params.w]
+type = "int"
+min = 1
+default = 16
+[params.kh]
+type = "int"
+min = 1
+default = 4
+[params.kw]
+type = "int"
+min = 1
+default = 4
+[params.in0_d0]
+type = "int"
+min = 1
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 128
+default = 48
+[params.in0_d2]
+type = "int"
+min = 1
+default = 16
+[params.in0_d3]
+type = "int"
+min = 1
+default = 16
+[params.out0_d0]
+type = "int"
+min = 1
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 128
+default = 48
+[params.out0_d2]
+type = "int"
+min = 1
+default = 64
+[params.out0_d3]
+type = "int"
+min = 1
+default = 64
+[inputs.in0]
+shape = ["in0_d0 * in0_d2 * in0_d3", 128]
+[inputs.weight]
+shape = ["kh * kw * cout", 128]
+[inputs.coeff]
+shape = ["4 + 3 * (1 + kh * kw)", 128]
+[outputs.out0]
+shape = ["out0_d0 * out0_d2 * out0_d3", 128]
+[scratch.tmp]
+shape = [11, 128]
+
+[derived]
+sites = "in0_d0 * in0_d2 * in0_d3"
+phase_jump = "out0_d3 - kw"
+slab_jump = "(kh - 1) * out0_d3"
+weight_end = "kh * kw * cout"
+ds_out = "ds(out0_d1) + 65536 * ds(128)"
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+weight = "CR4"
+coeff = "CR5"
+tmp = "CR6"
+sites = "CR7"
+qf_in0 = "CR8"
+qf_out0 = "CR9"
+qf_weight = "CR10"
+ds_out = "CR12"
+qf_coeff = "CR15"
+phase_jump = "LR10"
+in0_d3 = "LR11"
+slab_jump = "LR12"
+weight_end = "LR13"
+cout = "LR14"
+kw = "LR15"
+
+[cases.default]
