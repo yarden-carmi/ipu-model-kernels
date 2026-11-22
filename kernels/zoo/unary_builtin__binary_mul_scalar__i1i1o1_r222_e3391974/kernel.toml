@@ -1,6 +1,6 @@
 [kernel]
 op = "unary_builtin__binary_mul_scalar"
-formats = ["e3"]
+formats = ["e2"]
 
 [params.act_s0]
 type = "str"
@@ -51,7 +51,7 @@ rows = "in0_d0 * chunks"
 full = "ds(128)"
 tail = "ds((out0_d1 - 1) % 128 + 1)"
 scalar = "ds(s0_numel)"
-two = "0x40018000"
+neg_one = "0xbf117f80"
 neg_cap = "0xff11febf"
 
 [inputs.in0]
@@ -61,7 +61,7 @@ shape = ["in1_d0", "ceil(in1_d1 / 128)", 128]
 [outputs.out0]
 shape = ["out0_d0", "ceil(out0_d1 / 128)", 128]
 [scratch.s0]
-shape = [3, 128]
+shape = [4, 128]
 
 [abi]
 in0 = "CR2"
@@ -76,7 +76,7 @@ tail = "CR10"
 scalar = "CR11"
 rows = "CR12"
 chunks = "CR13"
-two = "CR14"
+neg_one = "CR14"
 neg_cap = "CR15"
 
 [cases.default]
