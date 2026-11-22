@@ -1,0 +1,57 @@
+[kernel]
+op = "radix4_half_root_lane"
+formats = ["e1"]
+
+[params.numel]
+type = "int"
+min = 1
+default = 1
+
+[params.in0_d0]
+type = "int"
+min = 1
+default = 1
+
+[params.in0_d1]
+type = "int"
+min = 1
+default = 1
+
+[params.out0_d0]
+type = "int"
+min = 1
+default = 1
+
+[params.out0_d1]
+type = "int"
+min = 1
+default = 1
+
+[inputs.in0]
+shape = ["nrows", 128]
+range = [0.01, 4.0]
+
+[outputs.out0]
+shape = ["out0_d0 * ceil(out0_d1 / 128)", 128]
+
+[scratch.invroot]
+shape = [1, 128]
+
+[derived]
+chunks = "ceil(in0_d1 / 128)"
+nrows = "in0_d0 * chunks"
+tail = "ds((in0_d1 - 1) % 128 + 1)"
+full = "ds(128)"
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+invroot = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+tail = "CR7"
+full = "CR8"
+chunks = "CR9"
+in0_d0 = "CR10"
+
+[cases.default]
