@@ -56,13 +56,19 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    """Pack each channel's bias and weight chunks into leading/residual rows."""
-    w = module.weight.detach().double()
-    n, k = w.shape
-    b = module.bias.detach().double() if params["bias"] else w.new_zeros(n)
-    b = torch.nn.functional.pad(b[:, None], (0, 127))
-    rows = torch.cat((b[:, None], torch.nn.functional.pad(w, (0, (-k) % 128)).reshape(n, -1, 128)), dim=1)
+    """Split blocked coefficients into independently scaled balanced radix-64 digits."""
+    weight = module.weight.detach().double()
+    n, k = weight.shape
+    bias = module.bias.detach().double() if params["bias"] else weight.new_zeros(n)
+    blocks = torch.nn.functional.pad(weight, (0, (-k) % 127)).reshape(n, -1, 127)
+    rows = torch.nn.functional.pad(blocks, (0, 1))
+    rows[:, 0, 127] = bias
     exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))[1]
-    step = torch.ldexp(torch.ones_like(exp, dtype=rows.dtype), exp - 5)
-    hi = torch.round(rows / step) * step
-    return {"w": torch.stack((hi, rows - hi), dim=2).reshape(-1, 128).float()}
+    digits = torch.ldexp(rows, 23 - exp).round().long()
+    planes = []
+    for shift in (0, 6, 12):
+        carry = (digits + 32) // 64
+        planes.append(torch.ldexp(digits - 64 * carry, exp + shift - 23))
+        digits = carry
+    planes.append(torch.ldexp(digits, exp - 5))
+    return {"w": torch.stack(planes[::-1], dim=2).reshape(-1, 128).float()}
