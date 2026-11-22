@@ -19,8 +19,7 @@ default = 0
 type = "int"
 min = 1
 max = 16777216
-default = 65536
-
+default = 16384
 [params.in0_d0]
 type = "int"
 min = 1
@@ -35,12 +34,12 @@ default = 64
 type = "int"
 min = 1
 max = 64
-default = 32
+default = 16
 [params.in0_d3]
 type = "int"
 min = 1
 max = 16777216
-default = 32
+default = 16
 [params.in1_d0]
 type = "int"
 min = 1
@@ -55,12 +54,12 @@ default = 64
 type = "int"
 min = 1
 max = 64
-default = 32
+default = 16
 [params.in1_d3]
 type = "int"
 min = 1
 max = 16777216
-default = 32
+default = 16
 [params.out0_d0]
 type = "int"
 min = 1
@@ -75,12 +74,12 @@ default = 64
 type = "int"
 min = 1
 max = 64
-default = 32
+default = 16
 [params.out0_d3]
 type = "int"
 min = 1
 max = 16777216
-default = 32
+default = 16
 
 [derived]
 pack0 = "2 - in0_d3 % 2"
@@ -90,10 +89,10 @@ rows = "out0_d0 * out0_d1 * (out0_d3 // packout)"
 active = "ds(out0_d2 * packout)"
 
 [inputs.in0]
-shape = ["in0_d0 * in0_d1 * (in0_d3 // pack0)", 128]
+shape = ["in0_d0", "in0_d1", "in0_d3 // pack0", 128]
 range = [-2, 2]
 [inputs.in1]
-shape = ["in1_d0 * in1_d1 * (in1_d3 // pack1)", 128]
+shape = ["in1_d0", "in1_d1", "in1_d3 // pack1", 128]
 range = [-2, 2]
 [outputs.out0]
 shape = ["rows", 128]
@@ -107,5 +106,8 @@ qf_in1 = "CR6"
 qf_out0 = "CR7"
 rows = "CR8"
 active = "CR9"
+
+[golden]
+tolerance = { e1 = "EXACT", e2 = "EXACT" }
 
 [cases.default]
