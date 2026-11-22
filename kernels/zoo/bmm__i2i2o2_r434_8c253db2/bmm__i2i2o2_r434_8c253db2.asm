@@ -1,5 +1,5 @@
-{# Keep each output tile in the accumulator. A provides its M lanes;
-   a scalar from the interleaved RHS row selects the output column. #}
+{# Stream K rows of A and select the RHS scalar from its interleaved head.
+   Keep an M tile in the accumulator until all K contributions are summed. #}
 {% macro product(first) %}
     LD.MULT R0 LR13 {{ cr.in1 }} ;;
     LD.MULT.CYCLIC LR12 {{ cr.in0 }} LR14 ;;
