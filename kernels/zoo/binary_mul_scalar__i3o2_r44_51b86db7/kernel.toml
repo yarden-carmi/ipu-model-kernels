@@ -1,6 +1,6 @@
 [kernel]
 op = "binary_mul_scalar"
-formats = ["e3"]
+formats = ["e1", "e2"]
 
 [params.broadcast]
 type = "str"
@@ -16,73 +16,75 @@ type = "int"
 min = 0
 max = 0
 default = 0
-[params.numel]
-type = "int"
-min = 1
-max = 2147483647
-default = 30000
 [params.op]
 type = "str"
 choices = ["mul"]
 default = "mul"
+[params.numel]
+type = "int"
+min = 1
+max = 2147483647
+default = 786432
 [params.in0_d0]
 type = "int"
 min = 1
-max = 65536
+max = 2147483647
 default = 1
 [params.in0_d1]
 type = "int"
 min = 1
-max = 65536
+max = 2147483647
 default = 12
 [params.in0_d2]
 type = "int"
 min = 1
-max = 65536
-default = 50
+max = 2147483647
+default = 256
 [params.in0_d3]
 type = "int"
 min = 1
-max = 65536
-default = 50
+max = 2147483647
+default = 256
 [params.out0_d0]
 type = "int"
 min = 1
-max = 65536
+max = 2147483647
 default = 1
 [params.out0_d1]
 type = "int"
 min = 1
-max = 65536
+max = 2147483647
 default = 12
 [params.out0_d2]
 type = "int"
 min = 1
-max = 65536
-default = 50
+max = 2147483647
+default = 256
 [params.out0_d3]
 type = "int"
 min = 1
-max = 65536
-default = 50
+max = 2147483647
+default = 256
 
 [inputs.in0]
-shape = ["in0_d0 * in0_d1 * in0_d2", "ceil(in0_d3 / 128) * 128"]
+shape = ["planes * in0_d2 * ic", 128]
 range = [-2.0, 2.0]
 [outputs.out0]
-shape = ["out0_d0 * out0_d1 * out0_d3", "ceil(out0_d2 / 128) * 128"]
-[scratch.tmp]
+shape = ["out0_d0 * out0_d1 * out0_d3 * oc", 128]
+[scratch.scalar]
 shape = [1, 128]
 
 [derived]
+planes = "in0_d0 * in0_d1"
 ic = "ceil(in0_d3 / 128)"
 oc = "ceil(out0_d2 / 128)"
 w = "out0_d3"
-planes = "out0_d0 * out0_d1"
 plane_rows = "in0_d2 * ic"
-full = "ds(128)"
 last = "(out0_d2 - 1) % 128 + 1"
-tail = "ds(last)"
+ds_pair = "ds(last) + ds(128) * 65536"
+fp_hi = "0x43012d41"
+fp_lo = "0x43010000"
+nx_scale = "0x00017c35"
 
 [abi]
 in0 = "CR2"
@@ -94,12 +96,11 @@ oc = "CR7"
 w = "CR8"
 planes = "CR9"
 plane_rows = "CR10"
-full = "CR11"
-last = "CR12"
-tail = "CR13"
-tmp = "CR14"
-
-[golden]
-tolerance = { e3 = "EXACT" }
+ds_pair = "CR11"
+scalar = "CR12"
+fp_hi = "CR13"
+fp_lo = "CR14"
+nx_scale = "CR15"
+last = "LR15"
 
 [cases.default]
