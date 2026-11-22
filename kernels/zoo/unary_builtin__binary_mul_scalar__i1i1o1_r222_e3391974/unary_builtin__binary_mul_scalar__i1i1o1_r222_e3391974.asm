@@ -9,13 +9,14 @@
     LD.MULT R0 LR0 {{ cr.in1 }} ;;
     MULT.EE LR0 CR0 0 LR0 {{ cr.full }}.L {{ cr.qf_in1 }}.L ; ACC.ADD.FIRST ;;
     ACTIVATE.QUANTIZE exp2 {{ cr.scalar }}.L {{ cr.qf_in0 }}.L {{ cr.s0 }} LR9 ;;
-    # Also try the doubled denominator to avoid reciprocal subnormal adjustment.
+    # Store reciprocals of the denominator and twice the denominator.
     MULT.EE LR0 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in1 }}.L ; ACC.ADD.FIRST ;;
     ACTIVATE.QUANTIZE {{ act_s0 }} {{ cr.scalar }}.L {{ cr.qf_in0 }}.L {{ cr.s0 }} LR4 ;;
     MULT.EE LR0 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ;;
     ACTIVATE.QUANTIZE {{ act_s0 }} {{ cr.scalar }}.L {{ cr.qf_in0 }}.L {{ cr.s0 }} LR0 ;;
     LD.MULT R0 LR0 {{ cr.s0 }} ;;
     LD.MULT R1 LR4 {{ cr.s0 }} ;;
+    # Use the larger reciprocal estimate and apply the denominator sign separately.
     MULT.EE LR0 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.SUB.FIRST ;;
     MULT.EE LR0 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.SUB ;;
     MULT.EE LR3 {{ cr.neg_one }} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.MAX ;;
@@ -28,7 +29,6 @@
     LD.MULT R1 LR4 {{ cr.s0 }} ;;
 row:
     LD.MULT.CYCLIC LR1 {{ cr.in0 }} LR0 ;;
-    # Negate before clamping positive output overflow.
     MULT.RC.VE LR0 LR0 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.SUB.FIRST ;;
     MULT.RC.VE LR0 LR3 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ;;
     LD.MULT R1 LR9 {{ cr.s0 }} ;;
