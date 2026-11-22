@@ -1,4 +1,4 @@
-{#- Square each lane, replacing the previous accumulator with the self-product. -#}
+{# ACC.ADD.FIRST discards the prior accumulator for each self-product. #}
 {% macro square(ds) %}
 LD.MULT.CYCLIC LR1 {{ cr.in0 }} LR0;;
 LD.MULT R0 LR1 {{ cr.in0 }};;
