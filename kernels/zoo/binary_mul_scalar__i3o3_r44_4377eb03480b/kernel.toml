@@ -76,7 +76,7 @@ shape = ["out0_d0 * out0_d1 * out0_d2", "ceil(out0_d3 / 128) * 128"]
 groups = "in0_d0 * in0_d1 * in0_d2"
 chunks = "ceil(in0_d3 / 128)"
 ds_pair = "ds((in0_d3 - 1) % 128 + 1) + ds(128) * 65536"
-# Scalar split for FP mode (differences) and NX mode (sum).
+# 181/1024 approximates 1/sqrt(32); each pair contributes in only its own arithmetic mode.
 fp_hi_base = "0x43010080"
 fp_hi = "fp_hi_base + 45 * 256"
 fp_lo_base = "0x40010080"
