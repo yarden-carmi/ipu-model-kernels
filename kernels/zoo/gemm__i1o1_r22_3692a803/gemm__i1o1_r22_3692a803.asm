@@ -1,24 +1,18 @@
 {% macro weight(slot) %}
     LD.MULT.CYCLIC LR4 {{ cr.w }} {{ slot }} ; INC LR4 1
 {%- endmacro %}
-{% macro mac(slot, next_slot, refill=true) %}
-    MULT.RC.VE {{ slot }} LR3 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD ; {% if refill %}{{ weight(next_slot) }} ; {% endif %}INC LR3 1 ;;
-{% endmacro %}
 {% macro quad(refill=true) %}
 {% for i in range(4) %}
-    {{ mac('LR0' if i % 2 == 0 else 'LR2', 'LR2' if i % 2 == 0 else 'LR0', refill or not loop.last) }}
+{% set slot = 'LR0' if i % 2 == 0 else 'LR2' %}
+{% set next_slot = 'LR2' if i % 2 == 0 else 'LR0' %}
+    MULT.RC.VE {{ slot }} LR3 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD ; {% if refill or not loop.last %}{{ weight(next_slot) }} ; {% endif %}INC LR3 1 ;;
 {% endfor %}
-{% endmacro %}
-{% macro bias_digit(first) %}
-    LD.MULT.CYCLIC LR13 {{ cr.b }} LR0 ; INC LR13 1 ;;
-    MULT.RC.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD{% if first %}.FIRST{% endif %} ;;
 {% endmacro %}
 {% macro store(ds) %}
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR7 ;;
 {% endmacro %}
 
-    SET LR0 CR0 ; SET LR5 {{ cr.m }} ; SET LR7 CR0 ;;
-    SET LR11 CR0 ; SET LR2 {{ cr.width }} ;;
+    SET LR5 {{ cr.m }} ; SET LR7 CR0 ; SET LR11 CR0 ;;
 row:
     SET LR4 CR0 ; SET LR6 CR0 ;;
     DEC LR4 1 ;;
@@ -31,7 +25,8 @@ tile:
     SUB LR8 LR8 CR1 ;;
 {% if bias %}
 {% for i in range(8) %}
-    {{ bias_digit(loop.first) }}
+    LD.MULT.CYCLIC LR13 {{ cr.b }} LR0 ; INC LR13 1 ;;
+    MULT.RC.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD{% if loop.first %}.FIRST{% endif %} ;;
 {% endfor %}
 {% else %}
     MULT.EE LR0 CR0 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
