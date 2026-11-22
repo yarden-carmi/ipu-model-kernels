@@ -20,6 +20,16 @@ def _l(res, k, shape, stride, offset):
     return _v(t, shape, stride, offset)
 
 
+def _p(t, shape):
+    """A parameter read at the shape its record read it (a view of it: reshaped, or expanded)."""
+    if list(t.shape) == list(shape):
+        return t
+    n = 1
+    for d in shape:
+        n *= int(d)
+    return t.reshape(tuple(shape)) if t.numel() == n else t.expand(tuple(shape))
+
+
 def _pick(res, k):
     """Result k of a record (one tensor, or a tuple of them)."""
     return res[k] if isinstance(res, (tuple, list)) else res
@@ -48,17 +58,16 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    """Fuse the output scale and split each weight row into signed radix-eight digits."""
-    scale = module.op1_lambda1.detach()
-    weight = module.op0_weight.detach() * scale[:, None]
+    """Fold the output scale into weights and bias, then pack radix-16 planes."""
+    scale = module.op1_lambda1.detach().double().reshape(-1)
+    weight = module.op0_weight.detach().double() * scale[:, None]
     n, k = weight.shape
-    bias = module.op0_bias.detach() * scale if params['bias'] else weight.new_zeros(n)
-    tiles = (n + 127) // 128
-    data = torch.cat((bias[:, None], weight), dim=1)
-    data = torch.nn.functional.pad(data, (0, 0, 0, tiles * 128 - n))
-    rows = data.reshape(tiles, 128, k + 1).transpose(1, 2)
-    exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))[1]
-    digits = torch.ldexp(rows.abs().double(), 12 - exponent).round().long().clamp(max=4095)
-    planes = [torch.ldexp(((digits >> shift) & 7).to(rows.dtype) * rows.sign(),
-                          exponent + shift - 12) for shift in range(9, -1, -3)]
-    return {"w": torch.stack(planes, dim=2).reshape(-1, 128)}
+    bias = module.op0_bias.detach().double() * scale if params['bias'] else weight.new_zeros(n)
+    rows = torch.cat((bias[None], weight.T), dim=0)
+    rows = torch.nn.functional.pad(rows, (0, (-n) % 128))
+    rows = rows.reshape(k + 1, -1, 128).transpose(0, 1)
+    exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))[1]
+    digits = torch.ldexp(rows.abs(), 12 - exp).round().long().clamp(max=4095)
+    planes = [torch.ldexp(((digits >> shift) & 15) * rows.sign(), exp + shift - 12)
+              for shift in (8, 4, 0)]
+    return {'w': torch.stack(planes, dim=2).reshape(-1, 128).float()}
