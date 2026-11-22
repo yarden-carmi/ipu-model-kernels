@@ -1,6 +1,10 @@
     INC LR9 128 ;;
 head:
     SET LR5 CR0 ;;
+    BGT.S {{ cr.n }} LR9 row ;;
+    ADD LR14 LR3 {{ cr.n }} ;;
+    BGT.S LR14 LR9 narrow_split_row ;;
+    B narrow_single_row ;;
 row:
     SET LR6 CR0 ; SET LR7 LR2 ;;
 tile:
@@ -16,32 +20,33 @@ width_ready:
     BGT.S LR14 LR9 split_chunk ;;
 
 {# Stream the key rows; the second slot is only needed across a row boundary. #}
-{% macro reduce(tag, split) %}
+{% macro mac() %}
+    DEC LR12 1 ; SUB LR11 LR11 {{ cr.stride_lane }}.L ; DEC LR13 1 ;
+    MULT.RC.VE LR3 LR12 0 LR15 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ;
+{% endmacro %}
+{% macro reduce(tag, split, narrow=false) %}
 {{ tag }}_chunk:
     LD.MULT R0 LR8 {{ cr.in0 }} ; SET LR12 LR13 ;;
     SUB LR14 LR15 CR1 ;;
     INC.MODP2 LR12 LR14 7 ;;
-{% if split %}
-    INC LR12 1 ;;
-{{ tag }}_inner:
-    LD.MULT.CYCLIC LR11 {{ cr.in1 }} LR15 ;;
-    LD.MULT.CYCLIC LR11 {{ cr.in1_next }} LR9 ;;
-    DEC LR12 1 ; DEC LR13 1 ; SUB LR11 LR11 {{ cr.stride_lane }}.L ; MULT.RC.VE LR3 LR12 0 LR15 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ; BGT.S LR12 CR1 {{ tag }}_inner ;;
-{% else %}
 {# Keep the next key in the cyclic slot. Drain separately so no load crosses the input boundary. #}
     INC LR12 1 ; SET LR14 CR1 ; LD.MULT.CYCLIC LR11 {{ cr.in1 }} LR15 ;;
     INC LR14 1 ; BLE.S LR12 CR1 {{ tag }}_last ;;
 {{ tag }}_inner:
-    DEC LR12 1 ; SUB LR11 LR11 {{ cr.stride_lane }}.L ; DEC LR13 1 ;
-    MULT.RC.VE LR3 LR12 0 LR15 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ;
+{% if split %}
+    LD.MULT.CYCLIC LR11 {{ cr.in1_next }} LR9 ;;
+{% endif %}
+    {{ mac() }}
     LD.MULT.CYCLIC LR11 {{ cr.in1 }} LR15 ; BGT.S LR12 LR14 {{ tag }}_inner ;;
 {{ tag }}_last:
-    DEC LR12 1 ; SUB LR11 LR11 {{ cr.stride_lane }}.L ; DEC LR13 1 ;
-    MULT.RC.VE LR3 LR12 0 LR15 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ;;
+{% if split %}
+    LD.MULT.CYCLIC LR11 {{ cr.in1_next }} LR9 ;;
 {% endif %}
-    DEC LR8 1 ;;
-    BNE LR13 CR0 {{ tag }}_chunk ;;
+    {{ mac() }} ;;
+    DEC LR8 1 ; BNE LR13 CR0 {{ tag }}_chunk ;;
+{% if not narrow %}
     B store ;;
+{% endif %}
 {% endmacro %}
     {{ reduce('single', false) }}
     {{ reduce('split', true) }}
@@ -50,17 +55,33 @@ store:
     INC LR6 128 ;;
     BLT.S LR6 {{ cr.n }} store_full ;;
 {% macro output(half) %}
-    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.ds }}.{{ half }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR0 ;;
-{% endmacro %}
-    {{ output('H') }}
+    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.ds }}.{{ half }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR0 ;
+{%- endmacro %}
+    {{ output('H') }};
     B stored ;;
 store_full:
-    {{ output('L') }}
+    {{ output('L') }};
 stored:
     INC LR0 1 ; INC LR7 1 ;;
     BLT.S LR6 {{ cr.n }} tile ;;
     ADD LR1 LR1 {{ cr.ka }}.H ; INC LR5 1 ;;
     BLT.S LR5 {{ cr.mh }}.L row ;;
+    B advance_head ;;
+
+{# A one-tile head has a fixed cyclic window and store width for all rows. #}
+{% macro narrow_rows(tag, split) %}
+{{ tag }}_row:
+    ADD LR8 LR1 {{ cr.ka }}.H ; SET LR11 LR2 ; SET LR13 {{ cr.ka }}.L ;;
+    DEC LR8 1 ; MULT.VE LR15 CR0 0 LR15 {{ cr.ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
+    {{ reduce(tag, split, true) }}
+    {{ output('H') }} ADD LR1 LR1 {{ cr.ka }}.H ; INC LR5 1 ;;
+    INC LR0 1 ; BLT.S LR5 {{ cr.mh }}.L {{ tag }}_row ;;
+    B advance_head ;;
+{% endmacro %}
+    {{ narrow_rows('narrow_single', false) }}
+    {{ narrow_rows('narrow_split', true) }}
+
+advance_head:
     INC LR4 1 ; INC LR10 1 ; ADD LR3 LR3 {{ cr.n }} ;;
     BGE.S LR4 {{ cr.b }} done ;;
 normalize:
