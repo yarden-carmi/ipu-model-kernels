@@ -48,11 +48,13 @@ default = 512
 [derived]
 chunks = "ceil(in0_d1 / 128)"
 rows = "in0_d0 * chunks"
-full = "ds(128)"
+loop = "rows + chunks * 65536"
+full = "ds(128) + ds(s0_numel) * 65536"
 tail = "ds((out0_d1 - 1) % 128 + 1)"
-scalar = "ds(s0_numel)"
-neg_one = "0xbf117f80"
-neg_cap = "0xff11febf"
+factor = "0x43118700"
+neg_cap = "0xfb11f6bf"
+neg_inv = "0xc2118680"
+base_cap = "0x6211c500"
 
 [inputs.in0]
 shape = ["rows", 128]
@@ -61,7 +63,7 @@ shape = ["in1_d0", "ceil(in1_d1 / 128)", 128]
 [outputs.out0]
 shape = ["out0_d0", "ceil(out0_d1 / 128)", 128]
 [scratch.s0]
-shape = [4, 128]
+shape = [9, 128]
 
 [abi]
 in0 = "CR2"
@@ -73,10 +75,10 @@ qf_in1 = "CR7"
 qf_out0 = "CR8"
 full = "CR9"
 tail = "CR10"
-scalar = "CR11"
-rows = "CR12"
-chunks = "CR13"
-neg_one = "CR14"
+neg_inv = "CR11"
+loop = "CR12"
+base_cap = "CR13"
+factor = "CR14"
 neg_cap = "CR15"
 
 [cases.default]
