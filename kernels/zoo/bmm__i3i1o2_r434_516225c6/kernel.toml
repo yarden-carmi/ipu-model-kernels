@@ -3,21 +3,21 @@ op = "bmm"
 formats = ["e2"]
 
 [params]
-b = {type="int", min=1, max=64, default=6}
-k = {type="int", min=1, max=512, default=257}
-m = {type="int", min=1, max=512, default=257}
-n = {type="int", min=1, max=512, default=64}
-in0_d0 = {type="int", min=1, max=4, default=1}
-in0_d1 = {type="int", min=1, max=64, default=6}
-in0_d2 = {type="int", min=1, max=512, default=257}
-in0_d3 = {type="int", min=1, max=512, default=257}
-in1_d0 = {type="int", min=1, max=4, default=1}
-in1_d1 = {type="int", min=1, max=512, default=257}
-in1_d2 = {type="int", min=1, max=2304, default=384}
-out0_d0 = {type="int", min=1, max=4, default=1}
-out0_d1 = {type="int", min=1, max=64, default=6}
-out0_d2 = {type="int", min=1, max=512, default=257}
-out0_d3 = {type="int", min=1, max=512, default=64}
+b = {type="int", min=1, max=65536, default=12}
+k = {type="int", min=1, max=65536, default=256}
+m = {type="int", min=1, max=65536, default=256}
+n = {type="int", min=1, max=65536, default=32}
+in0_d0 = {type="int", min=1, max=65536, default=1}
+in0_d1 = {type="int", min=1, max=65536, default=12}
+in0_d2 = {type="int", min=1, max=65536, default=256}
+in0_d3 = {type="int", min=1, max=65536, default=256}
+in1_d0 = {type="int", min=1, max=65536, default=1}
+in1_d1 = {type="int", min=1, max=65536, default=256}
+in1_d2 = {type="int", min=1, max=65536, default=384}
+out0_d0 = {type="int", min=1, max=65536, default=1}
+out0_d1 = {type="int", min=1, max=65536, default=12}
+out0_d2 = {type="int", min=1, max=65536, default=256}
+out0_d3 = {type="int", min=1, max=65536, default=32}
 
 [inputs.in0]
 shape = ["in0_d0", "in0_d1", "in0_d2", "ak*128"]
@@ -34,9 +34,8 @@ bk = "ceil(in1_d1/128)"
 kcm1 = "ceil(k/128)-1"
 dsk = "ds((k-1)%128+1)"
 bgap = "(in1_d2-in0_d1*n)*bk"
-output_ds = "ds(128)+65536*ds((m-1)%128+1)"
+ds = "ds(128)+65536*ds((m-1)%128+1)"
 astride = "in0_d2*ak"
-atile = "128*ak"
 
 [abi]
 in0 = "CR2"
@@ -47,15 +46,14 @@ m = "CR6"
 n = "CR7"
 ak = "CR8"
 bk = "CR9"
-output_ds = "CR10"
+ds = "CR10"
 qf_in0 = "CR11"
 dsk = "CR12"
 qf_out0 = "CR13"
 kcm1 = "CR14"
 astride = "CR15"
-qf_in1 = "LR12"
-in0_d1 = "LR11"
 bgap = "LR13"
-atile = "LR15"
+in0_d1 = "LR15"
+qf_in1 = "LR12"
 
 [cases.default]
