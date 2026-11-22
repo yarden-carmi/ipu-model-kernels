@@ -1,57 +1,47 @@
-{# Stream A as vectors of query positions and read each B key as scalars.
-   LR0 is the output cursor; LR15 stays zero for the cyclic slot and mask.
-   LR1/LR2 are group bases; LR4 and LR5:LR6 are A and B head bases. #}
+{# For each output column, keep the current RHS reduction row resident in R0. #}
+    SET LR0 CR0 ; SET LR1 CR0 ; SET LR7 CR0 ;;
+    SET LR15 CR0 ;;
 group:
-    SET LR4 LR1 ; SET LR5 LR2 ; SET LR6 CR0 ;;
-    SET LR7 {{ cr.out0_d1 }} ;;
+    SET LR2 LR1 ; SET LR3 CR0 ; SET LR4 {{ cr.heads_tiles }}.L ;;
 head:
-    SET LR8 LR5 ;;
+    SET LR10 LR2 ; SET LR5 {{ cr.sizes }}.H ;;
 column:
-    SET LR9 {{ cr.km }}.H ; SET LR10 LR4 ;;
+    SET LR8 LR7 ; SET LR6 {{ cr.heads_tiles }}.H ;;
 tile:
-    SET LR11 LR8 ; SET LR12 LR6 ; SET LR13 {{ cr.km }}.L ;;
-    LD.MULT R0 LR11 {{ cr.in1 }} ;;
-    MULT.VE LR15 CR0 0 LR15 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD.FIRST ;;
-segment:
-    ADD LR14 LR12 LR13 ;;
-    ADD LR13 LR13 LR12 ;;
-    DEC LR13 128 ;;
-    BLE.S LR13 CR0 reduce ;;
-    SET LR14 CR0 ;;
-    INC LR14 128 ;;
+    SET LR9 LR8 ; SET LR11 LR10 ; SET LR12 LR3 ;;
+    MULT.VE LR15 CR0 0 LR15 {{ cr.ds_pair }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; SET LR13 {{ cr.k }} ;;
+rhs_row:
+    SET LR14 CR0 ; LD.MULT R0 LR11 {{ cr.in1 }} ;;
+    INC LR14 128 ; INC LR11 1 ;;
+    SUB LR14 LR14 LR12 ;;
+    BLE.S LR14 LR13 reduce ;;
+    SET LR14 LR13 ;;
 reduce:
-    LD.MULT.CYCLIC LR10 {{ cr.in0 }} LR15 ;;
-    MULT.RC.VE LR15 LR12 0 LR15 {{ cr.ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; ADD LR10 LR10 {{ cr.astrides }}.L ;;
-    INC LR12 1 ;;
-    BLT.S LR12 LR14 reduce ;;
-    BLE.S LR13 CR0 store ;;
-    INC LR11 1 ; SET LR12 CR0 ;;
-    LD.MULT R0 LR11 {{ cr.in1 }} ; B segment ;;
-store:
-    DEC LR9 128 ;;
-    BGT.S LR9 CR0 store_full ;;
-{% macro output(half) %}
-    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.ds }}.{{ half }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR0 ;;
+    LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR15 ; DEC LR14 1 ;;
+    MULT.RC.VE LR15 LR12 0 LR15 {{ cr.ds_pair }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ; ADD LR9 LR9 {{ cr.heads_tiles }}.H ; DEC LR13 1 ;;
+    INC.MODP2 LR12 CR1 7 ; BNE LR14 CR0 reduce ;;
+    BNE LR13 CR0 rhs_row ;;
+    DEC LR6 1 ;;
+    BEQ LR6 CR0 tail ;;
+{% macro output_store(half) %}
+    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.ds_pair }}.{{ half }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR0 ;;
     INC LR0 1 ;;
 {% endmacro %}
-    {{ output('H') }}
-    ADD LR8 LR8 {{ cr.bchunks }} ;;
-    SUB LR14 LR8 LR5 ;;
-    {# Compare B cursor to the end of the column sweep. #}
-    BLT.S LR14 {{ cr.bspan }} column ;;
-    DEC LR7 1 ;;
-    BEQ LR7 CR0 next_group ;;
-    ADD LR4 LR4 {{ cr.astrides }}.H ; ADD LR6 LR6 {{ cr.km }}.L ;;
-    SET LR14 CR0 ;;
-    INC LR14 128 ;;
+    {{ output_store('L') }}
+    INC LR8 1 ; B tile ;;
+tail:
+    {{ output_store('H') }}
+    ADD LR10 LR10 {{ cr.brows }} ; DEC LR5 1 ;;
+    BNE LR5 CR0 column ;;
+    SUB LR7 LR9 {{ cr.heads_tiles }}.H ; ADD LR3 LR3 {{ cr.k }} ; DEC LR4 1 ;;
+    INC LR7 1 ; BEQ LR4 CR0 next_group ;;
 normalize:
-    BLT.S LR6 LR14 head ;;
-    DEC LR6 128 ; INC LR5 1 ; B normalize ;;
+    DEC LR3 128 ;;
+    BLT.S LR3 CR0 normalized ;;
+    INC LR2 1 ; B normalize ;;
+normalized:
+    INC LR3 128 ; B head ;;
 next_group:
-    ADD LR1 LR1 {{ cr.agroup }} ; ADD LR2 LR2 {{ cr.bgroup }} ; DEC LR3 1 ;;
-    BNE LR3 CR0 group ;;
+    ADD LR1 LR1 {{ cr.rhs_group }} ;;
+    BLT.S LR1 {{ cr.rhs_end }} group ;;
     HALT ;;
-store_full:
-    {{ output('L') }}
-    SUB LR10 LR10 {{ cr.astrides }}.H ;;
-    INC LR10 1 ; B tile ;;
