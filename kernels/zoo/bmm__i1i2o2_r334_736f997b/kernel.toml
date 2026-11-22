@@ -3,54 +3,52 @@ op = "bmm"
 formats = ["e2"]
 
 [params]
-b = {type="int", min=1, max=4096, default=6}
-k = {type="int", min=1, max=4096, default=64}
-m = {type="int", min=1, max=512, default=257}
-n = {type="int", min=1, max=512, default=257}
-in0_d0 = {type="int", min=1, max=4096, default=1}
-in0_d1 = {type="int", min=1, max=512, default=257}
-in0_d2 = {type="int", min=1, max=4096, default=384}
-in1_d0 = {type="int", min=1, max=4096, default=1}
-in1_d1 = {type="int", min=1, max=512, default=257}
-in1_d2 = {type="int", min=1, max=4096, default=384}
-out0_d0 = {type="int", min=1, max=4096, default=1}
-out0_d1 = {type="int", min=1, max=4096, default=6}
-out0_d2 = {type="int", min=1, max=512, default=257}
-out0_d3 = {type="int", min=1, max=512, default=257}
+b = {type="int", min=1, max=1048576, default=6}
+k = {type="int", min=1, max=16384, default=64}
+m = {type="int", min=1, max=16384, default=257}
+n = {type="int", min=1, max=16384, default=257}
+in0_d0 = {type="int", min=1, max=16384, default=1}
+in0_d1 = {type="int", min=1, max=16384, default=257}
+in0_d2 = {type="int", min=1, max=2097152, default=384}
+in1_d0 = {type="int", min=1, max=16384, default=1}
+in1_d1 = {type="int", min=1, max=16384, default=257}
+in1_d2 = {type="int", min=1, max=2097152, default=384}
+out0_d0 = {type="int", min=1, max=16384, default=1}
+out0_d1 = {type="int", min=1, max=16384, default=6}
+out0_d2 = {type="int", min=1, max=16384, default=257}
+out0_d3 = {type="int", min=1, max=16384, default=257}
 
 [inputs.in0]
 shape = ["in0_d0", "in0_d2", "ceil(in0_d1/128)*128"]
-range = [-1, 1]
+range = [-2, 2]
 [inputs.in1]
-shape = ["in1_d0", "in1_d1", "ceil(in1_d2/128)*128"]
-range = [-1, 1]
+shape = ["in1_d0", "in1_d1", "bc*128"]
+range = [-2, 2]
 [outputs.out0]
-shape = ["out0_d0", "out0_d1", "out0_d3", "ceil(out0_d2/128)*128"]
+shape = ["out0_d0", "out0_d1", "out0_d3", "mc*128"]
 [derived]
 bc = "ceil(in1_d2/128)"
-head_chunks = "(out0_d1*k)//128"
-bstride = "bc + ((in1_d1*bc*min(in1_d0-1,1)-head_chunks)%65536)*65536"
-mc = "ceil(m/128)"
-a_head = "k*mc"
-a_adjust = "in0_d2*mc*min(in0_d0-1,1)-out0_d1*a_head"
-ds = "ds(128) + ds((m-1)%128+1)*65536"
-groups = "b//out0_d1"
+mc = "ceil(out0_d2/128)"
+m_tiles = "m + 65536*mc"
+k_heads = "k + 65536*out0_d1"
+n_groups = "n + 65536*out0_d0"
+a_adjust = "(in0_d2*min(in0_d0-1,1)-out0_d1*k)*mc"
+b_group = "in1_d1*bc*min(in1_d0-1,1)"
+dsfull = "ds(128) + 65536*ds((out0_d2-1)%128+1)"
 
 [abi]
 in0 = "CR2"
 in1 = "CR3"
 out0 = "CR4"
-a_adjust = "CR5"
-k = "CR6"
-a_head = "CR7"
-n = "CR8"
-bstride = "CR10"
-qf_in0 = "CR11"
-qf_in1 = "CR12"
-qf_out0 = "CR13"
-mc = "CR14"
-ds = "CR15"
-groups = "LR5"
-out0_d1 = "LR6"
+qf_in0 = "CR6"
+qf_in1 = "CR7"
+qf_out0 = "CR8"
+dsfull = "CR9"
+bc = "CR10"
+m_tiles = "CR11"
+k_heads = "CR12"
+n_groups = "CR13"
+a_adjust = "CR14"
+b_group = "CR15"
 
 [cases.default]
