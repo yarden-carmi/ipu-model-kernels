@@ -95,10 +95,11 @@ ic = "ceil(in0_d1 / 128)"
 oc = "ceil(out0_d1 / 128)"
 ds128 = "ds(128)"
 cm1 = "cin - 1"
+first_tap = "2"
 dense = "1 // groups"
 plane_chunks = "1 + dense * (ic - 1)"
-weight_block = "dense * (18 * cin + 2) + (1 - dense) * 20"
-wrows = "weight_block * oc + 1"
+weight_block = "dense * ((14 + 4 * (4 // max(4, cin))) * cin + 2) + (1 - dense) * 19"
+wrows = "weight_block * oc"
 
 [inputs.in0]
 shape = ["in0_d0", "in0_d2", "in0_d3", "ic", 128]
@@ -126,6 +127,7 @@ qf_out0 = "CR9"
 ds128 = "CR10"
 oc = "CR12"
 cm1 = "CR13"
+first_tap = "CR11"
 weight_block = "CR14"
 
 [golden]
