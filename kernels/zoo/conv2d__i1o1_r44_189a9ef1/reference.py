@@ -20,6 +20,16 @@ def _l(res, k, shape, stride, offset):
     return _v(t, shape, stride, offset)
 
 
+def _p(t, shape):
+    """A parameter read at the shape its record read it (a view of it: reshaped, or expanded)."""
+    if list(t.shape) == list(shape):
+        return t
+    n = 1
+    for d in shape:
+        n *= int(d)
+    return t.reshape(tuple(shape)) if t.numel() == n else t.expand(tuple(shape))
+
+
 def _pick(res, k):
     """Result k of a record (one tensor, or a tuple of them)."""
     return res[k] if isinstance(res, (tuple, list)) else res
@@ -39,22 +49,28 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.default(_v(ins[0], [1, 256, 28, 28], [200704, 784, 28, 1], 0), module.weight, None, [2, 2], [1, 1])
+    r0 = aten.conv2d.default(_v(ins[0], [1, 48, 64, 64], [196608, 4096, 64, 1], 0), module.weight, None, [1, 1], [1, 1])
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 256, 14, 14])}
+    return {"out0": _out(op0, [1, 64, 64, 64])}
 # ---- end of the frozen reference ----
 
 
-import torch
-
 def fold(module, **params):
-    w = module.weight.to(torch.float64)
-    co, ci, kh, kw = w.shape
-    rows = torch.zeros(co // 128, 1 + kh * kw * ci, 128, dtype=torch.float64)
-    rows[:, 1:] = w.reshape(co // 128, 128, ci, kh, kw).permute(0, 3, 4, 2, 1).reshape(co // 128, -1, 128)
-    if params.get('bias'):
-        b = getattr(module, 'bias_vec', None)
-        if b is None:
-            b = module.bias
-        rows[:, 0] = b.reshape(-1, 128)
-    return {'weights': rows}
+    weight = module.weight
+    co, ci, kh, kw = weight.shape
+    blocks = (co + 127) // 128
+    panel = (ci + 15) // 16 * 16
+    rows = weight.new_zeros((blocks, 1 + kh * kw * panel, 128))
+    padded = weight.new_zeros((blocks * 128, ci, kh, kw))
+    padded[:co] = weight
+    rows[:, 1:].view(blocks, kh, kw, panel, 128)[:, :, :, :ci] = (
+        padded.view(blocks, 128, ci, kh, kw).permute(0, 3, 4, 2, 1)
+    )
+    if params.get("bias"):
+        bias = getattr(module, "bias_vec", None)
+        if bias is None:
+            bias = module.bias
+        bias_row = weight.new_zeros(blocks * 128)
+        bias_row[:co] = bias.reshape(-1)
+        rows[:, 0] = bias_row.view(blocks, 128)
+    return {"weights": rows}

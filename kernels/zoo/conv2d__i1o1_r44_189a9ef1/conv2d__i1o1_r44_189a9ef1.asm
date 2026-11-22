@@ -1,66 +1,69 @@
-{% macro step(r,n) %}{% for k in range(0,n|abs,255) %}
- {{'INC' if n>=0 else 'DEC'}} {{r}} {{[255,(n|abs)-k]|min}} ;;
-{% endfor %}{% endmacro %}
- SET LR0 CR0 ;;
+{% macro step(r,n) %}
+{% for k in range(0,n|abs,255) %}
+ {{ 'INC' if n > 0 else 'DEC' }} {{ r }} {{ [255,(n|abs)-k]|min }} ;;
+{% endfor %}
+{% endmacro %}
+
+{# LR15 and LR12 select cyclic slots 0 and 1. LR1 is the flat window origin. #}
+ INC LR12 128 ;;
+ {{ step('LR0', -padding) }}
+ {{ step('LR1', -padding * (w + 1)) }}
 oy:
  SET LR2 CR0 ;;
+ {{ step('LR2', -padding) }}
 ox:
  SET LR3 CR0 ; SET LR4 CR0 ;;
 block:
- LD.MULT R0 LR4 {{cr.weights}} ;;
- MULT.VE LR15 {{'CR1' if bias else 'CR0'}} 0 LR15 CR15.L {{cr.qf_in0}}.L ; ACC.ADD.FIRST ; INC LR4 1 ;;
- SET LR5 CR0 ; SET LR14 LR1 ;;
+ LD.MULT.CYCLIC LR4 {{ cr.weights }} LR15 ;;
+ MULT.RC.VE LR15 {{ 'CR1' if bias else 'CR0' }} 0 LR15 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; SET LR5 CR0 ; SET LR14 LR1 ; INC LR4 1 ;;
 ky:
  SET LR6 CR0 ;;
 kx:
  ADD LR7 LR0 LR5 ; ADD LR8 LR2 LR6 ;;
- {{step('LR7',-padding)}}{{step('LR8',-padding)}}
  BLT.S LR7 CR0 skip ;;
- BGE.S LR7 {{cr.h}} skip ;;
+ BGE.S LR7 {{ cr.h }} skip ;;
  BLT.S LR8 CR0 skip ;;
- BGE.S LR8 {{cr.w}} skip ;;
- ADD LR9 LR14 LR6 ;;
- {{step('LR9',-padding*w-padding)}}
- SET LR10 LR9 ;;
- {% for i in range((cin+127)//128-1) %}
- ADD LR9 LR9 LR10 ;;
- {% endfor %}
- LD.MULT R0 LR9 {{cr.in0}} ; SET LR11 CR0 ; SET LR10 CR0 ;;
-channel:
- LD.MULT.CYCLIC LR4 {{cr.weights}} LR15 ;;
- MULT.RC.VE LR15 LR11 0 LR15 CR15.L {{cr.qf_in0}}.L ; ACC.ADD ; INC LR4 1 ;;
- INC LR11 1 ; INC LR10 1 ;;
- SET LR12 CR0 ;;
- {{step('LR12',cin)}}
- BGE.S LR10 LR12 next ;;
- SET LR12 CR0 ;;
- INC LR12 128 ;;
- BLT.S LR11 LR12 channel ;;
+ BGE.S LR8 {{ cr.w }} skip ;;
+ ADD LR9 LR14 LR6 ; SET LR10 {{ cr.panel }} ;;
+{% if chunks > 1 %}
+ SET LR7 LR9 ;;
+{% for i in range(chunks - 1) %}
+ ADD LR9 LR9 LR7 ;;
+{% endfor %}
+{% endif %}
+chunk:
+ LD.MULT R0 LR9 {{ cr.in0 }} ; SET LR11 CR0 ;;
  INC LR9 1 ;;
- LD.MULT R0 LR9 {{cr.in0}} ; SET LR11 CR0 ;;
- BEQ LR15 CR0 channel ;;
+channels:
+ DEC LR10 16 ;;
+{% for i in range(16) %}
+ LD.MULT.CYCLIC LR4 {{ cr.weights }} LR15 {% if i > 0 %}; INC LR11 1{% endif %} ;;
+ MULT.RC.VE LR15 LR11 0 LR15 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR4 1 ;;
+{% endfor %}
+ INC LR11 1 ; BEQ LR10 CR0 next ;;
+ BLT.S LR11 LR12 channels ;;
+ BEQ LR15 CR0 chunk ;;
 skip:
- {{step('LR4',cin)}}
+ ADD LR4 LR4 {{ cr.panel }} ;;
 next:
- INC LR6 1 ;;
- SET LR12 CR0 ;;
- {{step('LR12',kw)}}
- BLT.S LR6 LR12 kx ;;
- INC LR5 1 ;;
- {{step('LR14',w)}}
- SET LR12 CR0 ;;
- {{step('LR12',kh)}}
- BLT.S LR5 LR12 ky ;;
- ACTIVATE.QUANTIZE identity CR15.L {{cr.qf_out0}}.L {{cr.out0}} LR13 ;;
- INC LR13 1 ; INC LR3 1 ;;
- BLT.S LR3 {{cr.blocks}} block ;;
- {{step('LR1',stride)}}{{step('LR2',stride)}}
- SET LR12 CR0 ;;
- {{step('LR12',((w+2*padding-kw)//stride+1)*stride)}}
- BLT.S LR2 LR12 ox ;;
- {{step('LR1',stride*w-((w+2*padding-kw)//stride+1)*stride)}}
- {{step('LR0',stride)}}
- SET LR12 CR0 ;;
- {{step('LR12',((h+2*padding-kh)//stride+1)*stride)}}
- BLT.S LR0 LR12 oy ;;
+ INC LR6 1 ; SET LR7 CR0 ;;
+ INC LR7 {{ kw }} ;;
+ BLT.S LR6 LR7 kx ;;
+ INC LR5 1 ; SET LR7 CR0 ;;
+ {{ step('LR14', w) }}
+ INC LR7 {{ kh }} ;;
+ BLT.S LR5 LR7 ky ;;
+ INC LR3 1 ;;
+ BLT.S LR3 {{ cr.blocks }} fullstore ;;
+ ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.tail }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR13 ;;
+ INC LR13 1 ; BEQ LR15 CR0 advance ;;
+fullstore:
+ ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.full }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR13 ;;
+ INC LR13 1 ; BEQ LR15 CR0 block ;;
+advance:
+ INC LR1 {{ stride }} ; INC LR2 {{ stride }} ;;
+ BLT.S LR2 {{ cr.xend }} ox ;;
+ {{ step('LR1', stride * (w - wo)) }}
+ INC LR0 {{ stride }} ;;
+ BLT.S LR0 {{ cr.yend }} oy ;;
  HALT ;;
