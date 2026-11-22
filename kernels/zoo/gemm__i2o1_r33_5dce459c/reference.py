@@ -39,29 +39,27 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.linear.default(_v(ins[0], [1, 197, 768], [151296, 768, 1], 0), module.weight, module.bias)
+    r0 = aten.linear.default(_v(ins[0], [1, 256, 384], [98304, 384, 1], 0), module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 197, 768])}
+    return {"out0": _out(op0, [1, 256, 384])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    n, k = int(params['n']), int(params['k'])
-    kp = ((k + 127) // 128) * 128
-    w = module.weight.detach().new_zeros((n, kp))
-    w[:, :k] = module.weight.detach()
-    def split(t):
-        parts = []
-        for _ in range(3):
-            top = t.abs().amax(dim=-1, keepdim=True).clamp_min(1e-30)
-            step = torch.pow(2.0, torch.floor(torch.log2(top)) - 4)
-            hi = torch.round(t / step) * step
-            parts.append(hi)
-            t = t - hi
-        return parts
-    result = {'w': torch.stack(split(w.reshape(n, -1, 128)), dim=2).reshape(-1, 128).contiguous()}
-    if params['bias']:
-        b = w.new_zeros((n, 128))
-        b[:, 0] = module.bias.detach()
-        result['b'] = torch.cat(split(b), dim=0).contiguous()
+    """Split weight chunks and broadcast bias into signed radix-16 planes."""
+    weight = module.weight.detach().double()
+    n, k = weight.shape
+
+    def planes(rows):
+        exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))[1]
+        digits = torch.ldexp(rows.abs(), 16 - exp).round().long().clamp(max=65535)
+        return torch.stack([
+            torch.ldexp(((digits >> shift) & 15) * rows.sign(), exp + shift - 16)
+            for shift in (12, 8, 4, 0)
+        ], dim=-2).reshape(-1, 128).float()
+
+    padded = torch.nn.functional.pad(weight, (0, (-k) % 128))
+    result = {"w": planes(padded.reshape(n, -1, 128))}
+    if params["bias"]:
+        result["b"] = planes(module.bias.detach().double()[:, None].expand(-1, 128))
     return result
