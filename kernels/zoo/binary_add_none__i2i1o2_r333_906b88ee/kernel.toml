@@ -1,78 +1,80 @@
 [kernel]
 op = "binary_add"
-formats = ["e3", "e2", "e4"]
+formats = ["e2", "e3", "e4"]
 [params.broadcast]
 type = "str"
 choices = ["none"]
 default = "none"
+[params.op]
+type = "str"
+choices = ["add"]
+default = "add"
 [params.inner]
 type = "int"
 min = 0
 max = 0
 default = 0
-[params.op]
-type = "str"
-choices = ["add"]
-default = "add"
 [params.numel]
 type = "int"
 min = 1
 max = 16777216
-default = 38400
+default = 98304
 [params.in0_d0]
 type = "int"
 min = 1
-max = 1024
+max = 16777216
 default = 1
 [params.in0_d1]
 type = "int"
 min = 1
-max = 128
-default = 50
+max = 16777216
+default = 256
 [params.in0_d2]
 type = "int"
 min = 1
-max = 16384
-default = 768
+max = 16777216
+default = 384
 [params.in1_d0]
 type = "int"
 min = 1
-max = 1024
+max = 16777216
 default = 1
 [params.in1_d1]
 type = "int"
 min = 1
-max = 128
-default = 50
+max = 16777216
+default = 256
 [params.in1_d2]
 type = "int"
 min = 1
-max = 16384
-default = 768
+max = 16777216
+default = 384
 [params.out0_d0]
 type = "int"
 min = 1
-max = 1024
+max = 16777216
 default = 1
 [params.out0_d1]
 type = "int"
 min = 1
-max = 128
-default = 50
+max = 16777216
+default = 256
 [params.out0_d2]
 type = "int"
 min = 1
-max = 16384
-default = 768
+max = 16777216
+default = 384
 [derived]
 width = "ceil(in0_d2 / 128)"
 rows = "in0_d0 * in0_d1 * width"
 tail = "ds(in0_d2 - (width - 1) * 128)"
+blocks = "ceil(in1_d1 / 128)"
+batch_stride = "in1_d2 * blocks"
 [inputs.in0]
-shape = ["in0_d0", "in0_d1", "ceil(in0_d2 / 128) * 128"]
+shape = ["in0_d0", "in0_d1", "width * 128"]
 range = [-2, 2]
 [inputs.in1]
-shape = ["in1_d0", "in1_d2", 128]
+shape = ["in1_d0", "in1_d2", "blocks * 128"]
 range = [-2, 2]
 [outputs.out0]
 shape = ["out0_d0", "out0_d1", "ceil(out0_d2 / 128) * 128"]
@@ -84,10 +86,11 @@ qf_in0 = "CR5"
 qf_in1 = "CR6"
 qf_out0 = "CR7"
 rows = "CR8"
-width = "CR9"
+blocks = "CR9"
 tail = "CR10"
 in0_d1 = "CR11"
 in0_d2 = "CR12"
+batch_stride = "CR13"
 [golden]
-tolerance = { e3 = "EXACT", e2 = "EXACT", e4 = "EXACT" }
+tolerance = { e2 = "EXACT", e3 = "EXACT", e4 = "EXACT" }
 [cases.default]
