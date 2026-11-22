@@ -59,7 +59,7 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    """Pack bias and reduction vectors in tile order as signed radix-16 planes."""
+    """Pack bias and reduction vectors in tile order as signed radix-64 planes."""
     weight = module.weight.detach().double()
     n, k = weight.shape
     bias = module.bias.detach().double() if params["s0_bias"] else weight.new_zeros(n)
@@ -68,8 +68,8 @@ def fold(module, **params):
     rows = rows.reshape(-1, 128, k + 1).transpose(1, 2)
     exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))[1]
     digits = torch.ldexp(rows.abs(), 12 - exponent).round().long().clamp(max=4095)
-    planes = [torch.ldexp(((digits >> shift) & 15) * rows.sign(), exponent + shift - 12)
-              for shift in (8, 4, 0)]
+    planes = [torch.ldexp(((digits >> shift) & 63) * rows.sign(), exponent + shift - 12)
+              for shift in (6, 0)]
     packed = torch.stack(planes, dim=2).reshape(-1, 128).float()
     # The lookahead load on the last MAC may land past the final tile.
     return {"w": torch.nn.functional.pad(packed, (0, 0, 0, 1))}

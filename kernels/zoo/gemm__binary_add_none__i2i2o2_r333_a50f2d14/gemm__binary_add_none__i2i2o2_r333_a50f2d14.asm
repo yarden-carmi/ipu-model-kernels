@@ -2,8 +2,8 @@
 {% set rtiles = (in1_d2 + 127) // 128 %}
 {% set chunks = (s0_k + 127) // 128 %}
 {% macro dot(s, stream=false) %}
-{% for i in range(3) %}
-    MULT.RC.VE LR0 {{s}} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; LD.MULT.CYCLIC LR14 {{ cr.w }} LR0 ; INC LR14 1 {% if stream and i == 0 %}; INC LR3 1{% endif %}{% if stream and i == 2 %}; BNE LR3 LR4 lane{% endif %} ;;
+{% for i in range(2) %}
+    MULT.RC.VE LR0 {{s}} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; LD.MULT.CYCLIC LR14 {{ cr.w }} LR0 ; INC LR14 1 {% if stream and i == 0 %}; INC LR3 1{% endif %}{% if stream and i == 1 %}; BNE LR3 LR4 lane{% endif %} ;;
 {% endfor %}
 {% endmacro %}
 {% macro store(ds) %}
