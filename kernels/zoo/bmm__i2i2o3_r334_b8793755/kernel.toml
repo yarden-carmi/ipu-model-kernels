@@ -2,90 +2,56 @@
 op = "bmm"
 formats = ["e2"]
 
-[params.b]
-type = "int"
-min = 1
-max = 256
-default = 8
-[params.k]
-type = "int"
-min = 1
-max = 4096
-default = 64
-[params.m]
-type = "int"
-min = 1
-max = 4096
-default = 64
-[params.n]
-type = "int"
-min = 1
-max = 128
-default = 64
-[params.in0_d0]
-type = "int"
-min = 1
-max = 1
-default = 1
-[params.in0_d1]
-type = "int"
-min = 1
-max = 4096
-default = 64
-[params.in0_d2]
-type = "int"
-min = 1
-max = 65536
-default = 512
-[params.in1_d0]
-type = "int"
-min = 1
-max = 1
-default = 1
-[params.in1_d1]
-type = "int"
-min = 1
-max = 128
-default = 64
-[params.in1_d2]
-type = "int"
-min = 1
-max = 65536
-default = 512
+[params]
+b = {type="int", min=1, max=32767, default=8}
+k = {type="int", min=1, max=32640, default=64}
+m = {type="int", min=1, max=32767, default=64}
+n = {type="int", min=1, max=128, default=64}
+in0_d0 = {type="int", min=1, max=65535, default=1}
+in0_d1 = {type="int", min=1, max=32767, default=64}
+in0_d2 = {type="int", min=1, max=65535, default=512}
+in1_d0 = {type="int", min=1, max=65535, default=1}
+in1_d1 = {type="int", min=1, max=128, default=64}
+in1_d2 = {type="int", min=1, max=65535, default=512}
+out0_d0 = {type="int", min=1, max=65535, default=1}
+out0_d1 = {type="int", min=1, max=32767, default=8}
+out0_d2 = {type="int", min=1, max=32767, default=64}
+out0_d3 = {type="int", min=1, max=128, default=64}
+
 [inputs.in0]
-shape = ["in0_d0", "in0_d1", "in0_d2"]
-range = [-2, 2]
+shape = ["in0_d0", "in0_d1", "astride*128"]
+range = [-1, 1]
 [inputs.in1]
-shape = ["in1_d0", "in1_d1", "in1_d2"]
-range = [-2, 2]
-[scratch.trans]
-shape = ["b*k", 128]
+shape = ["in1_d0", "in1_d1", "bstride*128"]
+range = [-1, 1]
 [outputs.out0]
-shape = [1, "b", "m", "n"]
+shape = ["out0_d0", "out0_d1", "out0_d2", 128]
 
 [derived]
-arows = "ceil(in0_d2/128)"
-brows = "ceil(in1_d2/128)"
-total = "b*k"
-dsfull = "ds(128)"
-dsout = "ds(n)"
+astride = "ceil(in0_d2/128)"
+bstride = "ceil(in1_d2/128)"
+strides = "astride+65536*bstride"
+sizes = "m+65536*n"
+counts = "out0_d1+65536*(b//out0_d1)"
+ds = "ds(out0_d3)+65536*ds(1)"
+dot_ds = "ds(min(k,128))"
+askip = "in0_d1*astride-(out0_d1*k)//128"
+bskip = "in1_d1*bstride-(out0_d1*k)//128"
 
 [abi]
 in0 = "CR2"
 in1 = "CR3"
 out0 = "CR4"
-b = "CR5"
-k = "CR6"
-m = "CR7"
-n = "CR8"
-arows = "CR9"
-dsout = "CR10"
-qf_in0 = "CR11"
-qf_in1 = "CR12"
-qf_out0 = "CR13"
-dsfull = "CR14"
-trans = "CR15"
-brows = "LR4"
-total = "LR10"
+dot_ds = "CR5"
+qf_in0 = "CR6"
+qf_in1 = "CR7"
+qf_out0 = "CR8"
+ds = "CR9"
+k = "CR10"
+sizes = "CR11"
+strides = "CR12"
+counts = "CR13"
+askip = "CR14"
+bskip = "CR15"
 
 [cases.default]
