@@ -50,13 +50,10 @@ planes = "8"
 
 [inputs.in0]
 shape = ["in0_d0", "in0_d1"]
-range = [-2, 2]
 [inputs.w]
 shape = ["tiles * chunks * planes * 128", 128]
-range = [-2, 2]
 [inputs.b]
 shape = ["tiles * planes", 128]
-range = [-2, 2]
 when = "bias"
 [outputs.out0]
 shape = ["out0_d0", "out0_d1"]
@@ -75,6 +72,4 @@ tail = "CR11"
 groups = "CR13"
 planes = "CR14"
 
-[golden]
-tolerance = { e3 = "NX8_STEP" }
 [cases.default]

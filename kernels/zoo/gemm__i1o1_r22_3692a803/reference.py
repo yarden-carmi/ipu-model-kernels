@@ -56,15 +56,15 @@ def reference(module, *ins, _round=None, **params):
 
 
 def _planes(rows):
-    """Represent each row as signed two-bit digits, most significant first."""
+    """Split each row into signed two-bit digits at its shared exponent."""
     _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
-    digits = torch.round(torch.ldexp(rows.abs().double(), 16 - exponent)).long().clamp(max=65535)
+    digits = torch.ldexp(rows.abs().double(), 16 - exponent).round().long().clamp(max=65535)
     return [torch.ldexp(((digits >> shift) & 3).to(rows.dtype) * rows.sign(), exponent + shift - 16)
             for shift in range(14, -1, -2)]
 
 
 def fold(module, **params):
-    """Pack weights in output-tile, input-chunk, digit-plane, input-lane order."""
+    """Pack weights by output tile, input chunk, digit plane, then input lane."""
     n, k = int(params['n']), int(params['k'])
     tiles, chunks = (n + 127) // 128, (k + 127) // 128
     source = module.weight.detach().reshape(n, k)
