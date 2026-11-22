@@ -18,9 +18,9 @@
  {% if cyclic %}LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
  {% else %}LD.MULT R0 LR1 {{ cr.tmp }} ;;{% endif %}
 {% endmacro %}
-{% macro split(reg, count, ds=full) %}
+{% macro split(reg, count) %}
  {% for p in range(count) %}
- ACTIVATE.QUANTIZE identity {{ ds }} {{ q }} {{ cr.tmp }} {{ reg }} ;;
+ ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} {{ reg }} ;;
  {% if not loop.last %}
  LD.MULT R0 {{ reg }} {{ cr.tmp }} ;;
  {{ vec('SUB') }}
@@ -45,14 +45,12 @@
 {% endmacro %}
 {% macro square_sum(ds) %}
  {% for a,b in [(0,0),(0,1),(1,1)] %}
- {% if loop.first or a == b and a == 1 %}
- LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;
- {% endif %}
+ {% if a == b %}LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;{% endif %}
  LD.MULT R0 LR9 {{ cr.tmp }} ;;
  {% for j in range(2 if a != b else 1) %}
  MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ ds }} ;;
  {% endfor %}
- {% if loop.first or loop.last %}INC LR9 1 ;;{% endif %}
+ {% if a == b %}INC LR9 1 ;;{% endif %}
  {% endfor %}
 {% endmacro %}
 
@@ -92,11 +90,11 @@ variance_tail:
  {{ init('LR1',12) }}
  ACTIVATE.QUANTIZE rsqrt {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
  {{ save(9,3) }}
- {# Keep a split estimate and refine it twice against split variance. #}
  {{ init('LR1',13) }}{{ clear() }}
  ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
  {{ init('LR4',2) }}
 refine:
+ {# Newton step: y <- 1.5*y - 0.5*v*y^3. #}
  {% for i in range(2) %}
  {{ load(12+i,true) }}
  {% for j in range(2) %}{{ load(12+j) }}{{ mul(first=(i==0 and j==0)) }}{% endfor %}
@@ -157,7 +155,7 @@ weight_loop:
  SET LR2 LR6 ;;
  BLT.S LR2 LR13 row_loop ;;
 
- {# Gather residual planes first, preserving precision through the transpose. #}
+{# Gather the residual planes into row-axis tiles before final rounding. #}
 {% macro gather(p) %}
  SET LR6 LR2 ; SET LR8 CR0 ; SET LR11 CR0 ;;
  {% for i in range(p) %}ADD LR6 LR6 LR13 ;;{% endfor %}
@@ -172,7 +170,7 @@ gather{{ p }}:
  BLT.S LR8 LR7 gather{{ p }} ;;
 {% endmacro %}
 
- {{ init('LR2') }}{{ init('LR11') }}{{ init('LR15') }}
+ {{ init('LR2') }}{{ init('LR15') }}
 batch:
  SET LR4 CR0 ; SET LR1 LR2 ; SET LR9 CR0 ;;
 channel:
@@ -211,7 +209,6 @@ tile_ready:
  INC LR1 1 ;;
 same_chunk:
  BLT.S LR9 LR14 channel ;;
- {# Last channel's gather ended at next batch plus K-1. #}
  SUB LR2 LR6 {{ cr.K }} ;;
  INC LR2 1 ;;
  BLT.S LR2 LR13 batch ;;

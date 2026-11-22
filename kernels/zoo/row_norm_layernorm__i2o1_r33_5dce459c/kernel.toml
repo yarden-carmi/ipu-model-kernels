@@ -1,6 +1,6 @@
 [kernel]
 op = "row_norm"
-formats = ["e3"]
+formats = ["e2"]
 
 [params.kind]
 type = "str"
@@ -51,6 +51,7 @@ type = "int"
 min = 1
 max = 4096
 default = 384
+
 [derived]
 K = "ceil(channels / 128)"
 M = "rows * K"
@@ -69,7 +70,7 @@ shape = [3, 128]
 [inputs.epsilon]
 shape = [128]
 [scratch.tmp]
-shape = ["32 + 3 * K", 128]
+shape = ["32 + 2 * K", 128]
 [scratch.normalized]
 shape = ["3 * M", 128]
 [outputs.out0]
@@ -93,6 +94,4 @@ half = "CR13"
 tail = "CR14"
 normalized = "CR11"
 
-[golden]
-tolerance = { e3 = "NX8_STEP" }
 [cases.default]
