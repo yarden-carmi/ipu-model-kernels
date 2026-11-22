@@ -20,6 +20,16 @@ def _l(res, k, shape, stride, offset):
     return _v(t, shape, stride, offset)
 
 
+def _p(t, shape):
+    """A parameter read at the shape its record read it (a view of it: reshaped, or expanded)."""
+    if list(t.shape) == list(shape):
+        return t
+    n = 1
+    for d in shape:
+        n *= int(d)
+    return t.reshape(tuple(shape)) if t.numel() == n else t.expand(tuple(shape))
+
+
 def _pick(res, k):
     """Result k of a record (one tensor, or a tuple of them)."""
     return res[k] if isinstance(res, (tuple, list)) else res
@@ -39,24 +49,21 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.linear.default(_v(ins[0], [1, 256, 384], [98304, 384, 1], 0), module.weight, module.bias)
+    r0 = aten.linear.default(_v(ins[0], [1, 50, 768], [38400, 768, 1], 0), module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 256, 384])}
+    return {"out0": _out(op0, [1, 50, 768])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Split weight chunks and broadcast bias into signed radix-16 planes."""
+    """Pack coarse weights and their residuals in consecutive rows."""
     weight = module.weight.detach().double()
     n, k = weight.shape
 
     def planes(rows):
         exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))[1]
-        digits = torch.ldexp(rows.abs(), 16 - exp).round().long().clamp(max=65535)
-        return torch.stack([
-            torch.ldexp(((digits >> shift) & 15) * rows.sign(), exp + shift - 16)
-            for shift in (12, 8, 4, 0)
-        ], dim=-2).reshape(-1, 128).float()
+        coarse = torch.ldexp(torch.ldexp(rows, 5 - exp).round(), exp - 5)
+        return torch.stack((coarse, rows - coarse), dim=-2).reshape(-1, 128).float()
 
     padded = torch.nn.functional.pad(weight, (0, (-k) % 128))
     result = {"w": planes(padded.reshape(n, -1, 128))}
