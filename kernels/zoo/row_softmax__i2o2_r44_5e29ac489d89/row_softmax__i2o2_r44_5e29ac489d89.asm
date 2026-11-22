@@ -10,25 +10,23 @@
 {% macro clear() %}
     MULT.VE LR0 CR0 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ;;
 {% endmacro %}
-{# Synthesize count * 2^-power using unity, without folded constants. #}
-{% macro coefficient(power, count, slot) %}
+{# Construct dyadic coefficients without folded tensors. #}
+{% macro coefficient(p,c,s) %}
 {{ addr('LR1',7) }}
     LD.MULT R0 LR1 {{ cr.tmp }} ;;
 {{ clear() }}
-{{ addr('LR6',power) }}
-pow_{{ slot }}:
-    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB ;;
-    DEC LR6 1 ;;
-    BNE LR6 CR0 pow_{{ slot }} ;;
-{{ addr('LR1',slot) }}
+{{ addr('LR6',p) }}
+pow_{{ s }}:
+    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB ; DEC LR6 1 ;;
+    BNE LR6 CR0 pow_{{ s }} ;;
+{{ addr('LR1',s) }}
     ACTIVATE.QUANTIZE exp2 {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
     LD.MULT R0 LR1 {{ cr.tmp }} ;;
 {{ clear() }}
-{{ addr('LR6',count) }}
-num_{{ slot }}:
-    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD ;;
-    DEC LR6 1 ;;
-    BNE LR6 CR0 num_{{ slot }} ;;
+{{ addr('LR6',c) }}
+num_{{ s }}:
+    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; DEC LR6 1 ;;
+    BNE LR6 CR0 num_{{ s }} ;;
     ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
 {% endmacro %}
     SET LR0 CR0 ;;
@@ -50,8 +48,8 @@ num_{{ slot }}:
     INC LR13 128 ;;
     SET LR2 CR0 ;;
 batch:
-    SET LR3 CR0 ;;
-    SET LR8 {{ cr.K }} ;;
+    {# Each lane owns a complete softmax row. Advance by K to visit its columns. #}
+    SET LR3 CR0 ; SET LR8 {{ cr.K }} ;;
     DEC LR8 1 ;;
     BEQ LR3 LR8 tail_tile ;;
 full_tile:
@@ -65,19 +63,16 @@ full_tile:
 {{ tag }}_max:
     ADD LR4 LR4 {{ cr.K }} ;;
     LD.MULT R0 LR4 {{ cr.in0 }} ;;
-    MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ q }} ; ACC.MAX ;;
-    DEC LR6 1 ;;
+    MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ q }} ; ACC.MAX ; DEC LR6 1 ;;
     BNE LR6 CR0 {{ tag }}_max ;;
 {{ tag }}_max_done:
     ACTIVATE.QUANTIZE identity {{ ds }} {{ q }} {{ cr.tmp }} LR0 ;;
     LD.MULT R0 LR0 {{ cr.tmp }} ;;
-    MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ q }} ; ACC.SUB ;;
-    SET LR1 CR1 ;;
+    MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ q }} ; ACC.SUB ; SET LR1 CR1 ;;
     ACTIVATE.QUANTIZE identity {{ ds }} {{ q }} {{ cr.tmp }} LR1 ;;
     LD.MULT.CYCLIC LR0 {{ cr.tmp }} LR11 ;;
     LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR12 ;;
-    ADD LR4 LR2 LR3 ;;
-    SET LR5 CR0 ;;
+    ADD LR4 LR2 LR3 ; SET LR5 CR0 ;;
 {{ tag }}_exp:
     LD.MULT R0 LR4 {{ cr.in0 }} ;;
 {% for slot in range(8,12) %}
@@ -96,8 +91,7 @@ full_tile:
     LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
     LD.MULT R0 LR5 {{ cr.roots }} ;;
     MULT.RC.VV LR0 R0 0 LR0 {{ ds }} {{ root }} ; ACC.ADD.FIRST ;;
-    ACTIVATE.QUANTIZE identity {{ ds }} {{ root }} {{ cr.roots }} LR5 ;;
-    ADD LR4 LR4 {{ cr.K }} ;;
+    ACTIVATE.QUANTIZE identity {{ ds }} {{ root }} {{ cr.roots }} LR5 ; ADD LR4 LR4 {{ cr.K }} ;;
     INC LR5 1 ;;
     BLT.S LR5 LR15 {{ tag }}_exp ;;
 
@@ -105,19 +99,17 @@ full_tile:
 {{ clear() }}
 {{ tag }}_sum:
     LD.MULT.CYCLIC LR5 {{ cr.roots }} LR0 ;;
-    MULT.RC.VS LR0 0 LR0 {{ ds }} {{ root }} ; ACC.ADD ;;
-    INC LR5 1 ;;
+    MULT.RC.VS LR0 0 LR0 {{ ds }} {{ root }} ; ACC.ADD ; INC LR5 1 ;;
     BLT.S LR5 LR15 {{ tag }}_sum ;;
 {{ addr('LR1',2) }}
     ACTIVATE.QUANTIZE identity {{ ds }} {{ work }} {{ cr.tmp }} LR1 ;;
     ACTIVATE.QUANTIZE reciprocal {{ ds }} {{ work }} {{ cr.tmp }} LR0 ;;
     LD.MULT.CYCLIC LR0 {{ cr.tmp }} LR13 ;;
     LD.MULT R0 LR1 {{ cr.tmp }} ;;
-    MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ work }} ; ACC.SUB ;;
-{{ addr('LR1',3) }}
+    MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ work }} ; ACC.SUB ; INC LR1 1 ;;
     ACTIVATE.QUANTIZE identity {{ ds }} {{ work }} {{ cr.tmp }} LR1 ;;
     LD.MULT R1 LR1 {{ cr.tmp }} ;;
-{# Newton residual: 1 - r * sum. #}
+{# One Newton correction of the quantized reciprocal. #}
 {{ addr('LR1',7) }}
     LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR11 ;;
     MULT.RC.VE LR11 CR1 0 LR0 {{ ds }} {{ q }} ; ACC.ADD.FIRST ;;
@@ -128,9 +120,7 @@ full_tile:
     MULT.RC.VV LR13 R0 0 LR0 {{ ds }} {{ work }} ; ACC.ADD.FIRST ;;
     ACTIVATE.QUANTIZE identity {{ ds }} {{ work }} {{ cr.tmp }} LR0 ;;
     LD.MULT.CYCLIC LR0 {{ cr.tmp }} LR11 ;;
-
-    ADD LR4 LR2 LR3 ;;
-    SET LR5 CR0 ;;
+    ADD LR4 LR2 LR3 ; SET LR5 CR0 ;;
 {{ addr('LR1',13) }}
     LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR12 ;;
 {{ tag }}_out:
@@ -148,8 +138,7 @@ full_tile:
     MULT.RC.VV LR11 R0 0 LR0 {{ ds }} {{ work }} ; ACC.ADD ;;
     MULT.RC.VV LR11 R1 0 LR0 {{ ds }} {{ work }} ; ACC.ADD ;;
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ qo }} {{ cr.out0 }} LR4 ;;
-    ADD LR4 LR4 {{ cr.K }} ;;
-    INC LR5 1 ;;
+    ADD LR4 LR4 {{ cr.K }} ; INC LR5 1 ;;
     BLT.S LR5 LR15 {{ tag }}_out ;;
 {% endmacro %}
 {{ tile('full',full) }}
