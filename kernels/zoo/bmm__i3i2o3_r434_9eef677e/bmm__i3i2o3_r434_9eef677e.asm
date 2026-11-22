@@ -1,5 +1,5 @@
-{# Accumulate one output row along N. An unaligned head reads a second
-   physical RHS row only if its active lanes cross the boundary. #}
+{# Accumulate an output row across N. Cyclic loads align the head's
+   columns and merge a second physical row when the head straddles two. #}
 {% macro reduce(tag, split) %}
 {{ tag }}:
     LD.MULT.CYCLIC LR11 {{ cr.in1 }} LR6 ;;
