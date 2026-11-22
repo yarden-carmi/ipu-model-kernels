@@ -1,0 +1,70 @@
+[kernel]
+op = "bmm__binary_mul_scalar__row_softmax"
+formats = ["e2"]
+
+[params]
+s0_b = {type="int", min=1, max=65535, default=12}
+s0_k = {type="int", min=1, max=128, default=32}
+s0_m = {type="int", min=1, max=65535, default=256}
+s0_n = {type="int", min=1, max=65535, default=256}
+s1_broadcast = {type="str", choices=["scalar"], default="scalar"}
+s1_const = {type="int", min=1, max=1, default=1}
+s1_inner = {type="int", min=0, max=0, default=0}
+s1_numel = {type="int", min=1, max=2147483647, default=786432}
+s1_op = {type="str", choices=["mul"], default="mul"}
+s2_n = {type="int", min=1, max=65535, default=256}
+s2_rows = {type="int", min=1, max=2147483647, default=3072}
+in0_d0 = {type="int", min=1, max=65535, default=1}
+in0_d1 = {type="int", min=1, max=65535, default=256}
+in0_d2 = {type="int", min=1, max=65535, default=384}
+in1_d0 = {type="int", min=1, max=65535, default=1}
+in1_d1 = {type="int", min=1, max=65535, default=256}
+in1_d2 = {type="int", min=1, max=65535, default=384}
+out0_d0 = {type="int", min=1, max=65535, default=1}
+out0_d1 = {type="int", min=1, max=65535, default=12}
+out0_d2 = {type="int", min=1, max=65535, default=256}
+out0_d3 = {type="int", min=1, max=65535, default=256}
+
+[derived]
+ar = "ceil(in0_d1 / 128)"
+bc = "ceil(in1_d1 / 128)"
+strides = "ar + 65536 * bc"
+heads = "out0_d0 * out0_d1"
+ds_pair = "ds(128) + 65536 * ds((out0_d2 - 1) % 128 + 1)"
+scratch_qf = "280 + 65536 * 72"
+center_qf = "328"
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d2", "ar", 128]
+range = [-1, 1]
+[inputs.in1]
+shape = ["in1_d0", "in1_d2", "bc", 128]
+range = [-1, 1]
+[outputs.out0]
+shape = ["out0_d0", "out0_d1", "out0_d3", "ar", 128]
+[scratch.tmp]
+shape = [8, 128]
+[scratch.logits]
+shape = ["2 * s2_n", 128]
+[scratch.exps]
+shape = ["s2_n", 128]
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+tmp = "CR5"
+logits = "CR6"
+exps = "CR7"
+ds_pair = "CR8"
+scratch_qf = "CR9"
+qf_in0 = "CR10"
+center_qf = "CR11"
+qf_out0 = "CR12"
+s0_k = "CR13"
+strides = "CR14"
+qf_in1 = "CR15"
+heads = "LR14"
+s2_n = "LR15"
+
+[cases.default]
