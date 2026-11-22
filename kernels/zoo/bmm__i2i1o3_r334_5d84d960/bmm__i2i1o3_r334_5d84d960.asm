@@ -1,60 +1,53 @@
 {% macro product(first) %}
-    LD.MULT.CYCLIC LR7 {{ cr.in1 }} LR0 ; INC LR9 1 ;;
-    MULT.RC.VE LR0 LR8 0 LR0 {{ cr.dsout }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{% if first %}.FIRST{% endif %} ; ADD LR7 LR7 {{ cr.brows }} ;;
+    LD.MULT.CYCLIC LR7 {{ cr.in1 }} LR0 ; DEC LR9 1 ;;
+    MULT.RC.VE LR0 LR8 0 LR0 {{ cr.ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{{ '.FIRST' if first else '' }} ; ADD LR7 LR7 {{ cr.strides }}.H ; BEQ LR9 CR0 tile_done ;;
+    INC.MODP2 LR8 CR1 7 ;;
 {% endmacro %}
-{% macro output(half) %}
-    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.dsout }}.{{ half }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR10 ;;
+{% macro store(half) %}
+    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.ds }}.{{ half }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR10 ;;
+    INC LR10 1 ;;
 {% endmacro %}
-    SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
-    SET LR3 CR0 ; SET LR10 CR0 ; SET LR11 CR0 ;;
-    SET LR15 CR0 ;;
+
+    SET LR0 CR0 ; SET LR10 CR0 ; SET LR11 CR0 ;;
+    SET LR15 CR0 ; SET LR14 {{ cr.out0_d0 }} ;;
+group:
+    SET LR1 LR15 ; SET LR2 LR11 ; SET LR3 CR0 ;;
+    SET LR13 {{ cr.reduce_heads }}.H ;;
 head:
-    SET LR4 CR0 ; SET LR5 LR1 ;;
+    SET LR4 {{ cr.rows_tiles }}.L ; SET LR5 LR1 ;;
 row:
     SET LR6 CR0 ;;
 tile:
-    ADD LR7 LR2 LR6 ; SET LR8 LR3 ; SET LR9 CR0 ;;
+    ADD LR7 LR2 LR6 ; SET LR8 LR3 ; SET LR9 {{ cr.reduce_heads }}.L ;;
     SET LR12 LR5 ;;
     LD.MULT R0 LR12 {{ cr.in0 }} ;;
     {{ product(true) }}
-    B advance ;;
-reload_a:
+    BNE LR8 CR0 reduce ;;
+reload:
     INC LR12 1 ;;
     LD.MULT R0 LR12 {{ cr.in0 }} ;;
-inner:
+reduce:
     {{ product(false) }}
-advance:
-    INC.MODP2 LR8 CR1 7 ;;
-    BGE.S LR9 {{ cr.k }} store ;;
-    BEQ LR8 CR0 reload_a ;;
-    B inner ;;
-store:
+    BNE LR8 CR0 reduce ;;
+    B reload ;;
+tile_done:
     INC LR6 1 ;;
-    BLT.S LR6 {{ cr.nchunks }} store_full ;;
-    {{ output('H') }}
-    B stored ;;
-store_full:
-    {{ output('L') }}
-stored:
-    INC LR10 1 ;;
-    BLT.S LR6 {{ cr.nchunks }} tile ;;
-    ADD LR5 LR5 {{ cr.arows }} ; INC LR4 1 ;;
-    BLT.S LR4 {{ cr.m }} row ;;
-
-    # LR7 is past the last reduction row, still at the last N tile.
-    SUB LR2 LR7 LR6 ; INC LR11 1 ; INC LR15 1 ;;
-    INC LR2 1 ;;
-    BGE.S LR11 {{ cr.b }} done ;;
-    BEQ LR15 {{ cr.out0_d1 }} next_batch ;;
-    ADD LR3 LR3 {{ cr.k }} ; SET LR12 CR0 ;;
-    INC LR12 128 ;;
+    BEQ LR6 {{ cr.rows_tiles }}.H last_tile ;;
+    {{ store('L') }}
+    B tile ;;
+last_tile:
+    {{ store('H') }}
+    ADD LR5 LR5 {{ cr.strides }}.L ; DEC LR4 1 ;;
+    BNE LR4 CR0 row ;;
+    DEC LR13 1 ; ADD LR3 LR3 {{ cr.reduce_heads }}.L ; ADD LR2 LR2 {{ cr.b_head }} ;;
+    BEQ LR13 CR0 group_done ;;
+    SET LR8 CR0 ;;
+    INC LR8 128 ;;
 normalize:
-    BLT.S LR3 LR12 head ;;
-    SUB LR3 LR3 LR12 ; INC LR1 1 ;;
+    BLT.S LR3 LR8 head ;;
+    DEC LR3 128 ; INC LR1 1 ;;
     B normalize ;;
-next_batch:
-    ADD LR1 LR5 LR13 ; ADD LR2 LR2 LR14 ; SET LR3 CR0 ;;
-    SET LR15 CR0 ;;
-    B head ;;
-done:
+group_done:
+    ADD LR15 LR15 {{ cr.a_group }} ; ADD LR11 LR11 {{ cr.b_group }} ; DEC LR14 1 ;;
+    BNE LR14 CR0 group ;;
     HALT ;;
