@@ -1,6 +1,8 @@
 {% set act = 'generic' if act_out0 == 'silu' else act_out0 %}
 {% set full_copy = n // 128 %}
 {% set blocks = (out0_d1 + 127) // 128 - full_copy %}
+{% set paired = m % 128 == 64 %}
+{% set pipelined = m % 64 == 0 %}
 
 {% macro store(fn, base, row) %}
     ACTIVATE.QUANTIZE {{ fn }} {{ cr.full }}.L {{ cr.qf_out0 }}.L {{ base }} {{ row }} ;;
@@ -8,6 +10,26 @@
 {% macro copy_add(acc) %}
     LD.MULT R0 LR2 {{ cr.in1 }} ;;
     MULT.VE LR0 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in1 }}.L ; {{ acc }} ; INC LR2 1 ;;
+{% endmacro %}
+# Keep the coarse preload live across the backedge. The final group
+# suppresses the last preload so it does not read past the weight tensor.
+{% macro tap_group(final) %}
+{% for i in range(8) %}
+{% set odd = paired and i % 2 %}
+{% set row = 'LR14' if odd else 'LR8' %}
+{% set lane = 'LR9' if odd else 'LR5' %}
+{% set stride = (2 * m if paired else m) // 128 %}
+    LD.MULT R0 {{ row }} {{ cr.in0 }}{% if i == 0 and not final %} ; DEC LR10 8{% endif %} ;;
+    MULT.RC.VE LR0 {{ lane }} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC {{ row }} {{ stride }} ; INC LR6 1 ; LD.MULT.CYCLIC LR6 {{ cr.w }} LR11 ;;
+    MULT.RC.VE LR11 {{ lane }} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD
+{% if not final or i < 7 %}
+    ; INC LR6 1 ; LD.MULT.CYCLIC LR6 {{ cr.w }} LR0
+{% endif %}
+{% if i == 7 and not final %}
+    ; BNE LR10 CR0 k_loop
+{% endif %}
+    ;;
+{% endfor %}
 {% endmacro %}
 {% macro mac(i) %}
     LD.MULT R0 LR8 {{ cr.in0 }} ;;
@@ -58,10 +80,23 @@ copy_block:
     SET LR6 CR0 ; SET LR7 CR0 ; SET LR13 CR0 ;;
     INC LR13 {{ blocks }} ; DEC LR6 1 ;;
 gemm_block:
+{% if pipelined %}
+    SET LR8 LR4 ; SET LR10 {{ cr.ki }}{% if paired %} ; SET LR14 LR4{% endif %} ;;
+    DEC LR10 8 ; INC LR6 1 ; LD.MULT.CYCLIC LR6 {{ cr.w }} LR0 ;;
+{% if paired %}
+# The even and odd taps each advance by an integral number of rows.
+    SET LR9 LR5 ; SET LR12 CR0 ;;
+    INC LR12 64 ; INC LR9 64 ;;
+    BLT.S LR5 LR12 pair_ready ;;
+    DEC LR9 128 ; INC LR14 1 ;;
+pair_ready:
+{% endif %}
+{% else %}
     SET LR8 LR4 ; SET LR9 LR5 ; SET LR10 {{ cr.ki }} ;;
 {% if m % 128 %}
     SET LR12 CR0 ;;
     INC LR12 {{ 128 - m % 128 }} ;;
+{% endif %}
 {% endif %}
 {% if bias %}
     {{ bias_add(0, 'ACC.ADD.FIRST') }}
@@ -70,12 +105,17 @@ gemm_block:
     MULT.EE LR0 CR0 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
 {% endif %}
 k_loop:
+{% if pipelined %}
+    {{ tap_group(false) }}
+    {{ tap_group(true) }}
+{% else %}
     INC LR6 1 ; LD.MULT.CYCLIC LR6 {{ cr.w }} LR0 ;;
 {% for i in range(8) %}
     {{ mac(i) }}
 {% endfor %}
     DEC LR10 8 ;;
     BNE LR10 CR0 k_loop ;;
+{% endif %}
 {% if n % 128 %}
     SET LR12 CR0 ;;
     INC LR12 {{ blocks }} ;;
