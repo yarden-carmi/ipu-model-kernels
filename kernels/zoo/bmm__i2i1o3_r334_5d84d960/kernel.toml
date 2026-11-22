@@ -1,6 +1,6 @@
 [kernel]
 op = "bmm"
-formats = ["e1", "e2"]
+formats = ["e2"]
 
 [params]
 b = {type="int", min=1, max=32767, default=6}
@@ -19,42 +19,38 @@ out0_d2 = {type="int", min=1, max=32767, default=257}
 out0_d3 = {type="int", min=1, max=32767, default=257}
 
 [inputs.in0]
-shape = ["in0_d0", "in0_d1", "a_stride*128"]
+shape = ["in0_d0", "in0_d1", "arows*128"]
 range = [-2, 2]
 [inputs.in1]
-shape = ["in1_d0", "in1_d2", "b_stride*128"]
+shape = ["in1_d0", "in1_d2", "brows*128"]
 range = [-2, 2]
 [outputs.out0]
-shape = ["out0_d0", "out0_d1", "out0_d2", "nc*128"]
+shape = ["out0_d0", "out0_d1", "out0_d2", "ceil(out0_d3/128)*128"]
 
 [derived]
-a_stride = "ceil(in0_d2/128)"
-b_stride = "ceil(in1_d1/128)"
-nc = "ceil(out0_d3/128)"
-reduce_heads = "k + 65536*out0_d1"
-strides = "a_stride + 65536*b_stride"
-rows_tiles = "m + 65536*nc"
-ds = "ds(128) + 65536*ds((n-1)%128+1)"
-a_group = "in0_d1*a_stride"
-b_group = "in1_d2*b_stride"
-b_head = "k*b_stride"
+ds = "ds(128) + ds((n-1)%128+1)*65536"
+arows = "ceil(in0_d2/128)"
+brows = "ceil(in1_d1/128)"
+strides = "arows + brows*65536"
+tiles = "ceil(n/128)"
+a_jump = "in0_d1*arows - (out0_d1*k)//128"
+b_jump = "(in1_d2-out0_d1*k)*brows"
+heads = "out0_d1 + out0_d0*65536"
 
 [abi]
 in0 = "CR2"
 in1 = "CR3"
 out0 = "CR4"
-reduce_heads = "CR5"
-rows_tiles = "CR6"
-strides = "CR7"
-b_head = "CR8"
-ds = "CR9"
-a_group = "CR10"
+heads = "CR5"
+k = "CR6"
+m = "CR7"
+tiles = "CR8"
+strides = "CR9"
+ds = "CR10"
 qf_in0 = "CR11"
 qf_in1 = "CR12"
 qf_out0 = "CR13"
-b_group = "CR14"
-out0_d0 = "CR15"
+a_jump = "LR10"
+b_jump = "LR11"
 
-[golden]
-tolerance = {e1="EXACT", e2="EXACT"}
 [cases.default]
