@@ -67,20 +67,20 @@ max = 2147483647
 default = 256
 
 [inputs.in0]
-shape = ["in0_d0 * in0_d1 * in0_d3", "ceil(in0_d2 / 128) * 128"]
+shape = ["groups * chunks", 128]
 range = [-2.0, 2.0]
 [outputs.out0]
-shape = ["groups", "chunks * 128"]
+shape = ["out0_d0 * out0_d1 * out0_d3 * ceil(out0_d2 / 128)", 128]
 
 [derived]
-groups = "out0_d0 * out0_d1 * out0_d3"
-chunks = "ceil(out0_d2 / 128)"
-ds_pair = "ds((out0_d2 - 1) % 128 + 1) + 65536 * ds(128)"
-# The FP32 difference is 1/8; both words decode to unsigned NX8 zero.
-fp_base = "0x43010080"
-fp_scale = "0x43012080"
-# Unsigned e1 with scale zero and 16/128; negligible as FP32.
-nx_scale = "0x00017f90"
+groups = "in0_d0 * in0_d1 * in0_d3"
+chunks = "ceil(in0_d2 / 128)"
+ds_pair = "ds((in0_d2 - 1) % 128 + 1) + ds(128) * 65536"
+# The FP32 difference is 181/1024; both have negligible NX8 scale.
+fp_hi = "0x43012d41"
+fp_lo = "0x43010000"
+# Unsigned e1 scalar; negligible as an FP32 coefficient.
+nx_scale = "0x00017c35"
 
 [abi]
 in0 = "CR2"
@@ -90,8 +90,8 @@ qf_out0 = "CR5"
 groups = "CR6"
 chunks = "CR7"
 ds_pair = "CR8"
-fp_base = "CR9"
-fp_scale = "CR10"
+fp_hi = "CR9"
+fp_lo = "CR10"
 nx_scale = "CR11"
 
 [cases.default]
