@@ -1,9 +1,8 @@
 {% macro load(slot) %}LD.MULT.CYCLIC LR4 {{ cr.w }} {{ slot }} ; INC LR4 1{% endmacro %}
 {% macro mac(slot, scalar, first=false) %}MULT.RC.VE {{ slot }} {{ scalar }} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{% if first %}.FIRST{% endif %}{% endmacro %}
-{% macro mac_triplet(scalar, first=false, next_input=false) %}
-    {{ mac('LR0', scalar, first) }} ; {{ load('LR1') }} ;;
-    {{ mac('LR1', scalar) }} ; {{ load('LR0') }}{% if first %} ; DEC LR12 1{% endif %} ;;
-    {{ mac('LR0', scalar) }}{% if next_input %} ; LD.MULT R0 LR2 {{ cr.in0 }}{% endif %}
+{% macro mac_pair(scalar, first=false, next_input=false) %}
+    {{ mac('LR0', scalar, first) }} ; {{ load('LR1') }}{% if first %} ; DEC LR12 1{% endif %} ;;
+    {{ mac('LR1', scalar) }}{% if next_input %} ; LD.MULT R0 LR2 {{ cr.in0 }}{% endif %}
 {%- endmacro %}
 {% macro store(ds) %}ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR5 ;; INC LR5 1{% endmacro %}
 
@@ -16,14 +15,14 @@ row:
     DEC LR4 1 ;;
 tile:
     SET LR2 LR11 ; SET LR12 {{ cr.k }} ; {{ load('LR0') }} ;;
-    {{ mac_triplet('CR1' if bias else 'CR0', true, true) }} ; BEQ LR12 CR0 reduce_last ;;
+    {{ mac_pair('CR1' if bias else 'CR0', true, true) }} ; BEQ LR12 CR0 reduce_last ;;
     # MULT sees the previous R0 while the load slot fetches the next K row.
 reduce:
     {{ load('LR0') }} ; DEC LR12 1 ; ADD LR2 LR2 {{ cr.pitch }} ;;
-    {{ mac_triplet('LR10', next_input=true) }} ; BNE LR12 CR0 reduce ;;
+    {{ mac_pair('LR10', next_input=true) }} ; BNE LR12 CR0 reduce ;;
 reduce_last:
     {{ load('LR0') }} ;;
-    {{ mac_triplet('LR10') }} ;;
+    {{ mac_pair('LR10') }} ;;
     DEC LR13 1 ;;
     BEQ LR13 CR0 tail ;;
     {{ store(cr.full) }} ; B tile ;;

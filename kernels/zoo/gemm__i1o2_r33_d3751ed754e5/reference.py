@@ -56,7 +56,7 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    """Pack bias and K vectors into three signed radix-16 planes per tile."""
+    """Pack bias and K vectors into two signed radix-64 planes per tile."""
     weight = module.weight.detach().double()
     n, k = weight.shape
     bias = module.bias.detach().double() if params['bias'] else weight.new_zeros(n)
@@ -65,6 +65,6 @@ def fold(module, **params):
     rows = data.reshape(-1, 128, k + 1).transpose(1, 2)
     exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))[1]
     digits = torch.ldexp(rows.abs(), 12 - exp).round().long().clamp(max=4095)
-    planes = [torch.ldexp(((digits >> shift) & 15) * rows.sign(), exp + shift - 12)
-              for shift in (8, 4, 0)]
+    planes = [torch.ldexp(((digits >> shift) & 63) * rows.sign(), exp + shift - 12)
+              for shift in (6, 0)]
     return {'w': torch.stack(planes, dim=2).reshape(-1, 128).float()}
