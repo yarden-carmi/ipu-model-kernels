@@ -9,8 +9,7 @@
     LD.MULT R0 LR0 {{ cr.in1 }} ;;
     MULT.EE LR0 CR0 0 LR0 {{ cr.full }}.L {{ cr.qf_in1 }}.L ; ACC.ADD.FIRST ;;
     ACTIVATE.QUANTIZE exp2 {{ cr.scalar }}.L {{ cr.qf_in0 }}.L {{ cr.s0 }} LR9 ;;
-    # The doubled denominator bypasses the reciprocal's subnormal adjustment.
-    # Keep the larger reciprocal magnitude so the direct path covers overflow of 2*d.
+    # Also try the doubled denominator to avoid reciprocal subnormal adjustment.
     MULT.EE LR0 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in1 }}.L ; ACC.ADD.FIRST ;;
     ACTIVATE.QUANTIZE {{ act_s0 }} {{ cr.scalar }}.L {{ cr.qf_in0 }}.L {{ cr.s0 }} LR4 ;;
     MULT.EE LR0 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ;;
@@ -29,7 +28,7 @@
     LD.MULT R1 LR4 {{ cr.s0 }} ;;
 row:
     LD.MULT.CYCLIC LR1 {{ cr.in0 }} LR0 ;;
-    # Accumulate the negated quotient so ACC.MAX can cap positive overflow.
+    # Negate before clamping positive output overflow.
     MULT.RC.VE LR0 LR0 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.SUB.FIRST ;;
     MULT.RC.VE LR0 LR3 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ;;
     LD.MULT R1 LR9 {{ cr.s0 }} ;;
