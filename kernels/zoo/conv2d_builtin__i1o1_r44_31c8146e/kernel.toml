@@ -1,0 +1,127 @@
+[kernel]
+op = "conv2d_builtin"
+formats = ["e1"]
+
+[params.act_out0]
+type = "str"
+choices = ["relu"]
+default = "relu"
+[params.bias]
+type = "bool"
+default = true
+[params.cin]
+type = "int"
+min = 1
+max = 128
+default = 1
+[params.cout]
+type = "int"
+min = 1
+max = 256
+default = 64
+[params.groups]
+type = "int"
+min = 1
+max = 128
+default = 1
+[params.h]
+type = "int"
+min = 1
+max = 224
+default = 224
+[params.w]
+type = "int"
+min = 1
+max = 224
+default = 224
+[params.kh]
+type = "int"
+choices = [3]
+default = 3
+[params.kw]
+type = "int"
+choices = [3]
+default = 3
+[params.padding]
+type = "int"
+choices = [1]
+default = 1
+[params.stride]
+type = "int"
+min = 1
+max = 2
+default = 1
+[params.in0_d0]
+type = "int"
+min = 1
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 128
+default = 1
+[params.in0_d2]
+type = "int"
+min = 1
+max = 224
+default = 224
+[params.in0_d3]
+type = "int"
+min = 1
+max = 224
+default = 224
+[params.out0_d0]
+type = "int"
+min = 1
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 256
+default = 64
+[params.out0_d2]
+type = "int"
+min = 1
+max = 224
+default = 224
+[params.out0_d3]
+type = "int"
+min = 1
+max = 224
+default = 224
+
+[derived]
+blocks = "ceil(out0_d1 / 128)"
+tap_rows = "2 * in0_d1"
+x_end = "out0_d3 * stride"
+y_end = "out0_d2 * stride"
+full = "ds(128)"
+tail = "ds((out0_d1 - 1) % 128 + 1)"
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d2", "in0_d3", 128]
+range = [-2, 2]
+[inputs.weights]
+shape = ["blocks", "2 + kh * kw * tap_rows", 128]
+range = [-1, 1]
+[outputs.out0]
+shape = ["out0_d0", "out0_d2", "out0_d3", "blocks * 128"]
+
+[abi]
+in0 = "CR2"
+weights = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+in0_d0 = "LR10"
+tail = "CR7"
+blocks = "CR8"
+in0_d1 = "CR9"
+tap_rows = "CR10"
+x_end = "CR11"
+y_end = "CR12"
+full = "CR13"
+
+[cases.default]
+[golden]
+tolerance = { e1 = "NX8_STEP" }
