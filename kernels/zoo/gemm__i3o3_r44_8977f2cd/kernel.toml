@@ -1,0 +1,102 @@
+[kernel]
+op = "gemm"
+formats = ["e1", "e2"]
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 4096
+default = 256
+[params.m]
+type = "int"
+min = 1
+max = 65536
+default = 1024
+[params.n]
+type = "int"
+min = 1
+max = 4096
+default = 96
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 256
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 32
+[params.in0_d3]
+type = "int"
+min = 1
+max = 128
+default = 32
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 96
+[params.out0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 32
+[params.out0_d3]
+type = "int"
+min = 1
+max = 128
+default = 32
+
+[derived]
+chunks = "ceil(k / 128)"
+candidate = "max(1, 128 // in0_d3)"
+pack = "1 + (candidate - 1) * (1 - min(1, in0_d2 % candidate))"
+pixels = "in0_d0 * in0_d2 // pack"
+active = "ds(in0_d3 * pack)"
+lanes128 = "128"
+last = "k - 128 * (chunks - 1) - 1"
+before_full_end = "127"
+weight_rows = "2 * n * (1 + chunks)"
+[inputs.in0]
+shape = ["k * pixels", 128]
+range = [-2, 2]
+[inputs.w]
+shape = ["weight_rows", 128]
+range = [-1, 1]
+when = "bias"
+[inputs.w_unbiased]
+shape = ["2 * chunks * n", 128]
+range = [-1, 1]
+when = "not bias"
+[outputs.out0]
+shape = ["n * pixels", 128]
+
+[abi]
+in0 = "CR2"
+w = "CR3"
+w_unbiased = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+chunks = "CR7"
+pixels = "CR8"
+active = "CR9"
+n = "CR10"
+last = "CR11"
+lanes128 = "CR12"
+before_full_end = "CR13"
+
+[cases.default]
