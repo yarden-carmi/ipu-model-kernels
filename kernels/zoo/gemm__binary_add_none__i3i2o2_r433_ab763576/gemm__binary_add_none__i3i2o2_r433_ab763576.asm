@@ -8,8 +8,9 @@
 {% endfor %}
 {% endmacro %}
 {% macro dot(s, stream=false) %}
-{% for i in range(6) %}
-    MULT.RC.VE {{ 'LR1' if i % 2 else 'LR0' }} {{s}} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; LD.MULT.CYCLIC LR14 {{ cr.w }} {{ 'LR0' if i % 2 else 'LR1' }} ; INC LR14 1 {% if stream and i == 0 %}; INC LR3 1{% endif %}{% if stream and i == 5 %}; BNE LR3 {{ cr.last_lane }} lane{% endif %} ;;
+{% for i in range(5) %}
+{% set next = (i + 1) % 2 if i < 4 else 0 %}
+    MULT.RC.VE {{ 'LR1' if i % 2 else 'LR0' }} {{s}} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; LD.MULT.CYCLIC LR14 {{ cr.w }} {{ 'LR1' if next else 'LR0' }} ; INC LR14 1 {% if stream and i == 0 %}; INC LR3 1{% endif %}{% if stream and i == 4 %}; BNE LR3 {{ cr.last_lane }} lane{% endif %} ;;
 {% endfor %}
 {% endmacro %}
 {% macro store(ds) %}

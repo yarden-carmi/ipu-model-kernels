@@ -59,7 +59,7 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    """Tile the affine coefficients into six signed radix-four planes."""
+    """Tile affine coefficients into five signed digit planes (3, 3, 2, 2, 2 bits)."""
     weight = module.weight.detach()
     n, k = weight.shape
     tiles = (n + 127) // 128
@@ -69,7 +69,8 @@ def fold(module, **params):
     rows = affine.reshape(tiles, 128, k + 1).transpose(1, 2)
     exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))[1]
     digits = torch.ldexp(rows.abs().double(), 12 - exponent).round().long().clamp(max=4095)
-    planes = [torch.ldexp(((digits >> shift) & 3).to(rows.dtype) * rows.sign(),
-                          exponent + shift - 12) for shift in range(10, -1, -2)]
+    planes = [torch.ldexp(((digits >> shift) & mask).to(rows.dtype) * rows.sign(),
+                           exponent + shift - 12)
+              for shift, mask in ((9, 7), (6, 7), (4, 3), (2, 3), (0, 3))]
     # The cyclic load pipeline looks one plane ahead at the end of the row.
     return {"w": torch.nn.functional.pad(torch.stack(planes, dim=2).reshape(-1, 128), (0, 0, 0, 1))}
