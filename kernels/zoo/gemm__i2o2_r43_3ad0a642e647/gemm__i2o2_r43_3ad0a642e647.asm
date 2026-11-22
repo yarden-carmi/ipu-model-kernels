@@ -1,5 +1,5 @@
-{# LR1..4: physical row, lane, and remaining d3/d2 coordinates.
-   LR10..13 save the starting cursor for replay across output tiles. #}
+{# Replay the merged input cursor for each output tile. LR1 is its row,
+   LR2 its lane, LR3 and LR4 count down d3 and d2 respectively. #}
 {% macro load(slot) %}LD.MULT.CYCLIC LR6 {{ cr.w }} {{ slot }} ; INC LR6 1{% endmacro %}
 {% macro dot(scalar, first=false) %}
     {{ load('LR0') }}{% if not first %} ; DEC LR3 1 ; DEC LR8 1{% endif %} ;;
@@ -31,7 +31,6 @@ scalar:
     BNE LR2 LR15 next_scalar ;;
     INC LR1 1 ; SET LR2 CR0 ; B next_scalar ;;
 next_head:
-    {# Remove the last block's offset before advancing to the next head. #}
     SUB LR1 LR1 {{ cr.chunks }} ; SET LR4 {{ cr.in0_d2 }} ;;
     INC LR1 1 ; SET LR2 CR0 ;;
 next_scalar:
