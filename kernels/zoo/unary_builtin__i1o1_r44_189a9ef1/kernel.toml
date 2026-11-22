@@ -1,0 +1,85 @@
+[kernel]
+op = "unary_builtin"
+formats = ["e1"]
+
+[params.act_out0]
+type = "str"
+choices = ["relu"]
+default = "relu"
+
+[params.numel]
+type = "int"
+min = 1
+max = 2147483647
+default = 4096
+
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 1
+
+[params.in0_d1]
+type = "int"
+min = 1
+max = 128
+default = 64
+
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 8
+
+[params.in0_d3]
+type = "int"
+min = 1
+max = 65536
+default = 8
+
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 1
+
+[params.out0_d1]
+type = "int"
+min = 1
+max = 128
+default = 64
+
+[params.out0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 8
+
+[params.out0_d3]
+type = "int"
+min = 1
+max = 65536
+default = 8
+
+[derived]
+rows = "numel // in0_d1"
+in_ds = "ds(in0_d1)"
+out_ds = "ds(out0_d1)"
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d2", "in0_d3", 128]
+range = [-1.0, 1.0]
+
+[outputs.out0]
+shape = ["out0_d0", "out0_d2", "out0_d3", 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+rows = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+in_ds = "CR7"
+out_ds = "CR15"
+
+[cases.default]
