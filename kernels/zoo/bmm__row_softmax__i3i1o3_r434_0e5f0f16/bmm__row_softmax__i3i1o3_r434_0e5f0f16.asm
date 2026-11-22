@@ -18,17 +18,16 @@ coef_sum_{{ slot }}:
     LD.MULT.CYCLIC LR7 {{ cr.temp }} {{ cyclic }} ;;
 {% endmacro %}
     SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
-    SET LR3 CR0 ; SET LR4 CR0 ;;
-    SET LR8 CR0 ;;
+    SET LR3 CR0 ; SET LR4 CR0 ; SET LR8 CR0 ;;
     LD.MULT R0 LR0 {{ cr.in0 }} ; INC LR1 128 ; INC LR2 128 ;;
     INC LR2 128 ;;
     MULT.VE LR0 CR0 0 LR0 {{ full }} {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE exp2 {{ full }} {{ score }} {{ cr.temp }} LR0 ;;
-    {# Half-log2(e): store roots and square for normalization. #}
     SET LR9 LR2 ;;
     INC LR9 128 ;;
     {{ coefficient(1, 4, 23, 'LR1') }}
     {{ coefficient(2, 12, 21, 'LR2') }}
     {{ coefficient(3, 19, 36, 'LR9') }}
+
 row:
     SET LR6 CR0 ;;
 tile:
@@ -47,12 +46,11 @@ kloop:
 score_store:
     BEQ LR6 LR13 score_tail ;;
     ACTIVATE.QUANTIZE identity {{ full }} {{ score }} {{ cr.score }} LR6 ;;
-    INC LR6 1 ;;
-    B tile ;;
+    INC LR6 1 ; B tile ;;
 score_tail:
     ACTIVATE.QUANTIZE identity {{ tail }} {{ score }} {{ cr.score }} LR6 ;;
-
     MULT.VE LR0 CR0 0 LR0 {{ full }} {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
+
 {% macro reduce(op, q) %}
     SET LR6 CR0 ;;
 {{ op }}_loop:
@@ -62,7 +60,6 @@ score_tail:
 {{ op }}_tail:
     {% if op == 'MAX' %}MULT.VE LR0 CR1 0 LR0 {{ tail }} {{ score }}{% else %}MULT.RC.VS LR0 0 LR0 {{ tail }} {{ expq }}{% endif %} ; AGG.{{ op }} LR0 {{ tail }} ;;
 {% endmacro %}
-    {# Seed the maximum from a real chunk, including for all-negative rows. #}
     LD.MULT R0 LR0 {{ cr.score }} ; BEQ LR13 CR0 max_single ;;
     MULT.VE LR0 CR1 0 LR0 {{ full }} {{ score }} ; AGG.MAX.FIRST LR0 {{ full }} ;;
     {{ reduce('MAX', cr.score) }}
@@ -79,18 +76,15 @@ exp_loop:
     MULT.RC.VE {{ rc }} LR0 0 LR0 {{ full }} {{ score }} ; ACC.SUB{{ '.FIRST' if loop.first else '' }} ;;
     MULT.RC.VV {{ rc }} R1 0 LR0 {{ full }} {{ score }} ; ACC.ADD ;;
 {% endfor %}
-    {# Tail padding must not feed positive arguments to exp2. #}
     BEQ LR6 LR13 exp_tail ;;
     ACTIVATE.QUANTIZE exp2 {{ full }} {{ expq }} {{ cr.score }} LR6 ;;
-    INC LR6 1 ;;
-    B exp_loop ;;
+    INC LR6 1 ; B exp_loop ;;
 exp_tail:
     ACTIVATE.QUANTIZE exp2 {{ tail }} {{ expq }} {{ cr.score }} LR6 ;;
     MULT.VE LR0 CR0 0 LR0 {{ full }} {{ score }} ; ACC.ADD.FIRST ;;
     {{ reduce('SUM', cr.score) }}
     ACTIVATE.QUANTIZE rsqrt {{ single }} {{ expq }} {{ cr.temp }} LR0 ; SET LR6 CR0 ;;
-    LD.MULT R0 LR0 {{ cr.temp }} ;;
-    SET LR7 CR1 ;;
+    LD.MULT R0 LR0 {{ cr.temp }} ; SET LR7 CR1 ;;
 out_loop:
     LD.MULT.CYCLIC LR6 {{ cr.score }} LR0 ; BEQ LR6 LR13 out_tail ;;
 {% macro output(ds) %}
