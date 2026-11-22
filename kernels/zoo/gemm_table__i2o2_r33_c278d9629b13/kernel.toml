@@ -6,24 +6,24 @@ formats = ["e2", "e3"]
 type = "int"
 min = 1
 max = 4096
-default = 768
+default = 128
 [params.n]
 type = "int"
 min = 1
 max = 4096
-default = 3072
+default = 128
 [params.m]
 type = "int"
 min = 1
 max = 65535
-default = 256
+default = 8
 [params.bias]
 type = "bool"
 default = true
 [params.act_out0]
 type = "str"
-choices = ["gelu_tanh"]
-default = "gelu_tanh"
+choices = ["gelu"]
+default = "gelu"
 [params.in0_d0]
 type = "int"
 min = 1
@@ -33,12 +33,12 @@ default = 1
 type = "int"
 min = 1
 max = 65535
-default = 256
+default = 8
 [params.in0_d2]
 type = "int"
 min = 1
 max = 4096
-default = 768
+default = 128
 [params.out0_d0]
 type = "int"
 min = 1
@@ -48,21 +48,23 @@ default = 1
 type = "int"
 min = 1
 max = 65535
-default = 256
+default = 8
 [params.out0_d2]
 type = "int"
 min = 1
 max = 4096
-default = 3072
+default = 128
 
 [derived]
-K = "ceil(k / 128)"
-O = "ceil(n / 128)"
-IR = "in0_d0 * in0_d1 * ceil(in0_d2 / 128)"
-OR = "out0_d0 * out0_d1 * ceil(out0_d2 / 128)"
-W = "O * (k + 1)"
+I = "ceil(in0_d2 / 128)"
+O = "ceil(out0_d2 / 128)"
+IR = "in0_d0 * in0_d1 * I"
+OR = "out0_d0 * out0_d1 * O"
+W = "ceil(n / 128) * (k + 1)"
+tail = "ds(n - 128 * (ceil(n / 128) - 1))"
 full = "ds(128)"
-tail = "ds(n - 128 * (O - 1))"
+group_count = "3"
+tail_group_count = "ceil((((k - 1) % 128) + 1) / 32) - 1"
 
 [inputs.in0]
 shape = ["IR", 128]
@@ -79,21 +81,29 @@ shape = ["OR", 128]
 [abi]
 in0 = "CR2"
 coeff = "CR3"
-out0 = "CR4"
-lut = "CR5"
+lut = "CR4"
+out0 = "CR5"
 qf_in0 = "CR6"
 qf_out0 = "CR7"
-K = "CR8"
+I = "CR8"
 O = "CR9"
 m = "CR10"
-tail = "CR14"
-full = "CR15"
+tail = "CR11"
+full = "CR12"
+group_count = "CR13"
+tail_group_count = "CR14"
 
 [cases.default]
-k = 137
-n = 145
-m = 3
-in0_d1 = 3
-in0_d2 = 137
-out0_d1 = 3
-out0_d2 = 145
+k = 161
+n = 131
+in0_d2 = 161
+out0_d2 = 131
+
+[cases.wide]
+m = 1
+k = 768
+n = 3072
+in0_d1 = 1
+out0_d1 = 1
+in0_d2 = 768
+out0_d2 = 3072
