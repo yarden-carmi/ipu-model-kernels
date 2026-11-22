@@ -1,5 +1,4 @@
-{# Reuse a reduction-contiguous RHS row across an output tile. Each
-   horizontal sum contributes to one M lane of the consumer's row. #}
+{# Reuse one RHS chunk for all M lanes in the output tile. #}
 {% macro dot(tag, first, half) %}
     ADD LR10 LR7 LR9 ; SET LR11 CR0 ; SET LR12 CR0 ;;
     LD.MULT R0 LR4 {{ cr.in1 }} ;;
