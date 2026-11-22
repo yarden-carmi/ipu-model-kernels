@@ -1,5 +1,14 @@
-{# Accumulate one output column tile across K. The B lane cursor
-   advances across heads without repacking the producer's rows. #}
+{# A is M-lane, so each B scalar contributes directly to an output row.
+   LR8/LR9 track the B column's physical row and lane across heads. #}
+{% macro product(first) %}
+    LD.MULT R0 LR13 {{ cr.in1 }} ;;
+    LD.MULT.CYCLIC LR12 {{ cr.in0 }} LR14 ;;
+    MULT.RC.VE LR14 LR9 0 LR14 {{ cr.ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{{ '.FIRST' if first else '' }} ; ADD LR12 LR12 {{ cr.ac }} ; ADD LR13 LR13 {{ cr.bc }} ; DEC LR15 1 ;;
+{% endmacro %}
+{% macro output(half) %}
+    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.ds }}.{{ half }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR0 ;;
+    INC LR0 1 ;;
+{% endmacro %}
 group:
     SET LR1 LR5 ; SET LR6 CR0 ; SET LR7 {{ cr.nh }}.H ;;
 head:
@@ -8,11 +17,6 @@ column:
     SET LR10 LR4 ; SET LR11 {{ cr.km }}.H ;;
 tile:
     SET LR12 LR10 ; SET LR13 LR8 ; SET LR15 {{ cr.km }}.L ;;
-{% macro product(first) %}
-    LD.MULT R0 LR13 {{ cr.in1 }} ;;
-    LD.MULT.CYCLIC LR12 {{ cr.in0 }} LR14 ;;
-    MULT.RC.VE LR14 LR9 0 LR14 {{ cr.ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{{ '.FIRST' if first else '' }} ; ADD LR12 LR12 {{ cr.ac }} ; ADD LR13 LR13 {{ cr.bc }} ; DEC LR15 1 ;;
-{% endmacro %}
     {{ product(true) }}
     BEQ LR15 CR0 store ;;
 reduce:
@@ -21,10 +25,6 @@ reduce:
 store:
     DEC LR11 1 ;;
     BEQ LR11 CR0 tail ;;
-{% macro output(half) %}
-    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.ds }}.{{ half }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR0 ;;
-    INC LR0 1 ;;
-{% endmacro %}
     {{ output('L') }}
     INC LR10 1 ; B tile ;;
 tail:
