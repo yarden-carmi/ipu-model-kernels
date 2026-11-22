@@ -23,20 +23,29 @@ select_path:
     BLT.S LR7 {{ cr.n }} transpose_start ;;
     BLT.S LR7 {{ cr.k }} transpose_start ;;
     ADD LR8 LR5 {{ cr.k }} ; SET LR2 LR12 ; SET LR9 {{ cr.m }} ;;
-    BLT.S LR7 LR8 dot_split_row ;;
+    BLT.S LR7 LR8 dot_split_start ;;
 {% macro dot(tag, split) %}
+dot_{{ tag }}_start:
+    SET LR3 {{ cr.n }} ;;
+    DEC LR3 1 ;;
 dot_{{ tag }}_row:
-    LD.MULT R0 LR2 {{ cr.in0 }} ; SET LR6 LR4 ; SET LR7 CR0 ;;
+    LD.MULT R0 LR2 {{ cr.in0 }} ; SET LR6 LR4 ; SET LR7 CR0 ; SET LR1 LR3 ;;
+    DEC LR7 1 ;;
+{% if not split %}
+    LD.MULT.CYCLIC LR6 {{ cr.in1 }} LR0 ; BEQ LR3 CR0 dot_{{ tag }}_last ;;
+dot_{{ tag }}_column:
+    MULT.RC.VV LR5 R0 0 LR0 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; AGG.SUM.FIRST LR7 {{ cr.bconfig }}.H ; LD.MULT.CYCLIC LR6 {{ cr.in1 }} LR0 ; ADD LR6 LR6 {{ cr.bconfig }}.L ; INC LR7 1 ; DEC LR1 1 ; BNE LR1 CR1 dot_{{ tag }}_column ;;
+dot_{{ tag }}_last:
+    MULT.RC.VV LR5 R0 0 LR0 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; AGG.SUM.FIRST LR7 {{ cr.bconfig }}.H ; ADD LR6 LR6 {{ cr.bconfig }}.L ; INC LR7 1 ;;
+{% else %}
+    SET LR1 CR0 ;;
+    INC LR1 128 ;;
 dot_{{ tag }}_column:
     LD.MULT.CYCLIC LR6 {{ cr.in1 }} LR0 ; ADD LR8 LR6 CR1 ;;
-{% if split %}
-    SET LR3 CR0 ;;
-    INC LR3 128 ;;
-    LD.MULT.CYCLIC LR8 {{ cr.in1 }} LR3 ;;
+    LD.MULT.CYCLIC LR8 {{ cr.in1 }} LR1 ;;
+    MULT.RC.VV LR5 R0 0 LR0 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; AGG.SUM.FIRST LR7 {{ cr.bconfig }}.H ; ADD LR6 LR6 {{ cr.bconfig }}.L ; INC LR7 1 ;;
+    BLT.S LR7 LR3 dot_{{ tag }}_column ;;
 {% endif %}
-    MULT.RC.VV LR5 R0 0 LR0 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; AGG.SUM.FIRST LR7 {{ cr.bconfig }}.H ; ADD LR6 LR6 {{ cr.bconfig }}.L ;;
-    INC LR7 1 ;;
-    BLT.S LR7 {{ cr.n }} dot_{{ tag }}_column ;;
     {{ output_store('H') }}
     DEC LR9 1 ;;
     BEQ LR9 CR0 dot_done ;;
@@ -62,10 +71,15 @@ transpose_tile:
     BLT.S LR1 LR9 gather ;;
     SET LR1 LR9 ;;
 gather:
-    LD.MULT R0 LR6 {{ cr.in1 }} ;;
+    DEC LR1 1 ;;
+    BEQ LR1 CR0 gather_last ;;
+gather_next:
+    MULT.EE LR5 CR1 0 LR0 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.RESHAPE LRD0 LRD2 7 ; LD.MULT R0 LR6 {{ cr.in1 }} ; ADD LR6 LR6 {{ cr.bconfig }}.L ; DEC LR1 1 ; BNE LR1 CR1 gather_advance ;;
+    ADDBI LRD2 1 ; B gather_last ;;
+gather_advance:
+    ADDBI LRD2 1 ; B gather_next ;;
+gather_last:
     MULT.EE LR5 CR1 0 LR0 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.RESHAPE LRD0 LRD2 7 ; ADD LR6 LR6 {{ cr.bconfig }}.L ;;
-    ADDBI LRD2 1 ; DEC LR1 1 ;;
-    BNE LR1 CR0 gather ;;
     SET LR1 CR0 ;;
     INC LR1 128 ;;
     BLT.S LR1 LR9 panel_full ;;
@@ -105,9 +119,12 @@ chunk:
     SET LR1 LR3 ;;
 chunk_ready:
     SUB LR7 LR7 LR1 ;;
+    LD.MULT.CYCLIC LR8 {{ cr.panel }} LR0 ; DEC LR1 1 ;;
+    BEQ LR1 CR0 reduce_last ;;
 reduce:
-    LD.MULT.CYCLIC LR8 {{ cr.panel }} LR0 ; INC LR6 1 ; DEC LR1 1 ;;
-    MULT.RC.VE LR0 LR6 0 LR0 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ; INC LR8 1 ; BNE LR1 CR0 reduce ;;
+    MULT.RC.VE LR0 LR6 0 LR0 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ; LD.MULT.CYCLIC LR8 {{ cr.panel }} LR0 ; INC LR8 1 ; INC LR6 1 ; DEC LR1 1 ; BNE LR1 CR1 reduce ;;
+reduce_last:
+    MULT.RC.VE LR0 LR6 0 LR0 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ; INC LR6 1 ; INC LR8 1 ;;
     BNE LR7 CR0 chunk ;;
 store:
     BLT.S LR3 LR9 output_full ;;
