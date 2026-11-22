@@ -1,0 +1,60 @@
+[kernel]
+op = "normalized_half_rsqrt_core"
+formats = ["e3"]
+
+[params.numel]
+type = "int"
+min = 1
+default = 1
+
+[params.in0_d0]
+type = "int"
+min = 1
+default = 1
+
+[params.in0_d1]
+type = "int"
+min = 1
+max = 128
+default = 1
+
+[params.out0_d0]
+type = "int"
+min = 1
+default = 1
+
+[params.out0_d1]
+type = "int"
+min = 1
+max = 128
+default = 1
+
+[inputs.in0]
+shape = ["in0_d0", "ceil(in0_d1 / 128) * 128"]
+range = [0.25, 4.0]
+
+[outputs.out0]
+shape = ["out0_d0", "ceil(out0_d1 / 128) * 128"]
+
+[scratch.inv_root]
+shape = [128]
+
+[derived]
+input_ds = "ds(in0_d1)"
+output_ds = "ds(out0_d1)"
+rows = "min(out0_d0, ceil(numel / out0_d1))"
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+inv_root = "CR4"
+rows = "CR5"
+qf_in0 = "CR6"
+qf_out0 = "CR7"
+input_ds = "CR8"
+output_ds = "CR9"
+
+[cases.default]
+
+[golden]
+tolerance = { e3 = "NX8_STEP" }
