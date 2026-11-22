@@ -1,0 +1,106 @@
+[kernel]
+op = "gemm_table"
+formats = ["e2"]
+
+[params.act_out0]
+type = "str"
+choices = ["silu"]
+default = "silu"
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 4096
+default = 64
+[params.n]
+type = "int"
+min = 1
+max = 4096
+default = 256
+[params.m]
+type = "int"
+min = 1
+max = 65535
+default = 4096
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 65535
+default = 64
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65535
+default = 64
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 65535
+default = 256
+[params.out0_d2]
+type = "int"
+min = 1
+max = 65535
+default = 64
+
+[derived]
+K = "ceil(k / 128)"
+Km1 = "K - 1"
+NB = "ceil(n / 128)"
+cm1 = "k - 128 * Km1 - 1"
+fm1 = "127"
+valid = "ds(128)"
+lastv = "ds(out0_d1 - 128 * (ceil(out0_d1 / 128) - 1))"
+MB = "ceil(in0_d1 / 128)"
+batchrows = "k * MB"
+mdiff = "m - in0_d0 * in0_d1"
+kdiff = "k - in0_d2"
+ndiff = "n - out0_d2"
+rank4 = "min(1, max(mdiff, -mdiff, kdiff, -kdiff, ndiff, -ndiff))"
+coeffrows = "rank4 * 2 * NB * (k + 1) + (1 - rank4) * 2 * n * (K + 1)"
+outer = "rank4 * m + (1 - rank4) * in0_d0"
+blocks = "rank4 * NB + (1 - rank4) * coeffrows"
+
+[inputs.in0]
+shape = ["rank4 * m * K + (1 - rank4) * in0_d0 * batchrows", 128]
+range = [-2, 2]
+[inputs.coeff]
+shape = ["coeffrows", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[outputs.out0]
+shape = ["rank4 * m * NB + (1 - rank4) * out0_d0 * n * ceil(out0_d1 / 128)", 128]
+
+[abi]
+lut = "CR13"
+in0 = "CR2"
+coeff = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+outer = "CR7"
+K = "CR8"
+Km1 = "CR9"
+blocks = "CR10"
+cm1 = "CR11"
+fm1 = "CR12"
+valid = "CR15"
+lastv = "CR14"
+MB = "LR12"
+batchrows = "LR13"
+
+[cases.default]
