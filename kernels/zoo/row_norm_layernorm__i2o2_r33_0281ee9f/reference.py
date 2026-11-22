@@ -49,9 +49,9 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.layer_norm.default(_v(ins[0], [4, 64, 192], [1, 4, 256], 0), [192], module.weight, module.bias)
+    r0 = aten.layer_norm.default(_v(ins[0], [4, 256, 144], [1, 4, 1024], 0), [144], module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [4, 64, 192])}
+    return {"out0": _out(op0, [4, 256, 144])}
 # ---- end of the frozen reference ----
 
 
@@ -74,6 +74,7 @@ def fold(module, **params):
         padded[:channels] = t.reshape(-1)
         return split(padded)
 
+    # Eight logical rows return the packed cursor to a 128-lane boundary.
     masks = []
     dst = 0
     for _ in range(8):
@@ -88,8 +89,8 @@ def fold(module, **params):
 
     return {
         "gamma": affine(module.weight),
-        "masks": torch.stack(masks),
         "beta": affine(module.bias),
+        "masks": torch.stack(masks),
         "crow": torch.cat((split(torch.full((128,), 1 / channels)),
                            torch.full((1, 128), params["eps"]))),
     }

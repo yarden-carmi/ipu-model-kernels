@@ -1,7 +1,6 @@
 [kernel]
 op = "row_norm"
 formats = ["e2"]
-
 [params.kind]
 type = "str"
 choices = ["layernorm"]
@@ -25,7 +24,6 @@ max = 1.0
 default = 1e-5
 [params.in0_d0]
 type = "int"
-min = 1
 choices = [1, 2, 4]
 default = 4
 [params.in0_d1]
@@ -42,7 +40,6 @@ multiple_of = 16
 default = 192
 [params.out0_d0]
 type = "int"
-min = 1
 choices = [1, 2, 4]
 default = 4
 [params.out0_d1]
@@ -57,6 +54,7 @@ min = 144
 max = 256
 multiple_of = 16
 default = 192
+
 [derived]
 half = "1277440"
 c128 = "128"
@@ -93,8 +91,6 @@ cC = "CR11"
 masks = "CR12"
 half = "CR13"
 dsl = "CR14"
-
 [golden]
 tolerance = { e2 = "NX8_STEP" }
-
 [cases.default]

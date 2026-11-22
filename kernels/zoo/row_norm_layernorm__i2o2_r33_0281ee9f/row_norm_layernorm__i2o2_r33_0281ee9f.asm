@@ -32,9 +32,8 @@
 {% endmacro %}
 {% macro average(label) %}
  {{ save(0,3) }}
- SET LR1 CR0 ;;
  {% for j in range(3) %}
- {% if j %}INC LR1 1 ; {% endif %}LD.MULT R0 LR1 {{ cr.tmp }} ;;
+ {{ load(j) }}
  MULT.EE LR0 CR1 0 LR0 CR15.L {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %} ;;
  {% endfor %}
  {{ save(3,3) }}
@@ -42,11 +41,7 @@
  {{ scalar(first=true,imm='CR0',tail='; INC LR7 3') }}
 {{ label }}:
  LD.MULT.CYCLIC LR10 {{ cr.crow }} LR0 ;;
- SET LR1 CR0 ;;
- {% for j in range(3,6) %}
- INC LR1 {{ 3 if loop.first else 1 }} ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
- {{ mul(tail='; INC LR10 1' if loop.last else '') }}
- {% endfor %}
+ {% for j in range(3,6) %}{{ load(j) }}{{ mul(tail='; INC LR10 1' if loop.last else '') }}{% endfor %}
  BLT.S LR10 LR7 {{ label }} ;;
 {% endmacro %}
 {% macro product(a,b,dest) %}
@@ -59,7 +54,7 @@
  {{ save(dest) }}
 {% endmacro %}
 
-{# Group channels by residue so each inner gather steps a fixed number of rows. #}
+{# Within a residue group, channels read the same source lane at a fixed row stride. #}
 {% set eu = namespace(a=rows, b=channels) %}
 {% for _ in range(24) %}{% if eu.b %}{% set t = eu.b %}{% set eu.b = eu.a % eu.b %}{% set eu.a = t %}{% endif %}{% endfor %}
 {% set M = eu.a %}
@@ -76,12 +71,21 @@
 {{ label }}_low:
  {% set offset = T * mhi - 128 * h %}
  {% for k in range((offset + 126) // 127) %}ADDBI LRD2 {{ [127,offset - 127 * k]|min }} ;;{% endfor %}
+ {% if step <= 255 and T <= 128 %}
+ DEC LR10 {{ step }} ; LD.MULT R0 LR10 {{ cr.in0 }}{% if n > 1 %} ; INC LR12 {{ n - 1 }}{% endif %} ;;
+ {% if n > 1 %}
+ {{ label }}_pipe:
+ DEC LR10 {{ step }} ; ADDBI LRD2 -{{ T }} ; DEC LR12 1 ; LD.MULT R0 LR10 {{ cr.in0 }} ; MULT.EE LR6 CR1 0 LR0 CR15.L {{ q }} ; ACC.RESHAPE LRD0 LRD2 7 ; BLT.S CR1 LR12 {{ label }}_pipe ;;
+ {% endif %}
+ ADDBI LRD2 -{{ T }} ; MULT.EE LR6 CR1 0 LR0 CR15.L {{ q }} ; ACC.RESHAPE LRD0 LRD2 7 ;;
+ {% else %}
  {{ adj('LR12',n) }}
 {{ label }}_elem:
- {% if step > 255 %}{{ adj('LR10',-step) }}{% endif %}
+ {{ adj('LR10',-step) }}
  {% if T > 128 %}ADDBI LRD2 -128 ;;{% endif %}
- {% if step <= 255 %}DEC LR10 {{ step }} ; {% endif %}ADDBI LRD2 -{{ T if T <= 128 else T - 128 }} ; DEC LR12 1 ; LD.MULT R0 LR10 {{ cr.in0 }} ;;
+ ADDBI LRD2 -{{ T if T <= 128 else T - 128 }} ; DEC LR12 1 ; LD.MULT R0 LR10 {{ cr.in0 }} ;;
  MULT.EE LR6 CR1 0 LR0 CR15.L {{ q }} ; ACC.RESHAPE LRD0 LRD2 7 ; BNE LR12 CR0 {{ label }}_elem ;;
+ {% endif %}
  {% if 2 * (rows // channels) %}INC LR7 {{ 2 * (rows // channels) }} ; {% endif %}{% if rows % channels %}INC LR8 {{ rows % channels }} ; {% endif %}INC LR11 1 ;;
  BLT.S LR8 {{ cr.cC }} {{ label }}_next ;;
  SUB LR8 LR8 {{ cr.cC }} ; INC LR7 2 ;;
@@ -89,7 +93,6 @@
  BNE LR11 LR14 {{ label }}_group ;;
 {% endmacro %}
 
-{# Gather flat p+c*rows from the handed layout in output row order. #}
  SET LR0 CR0 ; SET LR4 CR0 ; SET LR5 CR0 ;;
  {{ at('LR1',rows) }}{{ at('LR9',40) }}{{ at('LR13',2 * rows // out0_d0) }}
 gather:
@@ -115,21 +118,13 @@ gather:
  ACTIVATE.QUANTIZE identity {{ cr.dsl }}.L {{ q }} {{ cr.tmp }} LR15 ;;
  {% endif %}
  {% endfor %}
- {# Map batch-fast source rows back to batch-major output. #}
- {% if out0_d0 > 1 %}
- ADD LR9 LR9 LR13 ;;
- {% else %}INC LR9 2 ;;{% endif %}
- INC LR5 1 ; DEC LR1 1 ;;
+ ADD LR9 LR9 LR13 ; INC LR5 1 ; DEC LR1 1 ;;
  BLT.S LR5 {{ cr.cC }} gather_no_wrap ;;
  SUB LR5 LR5 {{ cr.cC }} ; INC LR4 2 ;;
 gather_no_wrap:
  {% if out0_d0 > 1 %}
  SET LR15 CR0 ;;
- {% if out0_d0 == 4 %}
- INC.MODP2 LR15 LR1 2 ;;
- {% elif out0_d0 == 2 %}
- INC.MODP2 LR15 LR1 1 ;;
- {% endif %}
+ INC.MODP2 LR15 LR1 {{ 2 if out0_d0 == 4 else 1 }} ;;
  BNE LR15 CR0 gather_next ;;
  {% for _ in range(out0_d0) %}SUB LR9 LR9 LR13 ;;{% endfor %}
  INC LR9 2 ;;
@@ -137,7 +132,7 @@ gather_next:
  {% endif %}
  BNE LR1 CR0 gather ;;
 
-{# Normalize each gathered row, preserving precision in residual pieces. #}
+{# Center each row, then accumulate its variance from three residual planes. #}
  SET LR0 CR0 ; SET LR3 CR0 ;;
  {{ at('LR2',40 + 2 * rows) }}
  INC LR3 128 ; SET LR14 CR0 ;;
@@ -150,18 +145,15 @@ row_loop:
  {% if not loop.first %}INC LR5 1 ; {% endif %}LD.MULT R0 LR5 {{ cr.tmp }} ;;
  MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ q }} ; AGG.SUM LR0 {{ ds }} ;;
  {% endfor %}
- {{ average('mean_scale') }}{{ save(27,3) }}
-
+ SET LR15 CR0 ; BEQ CR0 CR0 scale_average ;;
+mean_ready:
+ {{ save(27,3) }}
  SET LR5 LR14 ; SET LR9 CR0 ;;
  INC LR9 32 ;;
  {% for ds in ['CR15.L',cr.dsl ~ '.L'] %}
  {% if not loop.first %}INC LR5 1 ; INC LR9 1 ; {% endif %}LD.MULT R0 LR5 {{ cr.tmp }} ;;
  {{ scalar(first=true,ds=ds) }}
- SET LR1 CR0 ;;
- {% for n in range(27,30) %}
- INC LR1 {{ 27 if loop.first else 1 }} ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
- {{ scalar('SUB',ds=ds) }}
- {% endfor %}
+ {% for n in range(27,30) %}{{ load(n) }}{{ scalar('SUB',ds=ds) }}{% endfor %}
  {{ encode('LR9',3,ds) }}
  {% endfor %}
 
@@ -180,7 +172,10 @@ variance_products:
  BLT.S LR1 LR7 variance_parts ;;
  SET LR9 LR7 ; INC LR5 1 ;;
  BLT.S LR5 LR6 variance_loop ;;
- {{ average('variance_scale') }}
+ SET LR15 CR1 ;;
+scale_average:
+ {{ average('average_parts') }}
+ BEQ LR15 CR0 mean_ready ;;
  LD.MULT R0 LR7 {{ cr.crow }} ;;
  {{ scalar() }}{{ at('LR1',8) }}
  ACTIVATE.QUANTIZE rsqrt CR15.L {{ q }} {{ cr.tmp }} LR1 ;;
@@ -188,7 +183,7 @@ variance_products:
  LD.MULT R0 LR1 {{ cr.tmp }} ;;
  {{ scalar('SUB') }}{{ save(22,1) }}
 
- {# Two Newton corrections for the initial quantized inverse deviation. #}
+ {# Two Newton corrections recover precision lost in the rsqrt seed. #}
  {{ load(8,true) }}{{ load(8) }}{{ mul(first=true) }}{{ save(13) }}
  {{ product(11,13,15) }}
  {{ load(8,true) }}{{ load(15) }}{{ mul(first=true) }}
@@ -217,17 +212,12 @@ output_loop:
  {{ scalar(first=true,imm='CR0') }}
 weight_loop:
  LD.MULT.CYCLIC LR10 {{ cr.gamma }} LR0 ;;
- SET LR1 CR0 ;;
- {% for n in range(19,22) %}
- INC LR1 {{ 19 if loop.first else 1 }} ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
- {{ mul(tail='; INC LR10 2 ; INC LR7 1' if loop.last else '') }}
- {% endfor %}
+ {% for n in range(19,22) %}{{ load(n) }}{{ mul(tail='; INC LR10 2 ; INC LR7 1' if loop.last else '') }}{% endfor %}
  BLT.S LR7 LR8 weight_loop ;;
  {{ save(9,3) }}
  LD.MULT.CYCLIC LR5 {{ cr.tmp }} LR0 ;;
  {% for n,slot in [(27,'LR3'),(28,'LR4'),(29,'LR12')] %}
- SET LR1 CR0 ;;
- INC LR1 {{ n }} ; LD.MULT.CYCLIC LR1 {{ cr.tmp }} {{ slot }} ;;
+ {{ at('LR1',n) }}LD.MULT.CYCLIC LR1 {{ cr.tmp }} {{ slot }} ;;
  {% endfor %}
  {{ scalar(first=true,imm='CR0') }}
  {{ at('LR1',9) }}{{ at('LR7',12) }}
@@ -245,7 +235,7 @@ apply_weight:
  INC LR2 1 ; BLT.S LR5 LR6 output_loop ;;
  INC LR14 2 ; BNE LR13 CR0 row_loop ;;
 
-{# Rotate each residual piece into place, mask the fragment, and sum it. #}
+{# Rotate and mask fragments into packed rows before final output rounding. #}
  {{ at('LR2',40 + 2 * rows) }}
  {{ at('LR13',rows // 8) }}
  {{ at('LR14',mask_count) }}
