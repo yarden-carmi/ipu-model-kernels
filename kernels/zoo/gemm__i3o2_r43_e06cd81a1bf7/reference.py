@@ -49,26 +49,18 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.linear.default(_v(ins[0], [1, 257, 384], [98688, 384, 1], 0), module.op0_weight, module.op0_bias)
+    r0 = aten.linear.default(_v(ins[0], [1, 256, 768], [196608, 768, 1], 0), module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.mul.Tensor(_v(op0, [1, 257, 384], [98688, 384, 1], 0), module.op1_lambda1)
-    op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 257, 384])}
+    return {"out0": _out(op0, [1, 256, 768])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Fold the channel scale into the affine terms and pack signed radix-8 digits."""
-    n, k = int(params["n"]), int(params["k"])
-    scale = module.op1_lambda1.detach().double().reshape(n)
-    weight = module.op0_weight.detach().double().reshape(n, k) * scale[:, None]
-    bias = (module.op0_bias.detach().double().reshape(n) * scale
-            if params["bias"] else weight.new_zeros(n))
+    """Stream bias and reduction vectors by output tile, with a lookahead row."""
+    n, k = module.weight.shape
+    weight = module.weight.detach()
+    bias = module.bias.detach() if params["bias"] else weight.new_zeros(n)
     data = torch.cat((bias[:, None], weight), dim=1)
-    data = torch.nn.functional.pad(data, (0, 0, 0, (-n) % 128))
-    rows = data.reshape(-1, 128, k + 1).transpose(1, 2)
-    exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))[1]
-    digits = torch.ldexp(rows.abs(), 12 - exponent).round().long().clamp(max=4095)
-    planes = [torch.ldexp(((digits >> shift) & 7) * rows.sign(), exponent + shift - 12)
-              for shift in range(9, -1, -3)]
-    return {"w": torch.stack(planes, dim=2).reshape(-1, 128).float()}
+    rows = torch.nn.functional.pad(data, (0, 0, 0, (-n) % 128))
+    rows = rows.reshape(-1, 128, k + 1).transpose(1, 2)
+    return {"w": torch.nn.functional.pad(rows.reshape(-1, 128), (0, 0, 0, 1))}
