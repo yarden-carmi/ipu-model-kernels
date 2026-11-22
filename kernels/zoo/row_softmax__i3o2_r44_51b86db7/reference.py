@@ -49,9 +49,9 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.softmax.int(_v(ins[0], [1, 12, 50, 50], [30000, 2500, 50, 1], 0), -1, torch.float32)
+    r0 = aten.softmax.int(_v(ins[0], [1, 8, 64, 64], [32768, 4096, 64, 1], 0), -1, torch.float32)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 12, 50, 50])}
+    return {"out0": _out(op0, [1, 8, 64, 64])}
 # ---- end of the frozen reference ----
 
 
