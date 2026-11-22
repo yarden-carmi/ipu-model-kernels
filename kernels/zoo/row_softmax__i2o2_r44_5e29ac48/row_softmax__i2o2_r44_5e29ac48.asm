@@ -5,14 +5,13 @@
 {% set full = cr.active ~ '.L' %}
 {% macro addr(r,i) %}
     SET {{ r }} CR0 ;;
-{% if i %}
     INC {{ r }} {{ i }} ;;
-{% endif %}
 {% endmacro %}
 {% macro clear() %}
     MULT.VE LR0 CR0 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ;;
 {% endmacro %}
-{% macro coefficient(power, count, slot) %}
+{# Synthesize count * 2^-power without folded constants. #}
+{% macro coefficient(power,count,slot) %}
 {{ addr('LR1',7) }}
     LD.MULT R0 LR1 {{ cr.tmp }} ;;
 {{ clear() }}
@@ -118,7 +117,7 @@ full_tile:
 {{ addr('LR1',3) }}
     ACTIVATE.QUANTIZE identity {{ ds }} {{ work }} {{ cr.tmp }} LR1 ;;
     LD.MULT R1 LR1 {{ cr.tmp }} ;;
-{# Newton residual: 1 - r * sum. #}
+{# Newton correction for the rounded reciprocal. #}
 {{ addr('LR1',7) }}
     LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR11 ;;
     MULT.RC.VE LR11 CR1 0 LR0 {{ ds }} {{ q }} ; ACC.ADD.FIRST ;;
