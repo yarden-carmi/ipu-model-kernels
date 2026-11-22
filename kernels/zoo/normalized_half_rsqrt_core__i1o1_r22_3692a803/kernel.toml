@@ -1,6 +1,6 @@
 [kernel]
 op = "normalized_half_rsqrt_core"
-formats = ["e3"]
+formats = ["e1", "e3"]
 
 [params.numel]
 type = "int"
@@ -42,7 +42,7 @@ shape = [128]
 [derived]
 input_ds = "ds(in0_d1)"
 output_ds = "ds(out0_d1)"
-rows = "min(out0_d0, ceil(numel / out0_d1))"
+rows = "min(in0_d0, out0_d0, ceil(numel / out0_d1))"
 
 [abi]
 in0 = "CR2"
@@ -55,6 +55,3 @@ input_ds = "CR8"
 output_ds = "CR9"
 
 [cases.default]
-
-[golden]
-tolerance = { e3 = "NX8_STEP" }
