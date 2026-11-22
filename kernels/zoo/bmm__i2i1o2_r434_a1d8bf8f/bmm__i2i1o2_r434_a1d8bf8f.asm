@@ -1,46 +1,45 @@
-{# Accumulate a tile of M lanes for one output column. Reuse the
-   loaded B row for all 128 scalars in the current K chunk. #}
+{# Keep 128 successive RHS scalars resident in R0 while streaming A. #}
 {% macro product(first) %}
-    LD.MULT.CYCLIC LR10 {{ cr.in0 }} LR15 ;;
-    MULT.RC.VE LR15 LR12 0 LR15 {{ cr.ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{{ '.FIRST' if first else '' }} ; ADD LR10 LR10 {{ cr.ac }} ; DEC LR13 1 ;;
-    INC.MODP2 LR12 CR1 7 ;;
+    LD.MULT.CYCLIC LR11 {{ cr.in0 }} LR15 ;;
+    MULT.RC.VE LR15 LR5 0 LR15 {{ cr.ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{{ '.FIRST' if first else '' }} ; ADD LR11 LR11 {{ cr.tiles }} ; DEC LR14 1 ;;
 {% endmacro %}
-{% macro output(half) %}
+{% macro store(half) %}
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.ds }}.{{ half }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR0 ;;
     INC LR0 1 ;;
 {% endmacro %}
-    SET LR0 CR0 ; SET LR4 CR0 ; SET LR7 CR0 ;;
+    SET LR0 CR0 ; SET LR1 CR0 ; SET LR10 CR0 ;;
     SET LR15 CR0 ;;
 group:
-    SET LR2 {{ cr.nh }}.H ;;
+    SET LR2 LR1 ; SET LR4 {{ cr.out0_d1 }} ;;
 head:
-    SET LR6 {{ cr.nh }}.L ;;
+    SET LR8 {{ cr.n }} ;;
 column:
-    SET LR8 LR4 ; SET LR9 {{ cr.km }}.H ;;
+    SET LR6 LR10 ; SET LR7 {{ cr.tiles }} ;;
 tile:
-    SET LR10 LR8 ; SET LR11 LR7 ; SET LR12 CR0 ;;
-    SET LR13 {{ cr.km }}.L ;;
-    LD.MULT R0 LR11 {{ cr.in1 }} ;;
+    SET LR11 LR6 ; SET LR9 LR2 ; SET LR14 {{ cr.k }} ;;
+    SET LR5 CR0 ;;
+    LD.MULT R0 LR9 {{ cr.in1 }} ;;
     {{ product(true) }}
-    BEQ LR13 CR0 store ;;
+    B advance ;;
 reduce:
     {{ product(false) }}
-    BEQ LR13 CR0 store ;;
-    BNE LR12 CR0 reduce ;;
-    INC LR11 1 ;;
-    LD.MULT R0 LR11 {{ cr.in1 }} ;;
+advance:
+    INC.MODP2 LR5 CR1 7 ; BEQ LR14 CR0 write ;;
+    BNE LR5 CR0 reduce ;;
+    INC LR9 1 ;;
+    LD.MULT R0 LR9 {{ cr.in1 }} ;;
     B reduce ;;
-store:
-    DEC LR9 1 ;;
-    BEQ LR9 CR0 tail ;;
-    {{ output('L') }}
-    INC LR8 1 ; B tile ;;
+write:
+    DEC LR7 1 ;;
+    BEQ LR7 CR0 tail ;;
+    {{ store('L') }}
+    INC LR6 1 ; B tile ;;
 tail:
-    {{ output('H') }}
-    ADD LR7 LR7 {{ cr.bc }} ; DEC LR6 1 ;;
-    BNE LR6 CR0 column ;;
-    ADD LR4 LR4 {{ cr.ahead }} ; DEC LR2 1 ;;
-    BNE LR2 CR0 head ;;
-    ADD LR7 LR7 {{ cr.bgap }} ; DEC LR3 1 ;;
+    {{ store('H') }}
+    ADD LR2 LR2 {{ cr.rhs_stride }} ; DEC LR8 1 ;;
+    BNE LR8 CR0 column ;;
+    ADD LR10 LR10 {{ cr.head_rows }} ; DEC LR4 1 ;;
+    BNE LR4 CR0 head ;;
+    ADD LR1 LR1 {{ cr.rhs_group }} ; DEC LR3 1 ;;
     BNE LR3 CR0 group ;;
     HALT ;;
