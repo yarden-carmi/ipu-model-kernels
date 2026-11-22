@@ -1,4 +1,4 @@
-{# Stream three weight planes per K element, overlapping loads and MACs. #}
+{# Keep an output feature tile in the accumulator while broadcasting K lanes. #}
 {% macro load(slot) %}LD.MULT.CYCLIC LR4 {{ cr.w }} {{ slot }} ; INC LR4 1{% endmacro %}
 {% macro dot(scalar, first=false) %}
     {{ load('LR0') }}{% if not first %} ; INC LR3 1{% endif %} ;;
@@ -18,22 +18,22 @@ row:
 tile:
     SET LR2 LR8 ; SET LR9 {{ cr.chunks }} ;;
     DEC LR2 1 ;;
-{{ dot('CR1' if bias else 'CR0', true) }}
+    {{ dot('CR1', true) }}
 chunk:
     LD.MULT R0 LR2 {{ cr.in0 }} ; INC LR2 1 ; DEC LR9 1 ;;
     SET LR3 CR0 ; SET LR7 {{ cr.full_end }} ; BNE LR9 CR0 lane ;;
-    SET LR7 {{ cr.tail_end }} ;;
+    SET LR7 {{ cr.end }} ;;
 lane:
     DEC LR3 1 ;;
 loop_lane:
-{{ dot('LR3') }}
+    {{ dot('LR3') }}
     BNE LR9 CR0 chunk ;;
     DEC LR6 1 ;;
     BEQ LR6 CR0 last_tile ;;
-{{ store(cr.full) }}
+    {{ store(cr.full) }}
     B tile ;;
 last_tile:
-{{ store(cr.tail) }}
+    {{ store(cr.tail) }}
     ADD LR8 LR8 {{ cr.chunks }} ; DEC LR10 1 ;;
     BNE LR10 CR0 row ;;
     HALT ;;
