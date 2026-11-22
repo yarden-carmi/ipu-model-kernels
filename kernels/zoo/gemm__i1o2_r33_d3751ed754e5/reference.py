@@ -49,20 +49,20 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.linear.default(_v(ins[0], [1, 256, 1536], [393216, 1536, 1], 0), module.weight, module.bias)
+    r0 = aten.linear.default(_v(ins[0], [4, 256, 288], [73728, 288, 1], 0), module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 256, 384])}
+    return {"out0": _out(op0, [4, 256, 144])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Pack bias and weights in signed radix-16 planes, by output tile."""
-    n, k = int(params['n']), int(params['k'])
-    weight = module.weight.detach().reshape(n, k).double()
-    bias = module.bias.detach().reshape(n).double() if params['bias'] else weight.new_zeros(n)
+    """Pack bias and K vectors into three signed radix-16 planes per tile."""
+    weight = module.weight.detach().double()
+    n, k = weight.shape
+    bias = module.bias.detach().double() if params['bias'] else weight.new_zeros(n)
     data = torch.cat((bias[:, None], weight), dim=1)
-    rows = torch.nn.functional.pad(data, (0, 0, 0, (-n) % 128))
-    rows = rows.reshape(-1, 128, k + 1).transpose(1, 2)
+    data = torch.nn.functional.pad(data, (0, 0, 0, (-n) % 128))
+    rows = data.reshape(-1, 128, k + 1).transpose(1, 2)
     exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))[1]
     digits = torch.ldexp(rows.abs(), 12 - exp).round().long().clamp(max=4095)
     planes = [torch.ldexp(((digits >> shift) & 15) * rows.sign(), exp + shift - 12)

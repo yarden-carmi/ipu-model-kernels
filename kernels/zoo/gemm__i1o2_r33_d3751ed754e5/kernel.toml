@@ -1,6 +1,6 @@
 [kernel]
 op = "gemm"
-formats = ["e2", "e3"]
+formats = ["e2"]
 
 [params.bias]
 type = "bool"
@@ -9,17 +9,17 @@ default = true
 type = "int"
 min = 1
 max = 16384
-default = 384
+default = 128
 [params.m]
 type = "int"
 min = 1
-max = 65536
+max = 16384
 default = 256
 [params.n]
 type = "int"
 min = 1
 max = 16384
-default = 384
+default = 768
 [params.in0_d0]
 type = "int"
 min = 1
@@ -28,13 +28,13 @@ default = 1
 [params.in0_d1]
 type = "int"
 min = 1
-max = 65536
+max = 16384
 default = 256
 [params.in0_d2]
 type = "int"
 min = 1
 max = 16384
-default = 384
+default = 128
 [params.out0_d0]
 type = "int"
 min = 1
@@ -43,13 +43,13 @@ default = 1
 [params.out0_d1]
 type = "int"
 min = 1
-max = 65536
+max = 16384
 default = 256
 [params.out0_d2]
 type = "int"
 min = 1
 max = 16384
-default = 384
+default = 768
 
 [derived]
 pitch = "ceil(in0_d1 / 128)"
