@@ -2,15 +2,14 @@
 {% set rtiles = (in1_d2 + 127) // 128 %}
 {% set chunks = (s0_k + 127) // 128 %}
 {% macro dot(s, stream=false) %}
-    LD.MULT.CYCLIC LR14 {{ cr.w }} LR0 ; INC LR14 1 {% if stream %}; INC LR3 1{% endif %} ;;
 {% for i in range(3) %}
-    MULT.RC.VE {{ 'LR1' if i % 2 else 'LR0' }} {{s}} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD {% if i < 2 %}; LD.MULT.CYCLIC LR14 {{ cr.w }} {{ 'LR0' if i % 2 else 'LR1' }} ; INC LR14 1{% elif stream %}; BNE LR3 LR4 lane{% endif %} ;;
+    MULT.RC.VE LR0 {{s}} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; LD.MULT.CYCLIC LR14 {{ cr.w }} LR0 ; INC LR14 1 {% if stream and i == 0 %}; INC LR3 1{% endif %}{% if stream and i == 2 %}; BNE LR3 LR4 lane{% endif %} ;;
 {% endfor %}
 {% endmacro %}
 {% macro store(ds) %}
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ds}}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR5 ; INC LR5 1 ;;
 {% endmacro %}
-    SET LR0 CR0 ; SET LR1 {{ cr.slot }} ; SET LR5 CR0 ;;
+    SET LR0 CR0 ; SET LR5 CR0 ;;
     SET LR7 CR0 ; SET LR8 CR0 ; SET LR9 CR0 ;;
     DEC LR5 1 ; DEC LR8 1 ; SET LR10 CR0 ;;
 batch:
@@ -47,7 +46,7 @@ weight_tile:
 weight_ready:
 {% endif %}
     SET LR2 LR8 ; SET LR15 CR0 ;;
-    INC LR15 {{chunks}} ;;
+    INC LR15 {{chunks}} ; LD.MULT.CYCLIC LR14 {{ cr.w }} LR0 ; INC LR14 1 ;;
 {{ dot('CR1') }}
 chunk:
     LD.MULT R0 LR2 {{ cr.in0 }} ; INC LR2 1 ; DEC LR15 1 ; SET LR4 {{ cr.slot }} ;;
