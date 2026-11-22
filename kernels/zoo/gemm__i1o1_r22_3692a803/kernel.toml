@@ -1,6 +1,6 @@
 [kernel]
 op = "gemm"
-formats = ["e3"]
+formats = ["e2"]
 
 [params.m]
 type = "int"
@@ -11,12 +11,12 @@ default = 1
 type = "int"
 min = 1
 max = 65536
-default = 512
+default = 128
 [params.n]
 type = "int"
 min = 1
 max = 65536
-default = 512
+default = 128
 [params.bias]
 type = "bool"
 default = false
@@ -29,7 +29,7 @@ default = 1
 type = "int"
 min = 1
 max = 65536
-default = 512
+default = 128
 [params.out0_d0]
 type = "int"
 min = 1
@@ -39,7 +39,7 @@ default = 1
 type = "int"
 min = 1
 max = 65536
-default = 512
+default = 128
 
 [derived]
 chunks = "ceil(in0_d1 / 128)"
@@ -47,6 +47,7 @@ tiles = "ceil(out0_d1 / 128)"
 tail = "ds((out0_d1 - 1) % 128 + 1)"
 groups = "31"
 planes = "8"
+full = "ds(128)"
 
 [inputs.in0]
 shape = ["in0_d0", "in0_d1"]
@@ -71,5 +72,6 @@ qf_out0 = "CR10"
 tail = "CR11"
 groups = "CR13"
 planes = "CR14"
+full = "CR15"
 
 [cases.default]
