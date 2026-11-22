@@ -1,0 +1,84 @@
+[kernel]
+op = "unary_builtin__binary_mul_scalar"
+formats = ["e3"]
+
+[params.act_s0]
+type = "str"
+choices = ["reciprocal"]
+default = "reciprocal"
+[params.s0_numel]
+type = "int"
+default = 1
+[params.s0_operand]
+type = "int"
+default = 1
+[params.s1_broadcast]
+type = "str"
+choices = ["scalar"]
+default = "scalar"
+[params.s1_inner]
+type = "int"
+default = 0
+[params.s1_numel]
+type = "int"
+default = 512
+[params.s1_op]
+type = "str"
+choices = ["mul"]
+default = "mul"
+[params.in0_d0]
+type = "int"
+default = 1
+[params.in0_d1]
+type = "int"
+default = 512
+[params.in1_d0]
+type = "int"
+default = 1
+[params.in1_d1]
+type = "int"
+default = 1
+[params.out0_d0]
+type = "int"
+default = 1
+[params.out0_d1]
+type = "int"
+default = 512
+
+[derived]
+chunks = "ceil(in0_d1 / 128)"
+rows = "in0_d0 * chunks"
+full = "ds(128)"
+tail = "ds((out0_d1 - 1) % 128 + 1)"
+scalar = "ds(s0_numel)"
+# Packed MULT constants: approximately 2 and a finite negative cap in FP32,
+# exactly 2 and the largest e1 negative magnitude at scale 127 in NX8.
+two = "0x40018000"
+neg_cap = "0xff11febf"
+
+[inputs.in0]
+shape = ["rows", 128]
+[inputs.in1]
+shape = ["in1_d0", "ceil(in1_d1 / 128)", 128]
+[outputs.out0]
+shape = ["out0_d0", "ceil(out0_d1 / 128)", 128]
+[scratch.s0]
+shape = [3, 128]
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+s0 = "CR5"
+qf_in0 = "CR6"
+qf_in1 = "CR7"
+qf_out0 = "CR8"
+full = "CR9"
+tail = "CR10"
+scalar = "CR11"
+rows = "CR12"
+chunks = "CR13"
+two = "CR14"
+neg_cap = "CR15"
+
+[cases.default]
