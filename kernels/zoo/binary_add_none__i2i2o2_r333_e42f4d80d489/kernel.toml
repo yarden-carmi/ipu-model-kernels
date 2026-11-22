@@ -1,7 +1,6 @@
 [kernel]
 op = "binary_add"
-formats = ["e2", "e3"]
-
+formats = ["e3", "e2", "e4"]
 [params.broadcast]
 type = "str"
 choices = ["none"]
@@ -19,7 +18,7 @@ default = "add"
 type = "int"
 min = 1
 max = 16777216
-default = 98304
+default = 196608
 [params.in0_d0]
 type = "int"
 min = 1
@@ -34,7 +33,7 @@ default = 256
 type = "int"
 min = 1
 max = 16384
-default = 384
+default = 768
 [params.in1_d0]
 type = "int"
 min = 1
@@ -49,7 +48,7 @@ default = 256
 type = "int"
 min = 1
 max = 16384
-default = 384
+default = 768
 [params.out0_d0]
 type = "int"
 min = 1
@@ -64,13 +63,11 @@ default = 256
 type = "int"
 min = 1
 max = 16384
-default = 384
-
+default = 768
 [derived]
-blocks = "ceil(out0_d2 / 128)"
-rows = "out0_d0 * out0_d1 * blocks"
-tail = "ds(out0_d2 - (blocks - 1) * 128)"
-
+width = "ceil(in0_d2 / 128)"
+rows = "in0_d0 * in0_d1 * ceil(in0_d2 / 128)"
+tail = "ds(in0_d2 - (ceil(in0_d2 / 128) - 1) * 128)"
 [inputs.in0]
 shape = ["in0_d0", "in0_d1", "ceil(in0_d2 / 128) * 128"]
 range = [-2, 2]
@@ -78,8 +75,7 @@ range = [-2, 2]
 shape = ["in1_d0", "in1_d1", "ceil(in1_d2 / 128) * 128"]
 range = [-2, 2]
 [outputs.out0]
-shape = ["out0_d0", "out0_d1", "blocks * 128"]
-
+shape = ["out0_d0", "out0_d1", "ceil(out0_d2 / 128) * 128"]
 [abi]
 in0 = "CR2"
 in1 = "CR3"
@@ -88,7 +84,8 @@ qf_in0 = "CR5"
 qf_in1 = "CR6"
 qf_out0 = "CR7"
 rows = "CR8"
-blocks = "CR9"
+width = "CR9"
 tail = "CR10"
-
+[golden]
+tolerance = { e3 = "EXACT" }
 [cases.default]
