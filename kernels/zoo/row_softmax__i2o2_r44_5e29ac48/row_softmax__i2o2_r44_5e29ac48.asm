@@ -1,9 +1,9 @@
+{# Lane-parallel stable softmax, adapted from the i2o2 e2 variant. #}
 {% set q = cr.qf_in0 ~ '.L' %}
 {% set qo = cr.qf_out0 ~ '.L' %}
 {% set root = cr.scratch_formats ~ '.L' %}
 {% set work = cr.scratch_formats ~ '.H' %}
 {% set full = cr.active ~ '.L' %}
-{% set part = cr.part ~ '.L' %}
 {% macro addr(r,i) %}
     SET {{ r }} CR0 ;;
     INC {{ r }} {{ i }} ;;
@@ -11,10 +11,8 @@
 {% macro clear() %}
     MULT.VE LR0 CR0 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ;;
 {% endmacro %}
-    SET LR0 CR0 ;;
-
-{# Synthesize count * 2^-power using unity. #}
-{% macro coefficient(power, count, slot) %}
+{# Generate count * 2^-power without a constant tensor. #}
+{% macro coefficient(power,count,slot) %}
 {{ addr('LR1',7) }}
     LD.MULT R0 LR1 {{ cr.tmp }} ;;
 {{ clear() }}
@@ -34,6 +32,7 @@ num_{{ slot }}:
     BNE LR6 CR0 num_{{ slot }} ;;
     ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
 {% endmacro %}
+    SET LR0 CR0 ;;
 {{ addr('LR1',7) }}
 {{ clear() }}
     ACTIVATE.QUANTIZE exp2 {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
@@ -52,7 +51,8 @@ num_{{ slot }}:
     INC LR13 128 ;;
     SET LR2 CR0 ;;
 batch:
-    SET LR3 CR0 ; SET LR8 {{ cr.K }} ;;
+    SET LR3 CR0 ;;
+    SET LR8 {{ cr.K }} ;;
     DEC LR8 1 ;;
     BEQ LR3 LR8 tail_tile ;;
 full_tile:
@@ -77,7 +77,8 @@ full_tile:
     ACTIVATE.QUANTIZE identity {{ ds }} {{ q }} {{ cr.tmp }} LR1 ;;
     LD.MULT.CYCLIC LR0 {{ cr.tmp }} LR11 ;;
     LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR12 ;;
-    ADD LR4 LR2 LR3 ; SET LR5 CR0 ;;
+    ADD LR4 LR2 LR3 ;;
+    SET LR5 CR0 ;;
 {{ tag }}_exp:
     LD.MULT R0 LR4 {{ cr.in0 }} ;;
 {% for slot in range(8,12) %}
@@ -97,7 +98,8 @@ full_tile:
     LD.MULT R0 LR5 {{ cr.roots }} ;;
     MULT.RC.VV LR0 R0 0 LR0 {{ ds }} {{ root }} ; ACC.ADD.FIRST ;;
     ACTIVATE.QUANTIZE identity {{ ds }} {{ root }} {{ cr.roots }} LR5 ;;
-    ADD LR4 LR4 {{ cr.K }} ; INC LR5 1 ;;
+    ADD LR4 LR4 {{ cr.K }} ;;
+    INC LR5 1 ;;
     BLT.S LR5 LR15 {{ tag }}_exp ;;
 
     SET LR5 CR0 ;;
@@ -116,7 +118,7 @@ full_tile:
 {{ addr('LR1',3) }}
     ACTIVATE.QUANTIZE identity {{ ds }} {{ work }} {{ cr.tmp }} LR1 ;;
     LD.MULT R1 LR1 {{ cr.tmp }} ;;
-{# Newton correction for the reciprocal. #}
+    {# Newton correction for the reciprocal. #}
 {{ addr('LR1',7) }}
     LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR11 ;;
     MULT.RC.VE LR11 CR1 0 LR0 {{ ds }} {{ q }} ; ACC.ADD.FIRST ;;
@@ -128,7 +130,8 @@ full_tile:
     ACTIVATE.QUANTIZE identity {{ ds }} {{ work }} {{ cr.tmp }} LR0 ;;
     LD.MULT.CYCLIC LR0 {{ cr.tmp }} LR11 ;;
 
-    ADD LR4 LR2 LR3 ; SET LR5 CR0 ;;
+    ADD LR4 LR2 LR3 ;;
+    SET LR5 CR0 ;;
 {{ addr('LR1',13) }}
     LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR12 ;;
 {{ tag }}_out:
@@ -146,14 +149,15 @@ full_tile:
     MULT.RC.VV LR11 R0 0 LR0 {{ ds }} {{ work }} ; ACC.ADD ;;
     MULT.RC.VV LR11 R1 0 LR0 {{ ds }} {{ work }} ; ACC.ADD ;;
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ qo }} {{ cr.out0 }} LR4 ;;
-    ADD LR4 LR4 {{ cr.K }} ; INC LR5 1 ;;
+    ADD LR4 LR4 {{ cr.K }} ;;
+    INC LR5 1 ;;
     BLT.S LR5 LR15 {{ tag }}_out ;;
 {% endmacro %}
 {{ tile('full',full) }}
     INC LR3 1 ;;
     BLT.S LR3 LR8 full_tile ;;
 tail_tile:
-{{ tile('tail',part) }}
+{{ tile('tail',cr.part ~ '.L') }}
     ADD LR2 LR2 {{ cr.batchstride }} ;;
     BLT.S LR2 {{ cr.M }} batch ;;
     HALT ;;

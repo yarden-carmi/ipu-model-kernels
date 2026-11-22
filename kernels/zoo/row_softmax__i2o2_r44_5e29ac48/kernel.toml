@@ -14,27 +14,43 @@ max = 8192
 default = 1542
 [params.in0_d0]
 type = "int"
+min = 1
+max = 8192
 default = 1
 [params.in0_d1]
 type = "int"
+min = 1
+max = 8192
 default = 6
 [params.in0_d2]
 type = "int"
+min = 1
+max = 8192
 default = 257
 [params.in0_d3]
 type = "int"
+min = 1
+max = 4096
 default = 257
 [params.out0_d0]
 type = "int"
+min = 1
+max = 8192
 default = 1
 [params.out0_d1]
 type = "int"
+min = 1
+max = 8192
 default = 6
 [params.out0_d2]
 type = "int"
+min = 1
+max = 8192
 default = 257
 [params.out0_d3]
 type = "int"
+min = 1
+max = 4096
 default = 257
 
 [derived]
@@ -49,7 +65,7 @@ scratch_formats = "312 * 65536 + 56"
 shape = ["in0_d0", "in0_d1", "in0_d3", "ceil(in0_d2 / 128)", 128]
 range = [-2, 2]
 [outputs.out0]
-shape = ["out0_d0", "out0_d1", "out0_d3", "K", 128]
+shape = ["out0_d0", "out0_d1", "out0_d3", "ceil(out0_d2 / 128)", 128]
 [scratch.tmp]
 shape = [20, 128]
 [scratch.roots]
