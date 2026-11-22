@@ -1,9 +1,9 @@
-{#- Square root via x * rsqrt(x), using a row-local intermediate. -#}
+{# Square root via x * rsqrt(x), using a row-local intermediate. #}
 {% macro root(ds) %}
 LD.MULT R0 LR1 {{ cr.in0 }};;
 MULT.VE LR0 CR1 0 LR0 {{ ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST;;
 {% if format != 'fp32' %}
-{# Normalize the smallest e1 magnitudes before AAQ's subnormal adjustment. #}
+{# Scale the radicand by four to lift small e1 values before quantization. #}
 {% for _ in range(3) %}
 MULT.VE LR0 CR1 0 LR0 {{ ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD;;
 {% endfor %}
