@@ -1,0 +1,94 @@
+[kernel]
+op = "gemm_table"
+formats = ["e3"]
+
+[params.k]
+type = "int"
+min = 1
+max = 4096
+default = 512
+[params.n]
+type = "int"
+min = 1
+max = 4096
+default = 2048
+[params.m]
+type = "int"
+min = 1
+max = 65535
+default = 64
+[params.bias]
+type = "bool"
+default = true
+[params.act_out0]
+type = "str"
+choices = ["quick_gelu"]
+default = "quick_gelu"
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 128
+default = 64
+[params.in0_d2]
+type = "int"
+min = 1
+max = 4096
+default = 512
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 65535
+default = 64
+[params.out0_d2]
+type = "int"
+min = 1
+max = 4096
+default = 2048
+
+[derived]
+I = "in0_d0 * in0_d2"
+O = "ceil(out0_d2 / 128)"
+R = "out0_d0 * out0_d1 * O"
+W = "O * (k + 1)"
+G = "k // 8"
+full = "ds(128)"
+tail = "ds(out0_d2 - 128 * (O - 1))"
+
+[inputs.in0]
+shape = ["I", 128]
+range = [-2, 2]
+[inputs.coeff]
+shape = ["W", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[outputs.out0]
+shape = ["R", 128]
+
+[abi]
+in0 = "CR2"
+coeff = "CR3"
+out0 = "CR4"
+lut = "CR5"
+qf_in0 = "CR6"
+qf_out0 = "CR7"
+O = "CR8"
+I = "CR9"
+in0_d1 = "CR10"
+in0_d2 = "CR11"
+G = "CR12"
+full = "CR14"
+tail = "CR15"
+
+[cases.default]
