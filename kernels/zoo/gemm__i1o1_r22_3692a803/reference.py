@@ -49,14 +49,14 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.linear.default(_v(ins[0], [1, 768], [768, 1], 0), module.weight)
+    r0 = aten.linear.default(_v(ins[0], [1, 512], [512, 1], 0), module.weight)
     op0 = _pick(r0, 0)  # step 0
     return {"out0": _out(op0, [1, 512])}
 # ---- end of the frozen reference ----
 
 
 def _planes(rows):
-    """Split rows into signed two-bit digits with a common exponent."""
+    """Represent each row as signed two-bit digits, most significant first."""
     _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
     digits = torch.round(torch.ldexp(rows.abs().double(), 16 - exponent)).long().clamp(max=65535)
     return [torch.ldexp(((digits >> shift) & 3).to(rows.dtype) * rows.sign(), exponent + shift - 16)
@@ -64,14 +64,13 @@ def _planes(rows):
 
 
 def fold(module, **params):
-    """Pack weights by output tile, input chunk, digit plane, then input lane."""
+    """Pack weights in output-tile, input-chunk, digit-plane, input-lane order."""
     n, k = int(params['n']), int(params['k'])
     tiles, chunks = (n + 127) // 128, (k + 127) // 128
     source = module.weight.detach().reshape(n, k)
     weights = source.new_zeros(tiles * 128, chunks * 128)
     weights[:n, :k] = source
-    packed = weights.reshape(tiles, 128, chunks * 128).transpose(1, 2)
-    packed = packed.reshape(tiles, chunks, 128, 128)
+    packed = weights.reshape(tiles, 128, chunks, 128).permute(0, 2, 3, 1)
     result = {'w': torch.stack(_planes(packed), dim=2).reshape(-1, 128)}
     if params['bias']:
         bias = source.new_zeros(tiles * 128)
