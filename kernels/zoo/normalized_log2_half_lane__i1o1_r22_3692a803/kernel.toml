@@ -1,6 +1,6 @@
 [kernel]
 op = "normalized_log2_half_lane"
-formats = ["e1"]
+formats = ["e3"]
 
 [params.numel]
 type = "int"
@@ -38,10 +38,9 @@ shape = ["out0_d0", "128 * ceil(out0_d1 / 128)"]
 shape = [3, 128]
 
 [derived]
-chunks = "ceil(out0_d1 / 128)"
 tail = "ds((out0_d1 - 1) % 128 + 1)"
-full_chunks = "chunks - 1"
-half = "0x137e00" # NX8 MULT scalar: 0.5.
+full_chunks = "ceil(out0_d1 / 128) - 1"
+half = "0x137e00"
 
 [abi]
 in0 = "CR2"
