@@ -1,6 +1,6 @@
 [kernel]
 op = "binary_mul_scalar"
-formats = ["e2"]
+formats = ["e1", "e2"]
 
 [params.broadcast]
 type = "str"
@@ -67,23 +67,20 @@ max = 2147483647
 default = 256
 
 [inputs.in0]
-shape = ["groups", "chunks * 128"]
+shape = ["in0_d0 * in0_d1 * in0_d3", "ceil(in0_d2 / 128) * 128"]
 range = [-2.0, 2.0]
 [outputs.out0]
-shape = ["out0_d0 * out0_d1 * out0_d3", "ceil(out0_d2 / 128) * 128"]
+shape = ["groups", "chunks * 128"]
 
 [derived]
-groups = "in0_d0 * in0_d1 * in0_d3"
-chunks = "ceil(in0_d2 / 128)"
-ds_pair = "ds((in0_d2 - 1) % 128 + 1) + ds(128) * 65536"
-# 2896 / 16384 approximates 1/sqrt(32). Each encoding contributes
-# the coefficient only in its own arithmetic mode.
-fp_hi_base = "0x43010080"
-fp_hi = "fp_hi_base + 45 * 256"
-fp_lo_base = "0x40010080"
-fp_lo = "fp_lo_base + 16 * 256"
-nx_hi = "0x00017f96"
-nx_lo = "0x000178d0"
+groups = "out0_d0 * out0_d1 * out0_d3"
+chunks = "ceil(out0_d2 / 128)"
+ds_pair = "ds((out0_d2 - 1) % 128 + 1) + 65536 * ds(128)"
+# The FP32 difference is 1/8; both words decode to unsigned NX8 zero.
+fp_base = "0x43010080"
+fp_scale = "0x43012080"
+# Unsigned e1 with scale zero and 16/128; negligible as FP32.
+nx_scale = "0x00017f90"
 
 [abi]
 in0 = "CR2"
@@ -93,11 +90,8 @@ qf_out0 = "CR5"
 groups = "CR6"
 chunks = "CR7"
 ds_pair = "CR8"
-fp_hi_base = "CR9"
-fp_hi = "CR10"
-fp_lo_base = "CR11"
-fp_lo = "CR12"
-nx_hi = "CR13"
-nx_lo = "CR14"
+fp_base = "CR9"
+fp_scale = "CR10"
+nx_scale = "CR11"
 
 [cases.default]
