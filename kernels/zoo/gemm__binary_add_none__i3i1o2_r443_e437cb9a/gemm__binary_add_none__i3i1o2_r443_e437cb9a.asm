@@ -1,6 +1,8 @@
 {# gemm then add of a patches-view residual: the residual row is added to the tile's accumulator before the one store.
    Flat merge cursor (LR8, LR9) skips physical padding at each d3 boundary. Each output tile streams six weight
-   digits for bias and each reduction lane. Residual row of output row (b, p) and tile t: (4 * p + b) * tiles + t
+   digits for bias and each reduction lane, prefetching the next lane's first digit in the sixth MAC.
+   Reduction groups of four fit both the physical row and the logical reduction (both multiples of four).
+   Residual row of output row (b, p) and tile t: (4 * p + b) * tiles + t
    (LR11 walks it; LR13 = its row base - 1, LR14 = b * tiles - 1, LR12 counts the p of one b down). #}
 {% set tiles_n = (out0_d2 + 127) // 128 %}
 {% macro setp(r) %}
@@ -9,9 +11,8 @@
 {% endfor %}
 {% endmacro %}
 {% macro dot(s, first=false, advance=false) %}
-    LD.MULT.CYCLIC LR4 {{ cr.w }} LR0 ; INC LR4 1 {% if advance %}; INC LR3 1 ; DEC LR7 1{% endif %} ;;
 {% for p in range(6) %}
-    MULT.RC.VE {{ 'LR1' if p % 2 else 'LR0' }} {{ s }} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{% if first and p == 0 %}.FIRST{% endif %}{% if p < 5 %} ; LD.MULT.CYCLIC LR4 {{ cr.w }} {{ 'LR0' if p % 2 else 'LR1' }} ; INC LR4 1{% endif %} ;;
+    MULT.RC.VE {{ 'LR1' if p % 2 else 'LR0' }} {{ s }} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{% if first and p == 0 %}.FIRST{% endif %} ; LD.MULT.CYCLIC LR4 {{ cr.w }} {{ 'LR0' if p % 2 else 'LR1' }} ; INC LR4 1{% if advance and p == 0 %} ; INC LR3 1{% endif %} ;;
 {% endfor %}
 {% endmacro %}
 {% macro store(ds) %}
@@ -28,6 +29,7 @@ row:
     DEC LR4 1 ;;
 tile:
     SET LR2 LR8 ; SET LR3 LR9 ; SET LR7 {{ cr.s0_k }} ;;
+    LD.MULT.CYCLIC LR4 {{ cr.w }} LR0 ; INC LR4 1 ;;
 {% if s0_bias %}
 {{ dot('CR1', true) }}
 {% else %}
@@ -36,15 +38,17 @@ tile:
 load_input:
     LD.MULT R0 LR2 {{ cr.in0 }} ;;
 lane:
+{% for i in range(4) %}
 {{ dot('LR3', false, true) }}
-    BEQ LR3 {{ cr.last_lane }} next_input ;;
+{% endfor %}
+    DEC LR7 4 ; BEQ LR3 {{ cr.last_lane }} next_input ;;
     BNE LR7 CR0 lane ;;
     B store_tile ;;
 next_input:
     INC LR2 1 ; SET LR3 CR0 ;;
     DEC LR3 1 ; BNE LR7 CR0 load_input ;;
 store_tile:
-    LD.MULT R1 LR11 {{ cr.in1 }} ; INC LR11 1 ; DEC LR6 1 ;;
+    LD.MULT R1 LR11 {{ cr.in1 }} ; INC LR11 1 ; DEC LR6 1 ; DEC LR4 1 ;;
     MULT.VE LR1 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ;;
     BEQ LR6 CR0 last_tile ;;
 {{ store(cr.full) }}

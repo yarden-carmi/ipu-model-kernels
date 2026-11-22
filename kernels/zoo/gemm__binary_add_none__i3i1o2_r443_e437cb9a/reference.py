@@ -71,4 +71,5 @@ def fold(module, **params):
     digits = torch.ldexp(rows.abs().double(), 12 - exponent).round().long().clamp(max=4095)
     planes = [torch.ldexp(((digits >> shift) & 3).to(rows.dtype) * rows.sign(),
                           exponent + shift - 12) for shift in range(10, -1, -2)]
-    return {"w": torch.stack(planes, dim=2).reshape(-1, 128)}
+    packed = torch.stack(planes, dim=2).reshape(-1, 128)
+    return {"w": torch.cat((packed, packed.new_zeros(1, 128)))}
