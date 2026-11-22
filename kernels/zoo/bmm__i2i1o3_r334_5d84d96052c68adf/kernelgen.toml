@@ -1,0 +1,20 @@
+chain = ["bmm"]
+chain_in = ["in0", "in1"]
+chain_out = ["out0"]
+
+[layout.in0]
+lanes = 2
+rows = [0, 1]
+[view.in0]
+kind = "heads"
+
+# Lay out keys along N so each reduction step loads a full output tile.
+[layout.in1]
+lanes = 1
+rows = [0, 2]
+[view.in1]
+kind = "heads"
+
+[layout.out0]
+lanes = 3
+rows = [0, 1, 2]
