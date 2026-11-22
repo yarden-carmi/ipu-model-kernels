@@ -52,14 +52,13 @@ max = 16384
 default = 512
 
 [derived]
-chunks = "ceil(k / 128)"
-istep = "ceil(in0_d2 / 128)"
+chunks = "ceil(in0_d2 / 128)"
 wstep = "2 * chunks"
 full = "ds(128)"
 tail = "ds((out0_d1 - 1) % 128 + 1)"
 
 [inputs.in0]
-shape = ["in0_d0 * in0_d1 * istep", 128]
+shape = ["in0_d0 * in0_d1 * chunks", 128]
 range = [-2, 2]
 [inputs.w]
 shape = ["n * wstep", 128]
@@ -81,10 +80,9 @@ qf_out0 = "CR7"
 full = "CR8"
 tail = "CR9"
 chunks = "CR10"
-istep = "CR11"
 wstep = "CR12"
 out0_d0 = "CR13"
 out0_d1 = "CR14"
-n = "CR15"
+out0_d2 = "CR15"
 
 [cases.default]

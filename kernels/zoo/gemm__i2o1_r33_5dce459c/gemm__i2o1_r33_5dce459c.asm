@@ -1,4 +1,4 @@
-{# Reduce each K chunk into the accumulator lane for its position. #}
+{# Reduce each K chunk directly into the lane for its output position. #}
 {% macro product(slot, ra) %}
     MULT.RC.VV {{ slot }} {{ ra }} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; AGG.SUM LR2 {{ cr.full }}.L
 {%- endmacro %}
@@ -25,7 +25,7 @@
     INC LR1 128 ; SET LR7 CR0 ; SET LR9 {{ cr.out0_d0 }} ;;
     DEC LR7 1 ;;
 batch:
-    SET LR10 CR0 ; SET LR11 {{ cr.n }} ; SET LR14 CR0 ;;
+    SET LR10 CR0 ; SET LR11 {{ cr.out0_d2 }} ; SET LR14 CR0 ;;
 feature:
     SET LR12 LR5 ; SET LR13 {{ cr.out0_d1 }} ;;
 tile:
@@ -46,7 +46,7 @@ last_chunk{{ i }}:
     {{ product('LR1', 'R' ~ i) }}{% if not i %} ; B finish_position{% endif %} ;;
 {% endfor %}
 finish_position:
-    ADD LR12 LR12 {{ cr.istep }} ; DEC LR13 1 ; INC LR2 1 ;;
+    ADD LR12 LR12 {{ cr.chunks }} ; DEC LR13 1 ; INC LR2 1 ;;
     BEQ LR13 CR0 last_tile ;;
     BLT.S LR2 LR1 position ;;
     {{ store(cr.full) }}
