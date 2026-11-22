@@ -10,22 +10,23 @@
     MULT.VE LR0 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in1 }}.L ; {{ acc }} ; INC LR2 1 ;;
 {% endmacro %}
 {% macro mac(i) %}
-    LD.MULT R0 LR8 {{ cr.in0 }} ;;
+    # The load sees LR writes from this word, so LR6 starts one row back.
+    LD.MULT R0 LR8 {{ cr.in0 }} ; INC LR6 1 ;;
     LD.MULT.CYCLIC LR6 {{ cr.w }} LR0 ;;
-    INC LR6 1 ;;
-    LD.MULT.CYCLIC LR6 {{ cr.w }} LR11 ; MULT.RC.VE LR0 LR9 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ;;
-    MULT.RC.VE LR11 LR9 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR6 1
+    LD.MULT.CYCLIC LR6 {{ cr.w }} LR11 ; MULT.RC.VE LR0 LR9 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR6 1 ;;
+    MULT.RC.VE LR11 LR9 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD
 {% if m % 128 %}
     ;;
-    INC LR9 {{ m % 128 }} ;;
+    INC LR9 {{ m % 128 }}
+{% if m >= 128 %}
+    ; INC LR8 {{ m // 128 }}
+{% endif %}
+    ;;
     BLT.S LR9 LR11 lane_ok_{{ i }} ;;
     DEC LR9 128 ; INC LR8 1 ;;
 lane_ok_{{ i }}:
 {% else %}
     ; INC LR8 {{ m // 128 }} ;;
-{% endif %}
-{% if m % 128 and m >= 128 %}
-    INC LR8 {{ m // 128 }} ;;
 {% endif %}
 {% endmacro %}
 {% macro bias_add(index, acc) %}
@@ -53,7 +54,7 @@ copy_block:
     BNE LR13 CR0 copy_block ;;
 {% endif %}
     SET LR6 CR0 ; SET LR7 CR0 ; SET LR13 CR0 ;;
-    INC LR13 {{ blocks }} ;;
+    INC LR13 {{ blocks }} ; DEC LR6 1 ;;
 gemm_block:
     SET LR8 LR4 ; SET LR9 LR5 ; SET LR10 {{ cr.ki }} ;;
 {% if bias %}
