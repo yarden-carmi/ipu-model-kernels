@@ -56,7 +56,7 @@ def reference(module, *ins, _round=None, **params):
 
 
 def _planes(rows):
-    # Two-bit signed digits share a row exponent and survive NX8 encoding.
+    """Split a row into signed two-bit digits with a common exponent."""
     _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
     digits = torch.round(torch.ldexp(rows.abs().double(), 16 - exponent)).long().clamp(max=65535)
     return [torch.ldexp(((digits >> shift) & 3).to(rows.dtype) * rows.sign(), exponent + shift - 16)
@@ -64,7 +64,7 @@ def _planes(rows):
 
 
 def fold(module, **params):
-    """Each tile has one 128-output weight row per input scalar."""
+    """Pack weight rows by output tile, input chunk, digit plane, and input lane."""
     n, k = int(params['n']), int(params['k'])
     tiles, chunks = (n + 127) // 128, (k + 127) // 128
     source = module.weight.detach().reshape(n, k)

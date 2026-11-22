@@ -1,8 +1,8 @@
-{% macro load_weight() %}
-    LD.MULT.CYCLIC LR4 {{ cr.w }} LR2 ; INC LR4 1
+{% macro load_weight(slot) %}
+    LD.MULT.CYCLIC LR4 {{ cr.w }} {{ slot }} ; INC LR4 1
 {%- endmacro %}
-{% macro mac(refill) %}
-    MULT.RC.VE LR2 LR3 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD ; {% if refill %}{{ load_weight() }} ; {% endif %}INC LR3 1 ; INC.MODP2 LR2 {{ cr.width }} 9 ;;
+{% macro mac(slot, next_slot, refill=true) %}
+    MULT.RC.VE {{ slot }} LR3 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD ; {% if refill %}{{ load_weight(next_slot) }} ; {% endif %}INC LR3 1 ;;
 {% endmacro %}
 {% macro bias_digit(first) %}
     LD.MULT.CYCLIC LR13 {{ cr.b }} LR0 ; INC LR13 1 ;;
@@ -13,7 +13,7 @@
 {% endmacro %}
 
     SET LR0 CR0 ; SET LR5 {{ cr.m }} ; SET LR7 CR0 ;;
-    SET LR11 CR0 ;;
+    SET LR11 CR0 ; SET LR2 {{ cr.width }} ;;
 row:
     SET LR4 CR0 ; SET LR6 CR0 ;;
     DEC LR4 1 ;;
@@ -22,7 +22,7 @@ row:
     DEC LR13 1 ;;
 {% endif %}
 tile:
-    SET LR2 CR0 ; SET LR8 LR11 ; SET LR9 {{ cr.chunks }} ;;
+    SET LR8 LR11 ; SET LR9 {{ cr.chunks }} ;;
     SUB LR8 LR8 CR1 ;;
 {% if bias %}
 {% for i in range(8) %}
@@ -36,17 +36,15 @@ chunk:
 plane:
     SET LR3 CR0 ; SET LR10 {{ cr.groups }} ;;
     DEC LR3 1 ;;
-{% for i in range(4) %}
-    {{ load_weight() }} ; INC.MODP2 LR2 {{ cr.width }} 9 ;;
-{% endfor %}
+    {{ load_weight('LR0') }} ;;
 group:
 {% for i in range(4) %}
-    {{ mac(true) }}
+    {{ mac('LR0' if i % 2 == 0 else 'LR2', 'LR2' if i % 2 == 0 else 'LR0') }}
 {% endfor %}
     DEC LR10 1 ;;
     BNE LR10 CR0 group ;;
 {% for i in range(4) %}
-    {{ mac(false) }}
+    {{ mac('LR0' if i % 2 == 0 else 'LR2', 'LR2' if i % 2 == 0 else 'LR0', not loop.last) }}
 {% endfor %}
     DEC LR12 1 ;;
     BNE LR12 CR0 plane ;;
