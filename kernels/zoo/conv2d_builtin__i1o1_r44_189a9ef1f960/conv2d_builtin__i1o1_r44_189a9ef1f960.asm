@@ -4,18 +4,19 @@
 {% endfor %}
 {% endmacro %}
 {# Folded rows are bias, then (ky, kx, input channel), each with two parts. #}
-{% macro accumulate(src, first='ACC.ADD') %}
+{# The multiplier reads slot zero before the load replaces it. #}
+{% macro prime() %}
  LD.MULT.CYCLIC LR4 {{ cr.weights }} LR15 ;;
- MULT.RC.VE LR15 {{ src }} 0 LR15 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; {{ first }} ; INC LR4 1 ;;
- LD.MULT.CYCLIC LR4 {{ cr.weights }} LR12 ;;
- MULT.RC.VE LR12 {{ src }} 0 LR15 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR4 1 ;;
+{% endmacro %}
+{% macro accumulate(src, first='ACC.ADD', more=false) %}
+ MULT.RC.VE LR15 {{ src }} 0 LR15 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; {{ first }} ; LD.MULT.CYCLIC LR4 {{ cr.weights }} LR15 ; INC LR4 1 ;;
+ MULT.RC.VE LR15 {{ src }} 0 LR15 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR4 1 {% if more %}; LD.MULT.CYCLIC LR4 {{ cr.weights }} LR15{% endif %} ;;
 {% endmacro %}
 {% macro store(ds) %}
  ACTIVATE.QUANTIZE {{ act_out0 }} {{ ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR13 ;;
  INC LR13 1 ;;
 {% endmacro %}
- SET LR15 CR0 ; SET LR12 CR0 ; SET LR13 CR0 ;;
- INC LR12 128 ; SET LR1 CR0 ;;
+ SET LR15 CR0 ; SET LR13 CR0 ; SET LR1 CR0 ;;
 batch:
  SET LR0 CR0 ;;
 oy:
@@ -23,6 +24,7 @@ oy:
 ox:
  SET LR3 CR0 ; SET LR4 CR0 ;;
 block:
+ {{ prime() }}
  {{ accumulate('CR1', 'ACC.ADD.FIRST') }}
  SET LR5 CR0 ; SET LR14 LR1 ;;
  {{ step('LR14',-padding*w-padding) }}
@@ -37,10 +39,14 @@ kx:
  BGE.S LR8 {{ cr.w }} skip ;;
  ADD LR9 LR14 LR6 ; SET LR11 CR0 ;;
  LD.MULT R0 LR9 {{ cr.in0 }} ;;
+ {{ prime() }}
+{% if cin > 1 %}
 channel:
+ {{ accumulate('LR11', more=true) }}
+ INC LR11 1 ; BLT.S LR11 {{ cr.last_prefetch }} channel ;;
+{% endif %}
+ {# The final pair doesn't load past the tap, including at the end of weights. #}
  {{ accumulate('LR11') }}
- INC LR11 1 ;;
- BLT.S LR11 {{ cr.cin }} channel ;;
  BEQ LR15 CR0 next ;;
 skip:
  ADD LR4 LR4 {{ cr.tap_rows }} ;;

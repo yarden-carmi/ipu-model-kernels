@@ -49,11 +49,11 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 8, 8], [4096, 64, 8, 1], 0), module.weight, module.bias, [1, 1], [1, 1])
+    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 32, 32], [65536, 1024, 32, 1], 0), module.weight, module.bias, [1, 1], [1, 1])
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.relu.default(_v(op0, [1, 64, 8, 8], [4096, 64, 8, 1], 0))
+    r0 = aten.relu.default(_v(op0, [1, 64, 32, 32], [65536, 1024, 32, 1], 0))
     op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 64, 8, 8])}
+    return {"out0": _out(op1, [1, 64, 32, 32])}
 # ---- end of the frozen reference ----
 
 
