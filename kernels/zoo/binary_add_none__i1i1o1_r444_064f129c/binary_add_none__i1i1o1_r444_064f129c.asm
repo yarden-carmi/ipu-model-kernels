@@ -3,19 +3,24 @@
     SET LR2 CR0 ;;
     INC LR2 128 ;;
     SET LR3 CR0 ;;
-loop:
+
+{% macro store(ds) %}
+    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;;
+{% endmacro %}
+
+row:
     LD.MULT R0 LR1 {{ cr.in0 }} ;;
     LD.MULT R1 LR1 {{ cr.in1 }} ;;
     MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
     MULT.VE LR2 CR1 0 LR0 CR15.L {{ cr.qf_in1 }}.L ; ACC.ADD ;;
     INC LR3 1 ;;
     BLT.S LR3 {{ cr.blocks }} full ;;
-    ACTIVATE.QUANTIZE identity {{ cr.tail }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;;
+    {{ store(cr.tail ~ '.L') }}
     SET LR3 CR0 ;;
-    BEQ LR0 CR0 next ;;
+    BEQ LR0 CR0 advance ;;
 full:
-    ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;;
-next:
+    {{ store('CR15.L') }}
+advance:
     INC LR1 1 ;;
-    BLT.S LR1 {{ cr.rows }} loop ;;
+    BLT.S LR1 {{ cr.rows }} row ;;
     HALT ;;
