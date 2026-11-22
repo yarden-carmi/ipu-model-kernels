@@ -1,5 +1,5 @@
-{# A is M-lane, so each B scalar contributes directly to an output row.
-   LR8/LR9 track the B column's physical row and lane across heads. #}
+{# Keep each output tile in the accumulator. A provides its M lanes;
+   a scalar from the interleaved RHS row selects the output column. #}
 {% macro product(first) %}
     LD.MULT R0 LR13 {{ cr.in1 }} ;;
     LD.MULT.CYCLIC LR12 {{ cr.in0 }} LR14 ;;
