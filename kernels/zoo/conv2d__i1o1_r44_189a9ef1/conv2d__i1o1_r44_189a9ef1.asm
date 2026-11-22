@@ -4,8 +4,8 @@
 {% endfor %}
 {% endmacro %}
 
-{# LR15 and LR12 select cyclic slots 0 and 1. LR1 is the flat window origin. #}
- INC LR12 128 ;;
+{# LR15 selects cyclic slot 0. LR1 is the flat window origin. #}
+ INC LR12 127 ;;
  {{ step('LR0', -padding) }}
  {{ step('LR1', -padding * (w + 1)) }}
 oy:
@@ -33,14 +33,16 @@ kx:
 {% endif %}
 chunk:
  LD.MULT R0 LR9 {{ cr.in0 }} ; SET LR11 CR0 ;;
- INC LR9 1 ;;
+ INC LR9 1 ; DEC LR11 1 ;;
 channels:
- DEC LR10 16 ;;
+ # Prime the cyclic register; each multiply then loads the next weight.
+ LD.MULT.CYCLIC LR4 {{ cr.weights }} LR15 ; DEC LR10 16 ;;
+{% macro channel(load_next) %}
+ MULT.RC.VE LR15 LR11 0 LR15 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD {% if load_next %}; LD.MULT.CYCLIC LR4 {{ cr.weights }} LR15{% endif %} ; INC LR4 1 ; INC LR11 1 {% if not load_next %}; BEQ LR10 CR0 next{% endif %} ;;
+{% endmacro %}
 {% for i in range(16) %}
- LD.MULT.CYCLIC LR4 {{ cr.weights }} LR15 {% if i > 0 %}; INC LR11 1{% endif %} ;;
- MULT.RC.VE LR15 LR11 0 LR15 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR4 1 ;;
+ {{ channel(i < 15) }}
 {% endfor %}
- INC LR11 1 ; BEQ LR10 CR0 next ;;
  BLT.S LR11 LR12 channels ;;
  BEQ LR15 CR0 chunk ;;
 skip:
