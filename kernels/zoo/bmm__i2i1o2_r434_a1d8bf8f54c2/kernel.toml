@@ -1,0 +1,63 @@
+[kernel]
+op = "bmm"
+formats = ["e2"]
+
+[params]
+b = {type="int", min=1, max=65535, default=12}
+k = {type="int", min=1, max=65535, default=256}
+m = {type="int", min=1, max=65535, default=256}
+n = {type="int", min=1, max=65535, default=64}
+in0_d0 = {type="int", min=1, max=65535, default=1}
+in0_d1 = {type="int", min=1, max=65535, default=12}
+in0_d2 = {type="int", min=1, max=65535, default=256}
+in0_d3 = {type="int", min=1, max=65535, default=256}
+in1_d0 = {type="int", min=1, max=65535, default=1}
+in1_d1 = {type="int", min=1, max=65535, default=256}
+in1_d2 = {type="int", min=1, max=65535, default=768}
+out0_d0 = {type="int", min=1, max=65535, default=1}
+out0_d1 = {type="int", min=1, max=65535, default=12}
+out0_d2 = {type="int", min=1, max=65535, default=256}
+out0_d3 = {type="int", min=1, max=65535, default=64}
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d1", "in0_d3", "lhs_tiles*128"]
+range = [0, 1]
+
+[inputs.in1]
+shape = ["in1_d0", "in1_d2", "rhs_tiles*128"]
+range = [-1, 1]
+
+[outputs.out0]
+shape = ["out0_d0", "out0_d1", "out0_d3", "out_tiles*128"]
+
+[derived]
+tiles = "ceil(m/128)"
+lhs_tiles = "ceil(in0_d2/128)"
+out_tiles = "ceil(out0_d2/128)"
+lhs_head = "in0_d3*lhs_tiles"
+k_tiles = "ceil(k/128)"
+k_tail = "(k-1)%128+1"
+rhs_tiles = "ceil(in1_d1/128)"
+rhs_gap = "(in1_d2*min(in1_d0-1,1)-out0_d1*n)*rhs_tiles"
+groups = "b//out0_d1"
+ds = "ds(128)+65536*ds((m-1)%128+1)"
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+tiles = "CR5"
+qf_in0 = "CR6"
+qf_in1 = "CR7"
+qf_out0 = "CR8"
+lhs_tiles = "CR9"
+k_tiles = "CR10"
+n = "CR11"
+out0_d1 = "CR12"
+k_tail = "CR13"
+rhs_gap = "CR14"
+ds = "CR15"
+groups = "LR3"
+lhs_head = "LR13"
+
+[cases.default]
