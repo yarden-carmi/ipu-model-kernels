@@ -10,6 +10,7 @@
 {% macro clear(ds, q) %}
     MULT.VE LR0 CR0 0 LR0 {{ ds }} {{ q }} ; ACC.ADD.FIRST ;;
 {% endmacro %}
+{% set splitq = cr.center_qf ~ '.H' %}
 {# Synthesize the split log2(e)/(2 sqrt(k)) multiplier in scratch. #}
 {% macro coefficient(p, count, index, tag) %}
 {{ slot('LR5', index) }}
@@ -42,7 +43,8 @@ scale64:
 {{ coefficient(p,count,index,'k64') }}
 {% endfor %}
 scale_ready:
-{{ coefficient(1,8,7,'common') }}
+{{ coefficient(1,4,7,'common') }}
+{{ coefficient(110,1,15,'flush') }}
 {{ slot('LR11',128) }}
     ADD LR12 LR11 LR11 ;;
     ADD LR13 LR12 LR11 ;;
@@ -59,11 +61,20 @@ scale_ready:
     LD.MULT R0 LR5 {{ cr.logits }} ;;
     MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ logq }} ; ACC.MAX{% if first %}.FIRST{% endif %} ; INC LR5 1 ; INC LR15 1 ;;
     INC LR5 1 ;;
+    INC LR5 1 ;;
 {% endmacro %}
 
 {% macro centermax(ds, first) %}
     LD.MULT R0 LR5 {{ cr.exps }} ;;
     MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ centerq }} ; ACC.MAX{% if first %}.FIRST{% endif %} ; INC LR5 1 ;;
+{% endmacro %}
+
+{% macro split_acc(ds, reg, index) %}
+{{ slot(reg,index) }}
+    ACTIVATE.QUANTIZE identity {{ ds }} {{ splitq }} {{ cr.tmp }} {{ reg }} ;;
+    LD.MULT R0 {{ reg }} {{ cr.tmp }} ;;
+    MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ splitq }} ; ACC.SUB ; INC {{ reg }} 1 ;;
+    ACTIVATE.QUANTIZE identity {{ ds }} {{ splitq }} {{ cr.tmp }} {{ reg }} ;;
 {% endmacro %}
 
 {% macro tile(tag, ds, last) %}
@@ -75,6 +86,9 @@ scale_ready:
     {{ product(ds, false) }}
     BNE LR7 CR0 {{ tag }}_dot ;;
     {# Preserve the dot product as a high part plus a quantized residual. #}
+    ACTIVATE.QUANTIZE identity {{ ds }} {{ logq }} {{ cr.logits }} LR10 ;;
+    LD.MULT R0 LR10 {{ cr.logits }} ;;
+    MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ logq }} ; ACC.SUB ; INC LR10 1 ;;
     ACTIVATE.QUANTIZE identity {{ ds }} {{ logq }} {{ cr.logits }} LR10 ;;
     LD.MULT R0 LR10 {{ cr.logits }} ;;
     MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ logq }} ; ACC.SUB ; INC LR10 1 ;;
@@ -105,6 +119,8 @@ scale_ready:
     MULT.RC.VE LR13 CR1 0 LR0 {{ ds }} {{ logq }} ; ACC.SUB ;;
     LD.MULT R0 LR5 {{ cr.logits }} ;;
     MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ logq }} ; ACC.ADD ; INC LR5 1 ;;
+    LD.MULT R0 LR5 {{ cr.logits }} ;;
+    MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ logq }} ; ACC.ADD ; INC LR5 1 ;;
     ACTIVATE.QUANTIZE identity {{ ds }} {{ centerq }} {{ cr.exps }} LR6 ;;
     INC LR6 1 ; BLT.S LR5 LR10 {{ tag }}_center ;;
     SET LR5 CR0 ;;
@@ -125,15 +141,35 @@ scale_ready:
     LD.MULT.CYCLIC LR7 {{ cr.tmp }} LR0 ;;
 {{ slot('LR7',7) }}
     LD.MULT R0 LR7 {{ cr.tmp }} ;;
-    MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ logq }} ; ACC.SUB.FIRST ; SET LR7 CR0 ;;
+    MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ logq }} ; ACC.ADD.FIRST ; SET LR7 CR0 ;;
 {% for index in range(1,4) %}
     INC LR7 1 ;;
     LD.MULT R0 LR7 {{ cr.tmp }} ;;
-    MULT.RC.VE LR11 LR0 0 LR0 {{ ds }} {{ logq }} ; ACC.{{ 'SUB' if loop.last else 'ADD' }} ;;
-    MULT.RC.VE LR12 LR0 0 LR0 {{ ds }} {{ logq }} ; ACC.{{ 'SUB' if loop.last else 'ADD' }} ;;
-    MULT.RC.VE LR13 LR0 0 LR0 {{ ds }} {{ logq }} ; ACC.{{ 'ADD' if loop.last else 'SUB' }} ;;
-    MULT.RC.VE LR0 LR0 0 LR0 {{ ds }} {{ logq }} ; ACC.{{ 'ADD' if loop.last else 'SUB' }} ;;
+    MULT.RC.VE LR11 LR0 0 LR0 {{ ds }} {{ logq }} ; ACC.{{ 'ADD' if loop.last else 'SUB' }} ;;
+    MULT.RC.VE LR12 LR0 0 LR0 {{ ds }} {{ logq }} ; ACC.{{ 'ADD' if loop.last else 'SUB' }} ;;
+    MULT.RC.VE LR13 LR0 0 LR0 {{ ds }} {{ logq }} ; ACC.{{ 'SUB' if loop.last else 'ADD' }} ;;
+    MULT.RC.VE LR0 LR0 0 LR0 {{ ds }} {{ logq }} ; ACC.{{ 'SUB' if loop.last else 'ADD' }} ;;
 {% endfor %}
+    INC LR5 1 ;;
+    LD.MULT.CYCLIC LR5 {{ cr.logits }} LR12 ;;
+    SET LR7 CR0 ;;
+{% for index in range(1,4) %}
+    INC LR7 1 ;;
+    LD.MULT R0 LR7 {{ cr.tmp }} ;;
+    MULT.RC.VE LR12 LR0 0 LR0 {{ ds }} {{ logq }} ; ACC.{{ 'ADD' if loop.last else 'SUB' }} ;;
+{% endfor %}
+    MULT.VE LR0 CR0 0 LR0 {{ ds }} {{ logq }} ; ACC.MAX ;;
+    ACTIVATE.QUANTIZE identity {{ ds }} {{ centerq }} {{ cr.exps }} LR6 ;;
+    LD.MULT R0 LR6 {{ cr.exps }} ;;
+    MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ centerq }} ; ACC.SUB ;;
+{{ slot('LR7',8) }}
+    ACTIVATE.QUANTIZE identity {{ ds }} {{ centerq }} {{ cr.tmp }} LR7 ;;
+    MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ centerq }} ; ACC.SUB.FIRST ;;
+    LD.MULT R0 LR7 {{ cr.tmp }} ;;
+    MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ centerq }} ; ACC.SUB ;;
+{{ slot('LR7',15) }}
+    LD.MULT R0 LR7 {{ cr.tmp }} ;;
+    MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ logq }} ; ACC.SUB ;;
     ACTIVATE.QUANTIZE exp2 {{ ds }} {{ expq }} {{ cr.exps }} LR6 ;;
     INC LR5 1 ; INC LR6 1 ;;
     BLT.S LR6 LR15 {{ tag }}_exp ;;
@@ -146,13 +182,47 @@ scale_ready:
 {{ slot('LR7',5) }}
     ACTIVATE.QUANTIZE rsqrt {{ ds }} {{ expq }} {{ cr.tmp }} LR7 ;;
     LD.MULT.CYCLIC LR7 {{ cr.tmp }} LR11 ;;
+{{ split_acc(ds,'LR8',10) }}
+    MULT.RC.VS LR11 0 LR0 {{ ds }} {{ expq }} ; ACC.ADD.FIRST ;;
+{{ split_acc(ds,'LR8',12) }}
+    LD.MULT.CYCLIC LR8 {{ cr.tmp }} LR12 ;;
+    DEC LR8 1 ;;
+    LD.MULT.CYCLIC LR8 {{ cr.tmp }} LR13 ;;
+    DEC LR8 1 ;;
+    LD.MULT R1 LR8 {{ cr.tmp }} ;;
+    DEC LR8 1 ;;
+    LD.MULT R0 LR8 {{ cr.tmp }} ;;
+    MULT.RC.VV LR13 R0 0 LR0 {{ ds }} {{ splitq }} ; ACC.SUB.FIRST ;;
+    MULT.RC.VV LR12 R0 0 LR0 {{ ds }} {{ splitq }} ; ACC.SUB ;;
+    MULT.RC.VV LR13 R1 0 LR0 {{ ds }} {{ splitq }} ; ACC.SUB ;;
+    MULT.RC.VV LR12 R1 0 LR0 {{ ds }} {{ splitq }} ; ACC.SUB ;;
+    LD.MULT R0 LR0 {{ cr.tmp }} ;;
+    MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ logq }} ; ACC.ADD ;;
+{{ slot('LR9',14) }}
+    ACTIVATE.QUANTIZE identity {{ ds }} {{ splitq }} {{ cr.tmp }} LR9 ;;
+    LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR13 ;;
+{{ slot('LR8',8) }}
     ADD LR6 LR3 LR4 ; SET LR5 CR0 ;;
 {{ tag }}_out:
     LD.MULT R0 LR5 {{ cr.exps }} ;;
     MULT.RC.VV LR11 R0 0 LR0 {{ ds }} {{ expq }} ; ACC.ADD.FIRST ;;
-    ACTIVATE.QUANTIZE identity {{ ds }} {{ expq }} {{ cr.tmp }} LR7 ;;
+    ACTIVATE.QUANTIZE identity {{ ds }} {{ splitq }} {{ cr.tmp }} LR7 ;;
     LD.MULT.CYCLIC LR7 {{ cr.tmp }} LR0 ;;
-    MULT.RC.VS LR0 0 LR0 {{ ds }} {{ expq }} ; ACC.ADD.FIRST ;;
+    MULT.RC.VE LR0 CR1 0 LR0 {{ ds }} {{ splitq }} ; ACC.SUB ;;
+    ACTIVATE.QUANTIZE identity {{ ds }} {{ splitq }} {{ cr.tmp }} LR8 ;;
+    LD.MULT R0 LR8 {{ cr.tmp }} ;;
+    LD.MULT.CYCLIC LR8 {{ cr.tmp }} LR12 ;;
+    MULT.RC.VS LR0 0 LR0 {{ ds }} {{ splitq }} ; ACC.ADD.FIRST ;;
+    MULT.RC.VV LR0 R0 0 LR0 {{ ds }} {{ splitq }} ; ACC.ADD ;;
+    MULT.RC.VV LR0 R0 0 LR0 {{ ds }} {{ splitq }} ; ACC.ADD ;;
+    MULT.RC.VS LR12 0 LR0 {{ ds }} {{ splitq }} ; ACC.ADD ;;
+    ACTIVATE.QUANTIZE identity {{ ds }} {{ splitq }} {{ cr.tmp }} LR7 ;;
+    LD.MULT R0 LR7 {{ cr.tmp }} ;;
+    MULT.RC.VV LR13 R0 0 LR0 {{ ds }} {{ splitq }} ; ACC.ADD ;;
+{{ slot('LR9',15) }}
+    LD.MULT R0 LR9 {{ cr.tmp }} ;;
+    MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ logq }} ; ACC.SUB ;;
+    MULT.VE LR0 CR0 0 LR0 {{ ds }} {{ splitq }} ; ACC.MAX ;;
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR6 ;;
     ADD LR6 LR6 {{ cr.strides }}.L ; INC LR5 1 ;;
     BLT.S LR5 LR15 {{ tag }}_out ;;

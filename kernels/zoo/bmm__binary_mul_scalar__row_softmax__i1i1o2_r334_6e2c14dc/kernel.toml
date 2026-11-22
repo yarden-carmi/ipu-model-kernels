@@ -31,8 +31,8 @@ bc = "ceil(in1_d1 / 128)"
 strides = "ar + 65536 * bc"
 heads = "out0_d0 * out0_d1"
 ds_pair = "ds(128) + 65536 * ds((out0_d2 - 1) % 128 + 1)"
-scratch_qf = "280 + 65536 * 72"
-center_qf = "328"
+scratch_qf = "296 + 65536 * 56"
+center_qf = "312 + 65536 * 328"
 
 [inputs.in0]
 shape = ["in0_d0", "in0_d2", "ar", 128]
@@ -43,9 +43,9 @@ range = [-1, 1]
 [outputs.out0]
 shape = ["out0_d0", "out0_d1", "out0_d3", "ar", 128]
 [scratch.tmp]
-shape = [8, 128]
+shape = [16, 128]
 [scratch.logits]
-shape = ["2 * s2_n", 128]
+shape = ["3 * s2_n", 128]
 [scratch.exps]
 shape = ["s2_n", 128]
 
