@@ -83,17 +83,16 @@ center_tail:
  INC LR6 1 ;;
  {{ reset() }}{{ clear() }}
 variance_loop:
- SET LR1 LR9 ; ADD LR7 LR9 CR1 ;;
- INC LR7 2 ;;
-variance_parts:
+ SET LR1 LR9 ;;
+ {% for part in range(3) %}
  LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ; SET LR10 LR9 ;;
-variance_products:
+ {% for product in range(3) %}
  LD.MULT R0 LR10 {{ cr.tmp }} ;;
  MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ full }} ; INC LR10 1 ;;
- BLT.S LR10 LR7 variance_products ;;
- INC LR1 1 ;;
- BLT.S LR1 LR7 variance_parts ;;
- SET LR9 LR7 ; INC LR5 1 ;;
+ {% endfor %}
+ {% if not loop.last %}INC LR1 1 ;;{% endif %}
+ {% endfor %}
+ INC LR9 3 ; INC LR5 1 ;;
  BLT.S LR5 LR6 variance_loop ;;
  {{ average('variance_scale') }}
  {{ at('LR1',3) }}
@@ -106,8 +105,6 @@ variance_products:
  ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
 
  {# Newton: r <- 1.5 r - 0.5 v r^3. #}
- {{ at('LR4',2) }}
-refine:
  {% for a,b,d,na in [(12,12,14,2),(9,14,16,3),(12,16,18,2)] %}
  SET LR3 CR0 ; SET LR1 CR0 ;;
  {% for i in range(na) %}
@@ -125,8 +122,6 @@ refine:
  {% endfor %}
  {% for n in [18,19] %}{{ load(n) }}{{ vec('SUB',imm=cr.half) }}{% endfor %}
  {{ save(12) }}
- DEC LR4 1 ;;
- BLT.S CR0 LR4 refine ;;
 
  {{ reset() }}{{ at('LR11') }}{{ at('LR8',3) }}
  DEC LR6 1 ;;
