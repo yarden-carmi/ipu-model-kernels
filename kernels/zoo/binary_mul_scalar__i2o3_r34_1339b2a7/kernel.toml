@@ -71,6 +71,7 @@ shape = ["out0_d0 * out0_d1 * out0_d2", 128]
 ic = "ceil(in0_d2 / 128)"
 brows = "in0_d1 * ceil(in0_d2 / 128)"
 tail = "ds(out0_d3)"
+single_limit = "129 - out0_d3"
 [abi]
 in0 = "CR2"
 out0 = "CR3"
@@ -84,4 +85,5 @@ out0_d2 = "CR10"
 out0_d0 = "CR11"
 ic = "CR12"
 brows = "CR13"
+single_limit = "CR14"
 [cases.default]

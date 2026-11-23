@@ -3,10 +3,13 @@
     The scalar is two exact frames (hi, lo) in R0 / R1 (operand rows 0 and 1); out = x*hi + x*lo.
     Stage two adjacent chunks in cyclic slots 0 and 1. The low scalar multiply
     consumes both old slots while prefetching slot 0 for the next row. -#}
-{% macro store_low() %}
+{% macro store_low(prefetch=false) %}
     MULT.RC.VE LR4 LR8 0 LR0 {{ cr.tail }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ;
     INC LR1 1 ;
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.tail }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;
+{% if prefetch %}
+    LD.MULT.CYCLIC LR7 {{ cr.in0 }} LR0 ; B single_row ;;
+{% endif %}
 {% endmacro %}
     SET LR1 CR0 ;;
     DEC LR1 1 ;;
@@ -19,6 +22,7 @@ batch:
     SET LR5 CR0 ; SET LR4 CR0 ; SET LR3 CR0 ;;
 head:
     ADD LR7 LR10 LR3  ; ADD LR14 LR3 CR1 ;;
+    BLT.S LR4 {{ cr.single_limit }} single_head ;;
     SET LR13 CR1 ;;
     BLT.S LR14 {{ cr.ic }} delta_ok ;;
     SET LR13 CR0 ;;
@@ -34,6 +38,16 @@ row:
 next_row:
     {{ store_low() }}
     LD.MULT.CYCLIC LR7 {{ cr.in0 }} LR0 ; ADD LR14 LR7 LR13 ; B row ;;
+single_head:
+    SET LR6 CR1 ; LD.MULT.CYCLIC LR7 {{ cr.in0 }} LR0 ;;
+single_row:
+    # The active window stays in slot 0, so the low multiply can
+    # consume it while replacing it with the next row's chunk.
+    MULT.RC.VE LR4 LR0 0 LR0 {{ cr.tail }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;
+    ADD LR7 LR7 {{ cr.ic }} ; INC LR6 1 ; BLT.S LR6 {{ cr.out0_d2 }} single_more ;;
+    {{ store_low() }} B head_done ;;
+single_more:
+    {{ store_low(true) }}
 head_done:
     INC LR5 1 ; INC.MODP2 LR4 {{ cr.out0_d3 }} 7 ;;
     BLT.S LR4 {{ cr.out0_d3 }} wrapped ;;
