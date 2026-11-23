@@ -1,0 +1,51 @@
+[kernel]
+op = "unary_builtin"
+formats = ["e1", "e2"]
+
+[params.act_out0]
+type = "str"
+choices = ["relu"]
+default = "relu"
+
+[params.numel]
+type = "int"
+default = 65536
+
+[params.in0_d0]
+type = "int"
+default = 1
+
+[params.in0_d1]
+type = "int"
+default = 64
+
+[params.in0_d2]
+type = "int"
+default = 32
+
+[params.in0_d3]
+type = "int"
+default = 32
+
+[derived]
+capacity = "max(1, 128 // in0_d3)"
+pack = "1 + (capacity - 1) * (1 - min(1, in0_d2 % capacity))"
+rows = "numel // (pack * in0_d3)"
+active = "ds(pack * in0_d3)"
+
+[inputs.in0]
+shape = ["rows", 128]
+range = [-1.0, 1.0]
+
+[outputs.out0]
+shape = ["rows", 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+rows = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+active = "CR7"
+
+[cases.default]
