@@ -49,14 +49,14 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 16, 16], [16384, 256, 16, 1], 0), module.weight, module.bias)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 32, 32], [65536, 1024, 32, 1], 0), module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 64, 16, 16])}
+    return {"out0": _out(op0, [1, 64, 32, 32])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Split broadcast biases and weight vectors into coarse and residual rows."""
+    """Split each broadcast bias and weight vector into coarse and residual rows."""
     n, k = params['n'], params['k']
     weights = module.weight.double().reshape(n, k)
     bias = getattr(module, 'bias', None) if params['bias'] else None
