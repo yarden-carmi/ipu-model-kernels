@@ -1,6 +1,6 @@
 [kernel]
 op = "binary_mul_scalar"
-formats = ["e1", "e2"]
+formats = ["e2"]
 
 [params.broadcast]
 type = "str"
@@ -24,7 +24,7 @@ default = "mul"
 type = "int"
 min = 1
 max = 2147483647
-default = 786432
+default = 32768
 [params.in0_d0]
 type = "int"
 min = 1
@@ -34,17 +34,17 @@ default = 1
 type = "int"
 min = 1
 max = 2147483647
-default = 12
+default = 8
 [params.in0_d2]
 type = "int"
 min = 1
 max = 2147483647
-default = 256
+default = 64
 [params.in0_d3]
 type = "int"
 min = 1
 max = 2147483647
-default = 256
+default = 64
 [params.out0_d0]
 type = "int"
 min = 1
@@ -54,17 +54,17 @@ default = 1
 type = "int"
 min = 1
 max = 2147483647
-default = 12
+default = 8
 [params.out0_d2]
 type = "int"
 min = 1
 max = 2147483647
-default = 256
+default = 64
 [params.out0_d3]
 type = "int"
 min = 1
 max = 2147483647
-default = 256
+default = 64
 
 [inputs.in0]
 shape = ["groups * chunks", 128]
@@ -75,11 +75,12 @@ shape = ["out0_d0 * out0_d1 * out0_d2 * ceil(out0_d3 / 128)", 128]
 [derived]
 groups = "in0_d0 * in0_d1 * in0_d2"
 chunks = "ceil(in0_d3 / 128)"
-ds_pair = "ds((in0_d3 - 1) % 128 + 1) + ds(128) * 65536"
-# Both FP32 terms decode as zero in NX8. Their FP32 difference is 1/8.
+last = "(in0_d3 - 1) % 128 + 1"
+ds_pair = "ds(last) + ds(128) * 65536"
+# In FP32, the first two coefficients differ by 1/8; both are zero in NX8.
 fp_base = "0x43010080"
 fp_top = "fp_base + 8192"
-# Unsigned e1, exponent 0, zero mantissa, scale 127 - 3.
+# 1/8 in NX8, zero on the FP32 path.
 nx_scale = "0x00017c00"
 
 [abi]
