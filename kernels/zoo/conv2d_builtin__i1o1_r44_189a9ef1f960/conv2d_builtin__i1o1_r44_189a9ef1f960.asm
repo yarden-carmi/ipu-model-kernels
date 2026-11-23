@@ -8,9 +8,12 @@
 {% macro prime() %}
  LD.MULT.CYCLIC LR4 {{ cr.weights }} LR15 ;;
 {% endmacro %}
-{% macro accumulate(src, first='ACC.ADD', more=false) %}
+{% macro accumulate(src, first='ACC.ADD', more=false, advance='') %}
  MULT.RC.VE LR15 {{ src }} 0 LR15 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; {{ first }} ; LD.MULT.CYCLIC LR4 {{ cr.weights }} LR15 ; INC LR4 1 ;;
- MULT.RC.VE LR15 {{ src }} 0 LR15 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR4 1 {% if more %}; LD.MULT.CYCLIC LR4 {{ cr.weights }} LR15{% endif %} ;;
+ MULT.RC.VE LR15 {{ src }} 0 LR15 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR4 1 {% if more %}; LD.MULT.CYCLIC LR4 {{ cr.weights }} LR15{% endif %}{% if advance %} ; INC {{ advance }} 2{% endif %} ;;
+{% endmacro %}
+{% macro channel_pair(i, more=true) %}
+ {{ accumulate('LR11' if i % 2 == 0 else 'LR12', more=more, advance=('LR12' if i % 2 == 0 else 'LR11') if more else '') }}
 {% endmacro %}
 {% macro store(ds) %}
  ACTIVATE.QUANTIZE {{ act_out0 }} {{ ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR13 ;;
@@ -37,16 +40,23 @@ kx:
  BGE.S LR7 {{ cr.h }} skip ;;
  BLT.S LR8 CR0 skip ;;
  BGE.S LR8 {{ cr.w }} skip ;;
- ADD LR9 LR14 LR6 ; SET LR11 CR0 ;;
- LD.MULT R0 LR9 {{ cr.in0 }} ;;
+ ADD LR9 LR14 LR6 ; SET LR11 CR0 ; SET LR12 CR0 ;;
+ LD.MULT R0 LR9 {{ cr.in0 }} ; DEC LR12 1 ;;
  {{ prime() }}
-{% if cin > 1 %}
+ {# Alternate channel counters: MULT reads the current counter while the
+    residual word advances the other. Panels preserve the counter parity. #}
+{% if cin > 16 %}
 channel:
- {{ accumulate('LR11', more=true) }}
- INC LR11 1 ; BLT.S LR11 {{ cr.last_prefetch }} channel ;;
+{% for i in range(16) %}
+ {{ channel_pair(i) }}
+{% endfor %}
+ BLT.S LR11 {{ cr.panel_end }} channel ;;
 {% endif %}
+{% for i in range((cin - 1) % 16) %}
+ {{ channel_pair(i) }}
+{% endfor %}
  {# The final pair doesn't load past the tap, including at the end of weights. #}
- {{ accumulate('LR11') }}
+ {{ channel_pair(cin - 1, false) }}
  BEQ LR15 CR0 next ;;
 skip:
  ADD LR4 LR4 {{ cr.tap_rows }} ;;
