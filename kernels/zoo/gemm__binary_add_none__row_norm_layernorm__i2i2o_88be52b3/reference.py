@@ -49,15 +49,15 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.linear.default(_v(ins[0], [4, 64, 384], [24576, 384, 1], 0), module.op0_weight, module.op0_bias)
+    r0 = aten.linear.default(_v(ins[0], [4, 256, 288], [73728, 288, 1], 0), module.op0_weight, module.op0_bias)
     op0 = _pick(r0, 0)  # step 0
     op0 = r_(op0, "s0")  # stored
-    r0 = aten.add.Tensor(_v(ins[1], [4, 64, 192], [1, 4, 256], 0), _v(op0, [4, 64, 192], [12288, 192, 1], 0))
+    r0 = aten.add.Tensor(_v(ins[1], [4, 256, 144], [1, 4, 1024], 0), _v(op0, [4, 256, 144], [36864, 144, 1], 0))
     op1 = _pick(r0, 0)  # step 1
     op1 = r_(op1, "s1")  # stored
-    r0 = aten.layer_norm.default(_v(op1, [4, 64, 192], [1, 4, 256], 0), [192], module.op2_weight, module.op2_bias)
+    r0 = aten.layer_norm.default(_v(op1, [4, 256, 144], [1, 4, 1024], 0), [144], module.op2_weight, module.op2_bias)
     op2 = _pick(r0, 0)  # step 2
-    return {"out0": _out(op2, [4, 64, 192])}
+    return {"out0": _out(op2, [4, 256, 144])}
 # ---- end of the frozen reference ----
 
 

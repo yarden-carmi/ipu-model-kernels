@@ -12,6 +12,25 @@
 {% macro mul(slot='LR0',first=false,extra='') %}
  MULT.RC.VV {{ slot }} R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if first %}.FIRST{% endif %} {{ extra }} ;;
 {% endmacro %}
+{# Stream consecutive split parts, loading the next part alongside the multiply. #}
+{% macro next_part(ptr,base,last) -%}
+ ; INC {{ ptr }} 1{% if not last %} ; LD.MULT R0 {{ ptr }} {{ base }}{% endif %}
+{%- endmacro %}
+{% macro parts(ptr,base,op='ADD',first=false,ds=full,count=3) %}
+ LD.MULT R0 {{ ptr }} {{ base }} ;;
+ {% for i in range(count) %}
+ {% set advance = next_part(ptr,base,loop.last) %}
+ {% if op == 'MUL' %}
+ {{ mul(first=first and loop.first,extra=advance) }}
+ {% elif op == 'SUM' %}
+ MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ q }} ; AGG.SUM LR0 {{ ds }} {{ advance }} ;;
+ {% elif op == 'SQUARE' %}
+ MULT.RC.VV LR0 R0 0 LR0 {{ ds }} {{ q }} ; AGG.SUM LR0 {{ ds }} {{ advance }} ;;
+ {% else %}
+ {{ vec(op,first=first and loop.first,extra=advance) }}
+ {% endif %}
+ {% endfor %}
+{% endmacro %}
 {% macro encode(reg,p,ds=full) %}
  ACTIVATE.QUANTIZE identity {{ ds }} {{ q }} {{ cr.tmp }} {{ reg }} ;;
  {% for i in range(p-1) %}
@@ -123,10 +142,8 @@ dot_lane:
 dot_last:
  {{ dot('LR3') }}
  BNE LR9 CR0 chunk ;;
- {% for i in range(2) %}
- LD.MULT R0 LR14 {{ cr.tmp }} ;;
- {{ vec(extra='; INC LR14 1' ~ (' ; DEC LR6 1' if loop.last else '')) }}
- {% endfor %}
+ {{ parts('LR14',cr.tmp,count=2) }}
+ DEC LR6 1 ;;
  BEQ LR6 CR0 tile_tail ;;
  {{ encode('LR11',3) }}
  INC LR11 1 ; B tile ;;
@@ -137,10 +154,7 @@ tile_tail:
  {# Compensated mean and variance reductions. #}
  {{ vec(first=true,imm='CR0',extra='; SET LR1 CR0 ; SET LR15 CR0') }}
  {% for ds in [full,tail] %}
- {% for i in range(3) %}
- LD.MULT R0 LR1 {{ cr.tmp }} ;;
- MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ q }} ; AGG.SUM LR0 {{ ds }} ; INC LR1 1 ;;
- {% endfor %}
+ {{ parts('LR1',cr.tmp,'SUM',ds=ds) }}
  {% endfor %}
  B average ;;
 mean_ready:
@@ -148,15 +162,9 @@ mean_ready:
  SET LR11 CR0 ;;
  {{ at('LR9',32) }}
  {% for ds in [full,tail] %}
- {% for i in range(3) %}
- LD.MULT R0 LR11 {{ cr.tmp }} ;;
- {{ vec(first=loop.first,extra='; INC LR11 1') }}
- {% endfor %}
+ {{ parts('LR11',cr.tmp,first=true) }}
  {{ at('LR1',6) }}
- {% for i in range(3) %}
- LD.MULT R0 LR1 {{ cr.tmp }} ;;
- {{ vec('SUB',extra='; INC LR1 1') }}
- {% endfor %}
+ {{ parts('LR1',cr.tmp,'SUB') }}
  {{ encode('LR9',3,ds) }}
  INC LR9 1 ;;
  {% endfor %}
@@ -168,10 +176,7 @@ mean_ready:
 var_{{ loop.index0 }}:
  LD.MULT.CYCLIC LR11 {{ cr.tmp }} LR0 ;;
  {{ at('LR1',32+3*loop.index0) }}
- {% for i in range(3) %}
- LD.MULT R0 LR1 {{ cr.tmp }} ;;
- MULT.RC.VV LR0 R0 0 LR0 {{ ds }} {{ q }} ; AGG.SUM LR0 {{ ds }} ; INC LR1 1 ;;
- {% endfor %}
+ {{ parts('LR1',cr.tmp,'SQUARE',ds=ds) }}
  INC LR11 1 ;;
  BLT.S LR11 LR7 var_{{ loop.index0 }} ;;
  {% endfor %}
@@ -189,26 +194,21 @@ average:
 average_part:
  LD.MULT.CYCLIC LR7 {{ cr.crow }} LR0 ;;
  {{ at('LR1',9) }}
- {% for i in range(3) %}
- LD.MULT R0 LR1 {{ cr.tmp }} ;;
- {{ mul(extra='; INC LR1 1') }}
- {% endfor %}
+ {{ parts('LR1',cr.tmp,'MUL') }}
  INC LR7 1 ;;
  BLT.S LR7 LR6 average_part ;;
  BEQ LR15 CR0 mean_ready ;;
  LD.MULT R0 LR7 {{ cr.crow }} ;;
  {{ vec() }}
- {{ at('LR1',13) }}
+ {{ at('LR1',17) }}
  ACTIVATE.QUANTIZE rsqrt {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
  {{ save(14) }}
-
- {# Refine the reciprocal square root with two Newton steps. #}
- {{ at('LR1',13) }}
+ {# One Newton correction. The native estimate is a single stored part,
+    so both its square and its final multiplication need no outer loop. #}
+ LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ; INC LR1 1 ;;
  LD.MULT R0 LR1 {{ cr.tmp }} ;;
- {{ vec(first=true) }}
- {{ save(17) }}
- {{ at('LR15',2) }}
-newton:
+ {{ mul(first=true) }}
+ {{ save(20) }}
  {% macro product(a,b,d) %}
  {{ vec(first=true,imm='CR0') }}
  {{ at('LR11',a) }}
@@ -217,15 +217,11 @@ newton:
 prod_{{ d }}:
  LD.MULT.CYCLIC LR11 {{ cr.tmp }} LR0 ;;
  {{ at('LR1',b) }}
- {% for i in range(3) %}
- LD.MULT R0 LR1 {{ cr.tmp }} ;;
- {{ mul(extra='; INC LR1 1') }}
- {% endfor %}
+ {{ parts('LR1',cr.tmp,'MUL') }}
  INC LR11 1 ;;
  BLT.S LR11 LR7 prod_{{ d }} ;;
  {{ save(d) }}
  {% endmacro %}
- {{ product(17,17,20) }}
  {{ product(14,20,23) }}
  {{ at('LR1',4) }}
  LD.MULT R0 LR1 {{ cr.crow }} ;;
@@ -237,9 +233,11 @@ prod_{{ d }}:
  MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; ACC.SUB ; INC LR1 1 ;;
  {% endfor %}
  {{ save(26) }}
- {{ product(17,26,17) }}
- DEC LR15 1 ;;
- BNE LR15 CR0 newton ;;
+ {{ at('LR11',17) }}
+ LD.MULT.CYCLIC LR11 {{ cr.tmp }} LR0 ;;
+ {{ at('LR1',26) }}
+ {{ parts('LR1',cr.tmp,'MUL',first=true) }}
+ {{ save(17) }}
 
  SET LR2 CR0 ; SET LR3 CR0 ;;
  INC LR3 32 ; SET LR15 CR0 ;;
@@ -249,10 +247,7 @@ affine_tile:
  {{ at('LR11',20) }}
 scaled_gamma:
  DEC LR11 1 ; LD.MULT.CYCLIC LR11 {{ cr.tmp }} LR0 ; SET LR1 LR2 ;;
- {% for i in range(3) %}
- LD.MULT R0 LR1 {{ cr.affine }} ;;
- {{ mul(extra='; INC LR1 1') }}
- {% endfor %}
+ {{ parts('LR1',cr.affine,'MUL') }}
  {{ at('LR7',17) }}
  BLT.S LR7 LR11 scaled_gamma ;;
  {{ save(29) }}
@@ -262,17 +257,11 @@ scaled_center:
  LD.MULT.CYCLIC LR11 {{ cr.tmp }} LR0 ;;
  INC LR11 1 ;;
  {{ at('LR1',29) }}
- {% for i in range(3) %}
- LD.MULT R0 LR1 {{ cr.tmp }} ;;
- {{ mul(extra='; INC LR1 1') }}
- {% endfor %}
+ {{ parts('LR1',cr.tmp,'MUL') }}
  BLT.S LR11 LR3 scaled_center ;;
  SET LR1 LR2 ;;
  INC LR1 6 ;;
- {% for i in range(3) %}
- LD.MULT R0 LR1 {{ cr.affine }} ;;
- {{ vec(extra='; INC LR1 1') }}
- {% endfor %}
+ {{ parts('LR1',cr.affine) }}
  {{ encode('LR12',3) }}
  INC LR12 1 ; INC LR2 3 ; DEC LR15 1 ;;
  BNE LR15 CR0 affine_tile ;;
@@ -292,12 +281,12 @@ pack_fragment:
  BLT.S LR11 LR12 pack_count ;;
  SET LR11 LR12 ;;
 pack_count:
- SUB LR6 LR7 LR8 ;;
- INC.MODP2 LR6 CR0 7 ; SET LR1 LR2 ; LD.MULT R0 LR10 {{ cr.masks }} ;;
+ {# The mask selects only lanes whose source index lands in slot zero.
+    Wrap negative offsets around the whole ring, not around the slot. #}
+ SUB LR6 LR7 LR8 ; SET LR1 LR2 ; LD.MULT R0 LR10 {{ cr.masks }} ;;
+ INC.MODP2 LR6 CR0 9 ; LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
  {% for p in range(3) %}
- LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
- LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR3 ;;
- {{ mul('LR6',extra='; INC LR1 1') }}
+ {{ mul('LR6',extra='; LD.MULT.CYCLIC LR1 ' ~ cr.tmp ~ ' LR0 ; INC LR1 1' if not loop.last else '') }}
  {% endfor %}
  ADD LR7 LR7 LR11 ; ADD LR8 LR8 LR11 ; INC LR10 1 ;;
  BNE LR7 LR5 pack_src_ready ;;
