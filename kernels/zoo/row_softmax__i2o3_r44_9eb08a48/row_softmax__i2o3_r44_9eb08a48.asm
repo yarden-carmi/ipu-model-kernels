@@ -34,13 +34,20 @@ pack_group:
     SET LR8 LR6 ; SET LR9 LR7 ; SUB LR12 LR0 LR10 ;;
     ADDB LRD8 LR12 ; LD.MULT R0 LR4 {{ cr.in0 }} ; DEC LR11 1 ;;
 pack_tile:
-{{ addr('LR12',8) }}
-pack_column:
-    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.RESHAPE LRD6 LRD8 0 ; ADD LR4 LR4 {{ cr.pitch }} ; DEC LR12 1 ; BEQ LR11 CR0 pack_tail ;;
-    ADDBI LRD8 8 ; LD.MULT R0 LR4 {{ cr.in0 }} ; DEC LR11 1 ; BNE LR12 CR0 pack_column ;;
-    ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.transposed }} LR3 ; ADDBI LRD8 -64 ; INC LR3 1 ; B pack_tile ;;
+{{ addr('LR12',7) }}
+    BLT.S LR11 LR12 pack_partial ;;
+{% for i in range(7) %}
+    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.RESHAPE LRD6 LRD8 0 ; LD.MULT R0 LR4 {{ cr.in0 }} ; ADD LR4 LR4 {{ cr.pitch }}{% if not loop.first %} ; ADDBI LRD8 8{% endif %} ; DEC LR11 1 ;;
+{% endfor %}
+    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.RESHAPE LRD6 LRD8 0 ; ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.transposed }} LR3 ; ADDBI LRD8 8 ; INC LR3 1 ; BEQ LR11 CR0 pack_group_done ;;
+    LD.MULT R0 LR4 {{ cr.in0 }} ; ADD LR4 LR4 {{ cr.pitch }} ; ADDBI LRD8 -56 ; DEC LR11 1 ; B pack_tile ;;
+pack_partial:
+    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.RESHAPE LRD6 LRD8 0 ; BEQ LR11 CR0 pack_tail ;;
+    ADDBI LRD8 8 ; LD.MULT R0 LR4 {{ cr.in0 }} ; DEC LR11 1 ; ADD LR4 LR4 {{ cr.pitch }} ; B pack_partial ;;
 pack_tail:
-    ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.transposed }} LR3 ; INC LR3 1 ; DEC LR5 8 ;;
+    ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.transposed }} LR3 ; INC LR3 1 ;;
+pack_group_done:
+    DEC LR5 8 ;;
     BLT.S LR5 CR1 pack_next ;;
     INC LR10 8 ; ADDBI LRD6 8 ;;
 {{ addr('LR12',128) }}
@@ -120,6 +127,10 @@ numerator_{{ slot }}:
 {{ coefficient(94,1,11) }}
     ACTIVATE.QUANTIZE identity {{ full }} {{ root }} {{ cr.tmp }} LR1 ;;
     LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR13 ;;
+{% set coeffs = [(5, 'LR6'), (6, 'LR9'), (8, 'LR14'), (9, 'LR15')] %}
+{% for slot, reg in coeffs %}
+{{ addr(reg, slot) }}
+{% endfor %}
     SET LR8 {{ cr.K }} ; SET LR2 CR0 ;;
     DEC LR8 1 ;;
 row:
@@ -142,19 +153,14 @@ max_single:
     MULT.VE LR0 CR1 0 LR0 {{ part }} {{ q }} ; AGG.MAX.FIRST LR0 {{ part }} ;;
 max_ready:
     SET LR1 CR1 ;;
-    ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
-    LD.MULT R0 LR1 {{ cr.tmp }} ;;
-    MULT.EE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ;;
-    ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
+    ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ; LD.MULT.CYCLIC LR6 {{ cr.tmp }} LR10 ;;
+    LD.MULT R1 LR1 {{ cr.tmp }} ;;
     SET LR4 LR2 ; SET LR3 CR0 ;;
 {% call(ds) tiles('exponentiate') %}
     LD.MULT R0 LR4 {{ cr.transposed }} ;;
-    LD.MULT R1 LR1 {{ cr.tmp }} ;;
-{% for slot in [5,6,8,9] %}
-{{ addr('LR5',slot) }}
-    LD.MULT.CYCLIC LR5 {{ cr.tmp }} LR0 ;;
-    MULT.RC.VV LR0 R0 0 LR0 {{ ds }} {{ q }} ; ACC.{% if loop.last %}SUB{% else %}ADD{% endif %}{% if loop.first %}.FIRST{% endif %} ;;
-    MULT.RC.VV LR0 R1 0 LR0 {{ ds }} {{ q }} ; ACC.{% if loop.last %}ADD{% else %}SUB{% endif %} ;;
+{% for slot, reg in coeffs %}
+    MULT.RC.VV {{ 'LR10' if loop.first else 'LR0' }} R0 0 LR0 {{ ds }} {{ q }} ; ACC.{% if loop.last %}SUB{% else %}ADD{% endif %}{% if loop.first %}.FIRST{% endif %} ;;
+    MULT.RC.VE {{ 'LR10' if loop.first else 'LR0' }} LR11 0 LR0 {{ ds }} {{ q }} ; ACC.{% if loop.last %}ADD{% else %}SUB{% endif %}{% if not loop.last %} ; LD.MULT.CYCLIC {{ coeffs[loop.index][1] }} {{ cr.tmp }} LR0{% endif %} ;;
 {% endfor %}
     ACTIVATE.QUANTIZE exp2 {{ ds }} {{ root }} {{ cr.roots }} LR3 ;;
     LD.MULT R0 LR3 {{ cr.roots }} ;;
