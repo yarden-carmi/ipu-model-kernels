@@ -38,6 +38,39 @@ gather_row:
  SET LR1 LR11 ; SET LR7 LR10 ; SET LR2 CR0 ;;
  SET LR3 CR0 ;;
  {% macro gather(label,count,ds) %}
+ {% set stride = in1_d0*in1_d1 %}
+ {% macro scatter(src,extra='') %}
+ MULT.EE {{ src }} CR1 0 LR0 {{ full }} {{ cr.qf_in1 }}.L ; ACC.RESHAPE LRD0 LRD2 7 ; ADDBI LRD2 1 {{ extra }} ;;
+ {% endmacro %}
+ {% if stride % 128 == 0 or stride % 128 == 64 %}
+ {# Reshape sees the updated destination. Start its byte counter at zero
+    and handle lane zero in the prologue before advancing it. #}
+ LD.MULT R0 LR1 {{ cr.in1 }} ;;
+ {% if stride % 128 == 0 %}
+ {{ at('LR6',count-3) }}
+ MULT.EE LR7 CR1 0 LR0 {{ full }} {{ cr.qf_in1 }}.L ; ACC.RESHAPE LRD0 LRD2 7 ; INC LR1 {{ stride//128 }} ; LD.MULT R0 LR1 {{ cr.in1 }} ;;
+ {{ label }}:
+ {{ scatter('LR7','; INC LR1 ' ~ (stride//128) ~ ' ; LD.MULT R0 LR1 ' ~ cr.in1 ~ ' ; DEC LR6 1 ; BLT.S CR0 LR6 ' ~ label) }}
+ {{ scatter('LR7', '; INC LR1 ' ~ (stride//128)) }}
+ {% else %}
+ {# A half-row stride alternates between the two lanes of each pair. #}
+ SET LR8 LR7 ;;
+ INC LR8 64 ;;
+ BLT.S LR8 LR5 {{ label }}_low ;;
+ DEC LR8 128 ;;
+ {% for hi in [true,false] %}
+ {% if not hi %}{{ label }}_low:{% endif %}
+ {{ at('LR6',count//2-1) }}
+ MULT.EE LR7 CR1 0 LR0 {{ full }} {{ cr.qf_in1 }}.L ; ACC.RESHAPE LRD0 LRD2 7 {% if stride//128 + hi %}; INC LR1 {{ stride//128 + hi }} ; LD.MULT R0 LR1 {{ cr.in1 }}{% endif %} ;;
+ {{ label }}_pair_{{ loop.index }}:
+ {{ scatter('LR8','; INC LR1 ' ~ (stride//128 + (not hi)) ~ ' ; LD.MULT R0 LR1 ' ~ cr.in1 ~ ' ; DEC LR6 1') if stride//128 + (not hi) else scatter('LR8','; DEC LR6 1') }}
+ {{ scatter('LR7', ('; INC LR1 ' ~ (stride//128 + hi) ~ ' ; LD.MULT R0 LR1 ' ~ cr.in1 if stride//128 + hi else '') ~ ' ; BLT.S CR0 LR6 ' ~ label ~ '_pair_' ~ loop.index) }}
+ {{ scatter('LR8', '; INC LR1 ' ~ (stride//128 + (not hi)) if stride//128 + (not hi) else '') }}
+ B {{ label }}_ready ;;
+ {% endfor %}
+ {{ label }}_ready:
+ {% endif %}
+ {% else %}
  {{ at('LR6',count) }}
 {{ label }}:
  LD.MULT R0 LR1 {{ cr.in1 }} ;;
@@ -50,6 +83,7 @@ gather_row:
 {{ label }}_nowrap:
  {% endif %}
  BNE LR6 CR0 {{ label }} ;;
+ {% endif %}
  {{ encode('LR12',2,ds) }}
  INC LR12 1 ;;
  {% endmacro %}
