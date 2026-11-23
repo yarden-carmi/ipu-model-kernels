@@ -10,12 +10,10 @@
     INC {{ reg }} {{ val }} ;;
 {% endmacro %}
 {% macro tiles(label) %}
-    SET LR7 CR0 ;;
-    BEQ LR7 LR8 {{ label }}_tail ;;
+    SET LR7 CR1 ; BEQ LR8 CR0 {{ label }}_tail ;;
 {{ label }}_full:
 {{ caller(full) }}
-    INC LR7 1 ;;
-    BLT.S LR7 LR8 {{ label }}_full ;;
+    INC LR7 1 ; BLT.S LR7 LR8 {{ label }}_full ;;
 {{ label }}_tail:
 {{ caller(part) }}
 {% endmacro %}
@@ -69,16 +67,23 @@ unpack_group:
     ADD LR10 LR10 LR10 ; ADD LR11 LR11 LR11 ;;
 {% endfor %}
 {{ addr('LR13',8) }}
+{{ addr('LR15',120) }}
 unpack_row:
     SET LR4 LR2 ; SET LR12 LR1 ;;
     LD.MULT R0 LR4 {{ cr.transposed }} ; DEC LR12 8 ;;
 unpack_chunk:
-    SET LR8 LR6 ; SET LR9 LR7 ; SET LR15 CR0 ;;
-    INC LR15 16 ;;
+    SET LR8 LR6 ; SET LR9 LR7 ; BLT.S LR12 LR15 unpack_tile ;;
+    DEC LR12 120 ;;
+{# The LR increment selects the next tile for LOAD; MULT still sees the old R0. #}
+{% for i in range(15) %}
+    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.RESHAPE LRD10 LRD8 0 ; LD.MULT R0 LR4 {{ cr.transposed }} ; INC LR4 1{% if not loop.first %} ; ADDBI LRD8 8{% endif %} ;;
+{% endfor %}
+    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.RESHAPE LRD10 LRD8 0 ; INC LR4 1 ; ADDBI LRD8 8 ; BLT.S LR12 CR1 unpack_tail ;;
+    ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.transposed }} LR3 ; INC LR3 1 ; DEC LR12 8 ;;
+    LD.MULT R0 LR4 {{ cr.transposed }} ; B unpack_chunk ;;
 unpack_tile:
-    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.RESHAPE LRD10 LRD8 0 ; INC LR4 1 ; DEC LR15 1 ; BLT.S LR12 CR1 unpack_tail ;;
-    ADDBI LRD8 8 ; LD.MULT R0 LR4 {{ cr.transposed }} ; DEC LR12 8 ; BNE LR15 CR0 unpack_tile ;;
-    ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.transposed }} LR3 ; INC LR3 1 ; B unpack_chunk ;;
+    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.RESHAPE LRD10 LRD8 0 ; INC LR4 1 ; BLT.S LR12 CR1 unpack_tail ;;
+    ADDBI LRD8 8 ; LD.MULT R0 LR4 {{ cr.transposed }} ; DEC LR12 8 ; B unpack_tile ;;
 unpack_tail:
     ACTIVATE.QUANTIZE identity {{ part }} {{ q }} {{ cr.transposed }} LR3 ; INC LR3 1 ; DEC LR5 1 ; ADDBI LRD10 1 ;;
     BEQ LR5 CR0 unpack_next ;;
@@ -154,8 +159,7 @@ max_single:
 max_ready:
     SET LR1 CR1 ;;
     ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ; LD.MULT.CYCLIC LR6 {{ cr.tmp }} LR10 ;;
-    LD.MULT R1 LR1 {{ cr.tmp }} ;;
-    SET LR4 LR2 ; SET LR3 CR0 ;;
+    LD.MULT R1 LR1 {{ cr.tmp }} ; SET LR4 LR2 ; SET LR3 CR0 ;;
 {% call(ds) tiles('exponentiate') %}
     LD.MULT R0 LR4 {{ cr.transposed }} ;;
 {% for slot, reg in coeffs %}
@@ -173,8 +177,7 @@ max_ready:
 {% call(ds) tiles('sum') %}
     LD.MULT R0 LR3 {{ cr.roots }} ;;
     LD.MULT.CYCLIC LR3 {{ cr.roots }} LR0 ;;
-    MULT.RC.VV LR0 R0 0 LR0 {{ ds }} {{ root }} ; AGG.SUM LR0 {{ ds }} ;;
-    INC LR3 1 ;;
+    MULT.RC.VV LR0 R0 0 LR0 {{ ds }} {{ root }} ; AGG.SUM LR0 {{ ds }} ; INC LR3 1 ;;
 {% endcall %}
 {# Preserve the sum and reciprocal as high and residual pieces. #}
     ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR0 ;;
