@@ -46,4 +46,6 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    return {}
+    # Keep tiny values out of the subnormal range during scratch quantization.
+    return {"tile_up": torch.full((1, 128), 256.0),
+            "tile_down": torch.full((1, 128), 1 / 256)}
