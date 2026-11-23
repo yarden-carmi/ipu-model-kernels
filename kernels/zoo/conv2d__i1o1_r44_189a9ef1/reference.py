@@ -60,10 +60,30 @@ def fold(module, **params):
     weight = module.weight
     co, ci, kh, kw = weight.shape
     blocks = (co + 127) // 128
+    bias = getattr(module, "bias", None) if params.get("bias") else None
+    if (kh == kw == 3 and params['padding'] == 1 and params['stride'] == 2
+            and ci % 128 == co % 128 == params['in0_d3'] % 2 == params['out0_d3'] % 2 == 0
+            and params['out0_d3'] >= 4):
+        rows = weight.new_zeros((blocks, 1 + 12 * ci, 128))
+        for block in range(blocks):
+            tile = weight[128 * block:128 * (block + 1)]
+            taps = torch.cat((tile, tile[..., :1] + tile[..., 2:]), dim=-1)
+            rows[block, 1:] = taps.permute(2, 3, 1, 0).reshape(-1, 128)
+            if bias is not None:
+                rows[block, 0] = bias.reshape(-1)[128 * block:128 * (block + 1)]
+        return {"weights": rows}
+    if ci >= 96 and co <= 64:
+        chunks = (ci + 127) // 128
+        rows = weight.new_zeros((1, 1 + kh * kw * chunks * co, 128))
+        tile = weight.new_zeros((co, chunks * 128, kh, kw))
+        tile[:, :ci] = weight
+        rows[0, 1:] = tile.reshape(co, chunks, 128, kh, kw).permute(3, 4, 1, 0, 2).reshape(-1, 128)
+        if bias is not None:
+            rows[0, 0, :co] = bias.reshape(-1)
+        return {"weights": rows}
     panel = (ci + 15) // 16 * 16
     rows = weight.new_zeros((blocks, 1 + kh * kw * panel, 128))
     taps = rows[:, 1:].view(blocks, kh, kw, panel, 128)
-    bias = getattr(module, "bias", None) if params.get("bias") else None
     for block, start in enumerate(range(0, co, 128)):
         tile = weight[start:start + 128]
         active = tile.shape[0]
