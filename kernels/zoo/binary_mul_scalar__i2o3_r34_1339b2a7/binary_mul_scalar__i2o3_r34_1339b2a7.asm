@@ -18,13 +18,12 @@ head:
 delta_ok:
     SET LR6 CR0 ;;
 row:
-    LD.MULT.CYCLIC LR7 {{ cr.in0 }} LR0 ;;
-    ADD LR14 LR7 LR13 ;;
-    LD.MULT.CYCLIC LR14 {{ cr.in0 }} LR8 ;;
-    MULT.RC.VE LR4 LR0 0 LR0 {{ cr.tail }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
-    MULT.RC.VE LR4 LR8 0 LR0 {{ cr.tail }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ;;
-    ACTIVATE.QUANTIZE identity {{ cr.tail }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;;
-    INC LR1 1 ; ADD LR7 LR7 {{ cr.ic }} ; INC LR6 1 ;;
+    LD.MULT.CYCLIC LR7 {{ cr.in0 }} LR0 ; ADD LR14 LR7 LR13 ;;
+    LD.MULT.CYCLIC LR14 {{ cr.in0 }} LR8 ; ADD LR7 LR7 {{ cr.ic }} ;;
+    MULT.RC.VE LR4 LR0 0 LR0 {{ cr.tail }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; INC LR6 1 ;;
+    MULT.RC.VE LR4 LR8 0 LR0 {{ cr.tail }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ;
+    ADD LR15 LR1 CR0 ; INC LR1 1 ;
+    ACTIVATE.QUANTIZE identity {{ cr.tail }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR15 ;
     BLT.S LR6 {{ cr.out0_d2 }} row ;;
     INC LR5 1 ; INC.MODP2 LR4 {{ cr.out0_d3 }} 7 ;;
     BLT.S LR4 {{ cr.out0_d3 }} wrapped ;;
