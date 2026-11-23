@@ -64,7 +64,7 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    """Fold normalization and stream paired coarse/residual coefficient rows."""
+    """Fold normalization and split weights for the unrolled spatial path."""
     n, k = int(params["n"]), int(params["k"])
     tiles = (n + 127) // 128
     if hasattr(module, "op1_weight"):
@@ -81,10 +81,16 @@ def fold(module, **params):
         if params.get("bias") and bias is not None:
             rows[tile, 0, :hi - lo] = bias.reshape(n)[lo:hi]
         rows[tile, 1:, :hi - lo] = weight[lo:hi].T
+    h, w = int(params["in0_d2"]), int(params["in0_d3"])
+    capacity = 128 // w
+    pack = 1 + (capacity - 1) * int(h % capacity == 0 or (h * w == 64 and 128 % w == 0))
+    pack -= int(w == 32 and h % 4 == 0 and k <= 96)
+    if int(params["m"]) > 1 and k <= 32 and n <= 128 and h % pack == 0:
+        weights = rows[0, 1:]
+        _, exponent = torch.frexp(weights.abs().amax(dim=1, keepdim=True))
+        step = torch.ldexp(torch.ones_like(exponent, dtype=weights.dtype), exponent - 4)
+        coarse = torch.round(weights / step) * step
+        paired = torch.stack((coarse, weights - coarse), dim=1).reshape(-1, 128)
+        return {"coeff": torch.cat((rows[0, :1], paired)).numpy()}
     rows = rows.reshape(-1, 128)
-    _, exponent = torch.frexp(rows.abs().amax(dim=1, keepdim=True))
-    step = torch.ldexp(torch.ones_like(exponent, dtype=rows.dtype), exponent - 4)
-    coarse = torch.round(rows / step) * step
-    paired = torch.stack((coarse, rows - coarse), dim=1).reshape(-1, 128)
-    # The final residual multiply issues the same lookahead as every other pair.
-    return {"coeff": torch.cat((paired, paired.new_zeros((1, 128)))).numpy()}
+    return {"coeff": torch.cat((rows, rows.new_zeros((1, 128)))).numpy()}
