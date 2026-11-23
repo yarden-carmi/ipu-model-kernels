@@ -20,16 +20,6 @@ def _l(res, k, shape, stride, offset):
     return _v(t, shape, stride, offset)
 
 
-def _p(t, shape):
-    """A parameter read at the shape its record read it (a view of it: reshaped, or expanded)."""
-    if list(t.shape) == list(shape):
-        return t
-    n = 1
-    for d in shape:
-        n *= int(d)
-    return t.reshape(tuple(shape)) if t.numel() == n else t.expand(tuple(shape))
-
-
 def _pick(res, k):
     """Result k of a record (one tensor, or a tuple of them)."""
     return res[k] if isinstance(res, (tuple, list)) else res
@@ -49,38 +39,29 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.linear.default(_v(ins[0], [1, 1, 384], [384, 384, 1], 0), module.weight, module.bias)
+    r0 = aten.linear.default(_v(ins[0], [1, 257, 384], [98688, 384, 1], 0), module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 1, 384])}
+    return {"out0": _out(op0, [1, 257, 384])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Fold any channel scale and pack each affine term into three precision planes."""
-    linear = _sub(module, "op0_") if hasattr(module, "op0_weight") else module
-    weight = linear.weight.detach().double()
+    """Store coarse and residual planes consecutively for each K chunk."""
+    weight = module.weight.detach().double()
     n, k = weight.shape
-    scale = getattr(module, "op1_lambda1", None)
-    if scale is not None:
-        scale = scale.detach().double().reshape(n)
-        scale = torch.where(scale.abs() < torch.finfo(torch.float32).tiny, 0.0, scale)
-        weight = weight * scale[:, None]
 
     def planes(rows):
-        def coarse(values):
-            exp = torch.frexp(values.abs().amax(dim=-1, keepdim=True))[1]
-            return torch.ldexp(torch.ldexp(values, 5 - exp).round(), exp - 5)
-
-        hi = coarse(rows)
-        rest = rows - hi
-        mid = coarse(rest)
-        return torch.stack((hi, mid, rest - mid), dim=-2).reshape(-1, 128).float()
+        pieces = []
+        for _ in range(4):
+            exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))[1]
+            coarse = torch.ldexp(torch.ldexp(rows, 5 - exp).round(), exp - 5)
+            pieces.append(coarse)
+            rows = rows - coarse
+        return torch.stack(pieces, dim=-2).reshape(-1, 128).float()
 
     padded = torch.nn.functional.pad(weight, (0, (-k) % 128))
     result = {"w": planes(padded.reshape(n, -1, 128))}
     if params["bias"]:
-        bias = linear.bias.detach().double()
-        if scale is not None:
-            bias = bias * scale
-        result["b"] = planes(torch.nn.functional.pad(bias, (0, (-n) % 128)).reshape(-1, 128))
+        bias = torch.nn.functional.pad(module.bias.detach().double(), (0, (-n) % 128))
+        result["b"] = planes(bias.reshape(-1, 128))
     return result

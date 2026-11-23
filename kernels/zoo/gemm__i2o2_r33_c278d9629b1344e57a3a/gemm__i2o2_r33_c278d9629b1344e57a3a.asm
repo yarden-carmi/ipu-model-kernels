@@ -1,4 +1,3 @@
-{# Reduce each K chunk directly into the lane for its output position. #}
 {% macro product(slot, ra) %}
     MULT.RC.VV {{ slot }} {{ ra }} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; AGG.SUM LR2 {{ cr.full }}.L
 {%- endmacro %}
@@ -13,8 +12,8 @@
     SET LR6 LR14 ;;
     DEC LR6 1 ;;
     LD.MULT R0 LR6 {{ cr.b }} ; INC LR6 1 ;;
-{% for p in range(3) %}
-    MULT.VE {{ 'LR0' if p % 2 == 0 else 'LR1' }} CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{% if p == 0 %}.FIRST{% endif %}{% if p < 2 %} ; LD.MULT R{{ (p+1)%2 }} LR6 {{ cr.b }} ; INC LR6 1{% endif %} ;;
+{% for p in range(4) %}
+    MULT.VE {{ 'LR1' if p % 2 else 'LR0' }} CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{% if p == 0 %}.FIRST{% endif %}{% if p < 3 %} ; LD.MULT R{{ (p+1) % 2 }} LR6 {{ cr.b }} ; INC LR6 1{% endif %} ;;
 {% endfor %}
 {% else %}
     MULT.EE LR0 CR0 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
@@ -38,20 +37,25 @@ position:
 {% for i in range(2) %}
 chunk{{ i }}:
     {{ load_weight('LR0') }} ;;
+{% for p in range(2) %}
     {{ product('LR0', 'R' ~ i) }} ; {{ load_weight('LR1') }} ;;
-    {{ product('LR1', 'R' ~ i) }} ; {{ load_weight('LR0') }} ; BEQ LR8 CR0 last_chunk{{ i }} ;;
-    {{ product('LR0', 'R' ~ i) }} ; {{ load_input('R' ~ (1-i)) }}{% if i %} ; B chunk0{% endif %} ;;
+{% if p == 0 %}
+    {{ product('LR1', 'R' ~ i) }} ; {{ load_weight('LR0') }} ;;
+{% endif %}
+{% endfor %}
+    BEQ LR8 CR0 last_chunk{{ i }} ;;
+    {{ product('LR1', 'R' ~ i) }} ; {{ load_input('R' ~ (1-i)) }}{% if i %} ; B chunk0{% endif %} ;;
 {% endfor %}
 {% for i in range(2) %}
 last_chunk{{ i }}:
-    {{ product('LR0', 'R' ~ i) }}{% if not i %} ; B finish_position{% endif %} ;;
+    {{ product('LR1', 'R' ~ i) }}{% if not i %} ; B finish_position{% endif %} ;;
 {% endfor %}
 finish_position:
     ADD LR10 LR10 {{ cr.wstep }} ; DEC LR13 1 ; INC LR2 1 ;;
     BEQ LR13 CR0 last_tile ;;
     BLT.S LR2 LR1 position ;;
     {{ store(cr.full) }}
-    INC LR14 3 ;;
+    INC LR14 4 ;;
     B tile ;;
 last_tile:
     {{ store(cr.tail) }}
