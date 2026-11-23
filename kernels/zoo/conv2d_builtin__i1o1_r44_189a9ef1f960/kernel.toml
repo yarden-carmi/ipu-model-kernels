@@ -26,13 +26,13 @@ max = 128
 default = 1
 [params.h]
 type = "int"
-min = 3
-max = 224
+min = 1
+max = 250
 default = 8
 [params.w]
 type = "int"
-min = 3
-max = 224
+min = 1
+max = 250
 default = 8
 [params.kh]
 type = "int"
@@ -48,8 +48,7 @@ choices = [1]
 default = 1
 [params.stride]
 type = "int"
-min = 1
-max = 2
+choices = [1, 2]
 default = 1
 [params.in0_d0]
 type = "int"
@@ -57,13 +56,15 @@ min = 1
 default = 1
 
 [derived]
-ho = "(h + 2 * padding - kh) // stride + 1"
-wo = "(w + 2 * padding - kw) // stride + 1"
+ho = "(h - 1) // stride + 1"
+wo = "(w - 1) // stride + 1"
 blocks = "ceil(cout / 128)"
-tap_rows = "2 * cin"
-panel_end = "((cin - 1) // 16) * 16 - 2"
+tap_rows = "cin"
+panel_end = "((cin - 1) // 24) * 24"
 x_end = "wo * stride"
 y_end = "ho * stride"
+last_y = "h - 1"
+last_x = "w - 1"
 full = "ds(128)"
 tail = "ds((cout - 1) % 128 + 1)"
 
@@ -71,7 +72,7 @@ tail = "ds((cout - 1) % 128 + 1)"
 shape = ["in0_d0", "h", "w", 128]
 range = [-2, 2]
 [inputs.weights]
-shape = ["blocks", "2 + kh * kw * tap_rows", 128]
+shape = ["blocks", "1 + kh * kw * tap_rows", 128]
 range = [-1, 1]
 [outputs.out0]
 shape = ["in0_d0", "ho", "wo", "blocks * 128"]
@@ -85,14 +86,15 @@ qf_out0 = "CR6"
 in0_d0 = "LR10"
 tail = "CR7"
 blocks = "CR8"
-h = "CR9"
-w = "CR10"
+last_y = "CR9"
+last_x = "CR10"
 panel_end = "CR11"
 tap_rows = "CR12"
 x_end = "CR13"
 y_end = "CR14"
 full = "CR15"
 
-[cases.default]
 [golden]
 tolerance = { e1 = "NX8_STEP", e2 = "NX8_STEP" }
+
+[cases.default]

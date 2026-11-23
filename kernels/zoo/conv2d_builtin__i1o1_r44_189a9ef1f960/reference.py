@@ -49,16 +49,16 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 32, 32], [65536, 1024, 32, 1], 0), module.weight, module.bias, [1, 1], [1, 1])
+    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 64, 64], [262144, 4096, 64, 1], 0), module.weight, module.bias, [1, 1], [1, 1])
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.relu.default(_v(op0, [1, 64, 32, 32], [65536, 1024, 32, 1], 0))
+    r0 = aten.relu.default(_v(op0, [1, 64, 64, 64], [262144, 4096, 64, 1], 0))
     op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 64, 32, 32])}
+    return {"out0": _out(op1, [1, 64, 64, 64])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Pack output channels into lanes, with one vector per tap and input channel."""
+    """Pack bias and tap/channel weights into output-channel vectors."""
     weight = module.weight.detach().to(torch.float64)
     cout, per_group, kh, kw = weight.shape
     groups = params['groups']
@@ -67,20 +67,12 @@ def fold(module, **params):
     dense = weight.new_zeros((blocks * 128, cin, kh, kw))
     out_per_group = cout // groups
     for group in range(groups):
-        dense[group * out_per_group:(group + 1) * out_per_group,
-              group * per_group:(group + 1) * per_group] = weight[
-                  group * out_per_group:(group + 1) * out_per_group]
+        start = group * out_per_group
+        end = start + out_per_group
+        dense[start:end, group * per_group:(group + 1) * per_group] = weight[start:end]
     rows = weight.new_zeros((blocks, 1 + kh * kw * cin, 128))
     rows[:, 1:] = dense.reshape(blocks, 128, cin, kh, kw).permute(
         0, 3, 4, 2, 1).reshape(blocks, -1, 128)
     if params['bias']:
-        for block in range(blocks):
-            bias = module.bias[128 * block:128 * (block + 1)]
-            rows[block, 0, :bias.numel()] = bias
-
-    # Split on a five-bit grid, preserving the residual in a separately scaled row.
-    peak = rows.abs().amax(dim=-1, keepdim=True)
-    _, exponent = torch.frexp(peak)
-    step = torch.exp2(exponent.to(rows.dtype) - 6)
-    hi = rows.sign() * (rows.abs() / step + 0.5).floor().clamp(max=63) * step
-    return {'weights': torch.stack((hi, rows - hi), dim=2).reshape(blocks, -1, 128)}
+        rows[:, 0] = torch.nn.functional.pad(module.bias, (0, blocks * 128 - cout)).reshape(blocks, 128)
+    return {'weights': rows}
