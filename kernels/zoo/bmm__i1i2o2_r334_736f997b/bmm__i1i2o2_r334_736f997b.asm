@@ -1,61 +1,48 @@
-{# Each output row is one M tile for a single N position. Reuse the
-   loaded B row until the reduction crosses a physical K-row boundary. #}
-{% macro product(first) %}
-    LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR14 ; DEC LR13 1 ; INC LR11 1 ;;
-    MULT.RC.VE LR14 LR11 0 LR14 {{ cr.dsfull }}.L {{ cr.qf_in1 }}.L ; ACC.ADD{{ '.FIRST' if first else '' }} ; ADD LR9 LR9 {{ cr.mt }}.H ; {{ 'BEQ LR13 CR0 end_segment' if first else 'BNE LR13 CR0 reduce' }} ;;
-{% endmacro %}
-{% macro segment(id) %}
-    SET LR13 CR0 ;;
-    INC LR13 128 ;;
-    SUB LR13 LR13 LR11 ; LD.MULT R0 LR10 {{ cr.in1 }} ;;
-    BLE.S LR13 LR12 segment_ready_{{ id }} ;;
-    SET LR13 LR12 ;;
-segment_ready_{{ id }}:
-    SUB LR12 LR12 LR13 ; DEC LR11 1 ;;
-{% endmacro %}
-{% macro store(half) %}
-    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.dsfull }}.{{ half }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR0 ;;
-{% endmacro %}
-    SET LR0 CR0 ; SET LR1 CR0 ; SET LR7 CR0 ;;
-    SET LR14 CR0 ; SET LR15 {{ cr.ng }}.H ;;
+    SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
+    SET LR3 CR0 ; SET LR4 CR0 ; SET LR10 CR0 ;;
+    INC LR1 128 ; SET LR6 {{ cr.counts }}.H ;;
 group:
-    SET LR2 LR1 ; SET LR3 CR0 ; SET LR4 {{ cr.kh }}.H ;;
+    SET LR5 {{ cr.counts }}.L ;;
 head:
-    SET LR5 LR2 ; SET LR6 {{ cr.ng }}.L ;;
+    SET LR7 LR3 ; SET LR8 {{ cr.sizes }}.H ;;
 column:
-    SET LR8 {{ cr.mt }}.H ;;
+    SET LR9 LR2 ;;
 tile:
-    SET LR9 LR7 ; SET LR10 LR5 ; SET LR11 LR3 ;;
-    SET LR12 {{ cr.kh }}.L ;;
-    {{ segment('first') }}
-    {{ product(true) }}
+    SET LR11 LR9 ; SET LR12 {{ cr.sizes }}.L ; SET LR13 LR7 ;;
+    SET LR14 LR4 ; LD.MULT R0 LR13 {{ cr.in1 }} ;;
+    MULT.RC.VE LR0 CR0 0 LR0 {{ cr.out_ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
+chunk:
+    {# One B load supplies all scalars up to the next packed row boundary. #}
+    SUB LR15 LR1 LR14 ; LD.MULT.CYCLIC LR11 {{ cr.in0 }} LR0 ;;
+    BLE.S LR15 LR12 count_ready ;;
+    SET LR15 LR12 ;;
+count_ready:
+    SUB LR12 LR12 LR15 ; DEC LR14 1 ; BEQ LR15 CR1 drain ;;
+    DEC LR15 2 ;;
 reduce:
-    {{ product(false) }}
-end_segment:
-    BEQ LR12 CR0 store_tile ;;
-    INC LR10 1 ; SET LR11 CR0 ;;
-    {{ segment('later') }}
-    B reduce ;;
-store_tile:
-    DEC LR8 1 ;;
-    BEQ LR8 CR0 tail ;;
-    {{ store('L') }}
-    INC LR0 1 ; INC LR7 1 ; B tile ;;
+    MULT.RC.VE LR0 LR14 0 LR0 {{ cr.out_ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR14 1 ; ADD LR11 LR11 {{ cr.strides }}.L ; LD.MULT.CYCLIC LR11 {{ cr.in0 }} LR0 ; DEC LR15 1 ; BGT.S LR15 CR0 reduce ;;
+drain:
+    MULT.RC.VE LR0 LR14 0 LR0 {{ cr.out_ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR14 1 ; ADD LR11 LR11 {{ cr.strides }}.L ; BEQ LR12 CR0 store ;;
+    INC LR13 1 ; SET LR14 CR0 ; LD.MULT R0 LR13 {{ cr.in1 }} ; B chunk ;;
+store:
+    INC LR9 1 ;;
+    SUB LR11 LR9 LR2 ;;
+    BEQ LR11 {{ cr.out_tiles }} tail ;;
+{% macro write(half) %}
+    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.out_ds }}.{{ half }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR10 ;;
+    INC LR10 1 ;;
+{% endmacro %}
+    {{ write('L') }}
+    B tile ;;
 tail:
-    {{ store('H') }}
-    INC LR0 1 ; DEC LR6 1 ; ADD LR5 LR5 {{ cr.bc }} ;;
-    BEQ LR6 CR0 next_head ;;
-    SUB LR7 LR7 {{ cr.mt }}.H ;;
-    INC LR7 1 ; B column ;;
-next_head:
-    SUB LR7 LR9 {{ cr.mt }}.H ; DEC LR4 1 ; ADD LR3 LR3 {{ cr.kh }}.L ;;
-    INC LR7 1 ; SET LR11 CR0 ;;
-    INC LR11 128 ;;
+    {{ write('H') }}
+    ADD LR7 LR7 {{ cr.strides }}.H ; DEC LR8 1 ; BGT.S LR8 CR1 column ;;
+    ADD LR2 LR2 {{ cr.astep }} ; ADD LR4 LR4 {{ cr.sizes }}.L ; DEC LR5 1 ;;
 normalize:
-    BLT.S LR3 LR11 normalized ;;
-    SUB LR3 LR3 LR11 ; INC LR2 1 ; B normalize ;;
-normalized:
-    BNE LR4 CR0 head ;;
-    ADD LR1 LR1 {{ cr.bg }} ; DEC LR15 1 ; ADD LR7 LR7 {{ cr.ag }} ;;
-    BNE LR15 CR0 group ;;
+    BLT.S LR4 LR1 head_ready ;;
+    DEC LR4 128 ; INC LR3 1 ; B normalize ;;
+head_ready:
+    BNE LR5 CR0 head ;;
+    ADD LR2 LR2 {{ cr.askip }} ; ADD LR3 LR3 {{ cr.bskip }} ; SET LR4 CR0 ;;
+    DEC LR6 1 ; BGT.S LR6 CR1 group ;;
     HALT ;;
