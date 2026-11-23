@@ -62,6 +62,9 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
+    channels = params["s2_channels"]
+    # The aligned path normalizes against the sum of squares, not its mean.
+    variance_scale = channels if channels % 128 == 0 and channels <= 1024 else 1
     def planes(t):
         t = torch.nn.functional.pad(t, (0, (-t.shape[-1]) % 128))
         residual = t.reshape(-1, 128)
@@ -76,11 +79,11 @@ def fold(module, **params):
 
     return {
         "addend": planes(module.op0_const0 + module.op1_const0),
-        "gamma": planes(module.weight),
+        "gamma": planes(module.weight * variance_scale**0.5),
         "beta": planes(module.bias),
         "stats": torch.cat([
             planes(torch.full((128,), 1 / params["s2_channels"])),
-            torch.full((1, 128), params["s2_eps"]),
+            torch.full((1, 128), params["s2_eps"] * variance_scale),
             torch.ones((1, 128)),
         ]),
     }
