@@ -32,13 +32,10 @@
  {% endfor %}
 {% endmacro %}
 {% macro split(reg,count,ds=full) %}
- {% for p in range(count) %}
  ACTIVATE.QUANTIZE identity {{ ds }} {{ q }} {{ cr.tmp }} {{ reg }} ;;
- {% if not loop.last %}
+ {% for p in range(1,count) %}
  LD.MULT R0 {{ reg }} {{ cr.tmp }} ;;
- {{ vec('SUB') }}
- INC {{ reg }} 1 ;;
- {% endif %}
+ MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB ; ACTIVATE.QUANTIZE identity {{ ds }} {{ q }} {{ cr.tmp }} {{ reg }} ; INC {{ reg }} 1 ;;
  {% endfor %}
 {% endmacro %}
 {% macro save(n,count=2) %}{{ at('LR1',n) }}{{ split('LR1',count) }}{% endmacro %}
@@ -133,23 +130,22 @@ variance_loop:
  {% for n in [18,19] %}{{ load(n) }}{{ vec('SUB',imm=cr.half) }}{% endfor %}
  {{ save(12) }}
 
- {{ reset() }}{{ at('LR11') }}{{ at('LR8',3) }}
+ {{ reset() }}{{ at('LR11') }}
  DEC LR6 1 ;;
 output_loop:
- SET LR10 LR11 ; SET LR7 CR0 ;;
- {{ clear() }}
-weight_loop:
- LD.MULT.CYCLIC LR10 {{ cr.gamma }} LR0 ; SET LR1 CR0 ;;
+ SET LR10 LR11 ; SET LR1 CR0 ;;
  INC LR1 12 ;;
- {{ dot(2) }}
- ADD LR10 LR10 {{ cr.K }} ; INC LR7 1 ;;
- BLT.S LR7 LR8 weight_loop ;;
+ {% for part in range(3) %}
+ LD.MULT.CYCLIC LR10 {{ cr.gamma }} LR0 ;;
+ LD.MULT R0 LR1 {{ cr.tmp }} {% if not loop.last %}; ADD LR10 LR10 {{ cr.K }} {% endif %};;
+ {{ mul(first=loop.first,next='; LD.MULT R0 LR1 ' ~ cr.tmp ~ ' ; INC LR1 1') }}
+ {{ mul(next='; DEC LR1 1') }}
+ {% endfor %}
  {{ save(20,3) }}
- {{ clear() }}
  {% for part in range(3) %}
  LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ; SET LR1 CR0 {% if not loop.first %}; INC LR9 1{% endif %} ;;
  INC LR1 20 ;;
- {{ dot(3) }}
+ {{ dot(3,first=loop.first) }}
  {% endfor %}
  SET LR1 LR11 ; INC LR9 1 ;;
  {{ add_planes(3,base=cr.beta,step='ADD LR1 LR1 ' ~ cr.K) }}
