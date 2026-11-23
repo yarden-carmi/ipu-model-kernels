@@ -1,0 +1,20 @@
+chain = ["conv2d"]
+chain_in = ["in0"]
+chain_out = ["out0"]
+
+[layout.in0]
+lanes = 3
+rows = [0, 2, 1]
+pack = "1 + min(1, groups - 1) * (1 // (1 + cin - groups)) * (1 // (1 + cout - groups)) * (1 // (1 + max((2 * padding - kw) // stride + 1, -((2 * padding - kw) // stride + 1)))) * (1 - w % stride) * (128 // min(128, w) - 1)"
+
+[view.in0]
+kind = "whole"
+
+[layout.out0]
+lanes = 3
+rows = [0, 2, 1]
+pack = "1 + min(1, groups - 1) * (1 // (1 + cin - groups)) * (1 // (1 + cout - groups)) * (1 // (1 + max((2 * padding - kw) // stride + 1, -((2 * padding - kw) // stride + 1)))) * (1 - w % stride) * (128 // min(128, w) - 1 + (stride - 1) * (128 // min(128, w)) * min(1, 128 // min(128, w) - 1))"
+
+[lut.out0]
+range_mode = 2
+range_exp = 40
