@@ -58,7 +58,7 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    """Store a broadcast bias and channel vectors as coarse/residual pairs."""
+    """Pack each output channel's bias and weights as coarse/residual pairs."""
     n, k = params['n'], params['k']
     chunks = (k + 127) // 128
     weights = module.weight.double().reshape(n, k)

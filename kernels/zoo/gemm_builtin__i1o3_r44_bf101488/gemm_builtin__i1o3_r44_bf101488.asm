@@ -1,3 +1,4 @@
+{# Reduce each channel vector directly into its spatial lane in the output row. #}
 {% macro load_weight(slot) %}
     LD.MULT.CYCLIC LR11 {{ cr.w }} {{ slot }} ; INC LR11 1
 {%- endmacro %}
@@ -32,7 +33,8 @@ init:
     {{ load_weight('LR0') }} ; DEC LR3 1 ; DEC LR4 1 ;;
     {{ bias_mac('ADD.FIRST') }} ; {{ load_weight('LR0') }} ;;
     {{ bias_mac('ADD') }} ; SET LR13 LR11 ;;
-{% if k <= 128 and in0_d1 <= 128 %}
+{% if chunks == 1 and in_chunks == 1 %}
+    {# Keep both coefficient rows resident for the entire spatial tile. #}
     {{ load_weight('LR0') }} ;;
     {{ load_weight('LR1') }} ; DEC LR4 1 ; BEQ LR3 LR4 final_point ;;
     {{ load_point() }} ;;
