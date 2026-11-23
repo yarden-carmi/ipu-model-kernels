@@ -1,9 +1,15 @@
 {# LR0 is zero. LR11 is the output cursor and LR12 the A head base.
    LR13 addresses the B group; LR10 is the head's offset in its feature axis. #}
 {% macro output_store(half) %}
-    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.ds }}.{{ half }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR11 ;;
+    {{ store_word(half) }} ;;
     INC LR11 1 ;;
 {% endmacro %}
+{% macro store_word(half) -%}
+    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.ds }}.{{ half }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR11
+{%- endmacro %}
+{% macro dot_word() -%}
+    MULT.RC.VV LR5 R0 0 LR0 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; AGG.SUM.FIRST LR7 {{ cr.bconfig }}.H
+{%- endmacro %}
 group:
     SET LR14 {{ cr.in0_d1 }} ; SET LR10 CR0 ;;
     SET LR1 {{ cr.in0_d1 }} ;;
@@ -31,23 +37,26 @@ dot_{{ tag }}_start:
 {% if split %}
     {# The fused branch sees the destination slot before its increment. #}
     DEC LR3 1 ;;
+    SET LR1 CR0 ;;
+    INC LR1 128 ;;
 {% endif %}
 dot_{{ tag }}_row:
-    LD.MULT R0 LR2 {{ cr.in0 }} ; SET LR6 LR4 ; SET LR7 CR0 ; SET LR1 LR3 ;;
+    LD.MULT R0 LR2 {{ cr.in0 }} ; SET LR6 LR4 ; SET LR7 CR0 ; {% if not split %}SET LR1 LR3 ;{% endif %} ;;
     DEC LR7 1 ;;
 {% if not split %}
     LD.MULT.CYCLIC LR6 {{ cr.in1 }} LR0 ; BEQ LR3 CR0 dot_{{ tag }}_last ;;
 dot_{{ tag }}_column:
-    MULT.RC.VV LR5 R0 0 LR0 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; AGG.SUM.FIRST LR7 {{ cr.bconfig }}.H ; LD.MULT.CYCLIC LR6 {{ cr.in1 }} LR0 ; ADD LR6 LR6 {{ cr.bconfig }}.L ; INC LR7 1 ; DEC LR1 1 ; BNE LR1 CR1 dot_{{ tag }}_column ;;
+    {{ dot_word() }} ; LD.MULT.CYCLIC LR6 {{ cr.in1 }} LR0 ; ADD LR6 LR6 {{ cr.bconfig }}.L ; INC LR7 1 ; DEC LR1 1 ; BNE LR1 CR1 dot_{{ tag }}_column ;;
 dot_{{ tag }}_last:
-    MULT.RC.VV LR5 R0 0 LR0 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; AGG.SUM.FIRST LR7 {{ cr.bconfig }}.H ; ADD LR6 LR6 {{ cr.bconfig }}.L ; INC LR7 1 ;;
+    {{ dot_word() }} ; ADD LR6 LR6 {{ cr.bconfig }}.L ; INC LR7 1 ;;
 {% else %}
-    SET LR1 CR0 ;;
-    INC LR1 128 ;;
-dot_{{ tag }}_column:
     LD.MULT.CYCLIC LR6 {{ cr.in1 }} LR0 ; ADD LR8 LR6 CR1 ;;
-    LD.MULT.CYCLIC LR8 {{ cr.in1 }} LR1 ;;
-    MULT.RC.VV LR5 R0 0 LR0 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; AGG.SUM.FIRST LR7 {{ cr.bconfig }}.H ; ADD LR6 LR6 {{ cr.bconfig }}.L ; INC LR7 1 ; BLT.S LR7 LR3 dot_{{ tag }}_column ;;
+    LD.MULT.CYCLIC LR8 {{ cr.in1 }} LR1 ; ADD LR6 LR6 {{ cr.bconfig }}.L ; BLT.S LR3 CR0 dot_{{ tag }}_last ;;
+dot_{{ tag }}_column:
+    {{ dot_word() }} ; LD.MULT.CYCLIC LR6 {{ cr.in1 }} LR0 ; ADD LR8 LR6 CR1 ; INC LR7 1 ;;
+    LD.MULT.CYCLIC LR8 {{ cr.in1 }} LR1 ; ADD LR6 LR6 {{ cr.bconfig }}.L ; BLT.S LR7 LR3 dot_{{ tag }}_column ;;
+dot_{{ tag }}_last:
+    {{ dot_word() }} ; INC LR7 1 ;;
 {% endif %}
     {{ output_store('H') }}
     DEC LR9 1 ;;
@@ -116,6 +125,8 @@ multiply:
     SET LR4 {{ cr.m }} ; SET LR2 LR12 ;;
     SET LR3 CR0 ;;
     INC LR3 128 ;;
+    BLT.S LR3 {{ cr.k }} output_row ;;
+    BLT.S CR1 {{ cr.k }} short_row ;;
 output_row:
     SET LR8 CR0 ; SET LR9 {{ cr.n }} ;;
 output_tile:
@@ -145,6 +156,29 @@ store:
 output_full:
     {{ output_store('L') }}
     DEC LR9 128 ; B output_tile ;;
+{# One A row covers the reduction. Initialize directly with the first
+   product, and carry the prefetched panel row through the reduction. #}
+{% macro panel_product(first, prefetch) -%}
+    MULT.RC.VE LR0 LR6 0 LR0 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD{% if first %}.FIRST{% endif %} ;
+    {% if prefetch %}LD.MULT.CYCLIC LR8 {{ cr.panel }} LR0 ; INC LR8 1 ; DEC LR1 1 ;{% endif %}
+{%- endmacro %}
+short_row:
+    SET LR8 CR0 ; SET LR9 {{ cr.n }} ;;
+short_tile:
+    LD.MULT R0 LR2 {{ cr.in0 }} ; SET LR6 CR0 ; SET LR1 {{ cr.k }} ;;
+    LD.MULT.CYCLIC LR8 {{ cr.panel }} LR0 ; DEC LR1 1 ;;
+    {{ panel_product(true, true) }} BEQ LR1 CR1 short_last ;;
+short_reduce:
+    {{ panel_product(false, true) }} INC LR6 1 ; BNE LR1 CR1 short_reduce ;;
+short_last:
+    {{ panel_product(false, false) }} INC LR6 1 ; INC LR8 1 ; BLT.S LR3 LR9 short_full ;;
+    {{ store_word('H') }} ; ADD LR5 LR2 CR1 ; DEC LR4 1 ; BEQ LR4 CR1 short_done ;;
+    INC LR11 1 ; ADD LR2 LR2 {{ cr.astride }} ; B short_row ;;
+short_done:
+    INC LR11 1 ; B head_done ;;
+short_full:
+    {{ store_word('L') }} ; DEC LR9 128 ;;
+    INC LR11 1 ; B short_tile ;;
 head_done:
     BEQ LR14 CR0 group_done ;;
     SUB LR5 LR5 LR2 ; ADD LR10 LR10 {{ cr.k }} ;;
