@@ -1,0 +1,87 @@
+[kernel]
+op = "gemm_table"
+formats = ["e2"]
+
+[params.k]
+type = "int"
+min = 1
+max = 16384
+default = 384
+[params.n]
+type = "int"
+min = 1
+max = 16384
+default = 384
+[params.m]
+type = "int"
+min = 1
+max = 16384
+default = 1
+[params.bias]
+type = "bool"
+default = true
+[params.act_out0]
+type = "str"
+choices = ["tanh"]
+default = "tanh"
+[params.in0_d0]
+type = "int"
+min = 1
+max = 16384
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 16384
+default = 256
+[params.in0_d2]
+type = "int"
+min = 1
+max = 16384
+default = 384
+[params.out0_d0]
+type = "int"
+min = 1
+max = 16384
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 16384
+default = 384
+
+[derived]
+lane_chunks = "ceil(in0_d1 / 128)"
+batch_stride = "in0_d2 * lane_chunks"
+tiles = "ceil(n / 128)"
+full = "ds(128)"
+tail = "ds((n - 1) % 128 + 1)"
+
+[inputs.in0]
+shape = ["in0_d0 * batch_stride", 128]
+range = [-2, 2]
+[inputs.coeff]
+shape = ["2 * tiles * (k + 1)", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[outputs.out0]
+shape = ["out0_d0 * ceil(out0_d1 / 128)", 128]
+
+[abi]
+in0 = "CR2"
+coeff = "CR3"
+lut = "CR4"
+out0 = "CR5"
+qf_in0 = "CR6"
+qf_out0 = "CR7"
+batch_stride = "CR8"
+lane_chunks = "CR9"
+k = "CR10"
+tiles = "CR11"
+full = "CR12"
+tail = "CR13"
+m = "CR14"
+
+[cases.default]
