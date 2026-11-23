@@ -85,4 +85,5 @@ def fold(module, **params):
     _, exponent = torch.frexp(rows.abs().amax(dim=1, keepdim=True))
     step = torch.ldexp(torch.ones_like(exponent, dtype=rows.dtype), exponent - 4)
     coarse = torch.round(rows / step) * step
-    return {"coeff": torch.stack((coarse, rows - coarse), dim=1).reshape(-1, 128).numpy()}
+    paired = torch.stack((coarse, rows - coarse), dim=1).reshape(-1, 128)
+    return {"coeff": torch.cat((paired, torch.zeros_like(paired[:1]))).numpy()}
