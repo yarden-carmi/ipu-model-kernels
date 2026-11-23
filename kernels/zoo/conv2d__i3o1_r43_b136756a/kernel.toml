@@ -1,0 +1,138 @@
+[kernel]
+op = "conv2d"
+formats = ["e2"]
+
+[params.bias]
+type = "bool"
+default = true
+[params.cin]
+type = "int"
+min = 1
+max = 1024
+default = 3
+[params.cout]
+type = "int"
+min = 1
+max = 1024
+default = 384
+[params.groups]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.h]
+type = "int"
+min = 1
+max = 2048
+default = 512
+[params.w]
+type = "int"
+min = 1
+max = 2048
+default = 864
+[params.kh]
+type = "int"
+min = 1
+max = 32
+default = 16
+[params.kw]
+type = "int"
+min = 1
+max = 32
+default = 16
+[params.padding]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.stride]
+type = "int"
+min = 1
+max = 32
+default = 16
+[params.in0_d0]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 1024
+default = 3
+[params.in0_d2]
+type = "int"
+min = 1
+max = 2048
+default = 512
+[params.in0_d3]
+type = "int"
+min = 1
+max = 2048
+default = 864
+[params.out0_d0]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 4198400
+default = 1829
+[params.out0_d2]
+type = "int"
+min = 1
+max = 1024
+default = 384
+
+[derived]
+ho = "(h - kh) // stride + 1"
+wo = "(w - kw) // stride + 1"
+wb = "ceil(in0_d3 / 128)"
+ystep = "stride * wb"
+yend = "ho * ystep"
+xend = "wo * stride"
+tiles = "ceil(out0_d1 / 128)"
+taps = "in0_d1 * kh * kw"
+scratch_rows = "tiles * taps"
+full = "ds(128)"
+one = "ds(1)"
+tail = "ds((out0_d1 - 1) % 128 + 1)"
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d1", "in0_d2", "wb * 128"]
+range = [-1, 1]
+[inputs.weights]
+shape = ["out0_d2", "ceil(taps / 128)", 128]
+range = [-1, 1]
+[inputs.seed]
+shape = ["out0_d2", "tiles", 128]
+range = [-1, 1]
+[scratch.patches]
+shape = ["scratch_rows", 128]
+[outputs.out0]
+shape = ["out0_d0", "out0_d2", "tiles * 128"]
+
+[abi]
+in0 = "CR2"
+weights = "CR3"
+seed = "CR4"
+patches = "CR5"
+out0 = "CR6"
+qf_in0 = "CR7"
+qf_weights = "CR8"
+qf_seed = "CR9"
+qf_out0 = "CR10"
+full = "CR11"
+one = "CR12"
+ystep = "CR13"
+yend = "CR14"
+tail = "CR15"
+scratch_rows = "LR2"
+xend = "LR1"
+
+[cases.default]
+
+[golden]
+tolerance = { e2 = "NX8_STEP" }
