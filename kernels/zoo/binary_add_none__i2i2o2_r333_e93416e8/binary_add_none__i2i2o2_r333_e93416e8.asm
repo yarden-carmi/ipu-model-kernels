@@ -12,23 +12,25 @@ batch:
 chunk:
     SET LR2 CR0 ; SET LR3 CR0 ; SET LR14 CR0 ;;
     SET LR10 CR0 ; BNE LR12 CR1 full_count ;;
-    SET LR10 {{ cr.tail }}.H ; BEQ LR0 CR0 gather ;;
+    SET LR10 {{ cr.tail }}.H ; BEQ LR0 CR0 gather_first ;;
 full_count:
     INC LR10 128 ;;
-gather:
+gather_first:
     SET LR8 LR6 ; SET LR9 LR7 ; BLT.S LR7 {{ cr.col_limit }}.H first_row ;;
+    B lane_wrap ;;
+gather:
+    ADDBI LRD2 1 ; SET LR8 LR6 ; SET LR9 LR7 ; BLT.S LR7 {{ cr.col_limit }}.H first_row ;;
 lane_wrap:
     INC LR8 1 ; SUB LR9 LR9 {{ cr.col_limit }}.H ;;
     BGE.S LR9 {{ cr.col_limit }}.H lane_wrap ;;
 first_row:
-    // Fetch via the normalized address while advancing the independent
-    // logical cursor and gather count for the next element.
+    // Control sees the old column: compare against width minus the step
+    // while the LR slots advance the cursor and gather count.
     LD.MULT R0 LR8 {{ cr.in0 }} ;
-    ADD LR6 LR6 {{ cr.stride_rows }} ; ADD LR7 LR7 {{ cr.stride_cols }} ; INC LR14 1 ;;
-    MULT.EE LR9 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.RESHAPE LRD2 LRD2 0 ; BLT.S LR7 {{ cr.col_limit }}.L no_wrap ;;
+    ADD LR6 LR6 {{ cr.stride_rows }} ; ADD LR7 LR7 {{ cr.col_step }}.L ; INC LR14 1 ; BLT.S LR7 {{ cr.col_step }}.H scatter ;;
     SUB LR7 LR7 {{ cr.col_limit }}.L ; ADD LR6 LR6 LR11 ;;
-no_wrap:
-    ADDBI LRD2 1 ; BLT.S LR14 LR10 gather ;;
+scatter:
+    MULT.EE LR9 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.RESHAPE LRD2 LRD2 0 ; BLT.S LR14 LR10 gather ;;
     LD.MULT R0 LR1 {{ cr.in1 }} ; BNE LR12 CR1 full_store ;;
     {{ add_store(cr.tail ~ '.L') }}
     BEQ LR0 CR0 stored ;;
