@@ -1,8 +1,17 @@
-{# Alternate slots 0 and 128, loading each weight one word ahead. #}
-{% macro channel(i) %}
+{# Keep the full input chunk resident while streaming its weight rows. #}
+{% macro channel(i, count) %}
 {% set cur = 'LR15' if i % 2 == 0 else 'LR12' %}
 {% set nxt = 'LR12' if i % 2 == 0 else 'LR15' %}
- {% if i < 15 %}LD.MULT.CYCLIC LR4 {{ cr.weights }} {{ nxt }} ; {% endif %}MULT.RC.VE {{ cur }} LR11 0 LR15 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR4 1 {% if i > 0 %}; INC LR11 1{% endif %} ;;
+ {% if i + 1 < count %}LD.MULT.CYCLIC LR4 {{ cr.weights }} {{ nxt }} ; {% endif %}MULT.RC.VE {{ cur }} LR11 0 LR15 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR4 1 {% if i > 0 %}; INC LR11 1{% endif %} ;;
+{% endmacro %}
+{% macro chunk(count) %}
+ LD.MULT R0 LR9 {{ cr.in0 }} ; SET LR11 CR0 ;;
+ LD.MULT.CYCLIC LR4 {{ cr.weights }} LR15 ; INC LR9 1 ;;
+{% for tile in range((count + 31) // 32) %}
+{% for lane in range([32, count - tile * 32]|min) %}
+ {{ channel(tile * 32 + lane, count) }}
+{% endfor %}
+{% endfor %}
 {% endmacro %}
  INC LR12 128 ; DEC LR0 {{ padding }} ;;
 oy:
@@ -21,22 +30,24 @@ kx:
  BGE.S LR7 {{ cr.in0_d2 }} skip ;;
  BLT.S LR8 CR0 skip ;;
  BGE.S LR8 {{ cr.in0_d3 }} skip ;;
- ADD LR9 LR14 LR6 ; SET LR10 {{ cr.panel }} ;;
+ ADD LR9 LR14 LR6 ;;
 {% if chunks > 1 %}
  SET LR7 LR9 ;;
 {% for i in range(chunks - 1) %}
  ADD LR9 LR9 LR7 ;;
 {% endfor %}
 {% endif %}
-chunk:
- LD.MULT R0 LR9 {{ cr.in0 }} ; SET LR11 CR0 ;;
- INC LR9 1 ;;
-channels:
- LD.MULT.CYCLIC LR4 {{ cr.weights }} LR15 ; DEC LR10 16 ;;
-{% for i in range(16) %}{{ channel(i) }}{% endfor %}
- INC LR11 1 ; BEQ LR10 CR0 next ;;
- BLT.S LR11 LR12 channels ;;
- BEQ LR15 CR0 chunk ;;
+{% if chunks > 1 %}
+ SET LR10 CR0 ; SET LR7 CR0 ;;
+ INC LR7 {{ cin // 128 - 1 }} ;;
+chunk_loop:
+ {{ chunk(128) }}
+ INC LR10 1 ; BLT.S LR10 LR7 chunk_loop ;;
+{% endif %}
+{% if cin % 128 %}
+ {{ chunk(panel if chunks == 1 else panel % 128) }}
+{% endif %}
+ BEQ LR15 CR0 next ;;
 skip:
  ADD LR4 LR4 {{ cr.panel }} ;;
 next:
