@@ -6,18 +6,17 @@ row:
     SET LR6 CR0 ;;
 tile:
     ADD LR7 LR2 LR6 ; SET LR9 {{ cr.k }} ; SET LR12 LR5 ;;
-{# Consume both operands before loading again. Cursor and countdown updates
-   share the multiply word, so the next branch sees the new countdown. #}
-{% macro product(first) %}
-    LD.MULT R0 LR12 {{ cr.in0 }} ;;
-    LD.MULT.CYCLIC LR7 {{ cr.in1 }} LR0 ;;
-    MULT.RC.VE LR0 LR13 0 LR0 {{ cr.dsfull }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{{ '.FIRST' if first else '' }} ; ADD LR12 LR12 {{ cr.arows }} ; ADD LR7 LR7 {{ cr.nchunks }} ; DEC LR9 1 ;;
+{# MULT consumes the current pair before LOAD overwrites R0. The following
+   word loads the matching B row and branches using the remaining K count. #}
+{% macro product(first, preload, jump='') %}
+    MULT.RC.VE LR0 LR13 0 LR0 {{ cr.dsfull }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{{ '.FIRST' if first else '' }} ; {% if preload %}ADD LR12 LR12 {{ cr.arows }} ; LD.MULT R0 LR12 {{ cr.in0 }} ; DEC LR9 1 ; {% endif %}{% if jump %}B {{ jump }} ; {% endif %};;
 {% endmacro %}
-    {{ product(true) }}
-    BEQ LR9 CR0 store ;;
-inner:
-    {{ product(false) }}
-    BNE LR9 CR0 inner ;;
+    LD.MULT R0 LR12 {{ cr.in0 }} ;;
+    LD.MULT.CYCLIC LR7 {{ cr.in1 }} LR0 ; BEQ LR9 CR1 single ;;
+    {{ product(true, true) }}
+next_b:
+    ADD LR7 LR7 {{ cr.nchunks }} ; LD.MULT.CYCLIC LR7 {{ cr.in1 }} LR0 ; BNE LR9 CR1 inner ;;
+    {{ product(false, false) }}
 store:
     INC LR6 1 ;;
     BEQ LR6 {{ cr.nchunks }} tail ;;
@@ -38,3 +37,7 @@ head_stride:
     INC LR11 1 ;;
     BLT.S LR11 {{ cr.b }} head ;;
     HALT ;;
+inner:
+    {{ product(false, true, 'next_b') }}
+single:
+    {{ product(true, false, 'store') }}
