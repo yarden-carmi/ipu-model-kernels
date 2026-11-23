@@ -4,8 +4,10 @@
 {% macro product(coefficient, acc) %}
     MULT.VE LR14 {{ coefficient }} 0 LR14 {{ full }} {{ qi }} ; ACC.{{ acc }} ;;
 {% endmacro %}
-{% macro scatter() %}
+{% macro scatter(advance=false, prefetch=false) %}
     MULT.RC.VE LR14 LR11 0 LR14 {{ full }} {{ qi }} ; ACC.RESHAPE LRD12 LRD12 7
+    {% if advance %}; ADDBI LRD12 1{% endif %}
+    {% if prefetch %}; ADD LR4 LR4 {{ cr.ic }} ; LD.MULT R0 LR4 {{ cr.in0 }}{% endif %}
 {% endmacro %}
     SET LR14 CR0 ; SET LR0 CR0 ; SET LR1 CR0 ;;
     SET LR3 CR0 ;;
@@ -27,20 +29,27 @@ column:
 tile:
     SET LR12 CR0 ; SET LR13 CR0 ; SET LR6 CR1 ;;
     SET LR8 LR9 ; INC LR7 1 ;;
-    BNE LR7 {{ cr.oc }} prime ;;
+    BNE LR7 {{ cr.oc }} gather ;;
     SET LR8 LR15 ;;
-prime:
-    LD.MULT R0 LR4 {{ cr.in0 }} ; B scatter_row ;;
 gather:
-    LD.MULT R0 LR4 {{ cr.in0 }} ; ADDBI LRD12 1 ;;
-scatter_row:
-    {# Control sees the old LR6, which already counts the row just scattered. #}
-    {{ scatter() }} ; ADD LR4 LR4 {{ cr.ic }} ; INC LR6 1 ; BLT.S LR6 LR8 gather ;;
+    LD.MULT R0 LR4 {{ cr.in0 }} ; BEQ LR8 CR1 singleton ;;
+    {# MULT consumes the primed row while LOAD uses the updated row pointer. #}
+    {{ scatter(prefetch=true) }} ; INC LR6 2 ;;
+    BLT.S LR8 LR6 finish_gather ;;
+gather_next:
+    {# LR6 is the one-based index of the row being prefetched. Stop before crossing the tile. #}
+    {{ scatter(advance=true, prefetch=true) }} ; INC LR6 1 ; BLT.S LR6 LR8 gather_next ;;
+finish_gather:
+    {{ scatter(advance=true) }} ; B gathered ;;
+singleton:
+    {{ scatter() }} ;;
+gathered:
 {% macro store(ds) %}
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR3 ;;
     INC LR3 1 ;;
 {% endmacro %}
-    BEQ LR7 {{ cr.oc }} tail_store ;;
+    {# Leave the input pointer at the first row of the next tile. #}
+    ADD LR4 LR4 {{ cr.ic }} ; BEQ LR7 {{ cr.oc }} tail_store ;;
     {{ store(full) }}
     B tile ;;
 tail_store:
