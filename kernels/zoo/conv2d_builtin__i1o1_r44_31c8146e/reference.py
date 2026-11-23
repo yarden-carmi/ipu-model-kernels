@@ -62,7 +62,7 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    """Lay out weights by output block, spatial tap, and input channel."""
+    """Output-lane vectors in bias, tap, input-channel order per block."""
     weight = module.weight.detach().to(torch.float64)
     cout, per_group, kh, kw = weight.shape
     groups = params['groups']
@@ -73,6 +73,7 @@ def fold(module, **params):
     for group in range(groups):
         channels = slice(group * out_per_group, (group + 1) * out_per_group)
         dense[channels, group * per_group:(group + 1) * per_group] = weight[channels]
+
     rows = weight.new_zeros((blocks, 1 + kh * kw * cin, 128))
     rows[:, 1:] = dense.reshape(blocks, 128, cin, kh, kw).permute(
         0, 3, 4, 2, 1).reshape(blocks, -1, 128)
@@ -81,7 +82,7 @@ def fold(module, **params):
             bias = module.bias[128 * block:128 * (block + 1)]
             rows[block, 0, :bias.numel()] = bias
 
-    # Preserve the part lost by quantizing the main row in a second row.
+    # High part and residual get separate shared row scales.
     _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
     step = torch.exp2(exponent.to(rows.dtype) - 6)
     hi = rows.sign() * (rows.abs() / step + 0.5).floor().clamp(max=63) * step
