@@ -1,10 +1,12 @@
 {% if cin == cout and cin == groups %}
 {% set qi = cr.qf_in0 ~ '.L' %}
 {% set full = cr.full ~ '.L' %}
+{# The MULT reads R0 before the same word replaces it with the next part. #}
+{% macro next_weight() %}LD.MULT R0 LR4 {{ cr.weights }} ; INC LR4 1{% endmacro %}
 {% macro scalar_parts(scalar, first=false) %}
+ {{ next_weight() }} ;;
  {% for p in range(3) %}
- LD.MULT R0 LR4 {{ cr.weights }} ;;
- INC LR4 1 ; MULT.VE LR0 {{ scalar }} 0 LR0 {{ full }} {{ qi }} ; {{ 'ACC.ADD.FIRST' if first and p == 0 else 'ACC.ADD' }} ;;
+ MULT.VE LR0 {{ scalar }} 0 LR0 {{ full }} {{ qi }} ; {{ 'ACC.ADD.FIRST' if first and p == 0 else 'ACC.ADD' }} {% if p < 2 %}; {{ next_weight() }}{% endif %} ;;
  {% endfor %}
 {% endmacro %}
 {% macro tap(x) %}
@@ -15,9 +17,9 @@
  {% endif %}
  {% if x == -1 %}DEC LR14 1 ;;{% endif %}
  {% if stride == 1 and x == 1 %}INC LR14 1 ;;{% endif %}
+ {% if x == -1 %}{{ next_weight() }} ;;{% endif %}
  {% for p in range(3) %}
- LD.MULT R0 LR4 {{ cr.weights }} ;;
- INC LR4 1 ; MULT.RC.VV LR14 R0 0 LR0 {{ full }} {{ qi }} ; ACC.ADD ;;
+ MULT.RC.VV LR14 R0 0 LR0 {{ full }} {{ qi }} ; ACC.ADD {% if x != 1 or p < 2 %}; {{ next_weight() }}{% endif %} ;;
  {% endfor %}
 {% endmacro %}
 
@@ -52,8 +54,10 @@ channel:
  SET LR13 CR0 ;;
 batch:
  SET LR6 CR0 ;;
-packed_row:
+ packed_row:
  SET LR4 LR5 ; SET LR7 CR0 ; SET LR8 LR11 ;;
+ {# LD.MULT sees the incremented pointer, so start one row before the block. #}
+ DEC LR4 1 ;;
  {{ scalar_parts('CR1', true) }}
  BEQ LR0 CR0 vertical_start ;;
 slot:
@@ -73,11 +77,10 @@ vertical:
  {% endif %}
  {% for x in [-1, 0, 1] %}{{ tap(x) }}{% endfor %}
  BEQ LR0 CR0 vertical_next ;;
-zero_taps:
- {# Read the constant rows even when a tap only sees vertical padding. #}
+ zero_taps:
+ {# Consume the folded rows for vertical padding without accumulating them. #}
  {% for k in range(9) %}
- LD.MULT R0 LR4 {{ cr.weights }} ;;
- INC LR4 1 ;;
+ {{ next_weight() }} ;;
  {% endfor %}
 vertical_next:
  INC LR9 1 ; INC LR10 {{ stride }} ;;
