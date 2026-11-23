@@ -18,12 +18,14 @@ chunk:
     SET LR13 LR10 ;;
 gather_setup:
     SET LR2 CR0 ; SET LR3 CR0 ; SET LR11 CR0 ;;
-    // The branch reads the pre-increment index, so compare against the last index.
-    DEC LR13 1 ;;
+    // Load the first row, then bundle each subsequent load with the index updates.
+    LD.MULT R0 LR12 {{ cr.in0 }} ; DEC LR13 1 ;;
+    B scatter ;;
 gather:
-    LD.MULT R0 LR12 {{ cr.in0 }} ;;
-    MULT.EE LR6 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.RESHAPE LRD0 LRD2 7 ; ADD LR12 LR12 {{ cr.blocks }} ;;
-    ADDBI LRD2 1 ; INC LR11 1 ; BLT.S LR11 LR13 gather ;;
+    ADD LR12 LR12 {{ cr.blocks }} ; ADDBI LRD2 1 ; INC LR11 1 ; LD.MULT R0 LR12 {{ cr.in0 }} ;;
+scatter:
+    MULT.EE LR6 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.RESHAPE LRD0 LRD2 7 ; BLT.S LR11 LR13 gather ;;
+    ADD LR12 LR12 {{ cr.blocks }} ; INC LR11 1 ;;
     BEQ LR10 LR11 tail ;;
     DEC LR10 128 ;;
     {{ add_store('CR15') }}
