@@ -20,66 +20,102 @@
 {{ caller(part) }}
 {% endmacro %}
 
-{# Tile the transpose through 8x8 blocks. Each input load contributes eight
-   logical rows, and each tile load contributes eight columns to one row. #}
-    SET LR0 CR0 ; SET LR2 CR0 ; SET LR3 {{ cr.M }} ;;
-    LD.MULT R0 LR0 {{ cr.in0 }} ; DEC LR3 1 ;;
-{{ clear() }}
-pack_batch:
-    SET LR5 LR14 ; SET LR10 CR0 ;;
+{# Factor a full tile's transpose through groups of 16 columns by 8 rows.
+   Each intermediate row holds 16 input rows, with 8 lanes from each. #}
+    BNE LR1 CR0 transpose_edges ;;
+    SET LR0 CR0 ; SET LR2 CR0 ; SET LR3 CR0 ;;
+    SET LR12 LR4 ; SET LR13 LR5 ; SET LR14 CR0 ;;
+    SET LR15 CR0 ;;
+{% macro pack16(i) %}
+    LD.MULT R0 LR4 {{ cr.in0 }}{% if i > 0 %} ; ADDBI LRD8 1{% endif %} ;;
+    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.RESHAPE LRD6 LRD8 0 ; ADD LR4 LR4 {{ cr.pitch }} ;;
+{% endmacro %}
+full_tile:
+    SET LR1 CR0 ; SET LR5 CR0 ;;
 pack_group:
-    SET LR4 LR2 ; SET LR11 LR1 ;;
-    SET LR8 LR6 ; SET LR9 LR7 ; SUB LR12 LR0 LR10 ;;
-    ADDB LRD8 LR12 ;;
-pack_tile:
-{{ addr('LR12',8) }}
-pack_column:
-    LD.MULT R0 LR4 {{ cr.in0 }} ; DEC LR11 1 ;;
-    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.RESHAPE LRD6 LRD8 0 ; ADD LR4 LR4 {{ cr.pitch }} ; DEC LR12 1 ; BEQ LR11 CR0 pack_tail ;;
-    ADDBI LRD8 8 ; BNE LR12 CR0 pack_column ;;
-    ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.transposed }} LR3 ; ADDBI LRD8 -64 ; INC LR3 1 ; B pack_tile ;;
-pack_tail:
-    ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.transposed }} LR3 ; INC LR3 1 ; DEC LR5 8 ;;
-    BLT.S LR5 CR1 pack_next ;;
-    INC LR10 8 ; ADDBI LRD6 8 ;;
-{{ addr('LR12',128) }}
-    BLT.S LR10 LR12 pack_group ;;
-    INC LR2 1 ; SUB LR10 LR0 LR10 ;;
-    ADDB LRD6 LR10 ;;
-    SET LR10 CR0 ; B pack_group ;;
-pack_next:
-    SUB LR10 LR0 LR10 ; ADD LR2 LR2 LR13 ;;
-    ADDB LRD6 LR10 ; BLT.S LR2 LR15 pack_batch ;;
+    SET LR6 LR10 ; SET LR7 LR11 ;;
+pack_row:
+    SET LR4 LR2 ; SET LR8 LR12 ; SET LR9 LR13 ;;
+{% for i in range(16) %}{{ pack16(i) }}{% endfor %}
+    ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
+    INC.MODP2 LR1 CR1 7 ; INC.MODP2 LR5 CR1 4 ; ADDBI LRD6 8 ;;
+    BNE LR5 CR0 pack_row ;;
+    SET LR2 LR4 ; BNE LR1 CR0 pack_group ;;
 
-    SET LR2 {{ cr.M }} ; SET LR3 CR0 ;;
-    DEC LR3 1 ;;
-unpack_batch:
-    SET LR5 LR14 ;;
+{% macro unpack16(i) %}
+    LD.MULT R0 LR4 {{ cr.tmp }}{% if i > 0 %} ; ADDBI LRD6 -8 ; ADDBI LRD8 8{% endif %} ;;
+    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.RESHAPE LRD6 LRD8 0 ; INC LR4 16 ;;
+    ADDBI LRD6 8 ; ADDBI LRD8 8 ;;
+    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.RESHAPE LRD6 LRD8 0 ;;
+{% endmacro %}
 unpack_group:
-    ADD LR10 LR6 LR6 ; ADD LR11 LR7 LR7 ;;
-{% for i in range(2) %}
-    ADD LR10 LR10 LR10 ; ADD LR11 LR11 LR11 ;;
-{% endfor %}
-{{ addr('LR13',8) }}
+    SET LR6 LR10 ; SET LR7 LR11 ; SET LR5 CR0 ;;
 unpack_row:
-    SET LR4 LR2 ; SET LR12 LR1 ;;
-unpack_chunk:
-    SET LR8 LR6 ; SET LR9 LR7 ; SET LR15 CR0 ;;
-    INC LR15 16 ;;
-unpack_tile:
-    LD.MULT R0 LR4 {{ cr.transposed }} ; DEC LR12 8 ;;
-    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.RESHAPE LRD10 LRD8 0 ; INC LR4 1 ; DEC LR15 1 ; BLT.S LR12 CR1 unpack_tail ;;
-    ADDBI LRD8 8 ; BNE LR15 CR0 unpack_tile ;;
-    ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.transposed }} LR3 ; INC LR3 1 ; B unpack_chunk ;;
-unpack_tail:
-    ACTIVATE.QUANTIZE identity {{ part }} {{ q }} {{ cr.transposed }} LR3 ; INC LR3 1 ; DEC LR5 1 ; ADDBI LRD10 1 ;;
-    BEQ LR5 CR0 unpack_next ;;
-    DEC LR13 1 ; BNE LR13 CR1 unpack_row ;;
-    SET LR2 LR4 ; B unpack_group ;;
-unpack_next:
-    SET LR2 LR4 ; SET LR4 LR3 ;;
-    INC LR4 1 ;;
-    BLT.S LR4 {{ cr.M }} unpack_batch ;;
+    SET LR4 LR1 ; SET LR8 LR10 ; SET LR9 LR11 ;;
+{% for i in range(8) %}{{ unpack16(i) }}{% endfor %}
+    ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.transposed }} LR3 ;;
+    ADD LR3 LR3 {{ cr.K }} ; INC.MODP2 LR5 CR1 3 ; ADDBI LRD6 8 ;;
+    BNE LR5 CR0 unpack_row ;;
+    INC.MODP2 LR1 CR1 4 ;;
+    BNE LR1 CR0 unpack_group ;;
+    {# LR3 advanced by 128*K. #}
+    SET LR4 {{ cr.K }} ;;
+{% for i in range(7) %}
+    ADD LR4 LR4 LR4 ;;
+{% endfor %}
+    INC LR15 1 ;;
+    BEQ LR15 {{ cr.K }} full_next_row_tile ;;
+    SUB LR3 LR3 LR4 ;;
+    INC LR3 1 ; B full_tile ;;
+full_next_row_tile:
+    SUB LR3 LR3 {{ cr.K }} ;;
+    INC LR3 1 ; SET LR15 CR0 ; INC LR14 1 ;;
+    BGE.S LR3 {{ cr.M }} transpose_done ;;
+    BEQ LR14 {{ cr.pitch }} full_next_batch ;;
+    SUB LR2 LR2 {{ cr.batchstride }} ;;
+    INC LR2 1 ; B full_tile ;;
+full_next_batch:
+    SUB LR2 LR2 {{ cr.pitch }} ; SET LR14 CR0 ;;
+    INC LR2 1 ; B full_tile ;;
+
+{# Partial tiles use the direct gather to avoid reading padding as data. #}
+transpose_edges:
+    SET LR0 CR0 ; SET LR2 CR0 ; SET LR3 CR0 ;;
+{{ addr('LR11',128) }}
+transpose_batch:
+    SET LR5 CR0 ; SET LR9 CR0 ; SET LR10 CR0 ;;
+transpose_row:
+    ADD LR4 LR2 LR10 ; SET LR8 {{ cr.K }} ;;
+transpose_tile:
+    DEC LR8 1 ; SET LR6 CR0 ; SET LR7 CR0 ;;
+    SET LR1 LR11 ;;
+    BNE LR8 CR0 gather_first ;;
+    SET LR1 LR12 ;;
+{% macro scatter() %}MULT.EE LR9 CR1 0 LR0 {{ full }} {{ q }} ; ACC.RESHAPE LRD6 LRD6 7{% endmacro %}
+gather_first:
+    LD.MULT R0 LR4 {{ cr.in0 }} ; DEC LR1 1 ; BEQ LR1 CR1 gather_single ;;
+    LD.MULT R0 LR4 {{ cr.in0 }} ; {{ scatter() }} ; ADD LR4 LR4 {{ cr.pitch }} ; DEC LR1 1 ; BEQ LR1 CR1 gather_last ;;
+gather_next:
+    LD.MULT R0 LR4 {{ cr.in0 }} ; {{ scatter() }} ; ADD LR4 LR4 {{ cr.pitch }} ; DEC LR1 1 ; ADDBI LRD6 1 ; BNE LR1 CR1 gather_next ;;
+gather_last:
+    ADDBI LRD6 1 ;;
+gather_single:
+    {{ scatter() }} ; ADD LR4 LR4 {{ cr.pitch }} ;;
+    BEQ LR8 CR0 transpose_tail ;;
+    ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.transposed }} LR3 ;;
+    INC LR3 1 ;;
+    B transpose_tile ;;
+transpose_tail:
+    ACTIVATE.QUANTIZE identity {{ part }} {{ q }} {{ cr.transposed }} LR3 ;;
+    INC LR3 1 ; INC LR5 1 ; INC LR9 1 ;;
+    BEQ LR5 LR14 transpose_next ;;
+    BNE LR9 LR11 transpose_row ;;
+    SET LR9 CR0 ; INC LR10 1 ;;
+    B transpose_row ;;
+transpose_next:
+    ADD LR2 LR2 {{ cr.batchstride }} ; DEC LR15 1 ;;
+    BNE LR15 CR0 transpose_batch ;;
+transpose_done:
 
 {# Generate split log2(e)/2 and the root scaling without folded constants. #}
 {% macro coefficient(power, count, slot) %}
@@ -199,11 +235,12 @@ max_ready:
     MULT.RC.VE LR13 CR1 0 LR0 {{ ds }} {{ root }} ; ACC.ADD.FIRST ;;
     MULT.RC.VS LR0 0 LR0 {{ ds }} {{ root }} ; ACC.ADD ;;
     MULT.RC.VE LR13 CR1 0 LR0 {{ ds }} {{ root }} ; ACC.SUB ;;
-    ACTIVATE.QUANTIZE identity {{ ds }} {{ q }} {{ cr.exps }} LR3 ;;
-    LD.MULT R0 LR3 {{ cr.exps }} ;;
+{{ addr('LR5',12) }}
+    ACTIVATE.QUANTIZE identity {{ ds }} {{ q }} {{ cr.tmp }} LR5 ;;
+    LD.MULT R0 LR5 {{ cr.tmp }} ;;
     MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ q }} ; ACC.SUB ;;
-    ACTIVATE.QUANTIZE identity {{ ds }} {{ q }} {{ cr.exps }} LR3 ;;
-    LD.MULT R1 LR3 {{ cr.exps }} ;;
+    ACTIVATE.QUANTIZE identity {{ ds }} {{ q }} {{ cr.tmp }} LR5 ;;
+    LD.MULT R1 LR5 {{ cr.tmp }} ;;
     LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
     MULT.RC.VV LR10 R0 0 LR0 {{ ds }} {{ q }} ; ACC.ADD.FIRST ;;
     MULT.RC.VV LR10 R1 0 LR0 {{ ds }} {{ q }} ; ACC.ADD ;;
