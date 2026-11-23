@@ -1,0 +1,97 @@
+[kernel]
+op = "sparse_tile16_project"
+formats = ["e2"]
+
+[params.cin]
+type = "int"
+min = 48
+max = 128
+multiple_of = 48
+default = 96
+[params.cout]
+type = "int"
+min = 4
+multiple_of = 4
+default = 96
+[params.kh]
+type = "int"
+choices = [2]
+default = 2
+[params.kw]
+type = "int"
+choices = [2]
+default = 2
+[params.in0_d0]
+type = "int"
+min = 1
+default = 1
+[params.in0_d1]
+type = "int"
+min = 48
+max = 128
+default = 96
+[params.in0_d2]
+type = "int"
+min = 2
+multiple_of = 2
+default = 16
+[params.in0_d3]
+type = "int"
+min = 1
+max = 16
+default = 16
+[params.out0_d0]
+type = "int"
+min = 1
+default = 1
+[params.out0_d1]
+type = "int"
+min = 4
+default = 96
+[params.out0_d2]
+type = "int"
+min = 4
+multiple_of = 4
+default = 32
+[params.out0_d3]
+type = "int"
+min = 2
+max = 32
+default = 32
+[inputs.in0]
+shape = ["sites", 128]
+range = [-1, 1]
+[inputs.weights]
+shape = ["ceil(cout * kh * kw / 128) * (cin + 1)", 128]
+range = [-1, 1]
+[outputs.out0]
+shape = ["out0_d1 * out0_d0 * out0_d2 / 4", 128]
+[scratch.tile]
+shape = ["sites", 128]
+
+[derived]
+sites = "in0_d0 * in0_d2 * in0_d3"
+full = "ds(128)"
+packed = "ds(4 * out0_d3)"
+mac_end = "cin - 2"
+pair = "16777216"
+lanes = "128"
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+weights = "CR4"
+tile = "CR5"
+qf_in0 = "CR6"
+qf_out0 = "CR7"
+qf_weights = "CR8"
+full = "CR9"
+packed = "CR10"
+sites = "CR11"
+in0_d3 = "CR12"
+cout = "CR13"
+mac_end = "CR14"
+lanes = "CR15"
+pair = "LR15"
+
+[cases.default]
