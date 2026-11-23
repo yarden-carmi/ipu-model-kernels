@@ -1,6 +1,6 @@
 {% set segments = (3 * cin + 127) // 128 %}
 {% set pack = 128 // cin %}
-{% set pw = (w + pack - 1) // pack %}
+{% set pw = w // pack %}
 {% set panel = 16 %}
 {% macro inc(reg, amount) %}
 {% for i in range(0, amount, 255) %}
@@ -8,8 +8,7 @@
 {% endfor %}
 {% endmacro %}
 {% macro dot(last=false) %}
-{# Reduce the packed horizontal span directly into this output channel.
-   The load supplies the next high/residual row, not the current one. #}
+{# Reduce one horizontal span, loading the following weight row in parallel. #}
 {% for s in range(segments) %}
 {% for part in range(2) %}
  MULT.RC.VV {{ ['LR3', 'LR14', 'LR15'][s] }} R0 0 LR9 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; AGG.SUM LR8 {{ cr.last if s == segments-1 else cr.full }}.L {% if not (last and s == segments-1 and part == 1) %}; INC LR6 1 ; LD.MULT R0 LR6 {{ cr.weights }}{% endif %}{% if s == 0 and part == 0 %}; INC LR8 1{% endif %} ;;
@@ -34,7 +33,7 @@ x:
 ky:
  BLT.S LR5 CR0 skip_y ;;
  BGE.S LR5 {{ cr.h }} skip_y ;;
- # The three cyclic slots form a contiguous window, including zero halo rows.
+ # Three cyclic slots provide the previous, current, and next packed rows.
  LD.MULT.CYCLIC LR4 {{ cr.in0 }} LR9 ; SET LR14 LR4 ;;
  BEQ LR7 CR0 left_zero ;;
  DEC LR14 1 ; LD.MULT.CYCLIC LR14 {{ cr.in0 }} LR12 ;;

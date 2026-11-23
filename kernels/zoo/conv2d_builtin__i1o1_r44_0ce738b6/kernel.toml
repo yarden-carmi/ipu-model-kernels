@@ -17,7 +17,7 @@ default = 64
 type = "int"
 min = 1
 max = 128
-default = 32
+default = 64
 [params.groups]
 type = "int"
 min = 1
@@ -25,16 +25,15 @@ max = 128
 default = 1
 [params.h]
 type = "int"
-min = 3
+min = 1
 max = 224
-default = 64
+default = 16
 [params.w]
 type = "int"
 min = 8
 max = 224
-# Each scanline must contain a whole number of packed rows (up to 8 pixels).
 multiple_of = 8
-default = 64
+default = 16
 [params.kh]
 type = "int"
 choices = [3]
@@ -61,7 +60,7 @@ default = 1
 ho = "(h + 2 * padding - kh) // stride + 1"
 wo = "(w + 2 * padding - kw) // stride + 1"
 pack = "128 // cin"
-packed_width = "(w + pack - 1) // pack"
+packed_width = "w // pack"
 segments = "(3 * cin + 127) // 128"
 oc_end = "((cout - 1) // 16) * 16 - 1"
 tap_rows = "2 * segments * cout"
