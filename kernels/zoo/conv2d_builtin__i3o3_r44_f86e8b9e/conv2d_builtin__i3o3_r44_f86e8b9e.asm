@@ -17,6 +17,15 @@
  {% endfor %}
 {% endmacro %}
 
+{# Prime one register, then fetch the next coefficient into the other
+   register while accumulating the current product. LR3 is post-incremented. #}
+{% macro products(operand) %}
+ LD.MULT R0 LR3 {{ cr.weights }} ; INC LR3 1 ;;
+ {% for part in range(3) %}
+ MULT.RC.VV {{ operand }} R{{ part % 2 }} 0 LR0 {{ full }} {{ qi }} ; ACC.ADD ; {% if part < 2 %}LD.MULT R{{ (part + 1) % 2 }} LR3 {{ cr.weights }} ; INC LR3 1 ;{% endif %} ;;
+ {% endfor %}
+{% endmacro %}
+
 {% macro taps(y) %}
  {% if stride == 1 %}LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR13 ;;{% endif %}
  SET LR3 LR2 ; SET LR11 CR0 ;;
@@ -26,10 +35,7 @@
  LD.MULT.CYCLIC LR11 {{ cr.wide_row }} LR1 ;;
  INC LR11 1 ;;
  {% endif %}
- {% for part in range(3) %}
- LD.MULT R0 LR3 {{ cr.weights }} ; INC LR3 1 ;;
- MULT.RC.VV {{ 'LR1' if stride == 2 else shifts[x] }} R0 0 LR0 {{ full }} {{ qi }} ; ACC.ADD ;;
- {% endfor %}
+ {{ products('LR1' if stride == 2 else shifts[x]) }}
  {% endfor %}
 {% endmacro %}
 
