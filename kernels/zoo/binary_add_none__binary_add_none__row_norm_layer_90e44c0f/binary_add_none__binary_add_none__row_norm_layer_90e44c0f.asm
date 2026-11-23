@@ -13,11 +13,6 @@
 {% macro mul(first=false,next='',slot='LR0') %}
  MULT.RC.VV {{ slot }} R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if first %}.FIRST{% endif %} {{ next }} ;;
 {% endmacro %}
-{% macro load(n,cyclic=false) %}
- {{ at('LR1',n) }}
- {% if cyclic %}LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
- {% else %}LD.MULT R0 LR1 {{ cr.tmp }} ;;{% endif %}
-{% endmacro %}
 {# Consume consecutive residual planes, prefetching the next into R0. #}
 {% macro dot(count, first=false, reduce=false) %}
  LD.MULT R0 LR1 {{ cr.tmp }} ;;
@@ -72,7 +67,8 @@
  SET LR8 CR1 ; SET LR12 CR1 ;;
  INC LR12 1 ; SET LR14 CR0 ; SET LR15 CR0 ;;
  INC LR14 128 ; INC LR15 128 ;;
- INC LR15 128 ;;
+ INC LR15 128 ; SET LR7 CR0 ;;
+ INC LR7 12 ;;
 row_loop:
  ADD LR6 LR2 {{ cr.K }} ; SET LR5 LR2 ;;
  {{ clear() }}
@@ -106,29 +102,30 @@ variance_loop:
  {{ average() }}
  {{ at('LR1',3) }}
  LD.MULT R0 LR1 {{ cr.stats }} ;;
- {{ vec() }}
- {{ at('LR1',12) }}
- ACTIVATE.QUANTIZE rsqrt {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
- {{ save(9,3) }}
-
- {# Newton: r <- 1.5 r - 0.5 v r^3. #}
- {% for a,b,d,na,nb in [(12,12,14,1,1),(9,14,16,3,2),(12,16,18,1,2)] %}
- SET LR3 CR0 ; SET LR1 CR0 ;;
- {% for i in range(na) %}
- LD.MULT.CYCLIC LR3 {{ cr.tmp }} LR0 ; INC LR3 {{ a if loop.first else 1 }} ;;
- LD.MULT R0 LR1 {{ cr.tmp }} ; {% if loop.first %}INC LR1 {{ b }}{% else %}DEC LR1 1{% endif %} ;;
- {{ mul(first=loop.first,next='; LD.MULT R0 LR1 ' ~ cr.tmp ~ ' ; INC LR1 1' if nb == 2 else '') }}
- {% if nb == 2 %}{{ mul() }}{% endif %}
+ {{ vec(next='; ACTIVATE.QUANTIZE rsqrt ' ~ full ~ ' ' ~ q ~ ' ' ~ cr.tmp ~ ' LR7') }}
+ {{ save(9,2) }}
+ LD.MULT.CYCLIC LR7 {{ cr.tmp }} LR14 ;;
+ LD.MULT R0 LR7 {{ cr.tmp }} ;;
+ {{ mul(first=true,slot='LR14') }}
+ {{ save(14) }}
+ {# Newton correction: delta = r * (1 - variance * r^2) / 2.
+    Quantize the small correction on its own, not the refined r. #}
+ LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
+ LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR15 ; DEC LR1 1 ;;
+ {{ at('LR1',4) }}
+ LD.MULT R0 LR1 {{ cr.stats }} ;;
+ {{ vec(first=true,next='; LD.MULT R0 LR1 ' ~ cr.tmp ~ ' ; INC LR1 5') }}
+ {% for p in range(2) %}
+ MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; ACC.SUB ;;
+ MULT.RC.VV LR15 R0 0 LR0 {{ full }} {{ q }} ; ACC.SUB {% if loop.first %}; LD.MULT R0 LR1 {{ cr.tmp }} ; INC LR1 1{% endif %} ;;
  {% endfor %}
- {{ save(d) }}
- {% endfor %}
- {{ load(12,true) }}
- MULT.RC.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ;;
- MULT.RC.VE LR0 {{ cr.half }} 0 LR0 {{ full }} {{ q }} ; ACC.ADD ;;
- {% for n in [18,19] %}{{ load(n) }}{{ vec('SUB',imm=cr.half) }}{% endfor %}
- {{ save(12) }}
- LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR15 ; SET LR3 CR0 ;;
- LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR14 ; DEC LR1 1 ; INC LR3 20 ;;
+ {{ save(13,1) }}
+ LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR15 ;;
+ MULT.RC.VE LR14 {{ cr.half }} 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
+ LD.MULT R0 LR1 {{ cr.tmp }} ;;
+ {{ mul(first=true,slot='LR15') }}
+ ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ; SET LR3 CR0 ;;
+ LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR15 ; INC LR3 20 ;;
 
  {{ reset() }}{{ at('LR11') }}
  DEC LR6 1 ;;

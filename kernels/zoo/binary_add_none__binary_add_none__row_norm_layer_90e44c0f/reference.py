@@ -81,5 +81,6 @@ def fold(module, **params):
         "stats": torch.cat([
             planes(torch.full((128,), 1 / params["s2_channels"])),
             torch.full((1, 128), params["s2_eps"]),
+            torch.ones((1, 128)),
         ]),
     }
