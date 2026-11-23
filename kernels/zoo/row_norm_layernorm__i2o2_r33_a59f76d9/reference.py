@@ -75,8 +75,8 @@ def fold(module, **params):
         return torch.cat([*parts, residual])
 
     return {
-        "gamma": split(pad(module.weight)),
+        "gamma": split(pad(module.weight) * channels**0.5),
         "beta": split(pad(module.bias)),
         "crow": split(torch.full((128,), 1 / channels)),
-        "epsilon": torch.full((128,), params["eps"]),
+        "epsilon": torch.full((128,), params["eps"] * channels),
     }
