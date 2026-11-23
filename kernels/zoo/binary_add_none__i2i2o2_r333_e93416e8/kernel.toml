@@ -78,6 +78,8 @@ stride_rows = "(in0_d0 * in0_d1 // in0_d2) * in_width"
 stride_cols = "in0_d0 * in0_d1 % in0_d2"
 col_step = "stride_cols + 65536 * (in0_d2 - stride_cols)"
 col_limit = "in0_d2 + 65536 * 128"
+packed_tail_end = "max(0, valid - 3) * 16843009"
+packed_full_end = "125 * 16843009"
 
 [inputs.in0]
 shape = ["in0_d0", "in0_d1", "in_width * 128"]
@@ -103,5 +105,7 @@ col_step = "CR12"
 col_limit = "CR13"
 jump = "CR14"
 in_width = "LR11"
+packed_tail_end = "LR8"
+packed_full_end = "LR14"
 
 [cases.default]
