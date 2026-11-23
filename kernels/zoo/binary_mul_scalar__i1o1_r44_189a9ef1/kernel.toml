@@ -74,6 +74,8 @@ shape = ["groups", "chunks * 128"]
 
 [derived]
 groups = "out0_d0 * out0_d2 * out0_d3"
+last_group = "groups - 1"
+penultimate_group = "groups - 2"
 chunks = "ceil(out0_d1 / 128)"
 ds_pair = "ds((out0_d1 - 1) % 128 + 1) + 65536 * ds(128)"
 
@@ -85,5 +87,7 @@ qf_out0 = "CR5"
 groups = "CR6"
 chunks = "CR7"
 ds_pair = "CR8"
+last_group = "CR9"
+penultimate_group = "CR10"
 
 [cases.default]
