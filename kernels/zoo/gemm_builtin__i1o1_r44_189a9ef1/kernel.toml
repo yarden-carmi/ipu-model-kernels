@@ -18,12 +18,12 @@ default = 16
 type = "int"
 min = 1
 max = 4096
-default = 64
+default = 72
 [params.m]
 type = "int"
 min = 1
-max = 65535
-default = 4
+max = 65536
+default = 3136
 [params.in0_d0]
 type = "int"
 choices = [1]
@@ -36,13 +36,13 @@ default = 16
 [params.in0_d2]
 type = "int"
 min = 1
-max = 65535
-default = 2
+max = 65536
+default = 56
 [params.in0_d3]
 type = "int"
 min = 1
-max = 65535
-default = 2
+max = 128
+default = 56
 [params.out0_d0]
 type = "int"
 choices = [1]
@@ -51,35 +51,38 @@ default = 1
 type = "int"
 min = 1
 max = 4096
-default = 64
+default = 72
 [params.out0_d2]
 type = "int"
 min = 1
-max = 65535
-default = 2
+max = 65536
+default = 56
 [params.out0_d3]
 type = "int"
 min = 1
-max = 65535
-default = 2
+max = 65536
+default = 56
 
 [derived]
-K = "ceil(k / 128)"
-Km1 = "ceil(k / 128) - 1"
-NB = "ceil(n / 128)"
-cm1 = "k - 128 * (ceil(k / 128) - 1) - 1"
-fm1 = "127"
-valid = "ds(128)"
-lastv = "ds(n - 128 * (ceil(n / 128) - 1))"
+chunks = "ceil(k / 128)"
+paired = "min(1, m - 1)"
+tiles = "ceil(n / 128)"
+full_chunks = "chunks - 1"
+tail_last = "(k - 1) % 128 - 1 + paired"
+full_last = "126 + paired"
+fast = "paired * (1 - min(1, max(0, k - 32) + max(0, n - 128)))"
+m_bound = "m - 1 - fast"
+last = "ds((n - 1) % 128 + 1)"
+full = "ds(128)"
 
 [inputs.in0]
-shape = ["m", "K * 128"]
+shape = ["in0_d0 * in0_d2 * in0_d3 * ceil(in0_d1 / 128)", 128]
 range = [-2, 2]
 [inputs.coeff]
-shape = ["2 * NB * (k + 1) + 1", 128]
+shape = ["tiles * (1 + k * (1 + paired)) + 1 - fast", 128]
 range = [-1, 1]
 [outputs.out0]
-shape = ["m", "NB * 128"]
+shape = ["out0_d0 * out0_d2 * out0_d3 * ceil(out0_d1 / 128)", 128]
 
 [abi]
 in0 = "CR2"
@@ -87,15 +90,13 @@ coeff = "CR3"
 out0 = "CR4"
 qf_in0 = "CR5"
 qf_out0 = "CR6"
-m = "CR7"
-K = "CR8"
-Km1 = "CR9"
-NB = "CR10"
-cm1 = "CR11"
-fm1 = "CR12"
-qf_coeff = "CR13"
-lastv = "CR14"
-valid = "CR15"
+qf_coeff = "CR7"
+full_chunks = "CR8"
+m_bound = "CR9"
+tail_last = "CR10"
+full_last = "CR11"
+tiles = "CR12"
+last = "CR14"
+full = "CR15"
 
 [cases.default]
-m = 4
