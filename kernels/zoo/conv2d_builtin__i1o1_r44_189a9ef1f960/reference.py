@@ -49,16 +49,16 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 64, 64], [262144, 4096, 64, 1], 0), module.weight, module.bias, [1, 1], [1, 1])
+    r0 = aten.conv2d.default(_v(ins[0], [1, 32, 224, 224], [1605632, 50176, 224, 1], 0), module.weight, module.bias, [1, 1], [1, 1])
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.relu.default(_v(op0, [1, 64, 64, 64], [262144, 4096, 64, 1], 0))
+    r0 = aten.relu.default(_v(op0, [1, 32, 224, 224], [1605632, 50176, 224, 1], 0))
     op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 64, 64, 64])}
+    return {"out0": _out(op1, [1, 32, 224, 224])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Pack bias and tap/channel weights into output-channel vectors."""
+    """Pack each tap/input-channel vector into output lanes, high part then residual."""
     weight = module.weight.detach().to(torch.float64)
     cout, per_group, kh, kw = weight.shape
     groups = params['groups']
@@ -67,12 +67,37 @@ def fold(module, **params):
     dense = weight.new_zeros((blocks * 128, cin, kh, kw))
     out_per_group = cout // groups
     for group in range(groups):
-        start = group * out_per_group
-        end = start + out_per_group
-        dense[start:end, group * per_group:(group + 1) * per_group] = weight[start:end]
+        channels = slice(group * out_per_group, (group + 1) * out_per_group)
+        dense[channels, group * per_group:(group + 1) * per_group] = weight[channels]
+    packed = cin == 32 and cout <= 32 and params['in0_d3'] % 4 == 0 and params['stride'] == 1
+    dot = cout <= 32 and 2 * cout <= cin
+    if packed or dot:
+        taps = dense[:cout].permute(2, 3, 0, 1)
+        if packed:
+            taps = taps.permute(0, 2, 1, 3).reshape(kh, 1, cout, kw * cin)
+        vectors = weight.new_zeros((1 + taps.numel() // taps.shape[-1], 128))
+        vectors[1:, :taps.shape[-1]] = taps.reshape(-1, taps.shape[-1])
+        if params['bias']:
+            vectors[0, :cout] = module.bias
+        hi, lo = _split(vectors)
+        planes = torch.stack((hi, lo), dim=1).reshape(-1, 128)
+        if packed:
+            planes = torch.cat((planes[:2], weight.new_zeros((1, 128)), planes[2:]))
+        return {'weights': planes[None]}
     rows = weight.new_zeros((blocks, 1 + kh * kw * cin, 128))
     rows[:, 1:] = dense.reshape(blocks, 128, cin, kh, kw).permute(
         0, 3, 4, 2, 1).reshape(blocks, -1, 128)
     if params['bias']:
-        rows[:, 0] = torch.nn.functional.pad(module.bias, (0, blocks * 128 - cout)).reshape(blocks, 128)
-    return {'weights': rows}
+        for block in range(blocks):
+            bias = module.bias[128 * block:128 * (block + 1)]
+            rows[block, 0, :bias.numel()] = bias
+
+    hi, lo = _split(rows)
+    return {'weights': torch.stack((hi, lo), dim=2).reshape(blocks, -1, 128)}
+
+
+def _split(rows):
+    _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
+    step = torch.exp2(exponent.to(rows.dtype) - 6)
+    hi = rows.sign() * (rows.abs() / step + 0.5).floor().clamp(max=63) * step
+    return hi, rows - hi
