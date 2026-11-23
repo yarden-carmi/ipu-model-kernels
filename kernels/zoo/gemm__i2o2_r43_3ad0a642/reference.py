@@ -20,16 +20,6 @@ def _l(res, k, shape, stride, offset):
     return _v(t, shape, stride, offset)
 
 
-def _p(t, shape):
-    """A parameter read at the shape its record read it (a view of it: reshaped, or expanded)."""
-    if list(t.shape) == list(shape):
-        return t
-    n = 1
-    for d in shape:
-        n *= int(d)
-    return t.reshape(tuple(shape)) if t.numel() == n else t.expand(tuple(shape))
-
-
 def _pick(res, k):
     """Result k of a record (one tensor, or a tuple of them)."""
     return res[k] if isinstance(res, (tuple, list)) else res
