@@ -1,0 +1,81 @@
+[kernel]
+op = "row_softmax"
+formats = ["e1"]
+
+[params.n]
+type = "int"
+min = 1
+max = 128
+default = 64
+[params.rows]
+type = "int"
+min = 1
+max = 8192
+default = 512
+[params.in0_d0]
+type = "int"
+default = 1
+[params.in0_d1]
+type = "int"
+default = 8
+[params.in0_d2]
+type = "int"
+min = 1
+max = 128
+default = 64
+[params.in0_d3]
+type = "int"
+min = 1
+max = 128
+default = 64
+[params.out0_d0]
+type = "int"
+default = 1
+[params.out0_d1]
+type = "int"
+default = 8
+[params.out0_d2]
+type = "int"
+min = 1
+max = 128
+default = 64
+[params.out0_d3]
+type = "int"
+min = 1
+max = 128
+default = 64
+
+[derived]
+active = "ds(128)"
+part = "ds(n)"
+outpart = "ds(out0_d2)"
+scratch_qf = "312 * 65536 + 344"
+plane_qf = "88 * 65536 + 344"
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d1", "in0_d2", 128]
+range = [-2, 2]
+[outputs.out0]
+shape = ["out0_d0", "out0_d1", "out0_d3", 128]
+[scratch.tmp]
+shape = [14, 128]
+[scratch.norm]
+shape = [3, "rows", 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+tmp = "CR5"
+qf_in0 = "CR6"
+plane_qf = "CR7"
+rows = "CR8"
+scratch_qf = "CR9"
+qf_out0 = "CR10"
+outpart = "CR12"
+norm = "CR13"
+part = "CR14"
+active = "CR15"
+out0_d2 = "LR14"
+n = "LR15"
+
+[cases.default]
