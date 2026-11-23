@@ -22,6 +22,7 @@
     ACTIVATE.QUANTIZE identity {{ full }} {{ qi }} {{ cr.scalar }} LR0 ;;
     LD.MULT.CYCLIC LR0 {{ cr.scalar }} LR0 ; BNE LR5 CR0 partial ;;
 
+    {# Stream full rows with one lookahead load, stopping before the buffer end. #}
     LD.MULT R0 LR1 {{ cr.in0 }} ; BGE.S LR1 {{ cr.last_row }} final_row ;;
 dense:
     {{ row(full, true) }} ; BLT.S LR1 {{ cr.penultimate_row }} dense ;;
