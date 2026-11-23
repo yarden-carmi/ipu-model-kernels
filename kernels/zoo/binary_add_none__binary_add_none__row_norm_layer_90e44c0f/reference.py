@@ -72,7 +72,7 @@ def fold(module, **params):
             part = torch.round(residual / step) * step
             parts.append(part)
             residual = residual - part
-        return torch.cat([*parts, residual])
+        return torch.cat(parts)
 
     return {
         "addend": planes(module.op0_const0 + module.op1_const0),

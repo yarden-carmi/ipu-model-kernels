@@ -42,9 +42,9 @@
    from R0 while multiplying by a plane of the reciprocal channel count. #}
 {% macro average(finish='') %}
  {{ split('LR1',3,setup='; SET LR1 CR0') }}
- {% for stat in ['LR0','LR8','LR12'] %}
+ {% for stat in ['LR0','LR8'] %}
  {% set first_stat = loop.first %}
- {% set following = ['LR8','LR12',''][loop.index0] %}
+ {% set following = ['LR8',''][loop.index0] %}
  {% if first_stat %}LD.MULT.CYCLIC {{ stat }} {{ cr.stats }} LR0 ;;{% endif %}
  LD.MULT R0 LR0 {{ cr.tmp }} ;;
  {% for next in ['LR8','LR12',''] %}
@@ -56,7 +56,7 @@
  LD.MULT R0 LR5 {{ cr.in0 }} {{ setup }} ;;
  {% set fetch = '; LD.MULT R0 LR10 ' ~ cr.addend %}
  {{ vec(first=not reduce or first,fmt=iq,reduce=reduce,next=fetch ~ ' ; SET LR10 LR5') }}
- {% for p in range(3) %}
+ {% for p in range(2) %}
  {{ vec(reduce=reduce,next=fetch ~ ' ; ADD LR10 LR10 LR13' if not loop.last else finish) }}
  {% endfor %}
 {% endmacro %}
@@ -111,7 +111,7 @@ variance_loop:
  MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ full }} ; INC LR5 1 ; INC LR9 1 ;;
  MULT.RC.VS LR14 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ full }} ; SET LR1 CR0 ; BLT.S LR5 LR6 variance_loop ;;
  {{ average('; SET LR1 CR0') }}
- LD.MULT R0 LR1 {{ cr.stats }} ; INC LR1 3 ;;
+ LD.MULT R0 LR1 {{ cr.stats }} ; INC LR1 2 ;;
  {{ vec(next='; ACTIVATE.QUANTIZE rsqrt ' ~ full ~ ' ' ~ q ~ ' ' ~ cr.tmp ~ ' LR7') }}
  {{ save(9,2) }}
  LD.MULT.CYCLIC LR7 {{ cr.tmp }} LR14 ;;
@@ -122,9 +122,9 @@ variance_loop:
     Quantize the small correction on its own, not the refined r. #}
  LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
  LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR15 ; DEC LR1 1 ;;
- {{ at('LR1',4) }}
+ {{ at('LR1',3) }}
  LD.MULT R0 LR1 {{ cr.stats }} ;;
- {{ vec(first=true,next='; LD.MULT R0 LR1 ' ~ cr.tmp ~ ' ; INC LR1 5') }}
+ {{ vec(first=true,next='; LD.MULT R0 LR1 ' ~ cr.tmp ~ ' ; INC LR1 6') }}
  {% for p in range(2) %}
  MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; ACC.SUB ;;
  MULT.RC.VV LR15 R0 0 LR0 {{ full }} {{ q }} ; ACC.SUB {% if loop.first %}; LD.MULT R0 LR1 {{ cr.tmp }} ; INC LR1 1{% endif %} ;;
@@ -140,7 +140,7 @@ variance_loop:
  DEC LR6 1 ;;
 output_loop:
  LD.MULT R0 LR11 {{ cr.gamma }} ; SET LR10 LR11 ;;
- {% for part in range(3) %}
+ {% for part in range(2) %}
  {{ mul(first=loop.first,slot='LR14') }}
  {{ mul(slot='LR15',next='; LD.MULT R0 LR10 ' ~ cr.gamma ~ ' ; ADD LR10 LR10 ' ~ cr.K if not loop.last else '; ' ~ aq('LR3') ~ ' ; SET LR1 LR3') }}
  {% endfor %}
@@ -154,13 +154,11 @@ output_loop:
  MULT.RC.VV LR0 R1 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; LD.MULT R0 LR1 {{ cr.beta }} ; SET LR1 LR11 ;;
  {% if aligned %}
  {{ vec(next='; LD.MULT R0 LR1 ' ~ cr.beta ~ ' ; ADD LR1 LR1 ' ~ cr.K) }}
- {{ vec(next='; LD.MULT R0 LR1 ' ~ cr.beta ~ ' ; ADD LR1 LR1 ' ~ cr.K) }}
- {{ vec(next='; ' ~ store(full)) }}
+  {{ vec(next='; ' ~ store(full)) }}
  INC LR5 1 ; INC LR11 1 ; BLT.S LR5 LR6 output_loop ;;
  {% else %}
  {{ vec(next='; LD.MULT R0 LR1 ' ~ cr.beta ~ ' ; ADD LR1 LR1 ' ~ cr.K) }}
- {{ vec(next='; LD.MULT R0 LR1 ' ~ cr.beta ~ ' ; ADD LR1 LR1 ' ~ cr.K) }}
- {{ vec() }}
+  {{ vec() }}
  BNE LR5 LR6 output_full ;;
  {{ store(tail) }} ;;
  {% endif %}
