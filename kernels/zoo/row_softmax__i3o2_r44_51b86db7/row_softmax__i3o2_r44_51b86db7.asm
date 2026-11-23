@@ -41,17 +41,19 @@ numerator_{{ slot }}:
     MULT.RC.VE LR9 LR11 0 LR0 {{ part }} {{ q }} ; ACC.{% if loop.last %}ADD{% else %}SUB{% endif %} ;;
 {% endfor %}
 {% endmacro %}
+{% macro scatter() %}MULT.EE LR10 CR1 0 LR0 {{ full }} {{ qp }} ; ACC.RESHAPE LRD12 LRD12 7{% endmacro %}
 {% macro gather_lanes(label) %}
-    SET LR4 LR9 ;;
-    SET LR1 CR0 ;;
-    SET LR12 CR0 ;;
-    SET LR13 CR0 ;;
-{{ clear() }}
+    SET LR4 LR9 ; SET LR1 CR1 ; SET LR12 CR0 ;;
+    MULT.VE LR0 CR0 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ; SET LR13 CR0 ;;
+# Prime R0, then multiply the previous row while loading the next.
+    LD.MULT R0 LR4 {{ cr.norm }} ; BEQ LR14 CR1 {{ label }}_single ;;
+    {{ scatter() }} ; LD.MULT R0 LR4 {{ cr.norm }} ; INC LR4 1 ; INC LR1 1 ; BEQ LR1 LR8 {{ label }}_tail ;;
 {{ label }}:
-    LD.MULT R0 LR4 {{ cr.norm }} ;;
-    MULT.EE LR10 CR1 0 LR0 {{ full }} {{ qp }} ; ACC.RESHAPE LRD12 LRD12 7 ;;
-    INC LR4 1 ; ADDBI LRD12 1 ; INC LR1 1 ;;
-    BLT.S LR1 LR14 {{ label }} ;;
+    {{ scatter() }} ; LD.MULT R0 LR4 {{ cr.norm }} ; INC LR4 1 ; ADDBI LRD12 1 ; INC LR1 1 ; BLT.S LR1 LR8 {{ label }} ;;
+{{ label }}_tail:
+    ADDBI LRD12 1 ;;
+{{ label }}_single:
+    {{ scatter() }} ;;
 {% endmacro %}
     SET LR0 CR0 ;;
 {{ addr('LR11',128) }}
@@ -122,7 +124,8 @@ row:
     BLT.S LR2 {{ cr.rows }} row ;;
 
 {# Gather the two denominator planes once per batch and reuse them across columns. #}
-    SET LR2 CR0 ;;
+    SET LR2 CR0 ; SET LR8 LR14 ;;
+    DEC LR8 1 ;;
     SET LR3 CR0 ;;
 {{ addr('LR7',2) }}
 transpose_batch:
