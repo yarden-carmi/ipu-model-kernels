@@ -18,12 +18,12 @@ default = 16
 type = "int"
 min = 1
 max = 4096
-default = 8
+default = 72
 [params.m]
 type = "int"
 min = 1
-max = 65535
-default = 1
+max = 65536
+default = 3136
 [params.in0_d0]
 type = "int"
 choices = [1]
@@ -37,12 +37,12 @@ default = 16
 type = "int"
 min = 1
 max = 128
-default = 1
+default = 56
 [params.in0_d3]
 type = "int"
 min = 1
-max = 65535
-default = 1
+max = 65536
+default = 56
 [params.out0_d0]
 type = "int"
 choices = [1]
@@ -51,49 +51,49 @@ default = 1
 type = "int"
 min = 1
 max = 4096
-default = 8
+default = 72
 [params.out0_d2]
 type = "int"
 min = 1
 max = 128
-default = 1
+default = 56
 [params.out0_d3]
 type = "int"
 min = 1
-max = 65535
-default = 1
+max = 65536
+default = 56
 
 [derived]
 pack = "1 + min(1, 64 // in0_d2) * (1 - in0_d3 % 2)"
 pitch = "in0_d3 // pack"
 tiles = "ceil(n / 128)"
 full_tiles = "tiles - 1"
+last = "ds((n - 1) % 128 + 1)"
 full = "ds(128)"
-last = "ds(n - 128 * full_tiles)"
 
 [inputs.in0]
-shape = ["in0_d0", "in0_d1", "pitch", 128]
+shape = ["in0_d0 * in0_d1 * pitch", 128]
 range = [-2, 2]
 [inputs.coeff]
 shape = ["2 * tiles * (k + 1)", 128]
 range = [-1, 1]
 [outputs.out0]
-shape = ["out0_d0", "out0_d2", "out0_d3", "ceil(out0_d1 / 128) * 128"]
+shape = ["out0_d0 * out0_d2 * out0_d3 * ceil(out0_d1 / 128)", 128]
 
 [abi]
 in0 = "CR2"
 coeff = "CR3"
 out0 = "CR4"
 qf_in0 = "CR5"
-qf_coeff = "CR6"
-qf_out0 = "CR7"
+qf_out0 = "CR6"
+qf_coeff = "CR7"
 k = "CR8"
 in0_d2 = "CR9"
-in0_d3 = "CR10"
-pack = "CR11"
-pitch = "CR12"
-full_tiles = "CR13"
-full = "CR14"
-last = "CR15"
+pitch = "CR10"
+in0_d3 = "CR11"
+full_tiles = "CR12"
+pack = "CR13"
+last = "CR14"
+full = "CR15"
 
 [cases.default]

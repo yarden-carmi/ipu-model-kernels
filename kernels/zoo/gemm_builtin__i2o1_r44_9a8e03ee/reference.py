@@ -53,19 +53,20 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 24, 28, 28], [18816, 784, 28, 1], 0), module.op0_weight)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 16, 56, 56], [50176, 3136, 56, 1], 0), module.op0_weight)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 88, 28, 28], [68992, 784, 28, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 72, 56, 56], [225792, 3136, 56, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.relu_.default(_v(op1, [1, 88, 28, 28], [68992, 784, 28, 1], 0))
+    r0 = aten.relu_.default(_v(op1, [1, 72, 56, 56], [225792, 3136, 56, 1], 0))
     op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 88, 28, 28])}
+    return {"out0": _out(op2, [1, 72, 56, 56])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Fold batch normalization and split coefficients into two NX8 rows."""
+    """Fold normalization and stream paired coarse/residual coefficient rows."""
     n, k = int(params["n"]), int(params["k"])
+    tiles = (n + 127) // 128
     if hasattr(module, "op1_weight"):
         scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
         weight = module.op0_weight.double().reshape(n, k) * scale[:, None]
@@ -74,12 +75,12 @@ def fold(module, **params):
         weight = module.weight.double().reshape(n, k)
         bias = getattr(module, "bias", None)
 
-    rows = torch.zeros(((n + 127) // 128, k + 1, 128), dtype=torch.float64)
-    for block, tile in enumerate(rows):
-        lo, hi = block * 128, min(n, (block + 1) * 128)
+    rows = torch.zeros((tiles, k + 1, 128), dtype=torch.float64)
+    for tile in range(tiles):
+        lo, hi = tile * 128, min(n, (tile + 1) * 128)
         if params.get("bias") and bias is not None:
-            tile[0, :hi - lo] = bias.reshape(n)[lo:hi]
-        tile[1:, :hi - lo] = weight[lo:hi].T
+            rows[tile, 0, :hi - lo] = bias.reshape(n)[lo:hi]
+        rows[tile, 1:, :hi - lo] = weight[lo:hi].T
     rows = rows.reshape(-1, 128)
     _, exponent = torch.frexp(rows.abs().amax(dim=1, keepdim=True))
     step = torch.ldexp(torch.ones_like(exponent, dtype=rows.dtype), exponent - 4)
