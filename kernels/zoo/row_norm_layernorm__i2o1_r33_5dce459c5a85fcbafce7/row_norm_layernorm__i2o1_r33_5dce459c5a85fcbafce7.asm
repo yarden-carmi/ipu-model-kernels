@@ -141,7 +141,7 @@ weight_loop:
  SET LR2 LR6 ;;
  BLT.S LR2 LR13 row_loop ;;
 
-{# Gather residual planes into row-axis tiles before final rounding. #}
+{# Gather one channel at a time, recombining the residual planes before rounding. #}
 {% macro gather(p) %}
  SET LR6 LR2 ; SET LR8 CR0 ; SET LR11 CR0 ;;
  {% for i in range(p) %}ADD LR6 LR6 LR13 ;;{% endfor %}
@@ -186,26 +186,6 @@ tile_ready:
  {% endif %}
  {% endif %}
  {% endfor %}
- SET LR8 LR9 ;;
- {% for i in range(3) %}ADD LR8 LR8 {{ cr.K }} ;;{% endfor %}
- LD.MULT.CYCLIC LR8 {{ cr.beta }} LR15 ;;
- SET LR10 CR0 ;;
-rescale:
- SET LR8 CR0 ;;
- {% for i in range(3) %}
- ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR8 ;;
- {% if not loop.last %}
- LD.MULT R0 LR8 {{ cr.tmp }} ;;
- {{ vec('SUB',base='LR15') }}
- INC LR8 1 ;;
- {% endif %}
- {% endfor %}
- SET LR8 CR0 ;;
- {% for i in range(3) %}
- LD.MULT R0 LR8 {{ cr.tmp }} ;;
- MULT.RC.VV LR15 R0 0 LR15 {{ full }} {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %} ; INC LR8 1 ;;
- {% endfor %}
- INC LR10 1 ; BLT.S LR10 CR1 rescale ;;
  BGE.S LR7 LR3 store_full ;;
  ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.output_tail }}.L {{ oq }} {{ cr.out0 }} LR0 ; BEQ CR0 CR0 stored ;;
 store_full:

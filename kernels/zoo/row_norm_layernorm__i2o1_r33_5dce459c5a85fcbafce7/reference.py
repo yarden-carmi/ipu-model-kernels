@@ -20,16 +20,6 @@ def _l(res, k, shape, stride, offset):
     return _v(t, shape, stride, offset)
 
 
-def _p(t, shape):
-    """A parameter read at the shape its record read it (a view of it: reshaped, or expanded)."""
-    if list(t.shape) == list(shape):
-        return t
-    n = 1
-    for d in shape:
-        n *= int(d)
-    return t.reshape(tuple(shape)) if t.numel() == n else t.expand(tuple(shape))
-
-
 def _pick(res, k):
     """Result k of a record (one tensor, or a tuple of them)."""
     return res[k] if isinstance(res, (tuple, list)) else res
@@ -49,9 +39,9 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.layer_norm.default(_v(ins[0], [1, 64, 512], [32768, 512, 1], 0), [512], module.weight, module.bias)
+    r0 = aten.layer_norm.default(_v(ins[0], [1, 256, 768], [196608, 768, 1], 0), [768], module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 64, 512])}
+    return {"out0": _out(op0, [1, 256, 768])}
 # ---- end of the frozen reference ----
 
 
@@ -68,16 +58,9 @@ def fold(module, **params):
             residual = residual - part
         return torch.cat([*parts, residual])
 
-    # Carry signed-zero affine results through scratch as normal numbers,
-    # then scale them down in two steps immediately before output quantization.
-    zero = (module.weight == 0) & (module.bias == 0)
-    signed = zero & torch.signbit(module.bias)
-    gamma = torch.where(zero, torch.where(signed, torch.copysign(torch.ones_like(module.weight), module.weight), 0.0), module.weight)
-    beta = torch.where(zero, torch.where(signed, -2.0**-18, 1.0), module.bias)
-    shift = torch.where(zero, 2.0**-68, 1.0)
     return {
-        "gamma": split(gamma),
-        "beta": torch.cat((split(beta), shift.reshape(-1, 1).expand(-1, 128))),
+        "gamma": split(module.weight),
+        "beta": split(module.bias),
         "crow": torch.cat((split(torch.full((128,), 1 / params["channels"])),
                            torch.full((1, 128), params["eps"]))),
     }
