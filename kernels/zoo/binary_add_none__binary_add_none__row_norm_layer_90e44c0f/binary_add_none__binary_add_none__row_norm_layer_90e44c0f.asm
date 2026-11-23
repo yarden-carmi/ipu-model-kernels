@@ -6,12 +6,12 @@
  SET {{ reg }} CR0 ;;
  {% if n %}INC {{ reg }} {{ n }} ;;{% endif %}
 {% endmacro %}
-{% macro vec(op='ADD', first=false, imm='CR1', fmt=q, reduce=false) %}
- MULT.VE LR0 {{ imm }} 0 LR0 {{ full }} {{ fmt }} ; {% if reduce %}AGG.SUM LR0 {{ full }}{% else %}ACC.{{ op }}{% if first %}.FIRST{% endif %}{% endif %} ;;
+{% macro vec(op='ADD', first=false, imm='CR1', fmt=q, reduce=false, next='') %}
+ MULT.VE LR0 {{ imm }} 0 LR0 {{ full }} {{ fmt }} ; {% if reduce %}AGG.SUM LR0 {{ full }}{% else %}ACC.{{ op }}{% if first %}.FIRST{% endif %}{% endif %} {{ next }} ;;
 {% endmacro %}
 {% macro clear() %}{{ vec(first=true,imm='CR0') }}{% endmacro %}
-{% macro mul(first=false) %}
- MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if first %}.FIRST{% endif %} ;;
+{% macro mul(first=false,next='') %}
+ MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if first %}.FIRST{% endif %} {{ next }} ;;
 {% endmacro %}
 {% macro load(n,cyclic=false) %}
  {{ at('LR1',n) }}
@@ -44,13 +44,11 @@
  BLT.S LR10 LR7 {{ label }} ;;
 {% endmacro %}
 {% macro added(reduce=false) %}
- LD.MULT R0 LR5 {{ cr.in0 }} ;;
- {{ vec(first=true,fmt=iq,reduce=reduce) }}
- SET LR10 LR5 ;;
+ LD.MULT R0 LR5 {{ cr.in0 }} ; SET LR10 LR5 ;;
+ {% set fetch = '; LD.MULT R0 LR10 ' ~ cr.addend %}
+ {{ vec(first=true,fmt=iq,reduce=reduce,next=fetch) }}
  {% for p in range(3) %}
- LD.MULT R0 LR10 {{ cr.addend }} ;;
- {{ vec(reduce=reduce) }}
- {% if not loop.last %}ADD LR10 LR10 LR13 ;;{% endif %}
+ {{ vec(reduce=reduce,next=fetch ~ ' ; ADD LR10 LR10 LR13' if not loop.last else '') }}
  {% endfor %}
 {% endmacro %}
 {% macro reset() %}
@@ -111,9 +109,12 @@ variance_products:
  {{ at('LR4',2) }}
 refine:
  {% for a,b,d,na in [(12,12,14,2),(9,14,16,3),(12,16,18,2)] %}
+ SET LR3 CR0 ; SET LR1 CR0 ;;
  {% for i in range(na) %}
- {{ load(a+i,true) }}
- {% for j in range(2) %}{{ load(b+j) }}{{ mul(first=(i==0 and j==0)) }}{% endfor %}
+ LD.MULT.CYCLIC LR3 {{ cr.tmp }} LR0 ; INC LR3 {{ a if loop.first else 1 }} ;;
+ LD.MULT R0 LR1 {{ cr.tmp }} ; {% if loop.first %}INC LR1 {{ b }}{% else %}DEC LR1 1{% endif %} ;;
+ {{ mul(first=loop.first,next='; LD.MULT R0 LR1 ' ~ cr.tmp ~ ' ; INC LR1 1') }}
+ {{ mul() }}
  {% endfor %}
  {{ save(d) }}
  {% endfor %}
