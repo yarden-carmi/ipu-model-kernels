@@ -27,6 +27,8 @@ default = 64
 
 [derived]
 rows = "numel // in0_d1"
+loop_limit = "rows - 3"
+before_first = "-1"
 pairs = "numel // (2 * out0_d1)"
 half = "ds(in0_d1)"
 full = "ds(2 * out0_d1)"
@@ -41,7 +43,8 @@ shape = ["pairs", 128]
 [abi]
 in0 = "CR2"
 out0 = "CR3"
-rows = "CR4"
+loop_limit = "CR4"
+before_first = "CR8"
 qf_in0 = "CR5"
 qf_out0 = "CR6"
 half = "CR7"
