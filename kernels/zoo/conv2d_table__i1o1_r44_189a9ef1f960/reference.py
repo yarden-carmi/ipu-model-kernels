@@ -53,35 +53,53 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 96, 28, 28], [75264, 784, 28, 1], 0), module.op0_weight, None, [2, 2], [2, 2], [1, 1], 96)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 3, 224, 224], [150528, 50176, 224, 1], 0), module.op0_weight, None, [2, 2], [1, 1])
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 96, 14, 14], [18816, 196, 14, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 16, 112, 112], [200704, 12544, 112, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.hardswish_.default(_v(op1, [1, 96, 14, 14], [18816, 196, 14, 1], 0))
+    r0 = aten.hardswish_.default(_v(op1, [1, 16, 112, 112], [200704, 12544, 112, 1], 0))
     op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 96, 14, 14])}
+    return {"out0": _out(op2, [1, 16, 112, 112])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Fold inference BN into depthwise taps and split each coefficient into two rows."""
+    """Fuse BN and emit the leading and residual rows used by the kernel."""
     import numpy as np
 
     weight = module.op0_weight.double()
-    cout, cgroup, kh, kw = weight.shape
-    if cgroup != 1 or not params['cin'] == cout == params['groups']:
-        raise ValueError("channel-vector convolution requires one input and output per group")
-    bias = getattr(module, "op0_bias", None)
-    bias = weight.new_zeros(cout) if bias is None else bias.double()
+    channels = weight.shape[0]
+    conv_bias = getattr(module, "op0_bias", None)
+    bias = weight.new_zeros(channels) if conv_bias is None else conv_bias.double()
     if hasattr(module, "op1_running_var"):
         scale = module.op1_weight.double() / (module.op1_running_var.double() + 1e-5).sqrt()
         bias = module.op1_bias.double() + (bias - module.op1_running_mean.double()) * scale
         weight = weight * scale[:, None, None, None]
-    rows = torch.cat((bias[None], weight[:, 0].reshape(cout, kh * kw).T)).numpy()
-    chunks = (cout + 127) // 128
-    rows = np.pad(rows, ((0, 0), (0, chunks * 128 - cout)))
+
+    chunks = (channels + 127) // 128
+    if params["groups"] == 1:
+        # Each output chunk has its own tap-major, input-channel-minor matrix.
+        rows = weight.permute(2, 3, 1, 0).reshape(-1, channels)
+        rows = torch.cat((rows, bias[None]))
+    else:
+        if params["groups"] != params["cin"] or params["cin"] != channels:
+            raise ValueError("expected dense or multiplier-one depthwise convolution")
+        rows = torch.cat((bias[None], weight[:, 0].flatten(1).T))
+
+    rows = np.pad(rows.numpy(), ((0, 0), (0, chunks * 128 - channels)))
     rows = rows.reshape(-1, chunks, 128).transpose(1, 0, 2)
     exponent = np.frexp(np.max(np.abs(rows), axis=-1, keepdims=True))[1] - 1
     step = np.exp2(exponent.astype(float) - 5)
     hi = np.sign(rows) * np.minimum(np.floor(np.abs(rows) / step + 0.5), 63) * step
-    return {"weights": np.stack((hi, rows - hi), axis=2).reshape(-1, 128)}
+    dense = params['groups'] == 1
+    cin = params['cin']
+    last_tap = weight.shape[2] * weight.shape[3] - 1
+    # For wider dense 3x3 convolutions, stream the two corner taps in one row
+    # per input channel. Keep the residual for all other taps and the bias.
+    frames = np.concatenate([
+        row for chunk, leading in zip(rows, hi)
+        for i, (r, lead) in enumerate(zip(chunk, leading))
+        for row in ([lead[None], (r-lead)[None]]
+                    if not dense or cin <= 4 or last_tap > 8 or i // cin not in (0, last_tap) else [r[None]])
+    ], axis=0)
+    return {"weights": frames}
