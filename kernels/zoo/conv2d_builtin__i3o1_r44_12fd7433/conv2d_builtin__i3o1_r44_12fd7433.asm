@@ -6,21 +6,32 @@
 {% macro mul(slot, src, first=false) %}MULT.RC.VE {{ slot }} {{ src }} 0 LR8 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; {{ 'ACC.ADD.FIRST' if first else 'ACC.ADD' }}{% endmacro %}
 {% macro store() %}ACTIVATE.QUANTIZE {{ act_out0 }} {{ cr.tail }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR3 ; INC LR3 1{% endmacro %}
 
-{# All three horizontal taps use one loaded input row. While multiplying
-   each high/low weight, replace its slot with the corresponding next tap. #}
+{# Stream weights one word ahead in LR8. Pin the penultimate row's last
+   low weight in LR9 so that its MULT word can load the final input row. #}
 {% macro span(tag, c, width, ys, ye) %}
+ {% set cached = ye - ys == 3 %}
+ {% set resident = ye - ys > 1 %}
+ {% set pin = 2 + 2*(3*(ye-2)+2) + 1 %}
  SET LR11 LR2 ; SET LR12 CR0 ; SET LR5 CR0 ;;
  INC LR12 {{ 1 + 6 * ys }} ; INC LR5 {{ width - 2 }}{{ adjust('LR11', c + (ys-1)*chunks) }} ;;
- SET LR6 LR11 ; SET LR4 LR12 ; SET LR1 CR0 ;;
+ SET LR6 LR11 ; SET LR4 CR0 ; SET LR1 CR0 ;;
+ LD.MULT R0 LR6 {{ cr.in0 }} ;;
+ {% if cached %}
+ LD.MULT R1 LR6 {{ cr.in0 }} ; INC LR6 {{ chunks }} ;;
+ {% endif %}
+ {% if resident %}
+ LD.MULT.CYCLIC LR4 {{ cr.weights }} LR9 ; INC LR4 {{ pin }} ;;
+ {% endif %}
+ SET LR4 LR12 ; SET LR6 LR11 ;;
 {{ tag }}:
- {{ mul('LR14', 'CR1', true) }} ; {{ fetch('LR8') }} ;;
- {{ mul('LR15', 'CR1') }} ; {{ fetch('LR9') }} ;;
+ {{ mul('LR14', 'CR1', true) }} ; SET LR7 LR1 ;;
+ {{ mul('LR15', 'CR1') }} ; {{ fetch('LR8') }} ;;
  {% for y in range(ys, ye) %}
- LD.MULT R0 LR6 {{ cr.in0 }} ; SET LR7 LR1 ;;
  {% for x in range(3) %}
  {% set last = y + 1 == ye and x == 2 %}
- {{ mul('LR8', 'LR7') }}{% if not last %} ; {{ fetch('LR8') }}{% else %} ; INC LR1 1{% endif %}{% if x > 0 %} ; INC LR7 1{% endif %} ;;
- {{ mul('LR9', 'LR7') }}{% if last %} ; SET LR6 LR11 ; SET LR4 LR12 ; {{ store() }} ; BLT.S LR1 LR5 {{ tag }}{% else %} ; {{ fetch('LR9') }}{% if x == 2 %} ; INC LR6 {{ chunks }}{% endif %}{% endif %} ;;
+ {% set pinned = y == ye-2 and x == 2 %}
+ {{ mul('LR8', 'LR7') }}{% if pinned %} ; LD.MULT.CYCLIC LR4 {{ cr.weights }} LR8 ; INC LR4 2{% else %} ; {{ fetch('LR8') }}{% endif %}{% if x > 0 %} ; INC LR7 1{% elif cached and y == 1 %} ; ADD LR7 LR1 LR9{% elif y > ys %} ; SET LR7 LR1{% endif %}{% if last %} ; INC LR1 1{% endif %} ;;
+ {{ mul('LR9' if pinned else 'LR8', 'LR7') }}{% if last %} ; SET LR6 LR11 ; SET LR4 LR12 ; LD.MULT R0 LR6 {{ cr.in0 }} ; {{ store() }} ; BLT.S LR1 LR5 {{ tag }}{% elif pinned %} ; LD.MULT R0 LR6 {{ cr.in0 }} ; INC LR6 {{ 2*chunks if cached else chunks }}{% else %} ; {{ fetch('LR8') }}{% endif %} ;;
  {% endfor %}
  {% endfor %}
 {% endmacro %}
