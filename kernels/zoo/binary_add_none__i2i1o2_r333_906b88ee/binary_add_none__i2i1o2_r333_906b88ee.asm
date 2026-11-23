@@ -22,9 +22,13 @@ chunk:
 bound:
     SUB LR10 LR10 LR13 ; DEC LR13 1 ; LD.MULT R0 LR12 {{ cr.in1 }} ;;
     BEQ LR13 CR0 last ;;
+    // Lane zero needs no destination increment. Prime lane one here.
+    {{ scatter() }} ; ADD LR12 LR12 {{ cr.blocks }} ; INC LR11 1 ; LD.MULT R0 LR12 {{ cr.in1 }} ; BEQ LR13 CR1 last_inc ;;
 gather:
-    {{ scatter() }} ; ADD LR12 LR12 {{ cr.blocks }} ; LD.MULT R0 LR12 {{ cr.in1 }} ;;
-    ADDBI LRD2 1 ; INC LR11 1 ; BLT.S LR11 LR13 gather ;;
+    // ACC sees the incremented destination; the branch sees the old count.
+    {{ scatter() }} ; ADD LR12 LR12 {{ cr.blocks }} ; ADDBI LRD2 1 ; INC LR11 1 ; LD.MULT R0 LR12 {{ cr.in1 }} ; BLT.S LR11 LR13 gather ;;
+last_inc:
+    ADDBI LRD2 1 ;;
 last:
     {{ scatter() }} ; ADD LR12 LR12 {{ cr.blocks }} ; LD.MULT R0 LR5 {{ cr.in0 }} ; BEQ LR10 CR0 tail ;;
     {{ finish('CR15') }}
