@@ -49,8 +49,10 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.linear.default(_v(ins[0], [1, 256, 768], [196608, 768, 1], 0), module.weight, module.bias)
-    op0 = _pick(r0, 0)  # step 0
+    r0 = aten.view.default(_v(ins[0], [1, 256, 768], [196608, 768, 1], 0), [-1, 768])
+    r1 = aten.addmm.default(module.bias, _l(r0, 0, [256, 768], [768, 1], 0), module.weight)
+    r2 = aten.view.default(_l(r1, 0, [256, 3072], [3072, 1], 0), [1, 256, 3072])
+    op0 = _pick(r2, 0)  # step 0
     r0 = aten.mul.Tensor(_v(op0, [1, 256, 3072], [786432, 3072, 1], 0), 0.5)
     r1 = aten.pow.Tensor_Scalar(_v(op0, [1, 256, 3072], [786432, 3072, 1], 0), 3.0)
     r2 = aten.mul.Tensor(_l(r1, 0, [1, 256, 3072], [786432, 3072, 1], 0), 0.044715)
@@ -65,11 +67,9 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    k, n = params['k'], params['n']
-    weight = module.weight.detach().reshape(n, k)
-    bias = module.bias.detach().reshape(n) if params['bias'] else weight.new_zeros(n)
-    blocks = (n + 127) // 128
-    channels = weight.new_zeros(blocks * 128, k + 1)
-    channels[:n, 0] = bias
-    channels[:n, 1:] = weight
-    return {'coeff': channels.reshape(blocks, 128, k + 1).transpose(1, 2).reshape(-1, 128)}
+    k, n = params["k"], params["n"]
+    weight = module.weight.detach().reshape(k, n)
+    bias = module.bias.detach().reshape(n) if params["bias"] else weight.new_zeros(n)
+    coeff = torch.cat((bias[None, :], weight), dim=0)
+    coeff = torch.nn.functional.pad(coeff, (0, (-n) % 128))
+    return {"coeff": coeff.reshape(k + 1, -1, 128).transpose(0, 1).reshape(-1, 128).contiguous()}
