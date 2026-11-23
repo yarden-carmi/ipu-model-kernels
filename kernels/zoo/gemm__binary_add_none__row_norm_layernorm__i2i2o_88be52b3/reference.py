@@ -92,7 +92,7 @@ def fold(module, **params):
                 remaining -= count
 
     return {
-        'w': split(w, 2).reshape(-1, 128),
+        'w': w.reshape(-1, 128).contiguous(),
         'affine': split(affine, 3).reshape(-1, 128),
         'crow': torch.cat((split(torch.full((128,), 1 / n), 3).reshape(-1, 128),
                            torch.full((1, 128), params['s2_eps']),

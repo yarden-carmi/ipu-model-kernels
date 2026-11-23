@@ -41,8 +41,7 @@
 {% macro save(n,p=3) %}{{ at('LR1',n) }}{{ encode('LR1',p) }}{% endmacro %}
 {% macro wload(slot) %}LD.MULT.CYCLIC LR4 {{ cr.w }} {{ slot }} ; INC LR4 1{% endmacro %}
 {% macro dot(src,first=false,again=false) %}
- MULT.RC.VE LR0 {{ src }} 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if first %}.FIRST{% endif %} ; {{ wload('LR5') }}{% if not first %} ; INC LR3 1{% endif %} ;;
- MULT.RC.VE LR5 {{ src }} 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if again %} ; {{ wload('LR0') }} ; BLT.S LR3 LR7 dot_lane{% endif %} ;;
+ MULT.RC.VE LR0 {{ src }} 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if first %}.FIRST{% endif %}{% if not first %} ; INC LR3 1{% endif %}{% if again %} ; {{ wload('LR0') }} ; BLT.S LR3 LR7 dot_lane{% endif %} ;;
 {% endmacro %}
 
  {# Gather the recorded strided view from packed physical storage. #}
@@ -137,7 +136,8 @@ full_chunk:
 lane:
  DEC LR3 1 ;;
  {{ wload('LR0') }} ; DEC LR7 1 ; BLT.S LR7 CR0 dot_last ;;
-dot_lane:
+ DEC LR7 1 ;;
+ dot_lane:
  {{ dot('LR3',again=true) }}
 dot_last:
  {{ dot('LR3') }}
