@@ -1,0 +1,114 @@
+[kernel]
+op = "half_grid_box_cascade"
+formats = ["e2"]
+
+[params.channels]
+type = "int"
+min = 1
+max = 128
+default = 64
+[params.oh]
+type = "int"
+min = 8
+max = 64
+multiple_of = 8
+default = 64
+[params.ow]
+type = "int"
+min = 4
+max = 65536
+multiple_of = 4
+default = 64
+[params.in0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 128
+default = 64
+[params.in0_d2]
+type = "int"
+min = 4
+max = 32
+multiple_of = 4
+default = 32
+[params.in0_d3]
+type = "int"
+min = 2
+max = 32768
+multiple_of = 2
+default = 32
+[params.out0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 128
+default = 64
+[params.out0_d2]
+type = "int"
+min = 8
+max = 64
+multiple_of = 8
+default = 64
+[params.out0_d3]
+type = "int"
+min = 4
+max = 65536
+multiple_of = 4
+default = 64
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d1 * in0_d3 / 2", 128]
+[outputs.out0]
+shape = ["out0_d0 * out0_d1 * out0_d3", 128]
+[scratch.route]
+shape = ["2 * in0_d0 * in0_d1 * in0_d3", 128]
+
+[derived]
+input_rows = "in0_d0 * in0_d1 * in0_d3 / 2"
+groups = "in0_d2 / 4"
+valid = "ds(oh) + 65536 * ds(128)"
+# Route with 256x gain, canceled by the blend weights.
+amplify = "19 * 65536 + 135 * 256"
+w9 = "19 * 65536 + 118 * 256 + 2"
+w3 = "19 * 65536 + 116 * 256 + 8"
+w1 = "19 * 65536 + 115 * 256"
+f9 = "126 * 8388608 + 1048576"
+f3 = "124 * 8388608 + 4194304"
+f1 = "123 * 8388608"
+dims = "in0_d2 + 65536 * in0_d3"
+c0 = "(in0_d2 - 4) * 257 + (in0_d2 - 3) * 16842752"
+c1 = "(in0_d2 - 2) * 257 + (in0_d2 - 1) * 16842752"
+n0 = "max(0, in0_d2 - 5) + (in0_d2 - 3) * 256 + (in0_d2 - 4) * 65536 + (in0_d2 - 2) * 16777216"
+n1 = "(in0_d2 - 3) + (in0_d2 - 1) * 256 + (in0_d2 - 2) * 65536 + in0_d2 * 16777216"
+d0 = "(oh - 8) * 16843009 + 50462976"
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+route = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+valid = "CR7"
+amplify = "CR8"
+w9 = "CR9"
+w3 = "CR10"
+w1 = "CR11"
+dims = "CR12"
+f9 = "CR13"
+f3 = "CR14"
+f1 = "CR15"
+d0 = "LR0"
+groups = "LR8"
+input_rows = "LR10"
+c0 = "LR11"
+c1 = "LR12"
+n0 = "LR13"
+n1 = "LR14"
+
+[cases.default]
