@@ -1,5 +1,5 @@
 {# M lanes: one B scalar multiplies up to 128 A rows. #}
-    INC LR15 128 ;;
+    INC LR15 128 ; INC LR11 2 ;;
 group:
     SET LR3 {{ cr.head_offset }} ; SET LR4 {{ cr.mh }}.H ; SET LR7 LR1 ;;
 normalize:
@@ -11,16 +11,20 @@ column:
     SET LR2 LR0 ; SET LR6 {{ cr.mh }}.L ;;
 tile:
     SET LR8 LR2 ; SET LR9 LR7 ; SET LR10 {{ cr.k }} ;;
-{% macro mac(first) %}
+    LD.MULT.CYCLIC LR8 {{ cr.in0 }} LR14 ; BEQ LR10 CR1 single ;;
+{% macro mac(first, prefetch=false) %}
     LD.MULT R0 LR9 {{ cr.in1 }} ;;
-    LD.MULT.CYCLIC LR8 {{ cr.in0 }} LR14 ;;
-    MULT.RC.VE LR14 LR3 0 LR14 {{ cr.ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{{ '.FIRST' if first else '' }} ; ADD LR8 LR8 {{ cr.stride }}.H ; ADD LR9 LR9 {{ cr.stride }}.L ; DEC LR10 1 ;;
+    MULT.RC.VE LR14 LR3 0 LR14 {{ cr.ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{{ '.FIRST' if first else '' }} ; ADD LR8 LR8 {{ cr.stride }}.H
+    {%- if prefetch %} ; ADD LR9 LR9 {{ cr.stride }}.L ; DEC LR10 1 ; LD.MULT.CYCLIC LR8 {{ cr.in0 }} LR14 ; BGT.S LR10 LR11 key{% endif %} ;;
 {% endmacro %}
-    {{ mac(true) }}
-    BEQ LR10 CR0 store ;;
+    {# Loads see the advanced pointer; the branch sees the old count.
+       The last multiply drains the prefetched row without another load. #}
+    {{ mac(true, true) }}
+    B last ;;
 key:
+    {{ mac(false, true) }}
+last:
     {{ mac(false) }}
-    BNE LR10 CR0 key ;;
 store:
     BGT.S LR6 LR15 full ;;
 {% macro output(half) %}
@@ -42,3 +46,6 @@ column_ready:
 full:
     {{ output('L') }}
     DEC LR6 128 ; INC LR2 1 ; B tile ;;
+single:
+    {{ mac(true) }}
+    B store ;;
