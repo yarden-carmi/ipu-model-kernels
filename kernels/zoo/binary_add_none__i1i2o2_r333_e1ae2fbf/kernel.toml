@@ -67,9 +67,17 @@ default = 768
 [derived]
 width = "ceil(in0_d2 / 128)"
 rows = "in0_d0 * in0_d1 * width"
-tail = "ds(in0_d2 - (width - 1) * 128)"
+tail = "ds(in0_d2 - (width - 1) * 128) + ds(128) * 65536"
 blocks = "ceil(in0_d1 / 128)"
-batch_stride = "in0_d2 * blocks"
+src_lo = "0x03020100"
+src_hi = "0x07060504"
+dst_lo = "0x18100800"
+dst_hi = "0x38302820"
+# Lift the tiles above the NX8 subnormal floor. Undo the lift in the
+# selectors so no additional round trip is needed before the output add.
+lift = "0x43018600"
+unlift = "0x3c017800"
+fp_correction = "0x3817ff7f"
 [inputs.in0]
 shape = ["in0_d0", "in0_d2", "blocks * 128"]
 range = [-2, 2]
@@ -78,6 +86,8 @@ shape = ["in1_d0", "in1_d1", "ceil(in1_d2 / 128) * 128"]
 range = [-2, 2]
 [outputs.out0]
 shape = ["out0_d0", "out0_d1", "ceil(out0_d2 / 128) * 128"]
+[scratch.tile]
+shape = [64, 128]
 [abi]
 in0 = "CR2"
 in1 = "CR3"
@@ -89,8 +99,16 @@ rows = "CR8"
 blocks = "CR9"
 tail = "CR10"
 in0_d1 = "CR11"
-in0_d2 = "CR12"
-batch_stride = "CR13"
+unlift = "CR12"
+fp_correction = "CR13"
+tile = "CR14"
+lift = "CR15"
+src_lo = "LR2"
+src_hi = "LR3"
+dst_lo = "LR4"
+dst_hi = "LR5"
+width = "LR14"
+in0_d2 = "LR15"
 [golden]
 tolerance = { e2 = "EXACT", e3 = "EXACT", e4 = "EXACT" }
 [cases.default]
