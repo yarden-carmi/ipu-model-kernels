@@ -60,7 +60,7 @@ numerator_{{ slot }}:
     SET LR9 CR0 ;;
     SET LR10 LR11 ;;
 
-{# Generate dyadic terms of log2(e). #}
+{# Build log2(e) from dyadic terms without folded constants. #}
 {{ addr('LR1',7) }}
 {{ clear() }}
     ACTIVATE.QUANTIZE exp2 {{ full }} {{ qr }} {{ cr.tmp }} LR1 ;;
@@ -77,7 +77,7 @@ row:
     ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
     LD.MULT R1 LR1 {{ cr.tmp }} ;;
 {{ scale() }}
-{# This common shift cancels during normalization. #}
+{# The common shift cancels in the normalization. #}
 {{ addr('LR5',5) }}
     LD.MULT.CYCLIC LR5 {{ cr.tmp }} LR9 ;;
     MULT.RC.VE LR9 CR1 0 LR0 {{ part }} {{ q }} ; ACC.SUB ;;
@@ -96,7 +96,7 @@ row:
 {{ clear() }}
     LD.MULT.CYCLIC LR3 {{ cr.tmp }} LR9 ;;
     MULT.RC.VE LR9 CR1 0 LR0 {{ part }} {{ qe }} ; AGG.SUM.FIRST LR0 {{ part }} ;;
-{# Refine the reciprocal using the rounding residual of the sum. #}
+{# Correct the reciprocal for rounding in both the sum and its inverse. #}
     ACTIVATE.QUANTIZE identity {{ full }} {{ qw }} {{ cr.tmp }} LR0 ;;
     LD.MULT R0 LR0 {{ cr.tmp }} ;;
     MULT.VE LR0 CR1 0 LR0 {{ full }} {{ qw }} ; ACC.SUB ;;
@@ -123,15 +123,15 @@ row:
     INC LR2 1 ;;
     BLT.S LR2 {{ cr.rows }} row ;;
 
-{# Gather columns in the consumer's layout before final rounding. #}
+{# Gather the two denominator planes once per batch and reuse them across columns. #}
     SET LR2 CR0 ;;
     SET LR3 CR0 ;;
 {{ addr('LR7',2) }}
 transpose_batch:
     SET LR9 LR2 ;;
+{% for plane in range(3) %}
     ADD LR9 LR9 {{ cr.rows }} ;;
-    ADD LR9 LR9 {{ cr.rows }} ;;
-    ADD LR9 LR9 {{ cr.rows }} ;;
+{% endfor %}
 {{ addr('LR6',8) }}
     SET LR10 CR0 ;;
 denom_gather:
@@ -157,7 +157,7 @@ gather_finish:
     MULT.VE LR0 CR1 0 LR0 {{ out }} {{ qp }} ; ACC.ADD ;;
 {% endfor %}
 {{ addr('LR5',10) }}
-{# Exponentiate after gathering so small probabilities use the output row's scale. #}
+{# Exponentiate in the consumer layout to use its row scale. #}
     ACTIVATE.QUANTIZE exp2 {{ out }} {{ qt }} {{ cr.tmp }} LR5 ;;
     LD.MULT.CYCLIC LR5 {{ cr.tmp }} LR0 ;;
 {% for index in [8,9] %}
