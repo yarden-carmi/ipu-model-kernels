@@ -9,11 +9,11 @@ default = false
 type = "int"
 min = 1
 max = 1024
-default = 96
+default = 48
 [params.cout]
 type = "int"
 min = 1
-max = 1024
+max = 2048
 default = 64
 [params.groups]
 type = "int"
@@ -23,13 +23,13 @@ default = 1
 [params.h]
 type = "int"
 min = 1
-max = 512
-default = 32
+max = 1024
+default = 64
 [params.w]
 type = "int"
 min = 1
 max = 1024
-default = 32
+default = 64
 [params.kh]
 type = "int"
 min = 1
@@ -43,7 +43,7 @@ default = 3
 [params.padding]
 type = "int"
 min = 0
-max = 1
+max = 16
 default = 1
 [params.stride]
 type = "int"
@@ -54,25 +54,28 @@ default = 1
 [derived]
 ho = "(h + 2 * padding - kh) // stride + 1"
 wo = "(w + 2 * padding - kw) // stride + 1"
-yend = "ho * stride - padding"
-xend = "wo * stride - padding"
-row_delta = "stride * (w - wo)"
+pixels = "ho * wo"
+pack = "max(1, 128 // cout)"
 chunks = "ceil(cin / 128)"
 blocks = "ceil(cout / 128)"
-pack = "max(1, 128 // cout)"
-panel = "ceil(cin / 16) * 16"
-tail = "ds(cout - (blocks - 1) * 128 + (pack - 1) * cout)"
+lanes = "min(cout, 128)"
+packed = "pack * lanes"
+tap_rows = "chunks * lanes"
+xend = "wo * stride - padding"
+yend = "ho * stride - padding"
+row_delta = "stride * (w - wo)"
 full = "ds(128)"
-last_ds = "ds(min(128, (1 + (ho * wo - 1) % pack) * cout))"
+store_ds = "ds(packed)"
+tail_ds = "ds(min(lanes, cout - (blocks - 1) * 128) * (1 + (pixels - 1) % pack))"
 
 [inputs.in0]
-shape = ["h", "w", "chunks * 128"]
+shape = ["h", "w", "chunks", 128]
 range = [-2, 2]
 [inputs.weights]
-shape = ["pack * blocks", "1 + kh * kw * panel", 128]
+shape = ["blocks", "1 + kh * kw * tap_rows", 128]
 range = [-1, 1]
 [outputs.out0]
-shape = ["ceil(ho * wo / pack) * blocks", 128]
+shape = ["ceil(pixels / pack) * blocks", 128]
 
 [abi]
 in0 = "CR2"
@@ -81,13 +84,13 @@ out0 = "CR4"
 qf_in0 = "CR5"
 qf_out0 = "CR6"
 row_delta = "CR7"
-last_ds = "CR8"
+tap_rows = "CR8"
 h = "CR9"
 w = "CR10"
-panel = "CR11"
-yend = "CR12"
-xend = "CR13"
-tail = "CR14"
+yend = "CR11"
+xend = "CR12"
+tail_ds = "CR13"
+store_ds = "CR14"
 full = "CR15"
 
 [golden]

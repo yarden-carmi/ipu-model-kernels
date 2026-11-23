@@ -49,9 +49,9 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.default(_v(ins[0], [1, 96, 32, 32], [98304, 1024, 32, 1], 0), module.weight, None, [1, 1], [1, 1])
+    r0 = aten.conv2d.default(_v(ins[0], [1, 48, 64, 64], [196608, 4096, 64, 1], 0), module.weight, None, [1, 1], [1, 1])
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 64, 32, 32])}
+    return {"out0": _out(op0, [1, 64, 64, 64])}
 # ---- end of the frozen reference ----
 
 
@@ -59,20 +59,20 @@ def fold(module, **params):
     weight = module.weight
     co, ci, kh, kw = weight.shape
     blocks = (co + 127) // 128
-    pack = max(1, 128 // co)
-    panel = (ci + 15) // 16 * 16
-    rows = weight.new_zeros((pack * blocks, 1 + kh * kw * panel, 128))
-    weights = rows[:, 1:].view(pack * blocks, kh, kw, panel, 128)
-    bias = getattr(module, "bias_vec", None)
-    if bias is None:
-        bias = getattr(module, "bias", None)
-    for slot in range(pack):
-        for block in range(blocks):
-            i = slot * blocks + block
-            first = block * 128
-            last = min(first + 128, co)
-            lanes = slice(slot * co, slot * co + last - first)
-            weights[i, :, :, :ci, lanes] = weight[first:last].permute(2, 3, 1, 0)
-            if params.get("bias"):
-                rows[i, 0, lanes] = bias.reshape(-1)[first:last]
+    chunks = (ci + 127) // 128
+    lanes = min(co, 128)
+    pack = 128 // lanes
+    padded = weight.new_zeros((blocks * lanes, chunks * 128, kh, kw))
+    padded[:co, :ci] = weight
+    rows = weight.new_zeros((blocks, 1 + kh * kw * chunks * lanes, 128))
+    rows[:, 1:] = padded.view(blocks, lanes, chunks, 128, kh, kw).permute(
+        0, 4, 5, 2, 1, 3
+    ).reshape(blocks, -1, 128)
+    if params.get("bias"):
+        bias = getattr(module, "bias_vec", None)
+        if bias is None:
+            bias = module.bias
+        padded_bias = weight.new_zeros(blocks * lanes)
+        padded_bias[:co] = bias.reshape(-1)
+        rows[:, 0, :pack * lanes] = padded_bias.view(blocks, lanes).repeat(1, pack)
     return {"weights": rows}

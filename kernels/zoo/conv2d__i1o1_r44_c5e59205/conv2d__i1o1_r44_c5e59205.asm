@@ -1,39 +1,31 @@
-{% macro step(r,n) %}
-{% for k in range(0,n|abs,255) %}
- {{ 'INC' if n > 0 else 'DEC' }} {{ r }} {{ [255,(n|abs)-k]|min }} ;;
+{% macro offset(reg, amount) %}
+{% for tile in range(0, amount | abs, 8160) %}
+{% for i in range(tile, [tile + 8160, amount | abs] | min, 255) %}
+ {{ 'INC' if amount > 0 else 'DEC' }} {{ reg }} {{ [255, (amount | abs) - i] | min }} ;;
+{% endfor %}
 {% endfor %}
 {% endmacro %}
 {% macro store(ds) %}
- ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR13 ;;
-{% endmacro %}
-{% macro init(acc) %}
- MULT.RC.VE LR15 {{ 'CR1' if bias else 'CR0' }} 0 LR15 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; {{ acc }} ; SET LR5 CR0 ; SET LR14 LR1 ; INC LR4 1 ;;
+ ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR13 ;;
+ INC LR13 1 ;;
 {% endmacro %}
 
-{# LR1 is the flat window origin, LR13 the output row. For packed rows
-   LR3 counts pixels and LR4 streams successive disjoint-lane panels. #}
- INC LR12 128 ;;
- {{ step('LR0', -padding) }}
- {{ step('LR1', -padding * (w + 1)) }}
+{# LR12 is the first output lane of this pixel; LR15 stays zero. #}
+ {{ offset('LR0', -padding) }}
+ {{ offset('LR1', -padding * (w + 1)) }}
 oy:
  SET LR2 CR0 ;;
- {{ step('LR2', -padding) }}
-pixel:
-{% if pack == 1 %}
+ {{ offset('LR2', -padding) }}
+ox:
  SET LR3 CR0 ; SET LR4 CR0 ;;
 block:
-{% endif %}
 {% if pack > 1 %}
- BNE LR3 CR0 continue_row ;;
+ BNE LR12 CR0 keep_acc ;;
 {% endif %}
  LD.MULT.CYCLIC LR4 {{ cr.weights }} LR15 ;;
- {{ init('ACC.ADD.FIRST') }}
-{% if pack > 1 %}
- BEQ LR15 CR0 ky ;;
-continue_row:
- LD.MULT.CYCLIC LR4 {{ cr.weights }} LR15 ;;
- {{ init('ACC.ADD') }}
-{% endif %}
+ MULT.RC.VE LR15 {{ 'CR1' if bias else 'CR0' }} 0 LR15 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
+keep_acc:
+ INC LR4 1 ; SET LR5 CR0 ; SET LR14 LR1 ;;
 ky:
  SET LR6 CR0 ;;
 kx:
@@ -42,28 +34,28 @@ kx:
  BGE.S LR7 {{ cr.h }} skip ;;
  BLT.S LR8 CR0 skip ;;
  BGE.S LR8 {{ cr.w }} skip ;;
- ADD LR9 LR14 LR6 ; SET LR10 {{ cr.panel }} ;;
-{% if chunks > 1 %}
- SET LR7 LR9 ;;
+ ADD LR9 LR14 LR6 ; SET LR10 CR0 ; SET LR8 LR12 ;;
+ {% if lanes == 2 %}DEC LR8 1{% else %}INC LR8 {{ [0, lanes - 3] | max }}{% endif %} {% if chunks > 1 %}; SET LR7 LR9 {% endif %} ;;
 {% for i in range(chunks - 1) %}
  ADD LR9 LR9 LR7 ;;
 {% endfor %}
-{% endif %}
 chunk:
- LD.MULT R0 LR9 {{ cr.in0 }} ; SET LR11 CR0 ;;
- INC LR9 1 ;;
-channels:
- LD.MULT.CYCLIC LR4 {{ cr.weights }} LR15 ; DEC LR10 16 ;;
-{% for i in range(16) %}
- {% set current = 'LR15' if i % 2 == 0 else 'LR12' %}
- {% set following = 'LR12' if i % 2 == 0 else 'LR15' %}
- {% if i < 15 %} LD.MULT.CYCLIC LR4 {{ cr.weights }} {{ following }} ; {% endif %} MULT.RC.VE {{ current }} LR11 0 LR15 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR4 1 {% if i > 0 %}; INC LR11 1{% endif %} ;;
-{% endfor %}
- INC LR11 1 ; BEQ LR10 CR0 next ;;
- BLT.S LR11 LR12 channels ;;
- BEQ LR15 CR0 chunk ;;
+ LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR15 ; SET LR11 LR12 ;;
+ LD.MULT R0 LR4 {{ cr.weights }} ; INC LR9 1 ; DEC LR11 1 ;;
+{% if lanes > 1 %}
+dot:
+ MULT.RC.VV LR15 R0 0 LR15 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; AGG.SUM LR11 {{ cr.full }}.L ; INC LR11 1 ; LD.MULT R0 LR4 {{ cr.weights }} ; INC LR4 1 ; BLT.S LR11 LR8 dot ;;
+{% endif %}
+ MULT.RC.VV LR15 R0 0 LR15 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; AGG.SUM LR11 {{ cr.full }}.L ; INC LR11 1 ; INC LR4 1 ;;
+ INC LR10 1 ;;
+{% if chunks > 1 %}
+ SET LR7 CR0 ;;
+ INC LR7 {{ chunks }} ;;
+ BLT.S LR10 LR7 chunk ;;
+{% endif %}
+ BEQ LR15 CR0 next ;;
 skip:
- ADD LR4 LR4 {{ cr.panel }} ;;
+ ADD LR4 LR4 {{ cr.tap_rows }} ;;
 next:
  INC LR6 1 ; SET LR7 CR0 ;;
  INC LR7 {{ kw }} ;;
@@ -71,29 +63,31 @@ next:
  INC LR5 1 ; SET LR7 CR0 ; ADD LR14 LR14 {{ cr.w }} ;;
  INC LR7 {{ kh }} ;;
  BLT.S LR5 LR7 ky ;;
- INC LR3 1 ;;
-{% if pack > 1 %}
- SET LR7 CR0 ;;
- INC LR7 {{ pack }} ;;
- BLT.S LR3 LR7 advance ;;
- {{ store(cr.tail ~ '.L') }}
- INC LR13 1 ; SET LR3 CR0 ; SET LR4 CR0 ;;
-{% else %}
- SET LR7 CR0 ;;
+{% if blocks > 1 %}
+ INC LR3 1 ; SET LR7 CR0 ;;
  INC LR7 {{ blocks }} ;;
- BLT.S LR3 LR7 fullstore ;;
- {{ store(cr.tail ~ '.L') }}
- INC LR13 1 ; BEQ LR15 CR0 advance ;;
-fullstore:
- {{ store(cr.full ~ '.L') }}
- INC LR13 1 ; BEQ LR15 CR0 block ;;
+ BGE.S LR3 LR7 last_block ;;
+ {{ store(cr.store_ds) }}
+ BEQ LR15 CR0 block ;;
+last_block:
+ {{ store(cr.tail_ds) }}
+{% elif pack > 1 %}
+ INC LR12 {{ lanes }} ; SET LR7 CR0 ;;
+ INC LR7 {{ packed }} ;;
+ BLT.S LR12 LR7 advance ;;
+ {{ store(cr.store_ds) }}
+ SET LR12 CR0 ;;
+{% else %}
+ {{ store(cr.store_ds) }}
 {% endif %}
 advance:
  INC LR1 {{ stride }} ; INC LR2 {{ stride }} ;;
- BLT.S LR2 {{ cr.xend }} pixel ;;
+ BLT.S LR2 {{ cr.xend }} ox ;;
  ADD LR1 LR1 {{ cr.row_delta }} ; INC LR0 {{ stride }} ;;
  BLT.S LR0 {{ cr.yend }} oy ;;
-{% if pack > 1 and (ho * wo) % pack %}
- {{ store(cr.last_ds ~ '.L') }}
+{% if pack > 1 %}
+ BEQ LR12 CR0 done ;;
+ {{ store(cr.tail_ds) }}
 {% endif %}
+done:
  HALT ;;
