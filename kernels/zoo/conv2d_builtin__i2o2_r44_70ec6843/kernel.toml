@@ -1,0 +1,93 @@
+[kernel]
+op = "conv2d_builtin"
+formats = ["e1", "e2"]
+
+[params.act_out0]
+type = "str"
+choices = ["relu"]
+default = "relu"
+[params.bias]
+type = "bool"
+default = true
+[params.cin]
+type = "int"
+min = 1
+max = 128
+default = 16
+[params.cout]
+type = "int"
+min = 1
+max = 256
+default = 16
+[params.groups]
+type = "int"
+min = 1
+max = 128
+default = 1
+[params.h]
+type = "int"
+min = 1
+max = 256
+default = 16
+[params.w]
+type = "int"
+min = 2
+max = 256
+multiple_of = 2
+default = 8
+[params.kh]
+type = "int"
+choices = [3]
+default = 3
+[params.kw]
+type = "int"
+choices = [3]
+default = 3
+[params.padding]
+type = "int"
+choices = [1]
+default = 1
+[params.stride]
+type = "int"
+choices = [1]
+default = 1
+[params.in0_d0]
+type = "int"
+min = 1
+default = 1
+
+[derived]
+chunks = "(h + 127) // 128"
+pair_rows = "(2 * h + 127) // 128"
+channel_rows = "w // 2 * pair_rows"
+batch_rows = "cin * channel_rows"
+last_x = "w - 1"
+full = "ds(128)"
+tail = "ds((h - 1) % 128 + 1)"
+
+[inputs.in0]
+shape = ["in0_d0", "cin", "channel_rows", 128]
+range = [-2, 2]
+[inputs.weights]
+shape = ["chunks", "cout", "2 + 18 * cin", 128]
+range = [-1, 1]
+[outputs.out0]
+shape = ["in0_d0", "w", "cout", "chunks", 128]
+
+[abi]
+in0 = "CR2"
+weights = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+full = "CR7"
+tail = "CR8"
+cin = "CR9"
+cout = "CR10"
+channel_rows = "CR11"
+last_x = "CR12"
+batch_rows = "CR13"
+w = "CR14"
+in0_d0 = "CR15"
+
+[cases.default]
