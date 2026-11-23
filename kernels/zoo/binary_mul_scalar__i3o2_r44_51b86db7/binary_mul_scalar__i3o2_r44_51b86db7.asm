@@ -27,13 +27,15 @@ column:
 tile:
     SET LR12 CR0 ; SET LR13 CR0 ; SET LR6 CR1 ;;
     SET LR8 LR9 ; INC LR7 1 ;;
-    BNE LR7 {{ cr.oc }} gather ;;
+    BNE LR7 {{ cr.oc }} prime ;;
     SET LR8 LR15 ;;
+prime:
+    LD.MULT R0 LR4 {{ cr.in0 }} ; B scatter_row ;;
 gather:
-    LD.MULT R0 LR4 {{ cr.in0 }} ;;
-    {{ scatter() }} ;;
+    LD.MULT R0 LR4 {{ cr.in0 }} ; ADDBI LRD12 1 ;;
+scatter_row:
     {# Control sees the old LR6, which already counts the row just scattered. #}
-    ADDBI LRD12 1 ; ADD LR4 LR4 {{ cr.ic }} ; INC LR6 1 ; BLT.S LR6 LR8 gather ;;
+    {{ scatter() }} ; ADD LR4 LR4 {{ cr.ic }} ; INC LR6 1 ; BLT.S LR6 LR8 gather ;;
 {% macro store(ds) %}
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR3 ;;
     INC LR3 1 ;;
