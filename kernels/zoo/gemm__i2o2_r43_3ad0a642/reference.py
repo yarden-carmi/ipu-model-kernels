@@ -49,25 +49,22 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.linear.default(_v(ins[0], [1, 257, 384], [98688, 384, 1], 0), module.op0_weight, module.op0_bias)
+    r0 = aten.linear.default(_v(ins[0], [1, 256, 384], [98304, 384, 1], 0), module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.mul.Tensor(_v(op0, [1, 257, 384], [98688, 384, 1], 0), module.op1_lambda1)
-    op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 257, 384])}
+    return {"out0": _out(op0, [1, 256, 384])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Fold the output scale into weights and bias, then pack radix-16 planes."""
-    scale = module.op1_lambda1.detach().double().reshape(-1)
-    weight = module.op0_weight.detach().double() * scale[:, None]
+    """Pack bias and transposed weights by output tile, K, and radix-16 plane."""
+    weight = module.weight.detach().double()
     n, k = weight.shape
-    bias = module.op0_bias.detach().double() * scale if params['bias'] else weight.new_zeros(n)
+    bias = module.bias.detach().double() if params["bias"] else weight.new_zeros(n)
     rows = torch.cat((bias[None], weight.T), dim=0)
     rows = torch.nn.functional.pad(rows, (0, (-n) % 128))
     rows = rows.reshape(k + 1, -1, 128).transpose(0, 1)
     exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))[1]
-    digits = torch.ldexp(rows.abs(), 12 - exp).round().long().clamp(max=4095)
-    planes = [torch.ldexp(((digits >> shift) & 15) * rows.sign(), exp + shift - 12)
+    code = torch.ldexp(rows.abs(), 12 - exp).round().long().clamp(max=4095)
+    planes = [torch.ldexp(((code >> shift) & 15) * rows.sign(), exp + shift - 12)
               for shift in (8, 4, 0)]
-    return {'w': torch.stack(planes, dim=2).reshape(-1, 128).float()}
+    return {"w": torch.stack(planes, dim=2).reshape(-1, 128).float()}
