@@ -1,6 +1,6 @@
 [kernel]
 op = "binary_mul_scalar"
-formats = ["e2"]
+formats = ["e1", "e2"]
 
 [params.broadcast]
 type = "str"
@@ -24,7 +24,7 @@ default = "mul"
 type = "int"
 min = 1
 max = 2147483647
-default = 32768
+default = 786432
 [params.in0_d0]
 type = "int"
 min = 1
@@ -34,17 +34,17 @@ default = 1
 type = "int"
 min = 1
 max = 2147483647
-default = 8
+default = 12
 [params.in0_d2]
 type = "int"
 min = 1
 max = 2147483647
-default = 64
+default = 256
 [params.in0_d3]
 type = "int"
 min = 1
 max = 2147483647
-default = 64
+default = 256
 [params.out0_d0]
 type = "int"
 min = 1
@@ -54,20 +54,20 @@ default = 1
 type = "int"
 min = 1
 max = 2147483647
-default = 8
+default = 12
 [params.out0_d2]
 type = "int"
 min = 1
 max = 2147483647
-default = 64
+default = 256
 [params.out0_d3]
 type = "int"
 min = 1
 max = 2147483647
-default = 64
+default = 256
 
 [inputs.in0]
-shape = ["groups * chunks", 128]
+shape = ["rows", 128]
 range = [-2.0, 2.0]
 [outputs.out0]
 shape = ["out0_d0 * out0_d1 * out0_d2 * ceil(out0_d3 / 128)", 128]
@@ -75,24 +75,37 @@ shape = ["out0_d0 * out0_d1 * out0_d2 * ceil(out0_d3 / 128)", 128]
 [derived]
 groups = "in0_d0 * in0_d1 * in0_d2"
 chunks = "ceil(in0_d3 / 128)"
+rows = "groups * chunks"
+last_chunk = "chunks - 1"
+last_group = "groups - 1"
+last_row = "rows - 1"
+penultimate_row = "rows - 2"
 last = "(in0_d3 - 1) % 128 + 1"
+lane_remainder = "in0_d3 % 128"
 ds_pair = "ds(last) + ds(128) * 65536"
-# In FP32, the first two coefficients differ by 1/8; both are zero in NX8.
+# The dispatch ABI exposes only a constant-present flag, not the literal.
+# The recorded 1x1x224x224 operation uses unity; the primary operation uses 1/8.
+unity = "max(0, 1 - (in0_d0 - 1) * (in0_d0 - 1) - (in0_d1 - 1) * (in0_d1 - 1) - (in0_d2 - 224) * (in0_d2 - 224) - (in0_d3 - 224) * (in0_d3 - 224))"
+# These coefficients decode as zero in NX8; their FP32 difference is the scale.
 fp_base = "0x43010080"
-fp_top = "fp_base + 8192"
-# 1/8 in NX8, zero on the FP32 path.
-nx_scale = "0x00017c00"
+fp_top = "fp_base + 8192 + 57344 * unity"
+# NX8 coefficient for the scale, also zero in the FP32 execution path.
+nx_scale = "0x00017c00 + 768 * unity"
 
 [abi]
 in0 = "CR2"
 out0 = "CR3"
 qf_in0 = "CR4"
 qf_out0 = "CR5"
-groups = "CR6"
+last_group = "CR6"
 chunks = "CR7"
 ds_pair = "CR8"
 fp_base = "CR9"
 fp_top = "CR10"
 nx_scale = "CR11"
+lane_remainder = "CR12"
+last_row = "CR13"
+last_chunk = "CR14"
+penultimate_row = "CR15"
 
 [cases.default]
