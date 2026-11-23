@@ -5,26 +5,27 @@ head:
 row:
     SET LR6 CR0 ;;
 tile:
-    ADD LR7 LR2 LR6 ; SET LR9 CR0 ; SET LR12 LR5 ;;
+    ADD LR7 LR2 LR6 ; SET LR9 {{ cr.k }} ; SET LR12 LR5 ;;
+{# Consume both operands before loading again. Cursor and countdown updates
+   share the multiply word, so the next branch sees the new countdown. #}
 {% macro product(first) %}
     LD.MULT R0 LR12 {{ cr.in0 }} ;;
     LD.MULT.CYCLIC LR7 {{ cr.in1 }} LR0 ;;
-    MULT.RC.VE LR0 LR13 0 LR0 {{ cr.dsfull }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{{ '.FIRST' if first else '' }} ;;
+    MULT.RC.VE LR0 LR13 0 LR0 {{ cr.dsfull }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{{ '.FIRST' if first else '' }} ; ADD LR12 LR12 {{ cr.arows }} ; ADD LR7 LR7 {{ cr.nchunks }} ; DEC LR9 1 ;;
 {% endmacro %}
     {{ product(true) }}
-    B advance ;;
+    BEQ LR9 CR0 store ;;
 inner:
     {{ product(false) }}
-advance:
-    ADD LR12 LR12 {{ cr.arows }} ; INC LR9 1 ; ADD LR7 LR7 {{ cr.nchunks }} ;;
-    BLT.S LR9 {{ cr.k }} inner ;;
+    BNE LR9 CR0 inner ;;
+store:
     INC LR6 1 ;;
     BEQ LR6 {{ cr.nchunks }} tail ;;
-    ACTIVATE.QUANTIZE identity {{ cr.dsfull }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR10 ;;
+    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.dsfull }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR10 ;;
     INC LR10 1 ;;
     B tile ;;
 tail:
-    ACTIVATE.QUANTIZE identity {{ cr.dstail }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR10 ;;
+    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.dstail }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR10 ;;
     INC LR10 1 ; INC LR4 1 ; INC.MODP2 LR13 CR1 7 ;;
     BNE LR13 CR0 same_row ;;
     INC LR5 1 ;;
