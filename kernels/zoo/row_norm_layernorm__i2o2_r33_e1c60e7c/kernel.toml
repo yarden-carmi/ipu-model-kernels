@@ -1,0 +1,107 @@
+[kernel]
+op = "row_norm"
+formats = ["e2"]
+
+[params.kind]
+type = "str"
+choices = ["layernorm"]
+default = "layernorm"
+[params.channels]
+type = "int"
+min = 16
+max = 4096
+multiple_of = 16
+default = 144
+[params.rows]
+type = "int"
+min = 64
+max = 4096
+multiple_of = 64
+default = 1024
+[params.eps]
+type = "float"
+min = 0.0
+max = 1.0
+default = 1e-5
+[params.in0_d0]
+type = "int"
+min = 1
+max = 4096
+default = 4
+[params.in0_d1]
+type = "int"
+min = 8
+max = 4096
+multiple_of = 8
+default = 256
+[params.in0_d2]
+type = "int"
+min = 16
+max = 4096
+multiple_of = 16
+default = 144
+[params.out0_d0]
+type = "int"
+min = 1
+max = 4096
+default = 4
+[params.out0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 256
+[params.out0_d2]
+type = "int"
+min = 1
+max = 4096
+default = 144
+[derived]
+K = "(channels + 127) // 128"
+M = "rows * K"
+rem = "channels - (K - 1) * 128"
+step = "rows // 128"
+shift = "rows % 128"
+stage = "32 + 2 * K"
+stage_end = "stage + 2 * M"
+out_stride = "out0_d1 * K"
+tail = "ds(rem) + 65536 * ds(128)"
+half = "1277440"
+
+[inputs.in0]
+shape = ["in0_d0 * ((in0_d1 * in0_d2 + 127) // 128)", 128]
+range = [-2.0, 2.0]
+[inputs.gamma]
+shape = ["3 * K", 128]
+[inputs.beta]
+shape = ["3 * K", 128]
+[inputs.crow]
+shape = [4, 128]
+[scratch.tmp]
+shape = ["stage_end", 128]
+[outputs.out0]
+shape = ["out0_d0 * out0_d1 * ((out0_d2 + 127) // 128)", 128]
+
+[abi]
+in0 = "CR2"
+gamma = "CR3"
+beta = "CR4"
+out0 = "CR5"
+qf_out0 = "CR6"
+crow = "CR7"
+tmp = "CR8"
+qf_in0 = "CR9"
+K = "CR10"
+M = "CR11"
+out_stride = "CR12"
+half = "CR13"
+tail = "CR14"
+qf_gamma = "CR15"
+rem = "LR12"
+step = "LR6"
+shift = "LR7"
+stage = "LR10"
+stage_end = "LR15"
+
+[golden]
+tolerance = { e2 = "NX8_STEP" }
+[cases.default]
