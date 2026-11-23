@@ -3,6 +3,8 @@
 {% set qr = cr.scratch_qf ~ '.L' %}
 {% set qw = cr.scratch_qf ~ '.H' %}
 {% set qp = cr.plane_qf ~ '.L' %}
+{% set qe = cr.plane_qf ~ '.H' %}
+{% set qt = cr.final_qf ~ '.L' %}
 {% set full = cr.active ~ '.L' %}
 {% set part = cr.part ~ '.L' %}
 {% set out = cr.outpart ~ '.L' %}
@@ -13,46 +15,56 @@
     SET {{ reg }} CR0 ;;
     INC {{ reg }} {{ value }} ;;
 {% endmacro %}
-{% macro coefficient(power, numerator, row) %}
+{% macro coefficient(power, numerator, slot) %}
 {{ addr('LR1',7) }}
     LD.MULT R0 LR1 {{ cr.tmp }} ;;
 {{ clear() }}
 {{ addr('LR6',power) }}
-power_{{ row }}:
-    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB ; DEC LR6 1 ;;
-    BNE LR6 CR0 power_{{ row }} ;;
-{{ addr('LR1',row) }}
-    ACTIVATE.QUANTIZE exp2 {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
+power_{{ slot }}:
+    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ qr }} ; ACC.SUB ; DEC LR6 1 ;;
+    BNE LR6 CR0 power_{{ slot }} ;;
+{{ addr('LR1',slot) }}
+    ACTIVATE.QUANTIZE exp2 {{ full }} {{ qr }} {{ cr.tmp }} LR1 ;;
     LD.MULT R0 LR1 {{ cr.tmp }} ;;
 {{ clear() }}
 {{ addr('LR6',numerator) }}
-numerator_{{ row }}:
-    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; DEC LR6 1 ;;
-    BNE LR6 CR0 numerator_{{ row }} ;;
+numerator_{{ slot }}:
+    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ qr }} ; ACC.ADD ; DEC LR6 1 ;;
+    BNE LR6 CR0 numerator_{{ slot }} ;;
     ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
+{% endmacro %}
+{% macro scale() %}
+{% for idx in [5,6,8,9] %}
+{{ addr('LR5',idx) }}
+    LD.MULT.CYCLIC LR5 {{ cr.tmp }} LR9 ;;
+    MULT.RC.VV LR9 R0 0 LR0 {{ part }} {{ q }} ; ACC.{% if loop.last %}SUB{% else %}ADD{% endif %}{% if loop.first %}.FIRST{% endif %} ;;
+    MULT.RC.VE LR9 LR11 0 LR0 {{ part }} {{ q }} ; ACC.{% if loop.last %}ADD{% else %}SUB{% endif %} ;;
+{% endfor %}
+{% endmacro %}
+{% macro gather_lanes(label) %}
+    SET LR4 LR9 ;;
+    SET LR1 CR0 ;;
+    SET LR12 CR0 ;;
+    SET LR13 CR0 ;;
+{{ clear() }}
+{{ label }}:
+    LD.MULT R0 LR4 {{ cr.norm }} ;;
+    MULT.EE LR10 CR1 0 LR0 {{ full }} {{ qp }} ; ACC.RESHAPE LRD12 LRD12 7 ;;
+    INC LR4 1 ; ADDBI LRD12 1 ; INC LR1 1 ;;
+    BLT.S LR1 LR14 {{ label }} ;;
 {% endmacro %}
     SET LR0 CR0 ;;
 {{ addr('LR11',128) }}
     SET LR9 CR0 ;;
     SET LR10 LR11 ;;
-    SET LR12 LR11 ;;
-    INC LR12 128 ;;
-    SET LR13 LR12 ;;
-    INC LR13 128 ;;
 
-{# Dyadic expansion of log2(e) in the input format. #}
+{# Build log2(e) from dyadic terms without folded constants. #}
 {{ addr('LR1',7) }}
 {{ clear() }}
-    ACTIVATE.QUANTIZE exp2 {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
-{% for p,k,r in [(4,23,5),(12,21,6),(18,18,8),(25,19,9)] %}
-{{ coefficient(p,k,r) }}
+    ACTIVATE.QUANTIZE exp2 {{ full }} {{ qr }} {{ cr.tmp }} LR1 ;;
+{% for p,k,s in [(4,23,5),(12,21,6),(18,18,8),(25,19,9)] %}
+{{ coefficient(p,k,s) }}
 {% endfor %}
-{{ coefficient(16,1,10) }}
-    ACTIVATE.QUANTIZE reciprocal {{ full }} {{ qr }} {{ cr.tmp }} LR1 ;;
-    LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR12 ;;
-{{ coefficient(64,1,11) }}
-    ACTIVATE.QUANTIZE identity {{ full }} {{ qr }} {{ cr.tmp }} LR1 ;;
-    LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR13 ;;
 
     SET LR2 CR0 ;;
 row:
@@ -61,31 +73,28 @@ row:
     MULT.VE LR0 CR1 0 LR0 {{ part }} {{ q }} ; AGG.MAX.FIRST LR0 {{ part }} ;;
     SET LR1 CR1 ;;
     ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
-    LD.MULT R0 LR1 {{ cr.tmp }} ;;
-    MULT.EE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ;;
-    ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
-    LD.MULT R0 LR2 {{ cr.in0 }} ;;
     LD.MULT R1 LR1 {{ cr.tmp }} ;;
-{% for idx in [5,6,8,9] %}
-{{ addr('LR5',idx) }}
-    LD.MULT.CYCLIC LR5 {{ cr.tmp }} LR9 ;;
-    MULT.RC.VV LR9 R0 0 LR0 {{ part }} {{ q }} ; ACC.{% if loop.last %}SUB{% else %}ADD{% endif %}{% if loop.first %}.FIRST{% endif %} ;;
-    MULT.RC.VV LR9 R1 0 LR0 {{ part }} {{ q }} ; ACC.{% if loop.last %}ADD{% else %}SUB{% endif %} ;;
-{% endfor %}
-{# Apply a common shift before exponentiation; it cancels in the ratio. #}
+{{ scale() }}
+{# The common shift cancels in the normalization. #}
 {{ addr('LR5',5) }}
     LD.MULT.CYCLIC LR5 {{ cr.tmp }} LR9 ;;
     MULT.RC.VE LR9 CR1 0 LR0 {{ part }} {{ q }} ; ACC.SUB ;;
 {{ addr('LR3',13) }}
-    ACTIVATE.QUANTIZE exp2 {{ part }} {{ qr }} {{ cr.tmp }} LR3 ;;
-    LD.MULT R0 LR3 {{ cr.tmp }} ;;
-    MULT.RC.VV LR12 R0 0 LR0 {{ part }} {{ qr }} ; ACC.ADD.FIRST ;;
-    ACTIVATE.QUANTIZE identity {{ part }} {{ qr }} {{ cr.tmp }} LR3 ;;
+    ACTIVATE.QUANTIZE exp2 {{ part }} {{ qe }} {{ cr.tmp }} LR3 ;;
+    SET LR5 LR2 ;;
+{% for plane in range(3) %}
+    ACTIVATE.QUANTIZE identity {{ part }} {{ qp }} {{ cr.norm }} LR5 ;;
+{% if not loop.last %}
+    LD.MULT R0 LR5 {{ cr.norm }} ;;
+    MULT.VE LR0 CR1 0 LR0 {{ part }} {{ qp }} ; ACC.SUB ; ADD LR5 LR5 {{ cr.rows }} ;;
+{% endif %}
+{% endfor %}
+    ADD LR5 LR5 {{ cr.rows }} ;;
 
 {{ clear() }}
     LD.MULT.CYCLIC LR3 {{ cr.tmp }} LR9 ;;
-    MULT.RC.VE LR9 CR1 0 LR0 {{ part }} {{ qr }} ; AGG.SUM.FIRST LR0 {{ part }} ;;
-{# Correct the reciprocal with the high and low parts of the sum. #}
+    MULT.RC.VE LR9 CR1 0 LR0 {{ part }} {{ qe }} ; AGG.SUM.FIRST LR0 {{ part }} ;;
+{# Correct the reciprocal for rounding in both the sum and its inverse. #}
     ACTIVATE.QUANTIZE identity {{ full }} {{ qw }} {{ cr.tmp }} LR0 ;;
     LD.MULT R0 LR0 {{ cr.tmp }} ;;
     MULT.VE LR0 CR1 0 LR0 {{ full }} {{ qw }} ; ACC.SUB ;;
@@ -96,65 +105,45 @@ row:
     INC LR1 1 ;;
     ACTIVATE.QUANTIZE reciprocal {{ full }} {{ qw }} {{ cr.tmp }} LR1 ;;
     LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR10 ;;
-{{ addr('LR5',7) }}
-    LD.MULT.CYCLIC LR5 {{ cr.tmp }} LR9 ;;
-    MULT.RC.VE LR9 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ;;
+{{ addr('LR4',7) }}
+    LD.MULT.CYCLIC LR4 {{ cr.tmp }} LR9 ;;
+    MULT.RC.VE LR9 CR1 0 LR0 {{ full }} {{ qr }} ; ACC.ADD.FIRST ;;
     MULT.RC.VE LR10 LR0 0 LR0 {{ full }} {{ qw }} ; ACC.SUB ;;
     MULT.RC.VE LR10 LR11 0 LR0 {{ full }} {{ qw }} ; ACC.SUB ;;
     ACTIVATE.QUANTIZE identity {{ full }} {{ qw }} {{ cr.tmp }} LR1 ;;
     LD.MULT R0 LR1 {{ cr.tmp }} ;;
     MULT.RC.VV LR10 R0 0 LR0 {{ full }} {{ qw }} ; ACC.ADD.FIRST ;;
-    ACTIVATE.QUANTIZE identity {{ full }} {{ qw }} {{ cr.tmp }} LR1 ;;
-
-    LD.MULT.CYCLIC LR3 {{ cr.tmp }} LR9 ;;
-    MULT.RC.VE LR13 CR1 0 LR0 {{ part }} {{ qr }} ; ACC.ADD.FIRST ;;
-    MULT.RC.VE LR9 CR1 0 LR0 {{ part }} {{ qr }} ; ACC.ADD ;;
-    MULT.RC.VE LR13 CR1 0 LR0 {{ part }} {{ qr }} ; ACC.SUB ;;
-{{ addr('LR5',12) }}
-    ACTIVATE.QUANTIZE identity {{ part }} {{ qw }} {{ cr.tmp }} LR5 ;;
-    LD.MULT R0 LR5 {{ cr.tmp }} ;;
-    MULT.VE LR0 CR1 0 LR0 {{ part }} {{ qw }} ; ACC.SUB ;;
-    ACTIVATE.QUANTIZE identity {{ part }} {{ qw }} {{ cr.tmp }} LR5 ;;
-    LD.MULT R1 LR5 {{ cr.tmp }} ;;
-    MULT.RC.VV LR10 R0 0 LR0 {{ part }} {{ qw }} ; ACC.ADD.FIRST ;;
-    MULT.RC.VV LR10 R1 0 LR0 {{ part }} {{ qw }} ; ACC.ADD ;;
-    LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR9 ;;
-    MULT.RC.VV LR9 R0 0 LR0 {{ part }} {{ qw }} ; ACC.ADD ;;
-    MULT.RC.VV LR9 R1 0 LR0 {{ part }} {{ qw }} ; ACC.ADD ;;
-    SET LR5 LR2 ;;
-{% for plane in range(3) %}
-    ACTIVATE.QUANTIZE identity {{ part }} {{ qp }} {{ cr.norm }} LR5 ;;
-{% if not loop.last %}
+    MULT.RC.VE LR10 CR1 0 LR0 {{ full }} {{ qw }} ; ACC.ADD ;;
+    ACTIVATE.QUANTIZE identity {{ full }} {{ qp }} {{ cr.norm }} LR5 ;;
     LD.MULT R0 LR5 {{ cr.norm }} ;;
-    MULT.VE LR0 CR1 0 LR0 {{ part }} {{ qp }} ; ACC.SUB ; ADD LR5 LR5 {{ cr.rows }} ;;
-{% endif %}
-{% endfor %}
+    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ qp }} ; ACC.SUB ; ADD LR5 LR5 {{ cr.rows }} ;;
+    ACTIVATE.QUANTIZE identity {{ full }} {{ qp }} {{ cr.norm }} LR5 ;;
     INC LR2 1 ;;
     BLT.S LR2 {{ cr.rows }} row ;;
 
-{# Gather each column across input rows, combining the residual planes. #}
+{# Gather the two denominator planes once per batch and reuse them across columns. #}
     SET LR2 CR0 ;;
     SET LR3 CR0 ;;
 {{ addr('LR7',2) }}
-    SET LR8 LR13 ;;
 transpose_batch:
+    SET LR9 LR2 ;;
+{% for plane in range(3) %}
+    ADD LR9 LR9 {{ cr.rows }} ;;
+{% endfor %}
+{{ addr('LR6',8) }}
+    SET LR10 CR0 ;;
+denom_gather:
+{{ gather_lanes('denom_lane') }}
+    ACTIVATE.QUANTIZE identity {{ out }} {{ qt }} {{ cr.tmp }} LR6 ;;
+    ADD LR9 LR9 {{ cr.rows }} ; INC LR6 1 ;;
+{{ addr('LR4',10) }}
+    BLT.S LR6 LR4 denom_gather ;;
     SET LR10 CR0 ;;
 transpose_column:
     SET LR9 LR2 ;;
     SET LR6 CR0 ;;
 gather:
-    SET LR4 LR9 ;;
-    SET LR1 CR0 ;;
-    SET LR12 CR0 ;;
-    SET LR13 CR0 ;;
-{{ clear() }}
-transpose_lane:
-    LD.MULT R0 LR4 {{ cr.norm }} ;;
-    MULT.EE LR10 CR1 0 LR0 {{ full }} {{ qp }} ; ACC.RESHAPE LRD12 LRD12 7 ;;
-    INC LR4 1 ;;
-    ADDBI LRD12 1 ;;
-    INC LR1 1 ;;
-    BLT.S LR1 LR14 transpose_lane ;;
+{{ gather_lanes('transpose_lane') }}
     BEQ LR6 LR7 gather_finish ;;
     ACTIVATE.QUANTIZE identity {{ out }} {{ qp }} {{ cr.tmp }} LR6 ;;
     ADD LR9 LR9 {{ cr.rows }} ; INC LR6 1 ;;
@@ -165,8 +154,15 @@ gather_finish:
     LD.MULT R0 LR6 {{ cr.tmp }} ;;
     MULT.VE LR0 CR1 0 LR0 {{ out }} {{ qp }} ; ACC.ADD ;;
 {% endfor %}
-    MULT.RC.VE LR8 CR1 0 LR0 {{ out }} {{ qr }} ; ACC.ADD ;;
-    MULT.RC.VE LR8 CR1 0 LR0 {{ out }} {{ qr }} ; ACC.SUB ;;
+{{ addr('LR5',10) }}
+{# Exponentiate in the consumer layout to use its row scale. #}
+    ACTIVATE.QUANTIZE exp2 {{ out }} {{ qt }} {{ cr.tmp }} LR5 ;;
+    LD.MULT.CYCLIC LR5 {{ cr.tmp }} LR0 ;;
+{% for index in [8,9] %}
+{{ addr('LR5',index) }}
+    LD.MULT R0 LR5 {{ cr.tmp }} ;;
+    MULT.RC.VV LR0 R0 0 LR0 {{ out }} {{ qt }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %} ;;
+{% endfor %}
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ out }} {{ qo }} {{ cr.out0 }} LR3 ;;
     INC LR3 1 ; INC LR10 1 ;;
     BLT.S LR10 LR15 transpose_column ;;
