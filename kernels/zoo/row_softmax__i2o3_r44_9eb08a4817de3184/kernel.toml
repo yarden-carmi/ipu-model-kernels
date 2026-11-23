@@ -1,41 +1,40 @@
 [kernel]
 op = "row_softmax"
-formats = ["e1", "e2"]
+formats = ["e1", "e4"]
 
 [params.n]
 type = "int"
 min = 1
 max = 4096
-default = 256
+default = 257
 [params.rows]
 type = "int"
 min = 1
-max = 8192
-default = 3072
+default = 1542
 [params.in0_d0]
 type = "int"
 default = 1
 [params.in0_d1]
 type = "int"
-default = 12
+default = 6
 [params.in0_d2]
 type = "int"
-default = 256
+default = 257
 [params.in0_d3]
 type = "int"
-default = 256
+default = 257
 [params.out0_d0]
 type = "int"
 default = 1
 [params.out0_d1]
 type = "int"
-default = 12
+default = 6
 [params.out0_d2]
 type = "int"
-default = 256
+default = 257
 [params.out0_d3]
 type = "int"
-default = 256
+default = 257
 
 [derived]
 K = "ceil(n / 128)"
@@ -43,15 +42,10 @@ M = "rows * K"
 active = "ds(128)"
 part = "ds(n - (K - 1) * 128)"
 tail = "n - (K - 1) * 128"
-rootq = "qf(0, 2, 8, 0)"
+rootq = "312 * 65536 + 56"
 pitch = "ceil(in0_d2 / 128)"
 batchstride = "in0_d3 * pitch"
 batches = "in0_d0 * in0_d1"
-batch_jump = "batchstride - pitch + 1"
-input_end = "batchstride * batches"
-transpose_rows = "M + batches * ceil(in0_d2 / 8) * ceil(n / 8)"
-seq_lo = "50462976"
-seq_hi = "117835012"
 
 [inputs.in0]
 shape = ["in0_d0", "in0_d1", "in0_d3", "pitch", 128]
@@ -65,7 +59,7 @@ shape = ["K", 128]
 [scratch.exps]
 shape = ["K", 128]
 [scratch.transposed]
-shape = ["transpose_rows", 128]
+shape = ["rows", "K", 128]
 
 [abi]
 in0 = "CR2"
@@ -82,11 +76,9 @@ pitch = "CR12"
 transposed = "CR13"
 part = "CR14"
 active = "CR15"
-input_end = "LR15"
+batches = "LR15"
 in0_d2 = "LR14"
-batch_jump = "LR13"
-n = "LR1"
-seq_lo = "LR6"
-seq_hi = "LR7"
+batchstride = "LR13"
+tail = "LR12"
 
 [cases.default]
