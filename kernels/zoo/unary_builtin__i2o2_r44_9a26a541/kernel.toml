@@ -1,0 +1,38 @@
+[kernel]
+op = "unary_builtin"
+formats = ["e1", "e2"]
+
+[params.act_out0]
+type = "str"
+choices = ["relu"]
+default = "relu"
+
+[params.numel]
+type = "int"
+default = 16384
+
+[params.in0_d2]
+type = "int"
+default = 16
+
+[derived]
+width = "2 * in0_d2"
+rows = "numel // width"
+active = "ds(width)"
+
+[inputs.in0]
+shape = ["rows", 128]
+range = [-1.0, 1.0]
+
+[outputs.out0]
+shape = ["rows", 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+rows = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+active = "CR7"
+
+[cases.default]
