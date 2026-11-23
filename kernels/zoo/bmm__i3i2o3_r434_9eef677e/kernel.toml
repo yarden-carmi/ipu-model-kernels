@@ -29,7 +29,7 @@ range = [-1, 1]
 shape = ["out0_d0", "out0_d1", "out0_d2", "ceil(out0_d3/128)*128"]
 
 [scratch.transposed]
-shape = ["min(n,128)", "arows", 128]
+shape = ["max(min(n,128)*arows, (min(n,128)//8)*(min(k,256)//8)+256)", 128]
 
 [derived]
 arows = "ceil(in0_d3/128)"
