@@ -26,12 +26,12 @@ max = 128
 default = 1
 [params.h]
 type = "int"
-min = 1
+min = 3
 max = 224
 default = 8
 [params.w]
 type = "int"
-min = 1
+min = 3
 max = 224
 default = 8
 [params.kh]
@@ -55,64 +55,29 @@ default = 1
 type = "int"
 min = 1
 default = 1
-[params.in0_d1]
-type = "int"
-min = 1
-max = 128
-default = 64
-[params.in0_d2]
-type = "int"
-min = 1
-max = 224
-default = 8
-[params.in0_d3]
-type = "int"
-min = 1
-max = 224
-default = 8
-[params.out0_d0]
-type = "int"
-min = 1
-default = 1
-[params.out0_d1]
-type = "int"
-min = 1
-max = 256
-default = 64
-[params.out0_d2]
-type = "int"
-min = 1
-max = 224
-default = 8
-[params.out0_d3]
-type = "int"
-min = 1
-max = 224
-default = 8
 
 [derived]
-blocks = "ceil(out0_d1 / 128)"
-tap_rows = "2 * in0_d1"
-panel_end = "((in0_d1 - 1) // 16) * 16"
-x_end = "out0_d3 * stride"
-y_end = "out0_d2 * stride"
+ho = "(h + 2 * padding - kh) // stride + 1"
+wo = "(w + 2 * padding - kw) // stride + 1"
+blocks = "ceil(cout / 128)"
+dot = "max(0, 1 - max(0, cin - 64, cout - cin))"
+tap_rows = "dot * cout + (1 - dot) * 2 * cin"
+x_end = "wo * stride"
+y_end = "ho * stride"
 full = "ds(128)"
-tail = "ds((out0_d1 - 1) % 128 + 1)"
-packed = "max(0, 1 - max(in0_d1 - 32, 32 - in0_d1)) * max(0, 1 - max(0, out0_d1 - 32)) * max(0, 1 - in0_d3 % 4) * (2 - stride)"
-pack = "1 + 3 * packed"
-pitch = "in0_d3 // pack"
-dot = "max(0, 1 - max(0, out0_d1 - 32, out0_d1 * 2 - in0_d1))"
-reduce = "max(dot, packed)"
-weight_rows = "reduce * (2 + packed + kh * (kw - 2 * packed) * 2 * out0_d1) + (1 - reduce) * (2 + kh * kw * tap_rows)"
+tail = "ds((cout - 1) % 128 + 1)"
+weight_rows = "2 + dot + kh * kw * tap_rows"
 
 [inputs.in0]
-shape = ["in0_d0", "in0_d2", "pitch", 128]
+shape = ["in0_d0", "h", "w", 128]
 range = [-2, 2]
 [inputs.weights]
 shape = ["blocks", "weight_rows", 128]
 range = [-1, 1]
+[scratch.scaled]
+shape = ["max(1, dot * in0_d0 * h * w)", 128]
 [outputs.out0]
-shape = ["out0_d0", "out0_d2", "out0_d3", "blocks * 128"]
+shape = ["in0_d0", "ho", "wo", "blocks * 128"]
 
 [abi]
 in0 = "CR2"
@@ -123,15 +88,14 @@ qf_out0 = "CR6"
 in0_d0 = "LR10"
 tail = "CR7"
 blocks = "CR8"
-in0_d2 = "CR9"
-in0_d3 = "CR10"
-panel_end = "CR11"
+h = "CR9"
+w = "CR10"
+scaled = "CR11"
 tap_rows = "CR12"
 x_end = "CR13"
 y_end = "CR14"
 full = "CR15"
 
+[cases.default]
 [golden]
 tolerance = { e1 = "NX8_STEP", e2 = "NX8_STEP" }
-
-[cases.default]

@@ -49,55 +49,58 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.default(_v(ins[0], [1, 32, 224, 224], [1605632, 50176, 224, 1], 0), module.weight, module.bias, [1, 1], [1, 1])
+    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 64, 64], [262144, 4096, 64, 1], 0), module.weight, module.bias, [1, 1], [1, 1])
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.relu.default(_v(op0, [1, 32, 224, 224], [1605632, 50176, 224, 1], 0))
+    r0 = aten.relu.default(_v(op0, [1, 32, 64, 64], [131072, 4096, 64, 1], 0))
     op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 32, 224, 224])}
+    return {"out0": _out(op1, [1, 32, 64, 64])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Pack each tap/input-channel vector into output lanes, high part then residual."""
+    """Fold split bias and weights for the dot-product or outer-product path."""
     weight = module.weight.detach().to(torch.float64)
     cout, per_group, kh, kw = weight.shape
     groups = params['groups']
     cin = groups * per_group
+    dot = cin <= 64 and cout <= cin
     blocks = (cout + 127) // 128
     dense = weight.new_zeros((blocks * 128, cin, kh, kw))
     out_per_group = cout // groups
     for group in range(groups):
-        channels = slice(group * out_per_group, (group + 1) * out_per_group)
-        dense[channels, group * per_group:(group + 1) * per_group] = weight[channels]
-    packed = cin == 32 and cout <= 32 and params['in0_d3'] % 4 == 0 and params['stride'] == 1
-    dot = cout <= 32 and 2 * cout <= cin
-    if packed or dot:
-        taps = dense[:cout].permute(2, 3, 0, 1)
-        if packed:
-            taps = taps.permute(0, 2, 1, 3).reshape(kh, 1, cout, kw * cin)
-        vectors = weight.new_zeros((1 + taps.numel() // taps.shape[-1], 128))
-        vectors[1:, :taps.shape[-1]] = taps.reshape(-1, taps.shape[-1])
-        if params['bias']:
-            vectors[0, :cout] = module.bias
-        hi, lo = _split(vectors)
-        planes = torch.stack((hi, lo), dim=1).reshape(-1, 128)
-        if packed:
-            planes = torch.cat((planes[:2], weight.new_zeros((1, 128)), planes[2:]))
-        return {'weights': planes[None]}
+        outputs = slice(group * out_per_group, (group + 1) * out_per_group)
+        inputs = slice(group * per_group, (group + 1) * per_group)
+        dense[outputs, inputs] = weight[outputs]
     rows = weight.new_zeros((blocks, 1 + kh * kw * cin, 128))
-    rows[:, 1:] = dense.reshape(blocks, 128, cin, kh, kw).permute(
-        0, 3, 4, 2, 1).reshape(blocks, -1, 128)
+    if not dot:
+        rows[:, 1:] = dense.reshape(blocks, 128, cin, kh, kw).permute(
+            0, 3, 4, 2, 1).reshape(blocks, -1, 128)
     if params['bias']:
         for block in range(blocks):
             bias = module.bias[128 * block:128 * (block + 1)]
             rows[block, 0, :bias.numel()] = bias
 
-    hi, lo = _split(rows)
-    return {'weights': torch.stack((hi, lo), dim=2).reshape(blocks, -1, 128)}
+    if dot:
+        taps = dense[:cout].permute(2, 3, 0, 1).reshape(-1, cin)
+        rows = rows[:, :1].reshape(1, 128)
+        dots = weight.new_zeros((len(taps), 128))
+        dots[:, :cin] = taps
+        hi = _leading(dots)
+        # Balance the two parts' magnitudes so they can share a weight row.
+        # The matching activation lanes read x/32 and x, respectively.
+        dots[:, :cin] = 32 * (taps - hi[:, :cin])
+        dots[:, cin:2 * cin] = hi[:, :cin]
+        scale = weight.new_zeros((1, 128))
+        scale[:, -cin:] = 1 / 32
+        lead = _leading(rows)
+        return {'weights': torch.cat((lead, rows - lead, scale, dots))[None]}
+
+    hi = _leading(rows)
+    return {'weights': torch.stack((hi, rows - hi), dim=2).reshape(blocks, -1, 128)}
 
 
-def _split(rows):
+def _leading(rows):
+    """Round the leading part to an exactly representable six-bit grid."""
     _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
     step = torch.exp2(exponent.to(rows.dtype) - 6)
-    hi = rows.sign() * (rows.abs() / step + 0.5).floor().clamp(max=63) * step
-    return hi, rows - hi
+    return rows.sign() * (rows.abs() / step + 0.5).floor().clamp(max=63) * step
