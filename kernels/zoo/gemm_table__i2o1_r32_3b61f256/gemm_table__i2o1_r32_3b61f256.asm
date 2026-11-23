@@ -1,17 +1,23 @@
 {# Broadcast each input lane across one output tile. Coefficients arrive
    coarse then residual, with the bias pair first in each tile. #}
 {% macro mac(src, acc='ACC.ADD') %}
-    LD.MULT.CYCLIC LR4 {{ cr.coeff }} LR0 ;;
-    MULT.RC.VE LR0 {{ src }} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; {{ acc }} ; INC LR4 1 ;;
+    MULT.RC.VE LR0 {{ src }} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; {{ acc }}
+{% endmacro %}
+{% macro fetch() %}
+    LD.MULT.CYCLIC LR4 {{ cr.coeff }} LR0 ; INC LR4 1
 {% endmacro %}
 {% macro reduce(limit, label) %}
-    LD.MULT R0 LR5 {{ cr.in0 }} ; SET LR6 CR0 ;;
+    LD.MULT R0 LR5 {{ cr.in0 }} ; SET LR6 CR0 ; SET LR11 {{ limit }} ;;
+    {{ fetch() }} ; DEC LR11 1 ;;
+    BEQ LR11 CR0 {{ label }}_last ;;
+    DEC LR11 1 ;;
 {{ label }}:
-    {{ mac('LR6') }}
-    {{ mac('LR6') }}
-    INC LR6 1 ;;
-    BLT.S LR6 {{ limit }} {{ label }} ;;
-    INC LR5 1 ;;
+    {{ mac('LR6') }} ; {{ fetch() }} ;;
+    {# MULT sees post-write LRs; preserve the residual's lane while advancing. #}
+    {{ mac('LR12') }} ; {{ fetch() }} ; INC LR6 1 ; SET LR12 LR6 ; BLT.S LR6 LR11 {{ label }} ;;
+{{ label }}_last:
+    {{ mac('LR6') }} ; {{ fetch() }} ;;
+    {{ mac('LR6') }} ; INC LR5 1 ;;
 {% endmacro %}
 {% macro store(ds) %}
     ACTIVATE.QUANTIZE generic {{ ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR2 ;;
@@ -26,11 +32,12 @@
     INC LR9 128 ;;
 row:
     SET LR4 CR0 ; SET LR8 {{ cr.tiles }} ;;
+    DEC LR4 1 ;; # fetch increments before loading, so the first offset is zero
 tile:
     SET LR5 LR3 ; SET LR7 {{ cr.chunks }} ;;
-    {{ mac('CR1', 'ACC.ADD.FIRST') }}
-    {{ mac('CR1') }}
-    BEQ LR7 CR0 last_chunk ;;
+    {{ fetch() }} ;;
+    {{ mac('CR1', 'ACC.ADD.FIRST') }} ; {{ fetch() }} ;;
+    {{ mac('CR1') }} ; BEQ LR7 CR0 last_chunk ;;
 chunk:
     {{ reduce('LR9', 'full_lanes') }}
     DEC LR7 1 ;;
