@@ -77,8 +77,11 @@ def fold(module, **params):
             residual = residual - part
         return torch.cat(parts)
 
+    addend = module.op0_const0 + module.op1_const0
+    if channels % 128 == 0 and channels <= 1024:
+        addend = addend - addend.mean(dim=-1, keepdim=True)
     return {
-        "addend": planes(module.op0_const0 + module.op1_const0),
+        "addend": planes(addend),
         "gamma": planes(module.weight * variance_scale**0.5),
         "beta": planes(module.bias),
         "stats": torch.cat([
