@@ -1,8 +1,10 @@
 {# LR1 selects the spatial element in the packed row; LR2 selects its row
    within a channel. Each subsequent channel is one pitch farther away. #}
-{% macro part(src, acc, ctrl='') %}
-    LD.MULT.CYCLIC LR8 {{ cr.coeff }} LR0 ; INC LR8 1 ;;
-    MULT.RC.VE LR0 {{ src }} 0 LR0 {{ cr.full }}.L {{ cr.qf_coeff }}.L ; {{ acc }} {{ ctrl }} ;;
+{% macro pair(src, acc, ctrl='', advance='') %}
+    LD.MULT.CYCLIC LR8 {{ cr.coeff }} LR0 ; INC LR8 1 {{ advance }} ;;
+    {# Read the coarse coefficient before replacing it with the residual. #}
+    MULT.RC.VE LR0 {{ src }} 0 LR0 {{ cr.full }}.L {{ cr.qf_coeff }}.L ; {{ acc }} ; LD.MULT.CYCLIC LR8 {{ cr.coeff }} LR0 ; INC LR8 1 ;;
+    MULT.RC.VE LR0 {{ src }} 0 LR0 {{ cr.full }}.L {{ cr.qf_coeff }}.L ; ACC.ADD {{ ctrl }} ;;
 {% endmacro %}
 {% macro store(ds) %}
     ACTIVATE.QUANTIZE {{ act_out0 }} {{ ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR3 ; INC LR3 1 ;;
@@ -15,12 +17,10 @@ spatial:
     DEC LR8 1 ;;
 tile:
     SET LR5 LR2 ; SET LR7 CR0 ;;
-    {{ part('CR1', 'ACC.ADD.FIRST') }}
-    {{ part('CR1', 'ACC.ADD') }}
+    {{ pair('CR1', 'ACC.ADD.FIRST') }}
 channel:
     LD.MULT R0 LR5 {{ cr.in0 }} ; INC LR7 1 ;;
-    {{ part('LR1', 'ACC.ADD', '; ADD LR5 LR5 ' ~ cr.pitch) }}
-    {{ part('LR1', 'ACC.ADD', '; BLT.S LR7 ' ~ cr.k ~ ' channel') }}
+    {{ pair('LR1', 'ACC.ADD', '; BLT.S LR7 ' ~ cr.k ~ ' channel', '; ADD LR5 LR5 ' ~ cr.pitch) }}
     BLT.S LR6 {{ cr.full_tiles }} store_full ;;
     {{ store(cr.last) }}
     INC LR4 1 ; INC LR1 1 ;;
