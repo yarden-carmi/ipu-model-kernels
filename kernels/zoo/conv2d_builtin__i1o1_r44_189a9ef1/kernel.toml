@@ -7,20 +7,21 @@ choices = ["relu", "relu6"]
 default = "relu"
 [params.bias]
 type = "bool"
+choices = [true]
 default = true
 [params.cin]
 type = "int"
-min = 16
+min = 1
 max = 128
 default = 16
 [params.cout]
 type = "int"
-min = 16
+min = 1
 max = 128
 default = 16
 [params.groups]
 type = "int"
-min = 16
+min = 1
 max = 128
 default = 16
 [params.h]
@@ -50,21 +51,24 @@ type = "int"
 min = 1
 max = 2
 default = 2
+[params.in0_d0]
+type = "int"
+min = 1
+default = 1
 [derived]
-width = "w"
-width_plus_one = "w + 1"
 ho = "(h + 2 * padding - kh) // stride + 1"
 wo = "(w + 2 * padding - kw) // stride + 1"
-dsc = "ds(cout)"
-dsi = "ds(cin)"
+active = "ds(cout)"
+width = "w"
+width_plus_one = "w + 1"
 [inputs.in0]
-shape = ["h", "w", 128]
+shape = ["in0_d0 * h", "w", 128]
 range = [-2, 2]
 [inputs.weights]
 shape = [20, 128]
 range = [-1, 1]
 [outputs.out0]
-shape = ["ho", "wo", 128]
+shape = ["in0_d0 * ho", "wo", 128]
 [abi]
 in0 = "CR2"
 out0 = "CR3"
@@ -73,9 +77,9 @@ width = "CR5"
 qf_in0 = "CR6"
 qf_weights = "CR7"
 qf_out0 = "CR8"
-dsc = "CR9"
-dsi = "CR10"
+active = "CR10"
 width_plus_one = "CR11"
+in0_d0 = "CR12"
 [golden]
 tolerance = { e2 = "NX8_STEP" }
 [cases.default]

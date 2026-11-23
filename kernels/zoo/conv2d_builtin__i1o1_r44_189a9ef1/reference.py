@@ -63,40 +63,15 @@ def reference(module, *ins, _round=None, **params):
 # ---- end of the frozen reference ----
 
 
-import numpy as np
-import torch
-
-
-def _rows(rows, bits):
-    """Each row of 128 rounded to multiples of 2**(e - bits), e the exponent of the row's largest magnitude: values
-    every NX8 format with that many mantissa bits holds exactly at the row's own scale."""
-    out = np.zeros_like(rows)
-    for r in range(rows.shape[0]):
-        v = rows[r].astype(np.float64)
-        top = float(np.max(np.abs(v)))
-        if top == 0.0 or not np.isfinite(top):
-            continue
-        e = int(np.frexp(top)[1]) - 1
-        step = 2.0 ** (e - bits)
-        mag = np.minimum(np.floor(np.abs(v) / step + 0.5) * step, (2.0 - 2.0 ** -bits) * 2.0 ** e)
-        out[r] = np.sign(v) * mag
-    return out
-
-
 def fold(module, **params):
-    """20 rows of 128 lanes (channel c in lane c): tap-major (ky * 3 + kx), each a hi row then a lo row of the BN-folded
-    depthwise weights, then the folded bias as a hi row and a lo row. lo = what hi left over (exact: the host rounds it to the run's format)."""
-    w = module.op0_weight.to(torch.float64)
-    co, _, kh, kw = w.shape
-    scale = module.op1_weight.to(torch.float64) / torch.sqrt(module.op1_running_var.to(torch.float64) + 1e-5)
-    wf = (w * scale.reshape(-1, 1, 1, 1)).reshape(co, kh * kw).t().numpy()
-    b = (module.op1_bias.to(torch.float64) - module.op1_running_mean.to(torch.float64) * scale).numpy()
-    vecs = np.zeros((kh * kw + 1, 128), dtype=np.float64)
-    vecs[:kh * kw, :co] = wf
-    vecs[kh * kw, :co] = b
-    hi = _rows(vecs, 5)
-    lo = vecs - hi
-    out = np.zeros((2 * (kh * kw + 1), 128), dtype=np.float64)
-    out[0::2] = hi
-    out[1::2] = lo
-    return {'weights': out}
+    """Fold BN and split each channel-vector coefficient into hi and residual rows."""
+    weight = module.op0_weight.double()
+    scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
+    bias = module.op1_bias.double() - module.op1_running_mean.double() * scale
+    vec = weight.new_zeros((10, 128))
+    vec[:9, :weight.shape[0]] = (weight.flatten(1) * scale[:, None]).T
+    vec[9, :weight.shape[0]] = bias
+    _, exponent = torch.frexp(vec.abs().amax(dim=1, keepdim=True))
+    step = torch.exp2(exponent.double() - 6)
+    hi = vec.sign() * (vec.abs() / step + 0.5).floor().clamp(max=63) * step
+    return {'weights': torch.stack((hi, vec - hi), dim=1).reshape(20, 128)}
