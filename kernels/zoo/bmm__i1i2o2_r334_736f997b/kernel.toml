@@ -1,6 +1,6 @@
 [kernel]
 op = "bmm"
-formats = ["e1", "e2", "e3"]
+formats = ["e3"]
 
 [params]
 b = {type="int", min=1, max=32767, default=6}
@@ -9,50 +9,59 @@ m = {type="int", min=1, max=32767, default=257}
 n = {type="int", min=1, max=32767, default=257}
 in0_d0 = {type="int", min=1, max=32767, default=1}
 in0_d1 = {type="int", min=1, max=32767, default=257}
-in0_d2 = {type="int", min=1, max=65535, default=384}
+in0_d2 = {type="int", min=1, max=4193920, default=384}
 in1_d0 = {type="int", min=1, max=32767, default=1}
 in1_d1 = {type="int", min=1, max=32767, default=257}
-in1_d2 = {type="int", min=1, max=65535, default=384}
+in1_d2 = {type="int", min=1, max=4193920, default=384}
 out0_d0 = {type="int", min=1, max=32767, default=1}
 out0_d1 = {type="int", min=1, max=32767, default=6}
 out0_d2 = {type="int", min=1, max=32767, default=257}
 out0_d3 = {type="int", min=1, max=32767, default=257}
 
 [inputs.in0]
-shape = ["in0_d0", "in0_d2", "atiles*128"]
+shape = ["in0_d0", "in0_d2", "ceil(in0_d1/128)*128"]
 range = [-1, 1]
 [inputs.in1]
 shape = ["in1_d0", "in1_d1", "bstride*128"]
 range = [-1, 1]
 [outputs.out0]
 shape = ["out0_d0", "out0_d1", "out0_d3", "ceil(out0_d2/128)*128"]
-
 [derived]
-atiles = "ceil(in0_d1/128)"
 bstride = "ceil(in1_d2/128)"
-strides = "atiles+65536*bstride"
-sizes = "k+65536*n"
-counts = "out0_d1+65536*out0_d0"
-out_ds = "ds(128)+65536*ds((m-1)%128+1)"
-astep = "k*atiles"
-askip = "(in0_d2-out0_d1*k)*atiles"
-bskip = "in1_d1*bstride-(out0_d1*k)//128"
-out_tiles = "ceil(m/128)"
+tiles = "ceil(m/128)"
+ds = "ds(128) + 65536*ds((m-1)%128+1)"
+columns_heads = "n + 65536*out0_d1"
+group_stride = "out0_d0 + 65536*bstride"
+head_rows = "k*tiles"
+askip = "(in0_d2-k*out0_d1)*tiles"
 
 [abi]
 in0 = "CR2"
 in1 = "CR3"
 out0 = "CR4"
-out_tiles = "CR5"
-qf_in0 = "CR6"
-qf_in1 = "CR7"
-qf_out0 = "CR8"
-out_ds = "CR9"
-astep = "CR10"
-sizes = "CR11"
-strides = "CR12"
-counts = "CR13"
-askip = "CR14"
-bskip = "CR15"
+k = "CR5"
+tiles = "CR6"
+ds = "CR8"
+columns_heads = "CR9"
+group_stride = "CR10"
+qf_in0 = "CR11"
+qf_in1 = "CR12"
+qf_out0 = "CR13"
+head_rows = "CR14"
+askip = "CR15"
 
 [cases.default]
+b = 3
+k = 50
+m = 129
+n = 7
+in0_d0 = 2
+in0_d1 = 129
+in0_d2 = 150
+in1_d0 = 2
+in1_d1 = 7
+in1_d2 = 150
+out0_d0 = 2
+out0_d1 = 3
+out0_d2 = 129
+out0_d3 = 7
