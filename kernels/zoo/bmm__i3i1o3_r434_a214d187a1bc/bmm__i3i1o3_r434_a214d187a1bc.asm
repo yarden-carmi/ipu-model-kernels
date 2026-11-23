@@ -14,17 +14,24 @@ tile:
     SET LR11 LR7 ; BLE.S LR7 LR14 first ;;
     SET LR11 LR14 ;;
 first:
-    BGT.S LR10 LR14 first_full ;;
+    DEC LR11 3 ; BGT.S LR10 LR14 first_full ;;
     B first_tail ;;
+
+{% macro dot(half, first) %}
+    MULT.RC.VV LR15 R0 0 LR15 {{ cr.kd }}.{{ half }} {{ cr.qf_in0 }}.L ; AGG.SUM{{ '.FIRST' if first else '' }} LR12 {{ cr.kd }}.{{ half }} ; INC LR12 1 ; ADD LR13 LR13 {{ cr.stride }}.L
+{%- endmacro %}
 
 {% macro columns(tag, half, first) %}
 {{ tag }}:
     SET LR12 CR0 ; SET LR13 LR9 ; LD.MULT R0 LR8 {{ cr.in0 }} ;;
+    DEC LR12 1 ; LD.MULT.CYCLIC LR13 {{ cr.in1 }} LR15 ;;
+    BLT.S LR11 LR12 {{ tag }}_last ;;
+    {# Branch reads the old slot; AGG and the load use the updated slot and pointer.
+       Leave the last prefetched column for a drain word with no load. #}
 {{ tag }}_col:
-    LD.MULT.CYCLIC LR13 {{ cr.in1 }} LR15 ;;
-    MULT.RC.VV LR15 R0 0 LR15 {{ cr.kd }}.{{ half }} {{ cr.qf_in0 }}.L ; AGG.SUM{{ '.FIRST' if first else '' }} LR12 {{ cr.kd }}.{{ half }} ; ADD LR13 LR13 {{ cr.stride }}.L ;;
-    INC LR12 1 ;;
-    BLT.S LR12 LR11 {{ tag }}_col ;;
+    {{ dot(half, first) }} ; LD.MULT.CYCLIC LR13 {{ cr.in1 }} LR15 ; BLT.S LR12 LR11 {{ tag }}_col ;;
+{{ tag }}_last:
+    {{ dot(half, first) }} ;;
 {% if half == 'L' %}
     INC LR8 1 ; ADD LR9 LR9 CR1 ; SUB LR10 LR10 LR14 ;;
     BGT.S LR10 LR14 more_full ;;
