@@ -77,7 +77,9 @@
  {{ label }}_low:
  ADDB LRD2 LR11 ; SET LR12 CR0 ;;
  {% set offset = T * mhi - 128 * h %}
- {% for k in range((offset + 126) // 127) %}ADDBI LRD2 {{ [127,offset - 127 * k]|min }} ;;{% endfor %}
+ {% set piped = step <= 255 and T <= 128 %}
+ {% set updates %}{% if rows % channels %}INC LR8 {{ rows % channels }} ; {% endif %}INC LR11 1 ; {% endset %}
+ {% for k in range((offset + 126) // 127) %}ADDBI LRD2 {{ [127,offset - 127 * k]|min }} ;{% if not (piped and loop.last) %};{% endif %}{% endfor %}
  {% if step <= 255 and T <= 128 %}
  {# Prime R0, then load the next source row while scattering the current one. #}
  DEC LR10 {{ step }} ; LD.MULT R0 LR10 {{ cr.in0 }}{% if n > 1 %} ; INC LR12 {{ n - 1 }}{% endif %} ;;
@@ -85,7 +87,7 @@
  {{ label }}_pipe:
  DEC LR10 {{ step }} ; ADDBI LRD2 -{{ T }} ; DEC LR12 1 ; LD.MULT R0 LR10 {{ cr.in0 }} ; MULT.EE LR6 CR1 0 LR0 CR15.L {{ q }} ; ACC.RESHAPE LRD0 LRD2 7 ; BLT.S CR1 LR12 {{ label }}_pipe ;;
  {% endif %}
- ADDBI LRD2 -{{ T }} ; MULT.EE LR6 CR1 0 LR0 CR15.L {{ q }} ; ACC.RESHAPE LRD0 LRD2 7 ;;
+ ADDBI LRD2 -{{ T }} ; {{ updates }}MULT.EE LR6 CR1 0 LR0 CR15.L {{ q }} ; ACC.RESHAPE LRD0 LRD2 7 ;;
  {% else %}
  {{ adj('LR12',n) }}
 {{ label }}_elem:
@@ -93,9 +95,9 @@
  {% if T > 128 %}ADDBI LRD2 -128 ;;{% endif %}
  {% if step <= 255 %}DEC LR10 {{ step }} ; {% endif %}ADDBI LRD2 -{{ T if T <= 128 else T - 128 }} ; DEC LR12 1 ; LD.MULT R0 LR10 {{ cr.in0 }} ;;
  MULT.EE LR6 CR1 0 LR0 CR15.L {{ q }} ; ACC.RESHAPE LRD0 LRD2 7 ; BNE LR12 CR0 {{ label }}_elem ;;
+ {{ updates }};
  {% endif %}
- {% if 2 * (rows // channels) %}INC LR7 {{ 2 * (rows // channels) }} ; {% endif %}{% if rows % channels %}INC LR8 {{ rows % channels }} ; {% endif %}INC LR11 1 ;;
- BLT.S LR8 {{ cr.cC }} {{ label }}_next ;;
+ {% if 2 * (rows // channels) %}INC LR7 {{ 2 * (rows // channels) }} ; {% endif %}BLT.S LR8 {{ cr.cC }} {{ label }}_next ;;
  SUB LR8 LR8 {{ cr.cC }} ; INC LR7 2 ;;
 {{ label }}_next:
  BNE LR11 LR14 {{ label }}_group ;;
@@ -188,7 +190,7 @@ variance_parts:
  LD.MULT R0 LR1 {{ cr.tmp }} ;;
  {{ scalar('SUB') }}{{ save(22,1) }}
 
- {# Refine the approximate inverse standard deviation twice. #}
+ {# Refine the approximate inverse standard deviation and keep three residual pieces. #}
  {{ load(8,true) }}{{ load(8) }}{{ mul(first=true) }}{{ save(13) }}
  {{ product(11,13,15) }}
  {{ load(8,true) }}{{ load(15) }}{{ mul(first=true) }}
@@ -197,17 +199,7 @@ variance_parts:
  MULT.RC.VE LR0 CR1 0 LR0 CR15.L {{ q }} ; ACC.ADD.FIRST ;;
  MULT.RC.VE LR0 {{ cr.half }} 0 LR0 CR15.L {{ q }} ; ACC.ADD ;;
  {% for n in [17,18] %}{{ load(n) }}{{ scalar('SUB',imm=cr.half) }}{% endfor %}
- {{ save(19) }}
- {{ product(19,19,13) }}{{ product(11,13,15) }}{{ product(19,15,17) }}
- {% for n in [19,20] %}
- {{ load(n,true) }}
- MULT.RC.VE LR0 CR1 0 LR0 CR15.L {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %} ;;
- MULT.RC.VE LR0 {{ cr.half }} 0 LR0 CR15.L {{ q }} ; ACC.ADD ;;
- {% endfor %}
- {% for n in [17,18] %}{{ load(n) }}{{ scalar('SUB',imm=cr.half) }}{% endfor %}
- {{ save(19) }}
- LD.MULT R0 LR1 {{ cr.tmp }} ;;
- {{ scalar('SUB') }}{{ save(21,1) }}
+ {{ save(19,3) }}
 
  SET LR5 LR14 ; SET LR15 LR2 ; SET LR11 CR0 ;;
  SET LR6 LR14 ;;
