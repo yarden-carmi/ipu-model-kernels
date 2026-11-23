@@ -5,76 +5,83 @@ formats = ["e1"]
 [params.n]
 type = "int"
 min = 1
-max = 128
-default = 64
+max = 4096
+default = 257
 [params.rows]
 type = "int"
 min = 1
-max = 8192
-default = 512
+default = 1542
 [params.in0_d0]
 type = "int"
+min = 1
 default = 1
 [params.in0_d1]
 type = "int"
-default = 8
+min = 1
+default = 6
 [params.in0_d2]
 type = "int"
 min = 1
-max = 128
-default = 64
+default = 257
 [params.in0_d3]
 type = "int"
 min = 1
-max = 128
-default = 64
+default = 257
 [params.out0_d0]
 type = "int"
+min = 1
 default = 1
 [params.out0_d1]
 type = "int"
-default = 8
+min = 1
+default = 6
 [params.out0_d2]
 type = "int"
 min = 1
-max = 128
-default = 64
+default = 257
 [params.out0_d3]
 type = "int"
 min = 1
-max = 128
-default = 64
-
+default = 257
 [derived]
-active = "ds(128)"
-part = "ds(n)"
-outpart = "ds(out0_d2)"
-scratch_qf = "312 * 65536 + 344"
-plane_qf = "88 * 65536 + 344"
+K = "ceil(n / 128)"
+M = "rows * K"
+row_group = "out0_d2 * K"
+out_k = "ceil(out0_d2 / 128)"
+full = "ds(128)"
+tail = "ds(n - (K - 1) * 128)"
+tail_qf = "328 * 65536 + tail"
+out_tail = "ds(out0_d2 - (out_k - 1) * 128)"
+scratch_qf = "312 * 65536 + 56"
+out_tail_qf = "56 * 65536 + out_tail"
 
 [inputs.in0]
-shape = ["in0_d0", "in0_d1", "in0_d2", 128]
+shape = ["in0_d0", "in0_d1", "in0_d2", "ceil(in0_d3 / 128)", 128]
 range = [-2, 2]
 [outputs.out0]
-shape = ["out0_d0", "out0_d1", "out0_d3", 128]
+shape = ["out0_d0", "out0_d1", "out0_d3", "out_k", 128]
 [scratch.tmp]
-shape = [14, 128]
+shape = [12, 128]
+[scratch.roots]
+shape = ["K", 128]
 [scratch.norm]
-shape = [3, "rows", 128]
+shape = [3, "M", 128]
 
 [abi]
 in0 = "CR2"
 out0 = "CR3"
+scratch_qf = "CR4"
 tmp = "CR5"
 qf_in0 = "CR6"
-plane_qf = "CR7"
-rows = "CR8"
-scratch_qf = "CR9"
+K = "CR7"
+M = "CR8"
+norm = "CR9"
 qf_out0 = "CR10"
-outpart = "CR12"
-norm = "CR13"
-part = "CR14"
-active = "CR15"
+roots = "CR11"
+row_group = "CR12"
+out_tail_qf = "CR13"
+tail_qf = "CR14"
+full = "CR15"
 out0_d2 = "LR14"
 n = "LR15"
 
