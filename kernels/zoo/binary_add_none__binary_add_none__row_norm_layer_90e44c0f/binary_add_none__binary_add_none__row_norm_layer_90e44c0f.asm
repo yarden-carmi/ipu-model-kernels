@@ -39,20 +39,18 @@
  {% endfor %}
 {% endmacro %}
 {% macro save(n,count=2) %}{{ at('LR1',n) }}{{ split('LR1',count) }}{% endmacro %}
-{% macro average(label) %}
+{# AGG leaves the sum in lane zero. Broadcast each residual directly
+   from R0 while multiplying by a plane of the reciprocal channel count. #}
+{% macro average() %}
  {{ save(0,3) }}
- SET LR1 CR0 ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
- {% for j in range(3) %}
- MULT.EE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %}{% if not loop.last %} ; LD.MULT R0 LR1 {{ cr.tmp }} ; INC LR1 1{% endif %} ;;
+ {% for stat in ['LR0','LR8','LR12'] %}
+ LD.MULT.CYCLIC {{ stat }} {{ cr.stats }} LR0 ;;
+ LD.MULT R0 LR0 {{ cr.tmp }} ;;
+ {% set first_stat = loop.first %}
+ {% for next in ['LR8','LR12',''] %}
+ MULT.RC.VE LR0 LR0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if first_stat and loop.first %}.FIRST{% endif %}{% if next %} ; LD.MULT R0 {{ next }} {{ cr.tmp }}{% endif %} ;;
  {% endfor %}
- {{ save(3,3) }}
- {{ at('LR10') }}{{ at('LR7',3) }}{{ clear() }}
-{{ label }}:
- LD.MULT.CYCLIC LR10 {{ cr.stats }} LR0 ; SET LR1 CR0 ;;
- INC LR1 3 ;;
- {{ dot(3) }}
- INC LR10 1 ;;
- BLT.S LR10 LR7 {{ label }} ;;
+ {% endfor %}
 {% endmacro %}
 {% macro added(reduce=false) %}
  LD.MULT R0 LR5 {{ cr.in0 }} ; SET LR10 LR5 ;;
@@ -71,6 +69,8 @@
 {% endmacro %}
 
  SET LR0 CR0 ; SET LR2 CR0 ;;
+ SET LR8 CR1 ; SET LR12 CR1 ;;
+ INC LR12 1 ;;
 row_loop:
  ADD LR6 LR2 {{ cr.K }} ; SET LR5 LR2 ;;
  {{ clear() }}
@@ -78,7 +78,7 @@ sum_loop:
  {{ added(true) }}
  INC LR5 1 ;;
  BLT.S LR5 LR6 sum_loop ;;
- {{ average('mean_scale') }}{{ save(6,3) }}
+ {{ average() }}{{ save(6,3) }}
 
  {{ reset() }}
  DEC LR6 1 ;;
@@ -101,7 +101,7 @@ variance_loop:
  {% endfor %}
   INC LR9 2 ; INC LR5 1 ;;
  BLT.S LR5 LR6 variance_loop ;;
- {{ average('variance_scale') }}
+ {{ average() }}
  {{ at('LR1',3) }}
  LD.MULT R0 LR1 {{ cr.stats }} ;;
  {{ vec() }}
