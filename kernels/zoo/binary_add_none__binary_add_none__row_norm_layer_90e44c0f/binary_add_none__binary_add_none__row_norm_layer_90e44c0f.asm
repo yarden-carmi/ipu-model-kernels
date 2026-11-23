@@ -3,6 +3,9 @@
 {% set full = 'CR15.L' %}
 {% set tail = cr.tail ~ '.L' %}
 {% set aligned = s2_channels % 128 == 0 %}
+{% set chunks = (s2_channels + 127) // 128 %}
+{# Keep long or tail-bearing channel axes on the bounded-size runtime path. #}
+{% set pipeline = aligned and chunks <= 8 %}
 {% macro at(reg,n=0) %}
  SET {{ reg }} CR0 ;;
  {% if n %}INC {{ reg }} {{ n }} ;;{% endif %}
@@ -76,8 +79,41 @@
  INC LR12 1 ; SET LR14 CR0 ; SET LR15 CR0 ;;
  INC LR14 128 ; INC LR15 128 ;;
  INC LR15 128 ; SET LR7 CR0 ;;
- INC LR7 12 ;;
+ INC LR7 12 ; SET LR4 CR0 ;;
+ INC LR4 6 ;;
 row_loop:
+{% if pipeline %}
+ {# One row ahead through the input and both addend planes. #}
+ LD.MULT R0 LR2 {{ cr.in0 }} ; SET LR5 LR2 ; ADD LR6 LR2 {{ cr.K }} ; SET LR10 LR2 ;;
+ {% for j in range(chunks) %}
+ {{ vec(first=loop.first,fmt=iq,reduce=true,next='; LD.MULT R0 LR10 ' ~ cr.addend ~ ' ; SET LR10 LR5') }}
+ {{ vec(reduce=true,next='; LD.MULT R0 LR10 ' ~ cr.addend ~ ' ; ADD LR10 LR10 LR13') }}
+ {{ vec(reduce=true,next='; LD.MULT R0 LR5 ' ~ cr.in0 ~ ' ; INC LR5 1' if not loop.last else '; SET LR1 CR0') }}
+ {% endfor %}
+ {{ average('; SET LR1 CR0 ; SET LR5 LR2 ; SET LR9 CR0') }}
+ {{ split('LR1',3,setup='; INC LR1 6 ; INC LR9 32') }}
+ {# Center and split each chunk, prefetching the next input on the low store. #}
+ LD.MULT R0 LR5 {{ cr.in0 }} ;;
+ {% for j in range(chunks) %}
+ {{ vec(first=true,fmt=iq,next='; LD.MULT R0 LR10 ' ~ cr.addend ~ ' ; SET LR10 LR5' ~ (' ; INC LR9 1' if not loop.first else '')) }}
+ {{ vec(next='; LD.MULT R0 LR10 ' ~ cr.addend ~ ' ; ADD LR10 LR10 LR13') }}
+ {{ vec(next='; LD.MULT R0 LR1 ' ~ cr.tmp ~ ' ; SET LR1 LR4') }}
+ {% for p in range(3) %}
+ {{ vec('SUB',next='; LD.MULT R0 LR1 ' ~ cr.tmp ~ ' ; INC LR1 1' if not loop.last else '; ' ~ aq('LR9')) }}
+ {% endfor %}
+ LD.MULT R0 LR9 {{ cr.tmp }} ;;
+ {{ vec('SUB',next='; ' ~ aq('LR9') ~ ' ; INC LR9 1' ~ (' ; LD.MULT R0 LR5 ' ~ cr.in0 ~ ' ; INC LR5 1' if not loop.last else '')) }}
+ {% endfor %}
+ SET LR9 CR0 ;;
+ {# Accumulate high² + 2*high*low + low², then prefetch the next high plane. #}
+ {{ vec(first=true,imm='CR0',next='; LD.MULT.CYCLIC LR9 ' ~ cr.tmp ~ ' LR0 ; INC LR9 32') }}
+ {% for j in range(chunks) %}
+ MULT.RC.VS LR0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ full }} ; LD.MULT R0 LR9 {{ cr.tmp }} ; INC LR9 1 ;;
+ MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ full }} ; LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR14 ;;
+ MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ full }} ;;
+ MULT.RC.VS LR14 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ full }} {% if not loop.last %}; LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ; INC LR9 1{% else %}; SET LR1 CR0{% endif %} ;;
+ {% endfor %}
+{% else %}
  {{ summed(true,'; ADD LR6 LR2 ' ~ cr.K ~ ' ; SET LR5 LR2') }}
 {% if s2_channels > 128 %}
 sum_loop:
@@ -110,6 +146,7 @@ variance_loop:
  MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ full }} ; LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR14 ;;
  MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ full }} ; INC LR5 1 ; INC LR9 1 ;;
  MULT.RC.VS LR14 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ full }} ; SET LR1 CR0 ; BLT.S LR5 LR6 variance_loop ;;
+{% endif %}
  {{ average('; SET LR1 CR0') }}
  LD.MULT R0 LR1 {{ cr.stats }} ; INC LR1 2 ;;
  {{ vec(next='; ACTIVATE.QUANTIZE rsqrt ' ~ full ~ ' ' ~ q ~ ' ' ~ cr.tmp ~ ' LR7') }}
@@ -137,11 +174,12 @@ variance_loop:
  ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ; SET LR3 CR0 ; SET LR5 LR2 ; SET LR9 CR0 ;;
  LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR15 ; INC LR3 20 ; INC LR9 32 ; SET LR11 CR0 ;;
 
- DEC LR6 1 ;;
-output_loop:
+{% macro output_chunk(pipelined=false,first=false,last=false) %}
+ {% if not pipelined %}
  LD.MULT R0 LR11 {{ cr.gamma }} ; SET LR10 LR11 ;;
+ {% endif %}
  {% for part in range(2) %}
- {{ mul(first=loop.first,slot='LR14') }}
+  {{ mul(first=loop.first,slot='LR14',next=('; SET LR10 LR11' ~ (' ; INC LR5 1' if not first else '')) if pipelined and loop.first else '') }}
  {{ mul(slot='LR15',next='; LD.MULT R0 LR10 ' ~ cr.gamma ~ ' ; ADD LR10 LR10 ' ~ cr.K if not loop.last else '; ' ~ aq('LR3') ~ ' ; SET LR1 LR3') }}
  {% endfor %}
  LD.MULT R0 LR3 {{ cr.tmp }} ; INC LR1 1 ;;
@@ -154,15 +192,28 @@ output_loop:
  MULT.RC.VV LR0 R1 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; LD.MULT R0 LR1 {{ cr.beta }} ; SET LR1 LR11 ;;
  {% if aligned %}
  {{ vec(next='; LD.MULT R0 LR1 ' ~ cr.beta ~ ' ; ADD LR1 LR1 ' ~ cr.K) }}
-  {{ vec(next='; ' ~ store(full)) }}
- INC LR5 1 ; INC LR11 1 ; BLT.S LR5 LR6 output_loop ;;
+   {{ vec(next='; ' ~ store(full) ~ (' ; LD.MULT R0 LR11 ' ~ cr.gamma ~ ' ; INC LR11 1' if pipelined and not last else '')) }}
  {% else %}
  {{ vec(next='; LD.MULT R0 LR1 ' ~ cr.beta ~ ' ; ADD LR1 LR1 ' ~ cr.K) }}
   {{ vec() }}
  BNE LR5 LR6 output_full ;;
- {{ store(tail) }} ;;
+  {{ store(tail) }} ;;
  {% endif %}
+{% endmacro %}
+{% if pipeline %}
+ {# Subsequent gamma highs are fetched in the preceding output store. #}
+ LD.MULT R0 LR11 {{ cr.gamma }} ;;
+ {% for j in range(chunks) %}
+ {{ output_chunk(true,loop.first,loop.last) }}
+ {% endfor %}
+ SET LR2 LR6 ;;
+{% else %}
+ DEC LR6 1 ;;
+output_loop:
+ {{ output_chunk() }}
+ {% if aligned %}INC LR5 1 ; INC LR11 1 ; BLT.S LR5 LR6 output_loop ;;{% endif %}
  ADD LR2 LR6 CR1 ;;
+{% endif %}
  BLT.S LR2 LR13 row_loop ;;
  HALT ;;
 {% if not aligned %}
