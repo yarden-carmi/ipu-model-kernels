@@ -10,7 +10,7 @@
 {% endmacro %}
     SET LR0 CR0 ; SET LR8 CR0 ; SET LR9 CR0 ;;
     SET LR15 LR14 ;;
-    // Make the sixteen disjoint eight-lane selectors in scratch.
+    // Make eight disjoint sixteen-lane selectors in scratch.
     MULT.VE LR0 CR0 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE exp2 {{ full }} {{ q }} {{ tile }} LR0 ;;
     LD.MULT R0 LR0 {{ tile }} ; SET LR6 LR2 ; SET LR7 LR3 ; SET LR1 CR0 ;;
     // The correction scalar decodes to zero in NX8. In FP32 it cancels
@@ -21,9 +21,11 @@
     {% endfor %}
     LD.MULT R0 LR0 {{ tile }} ;;
     SET LR10 CR0 ; SET LR11 CR0 ; SET LR13 CR0 ;;
-    INC LR13 15 ;;
+    INC LR13 7 ;;
 mask:
     MULT.VE LR0 CR0 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ;;
+    MULT.EE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.RESHAPE LRD10 LRD6 0 ;;
+    ADDBI LRD6 8 ;;
     MULT.EE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.RESHAPE LRD10 LRD6 0 ; {{ save(full) }} ;;
     ADDBI LRD6 8 ; INC LR1 1 ; BLT.S LR1 LR13 mask ;;
 
@@ -31,18 +33,19 @@ tile_rows:
     SET LR6 LR8 ; SET LR7 LR15 ;;
 tile_chunk:
     SET LR1 CR0 ; SET LR13 CR0 ;;
-    INC LR1 16 ; INC LR13 63 ;;
+    INC LR1 16 ; INC LR13 39 ;;
 pack:
-    // Each column contributes eight lanes to an 8x8 transposed tile.
-    LD.MULT R0 LR6 {{ cr.in0 }} ; MULT.VE LR0 CR0 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ;;
-    {% for col in range(8) %}
+    // Each column contributes eight lanes to an 8x16 transposed tile.
+    // The reshapes overwrite all 128 accumulator lanes.
+    LD.MULT R0 LR6 {{ cr.in0 }} ;;
+    {% for col in range(16) %}
     MULT.VE LR0 {{ cr.lift }} 0 LR0 {{ full }} {{ q }} ; ACC.RESHAPE LRD2 LRD4 0 ;
     ADD LR6 LR6 {{ cr.blocks }} ; {% if col %}ADDBI LRD4 1 ;{% endif %}
     {% if not loop.last %}LD.MULT R0 LR6 {{ cr.in0 }} ;{% else %}{{ save(cr.tail ~ '.H') }}{% endif %} ;;
     {% endfor %}
     // Store successive residuals so repacking does not round the operand
     // to a new shared row scale before the addition.
-    LD.MULT R0 LR1 {{ tile }} ; ADDBI LRD4 -7 ;;
+    LD.MULT R0 LR1 {{ tile }} ; ADDBI LRD4 -15 ;;
     MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB ; INC LR1 1 ; {{ save(full) }} ;;
     LD.MULT R0 LR1 {{ tile }} ;;
     MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB ; INC LR1 1 ; {{ save(full) }} ;;
@@ -51,17 +54,17 @@ pack:
     SET LR11 LR10 ; SET LR12 CR0 ;;
 emit:
     SET LR1 CR0 ; SET LR13 CR0 ; SET LR14 LR12 ;;
-    LD.MULT R0 LR13 {{ tile }} ; INC LR1 16 ; INC LR14 8 ;;
+    LD.MULT R0 LR13 {{ tile }} ; INC LR1 16 ; INC LR14 16 ;;
     MULT.VE LR0 CR0 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ;;
-    {% for group in range(16) %}
+    {% for group in range(8) %}
     // Align one slice of this tile to its output lanes; select only that slice.
-    LD.MULT.CYCLIC LR1 {{ tile }} LR0 ; DEC LR14 8 ;;
+    LD.MULT.CYCLIC LR1 {{ tile }} LR0 ; DEC LR14 16 ;;
     {{ tile_product() }} LD.MULT.CYCLIC LR1 {{ tile }} LR0 ; INC LR1 1 ;;
     {{ tile_product() }} LD.MULT.CYCLIC LR1 {{ tile }} LR0 ; INC LR1 1 ;;
     {{ tile_product() }} INC LR1 1 ; {% if not loop.last %}LD.MULT R0 LR13 {{ tile }} ; INC LR13 1 ;{% else %}LD.MULT R0 LR11 {{ cr.in1 }} ; SET LR13 CR0 ;{% endif %} ;;
     {% endfor %}
-    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ cr.qf_in1 }}.L ; ACC.ADD ; ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ full }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR11 ; INC LR13 56 ;;
-    ADD LR11 LR11 LR15 ; INC LR12 8 ; BLT.S LR12 LR13 emit ;;
+    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ cr.qf_in1 }}.L ; ACC.ADD ; ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ full }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR11 ; INC LR13 112 ;;
+    ADD LR11 LR11 LR15 ; INC LR12 16 ; BLT.S LR12 LR13 emit ;;
     INC LR10 1 ; DEC LR7 1 ; BNE LR7 CR1 tile_chunk ;;
     // Restart at column zero for the next tile of eight logical rows.
     {% for delta in range(7) %}
