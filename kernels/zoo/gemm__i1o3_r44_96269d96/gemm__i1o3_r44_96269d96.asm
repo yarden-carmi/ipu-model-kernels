@@ -1,3 +1,4 @@
+{# One output row holds a horizontal span for a single output channel. #}
 {% macro weight(slot) %}LD.MULT.CYCLIC LR4 {{ cr.w }} {{ slot }} ; INC LR4 1{% endmacro %}
 {% macro init(mode) %}MULT.RC.VE LR0 CR1 0 LR0 {{ cr.store_ds }}.L {{ cr.qf_in0 }}.L ; ACC.{{ mode }}{% endmacro %}
 {% macro dot(slot) %}MULT.RC.VV {{ slot }} R0 0 LR0 {{ cr.dot_ds }}.L {{ cr.qf_in0 }}.L ; AGG.SUM LR3 {{ cr.dot_ds }}.L{% endmacro %}
