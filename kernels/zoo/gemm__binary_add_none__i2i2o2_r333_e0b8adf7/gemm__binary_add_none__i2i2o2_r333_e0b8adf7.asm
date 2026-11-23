@@ -11,11 +11,6 @@
 {% macro flat_even(first=false) %}
     {{ scatter('LR12') }} ; LD.MULT R0 LR3 {{ cr.in1 }} ; ADD LR3 LR3 {{ cr.stepq }} {% if not first %}; ADDBI LRD14 1{% endif %}; BNE LR2 CR0 flat_odd ;;
 {% endmacro %}
-{% macro dot(s, stream=false) %}
-{% for i in range(2) %}
-    MULT.RC.VE LR0 {{s}} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; LD.MULT.CYCLIC LR14 {{ cr.w }} LR0 ; INC LR14 1 {% if stream and i == 0 %}; INC LR3 1{% endif %}{% if stream and i == 1 %}; BNE LR3 LR4 lane{% endif %} ;;
-{% endfor %}
-{% endmacro %}
 {% macro store(ds) %}
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ds}}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR5 ; INC LR5 1 ;;
 {% endmacro %}
@@ -57,6 +52,7 @@ flat_last:
 {% else %}
 {# Quotient and remainder of residual view address b+B*p+M*c. #}
 gather:
+    SET LR14 CR0 ; SET LR15 CR0 ;;
 {% if flat %}
 {# Single-element fallback for an odd output width. #}
     LD.MULT R0 LR11 {{ cr.in1 }} ; DEC LR2 1 ;;
@@ -89,26 +85,27 @@ weight_tile:
 weight_ready:
 {% endif %}
     SET LR2 LR8 ; SET LR15 CR0 ;;
-    INC LR15 {{chunks}} ; LD.MULT.CYCLIC LR14 {{ cr.w }} LR0 ; INC LR14 1 ;;
-{{ dot('CR1') }}
+    LD.MULT.CYCLIC LR14 {{ cr.w }} LR0 ; INC LR14 1 ; INC LR15 {{chunks}} ;;
+    MULT.RC.VE LR0 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; LD.MULT.CYCLIC LR14 {{ cr.w }} LR0 ; INC LR14 1 ;;
 chunk:
     LD.MULT R0 LR2 {{ cr.in0 }} ; INC LR2 1 ; DEC LR15 1 ; SET LR4 {{ cr.slot }} ;;
-    DEC LR4 1 ; SET LR3 CR0 ; BNE LR15 CR0 start_lane ;;
+    DEC LR4 2 ; SET LR3 CR0 ; BNE LR15 CR0 start_lane ;;
     SET LR4 CR0 ;;
 {% if (s0_k - 1) % 128 %}
     INC LR4 {{ (s0_k - 1) % 128 }} ;;
 {% endif %}
+    DEC LR4 1 ;;
 start_lane:
     DEC LR3 1 ;;
 lane:
-{{ dot('LR3', true) }}
+    MULT.RC.VE LR0 LR3 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; LD.MULT.CYCLIC LR14 {{ cr.w }} LR0 ; INC LR14 1 ; INC LR3 1 ; BLT.S LR3 LR4 lane ;;
     BNE LR15 CR0 chunk ;;
     BEQ LR6 CR0 last_tile ;;
 {{ store(cr.full) }}
     B tile ;;
 last_tile:
 {{ store(cr.tail) }}
-    SET LR8 LR2 ; DEC LR13 1 ;;
+    INC LR8 {{chunks}} ; DEC LR13 1 ;;
     BNE LR13 CR0 next_position ;;
     INC LR7 1 ; SET LR3 CR0 ;;
     INC LR3 {{out0_d0}} ;;
