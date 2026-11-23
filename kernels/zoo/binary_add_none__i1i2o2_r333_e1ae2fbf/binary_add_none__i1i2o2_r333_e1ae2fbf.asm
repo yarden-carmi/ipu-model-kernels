@@ -5,8 +5,8 @@
 {% macro save(part_ds) %}
     ACTIVATE.QUANTIZE identity {{ part_ds }} {{ q }} {{ tile }} LR1 ;
 {% endmacro %}
-{% macro tile_product() %}
-    MULT.RC.VV LR14 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD ;
+{% macro tile_product(first=false) %}
+    MULT.RC.VV LR14 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if first %}.FIRST{% endif %} ;
 {% endmacro %}
     SET LR0 CR0 ; SET LR8 CR0 ; SET LR9 CR0 ;;
     SET LR15 LR14 ;;
@@ -24,19 +24,18 @@
     INC LR13 7 ;;
 mask:
     MULT.VE LR0 CR0 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ;;
-    MULT.EE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.RESHAPE LRD10 LRD6 0 ;;
-    ADDBI LRD6 8 ;;
-    MULT.EE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.RESHAPE LRD10 LRD6 0 ; {{ save(full) }} ;;
+    {% for half in range(2) %}
+    MULT.EE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.RESHAPE LRD10 LRD6 0 ; {% if half %}ADDBI LRD6 8 ; {{ save(full) }}{% endif %} ;;
+    {% endfor %}
     ADDBI LRD6 8 ; INC LR1 1 ; BLT.S LR1 LR13 mask ;;
 
 tile_rows:
     SET LR6 LR8 ; SET LR7 LR15 ;;
 tile_chunk:
     SET LR1 CR0 ; SET LR13 CR0 ;;
-    INC LR1 16 ; INC LR13 39 ;;
+    INC LR1 8 ; INC LR13 31 ;;
 pack:
-    // Each column contributes eight lanes to an 8x16 transposed tile.
-    // The reshapes overwrite all 128 accumulator lanes.
+    // Sixteen columns fill all 128 lanes of an 8x16 transposed tile.
     LD.MULT R0 LR6 {{ cr.in0 }} ;;
     {% for col in range(16) %}
     MULT.VE LR0 {{ cr.lift }} 0 LR0 {{ full }} {{ q }} ; ACC.RESHAPE LRD2 LRD4 0 ;
@@ -54,12 +53,11 @@ pack:
     SET LR11 LR10 ; SET LR12 CR0 ;;
 emit:
     SET LR1 CR0 ; SET LR13 CR0 ; SET LR14 LR12 ;;
-    LD.MULT R0 LR13 {{ tile }} ; INC LR1 16 ; INC LR14 16 ;;
-    MULT.VE LR0 CR0 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ;;
+    LD.MULT R0 LR13 {{ tile }} ; INC LR1 8 ; INC LR14 16 ;;
     {% for group in range(8) %}
     // Align one slice of this tile to its output lanes; select only that slice.
     LD.MULT.CYCLIC LR1 {{ tile }} LR0 ; DEC LR14 16 ;;
-    {{ tile_product() }} LD.MULT.CYCLIC LR1 {{ tile }} LR0 ; INC LR1 1 ;;
+    {{ tile_product(loop.first) }} LD.MULT.CYCLIC LR1 {{ tile }} LR0 ; INC LR1 1 ;;
     {{ tile_product() }} LD.MULT.CYCLIC LR1 {{ tile }} LR0 ; INC LR1 1 ;;
     {{ tile_product() }} INC LR1 1 ; {% if not loop.last %}LD.MULT R0 LR13 {{ tile }} ; INC LR13 1 ;{% else %}LD.MULT R0 LR11 {{ cr.in1 }} ; SET LR13 CR0 ;{% endif %} ;;
     {% endfor %}
