@@ -49,16 +49,16 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 16, 16], [16384, 256, 16, 1], 0), module.weight, module.bias, [1, 1], [1, 1])
+    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 64, 64], [262144, 4096, 64, 1], 0), module.weight, module.bias, [1, 1], [1, 1])
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.relu.default(_v(op0, [1, 16, 16, 16], [4096, 256, 16, 1], 0))
+    r0 = aten.relu.default(_v(op0, [1, 32, 64, 64], [131072, 4096, 64, 1], 0))
     op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 16, 16, 16])}
+    return {"out0": _out(op1, [1, 32, 64, 64])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Lay out each horizontal filter span as cyclic dot-product rows."""
+    """Lay out split-precision horizontal filter spans for cyclic loads."""
     weight = module.weight.detach().to(torch.float64)
     cout, per_group, kh, kw = weight.shape
     groups = params['groups']
@@ -76,8 +76,6 @@ def fold(module, **params):
     taps = weight.new_zeros((kh, cout, segments * 128))
     taps[..., :kw * cin] = dense.permute(2, 0, 3, 1).reshape(kh, cout, kw * cin)
     rows = torch.cat((bias_row, taps.reshape(-1, 128)))
-
-    # Keep a residual row to recover precision lost by quantizing the high row.
     _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
     step = torch.exp2(exponent.to(rows.dtype) - 6)
     hi = rows.sign() * (rows.abs() / step + 0.5).floor().clamp(max=63) * step
