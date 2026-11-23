@@ -1,5 +1,5 @@
 {% macro add_store(ds) %}
-    MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ cr.qf_in1 }}.L ; ACC.ADD ;;
+    MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ cr.qf_in1 }}.L ; ACC.ADD ;
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;;
 {% endmacro %}
 
@@ -21,7 +21,9 @@ lane_wrap:
     INC LR8 1 ; SUB LR9 LR9 {{ cr.col_limit }}.H ;;
     BGE.S LR9 {{ cr.col_limit }}.H lane_wrap ;;
 first_row:
-    LD.MULT R0 LR8 {{ cr.in0 }} ;;
+    // Fetch via the normalized address while advancing the independent
+    // logical cursor and gather count for the next element.
+    LD.MULT R0 LR8 {{ cr.in0 }} ;
     ADD LR6 LR6 {{ cr.stride_rows }} ; ADD LR7 LR7 {{ cr.stride_cols }} ; INC LR14 1 ;;
     MULT.EE LR9 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.RESHAPE LRD2 LRD2 0 ; BLT.S LR7 {{ cr.col_limit }}.L no_wrap ;;
     SUB LR7 LR7 {{ cr.col_limit }}.L ; ADD LR6 LR6 LR11 ;;
