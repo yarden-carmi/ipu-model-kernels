@@ -18,6 +18,19 @@
  {% if cyclic %}LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
  {% else %}LD.MULT R0 LR1 {{ cr.tmp }} ;;{% endif %}
 {% endmacro %}
+{# Consume consecutive residual planes, prefetching the next into R0. #}
+{% macro dot(count, first=false, reduce=false) %}
+ LD.MULT R0 LR1 {{ cr.tmp }} ;;
+ {% for j in range(count) %}
+ MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; {% if reduce %}AGG.SUM LR0 {{ full }}{% else %}ACC.ADD{% if first and loop.first %}.FIRST{% endif %}{% endif %}{% if not loop.last %} ; LD.MULT R0 LR1 {{ cr.tmp }} ; INC LR1 1{% endif %} ;;
+ {% endfor %}
+{% endmacro %}
+{% macro add_planes(count,op='ADD',fmt=q,first=false,imm='CR1',base=cr.tmp,step='INC LR1 1') %}
+ LD.MULT R0 LR1 {{ base }} ;;
+ {% for j in range(count) %}
+ {{ vec(op,first and loop.first,imm,fmt,next='; LD.MULT R0 LR1 ' ~ base ~ ' ; ' ~ step if not loop.last else '') }}
+ {% endfor %}
+{% endmacro %}
 {% macro split(reg,count,ds=full) %}
  {% for p in range(count) %}
  ACTIVATE.QUANTIZE identity {{ ds }} {{ q }} {{ cr.tmp }} {{ reg }} ;;
@@ -31,15 +44,16 @@
 {% macro save(n,count=2) %}{{ at('LR1',n) }}{{ split('LR1',count) }}{% endmacro %}
 {% macro average(label) %}
  {{ save(0,3) }}
+ SET LR1 CR0 ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
  {% for j in range(3) %}
- {{ load(j) }}
- MULT.EE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %} ;;
+ MULT.EE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %}{% if not loop.last %} ; LD.MULT R0 LR1 {{ cr.tmp }} ; INC LR1 1{% endif %} ;;
  {% endfor %}
  {{ save(3,3) }}
  {{ at('LR10') }}{{ at('LR7',3) }}{{ clear() }}
 {{ label }}:
- LD.MULT.CYCLIC LR10 {{ cr.stats }} LR0 ;;
- {% for j in range(3,6) %}{{ load(j) }}{{ mul() }}{% endfor %}
+ LD.MULT.CYCLIC LR10 {{ cr.stats }} LR0 ; SET LR1 CR0 ;;
+ INC LR1 3 ;;
+ {{ dot(3) }}
  INC LR10 1 ;;
  BLT.S LR10 LR7 {{ label }} ;;
 {% endmacro %}
@@ -73,7 +87,7 @@ sum_loop:
  DEC LR6 1 ;;
 center_loop:
  {{ added() }}
- {% for n in range(6,9) %}{{ load(n) }}{{ vec('SUB') }}{% endfor %}
+ {{ at('LR1',6) }}{{ add_planes(3,'SUB') }}
  BEQ LR5 LR6 center_tail ;;
  {{ split('LR9',3) }}
  INC LR9 1 ; INC LR5 1 ; BEQ LR0 CR0 center_loop ;;
@@ -83,14 +97,10 @@ center_tail:
  INC LR6 1 ;;
  {{ reset() }}{{ clear() }}
 variance_loop:
- SET LR1 LR9 ;;
+ SET LR3 LR9 ;;
  {% for part in range(3) %}
- LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ; SET LR10 LR9 ;;
- {% for product in range(3) %}
- LD.MULT R0 LR10 {{ cr.tmp }} ;;
- MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ full }} ; INC LR10 1 ;;
- {% endfor %}
- {% if not loop.last %}INC LR1 1 ;;{% endif %}
+ LD.MULT.CYCLIC LR3 {{ cr.tmp }} LR0 ; SET LR1 LR9 {% if not loop.first %}; INC LR3 1{% endif %} ;;
+ {{ dot(3,reduce=true) }}
  {% endfor %}
  INC LR9 3 ; INC LR5 1 ;;
  BLT.S LR5 LR6 variance_loop ;;
@@ -129,24 +139,20 @@ output_loop:
  SET LR10 LR11 ; SET LR7 CR0 ;;
  {{ clear() }}
 weight_loop:
- LD.MULT.CYCLIC LR10 {{ cr.gamma }} LR0 ;;
- {% for n in [12,13] %}{{ load(n) }}{{ mul() }}{% endfor %}
+ LD.MULT.CYCLIC LR10 {{ cr.gamma }} LR0 ; SET LR1 CR0 ;;
+ INC LR1 12 ;;
+ {{ dot(2) }}
  ADD LR10 LR10 {{ cr.K }} ; INC LR7 1 ;;
  BLT.S LR7 LR8 weight_loop ;;
  {{ save(20,3) }}
  {{ clear() }}
- ADD LR12 LR9 LR8 ;;
-apply_centered:
- LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;
- {% for n in range(20,23) %}{{ load(n) }}{{ mul() }}{% endfor %}
- INC LR9 1 ;;
- BLT.S LR9 LR12 apply_centered ;;
- SET LR10 LR11 ;;
- {% for i in range(3) %}
- LD.MULT R0 LR10 {{ cr.beta }} ;;
- {{ vec() }}
- {% if not loop.last %}ADD LR10 LR10 {{ cr.K }} ;;{% endif %}
+ {% for part in range(3) %}
+ LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ; SET LR1 CR0 {% if not loop.first %}; INC LR9 1{% endif %} ;;
+ INC LR1 20 ;;
+ {{ dot(3) }}
  {% endfor %}
+ SET LR1 LR11 ; INC LR9 1 ;;
+ {{ add_planes(3,base=cr.beta,step='ADD LR1 LR1 ' ~ cr.K) }}
  BNE LR5 LR6 output_full ;;
  {{ store(tail) }}
  ADD LR2 LR6 CR1 ;;
