@@ -39,9 +39,9 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.layer_norm.default(_v(ins[0], [1, 256, 768], [196608, 768, 1], 0), [768], module.weight, module.bias)
+    r0 = aten.layer_norm.default(_v(ins[0], [1, 257, 384], [98688, 384, 1], 0), [384], module.weight, module.bias, 1e-06)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 256, 768])}
+    return {"out0": _out(op0, [1, 257, 384])}
 # ---- end of the frozen reference ----
 
 
@@ -61,6 +61,6 @@ def fold(module, **params):
     return {
         "gamma": split(module.weight),
         "beta": split(module.bias),
-        "crow": torch.cat((split(torch.full((128,), 1 / params["channels"])),
-                           torch.full((1, 128), params["eps"]))),
+        "crow": split(torch.full((128,), 1 / params["channels"])),
+        "epsilon": torch.full((128,), params["eps"]),
     }

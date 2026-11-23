@@ -1,12 +1,13 @@
 {% set q = cr.qf_in0 ~ '.L' %}
 {% set oq = cr.qf_out0 ~ '.L' %}
 {% set full = 'CR15.L' %}
+{% set tail = cr.tail ~ '.L' %}
 {% macro init(reg, n=0) %}
  SET {{ reg }} CR0 ;;
  {% if n %}INC {{ reg }} {{ n }} ;;{% endif %}
 {% endmacro %}
-{% macro vec(op='ADD', first=false, imm='CR1', base='LR0') %}
- MULT.VE {{ base }} {{ imm }} 0 {{ base }} {{ full }} {{ q }} ; ACC.{{ op }}{% if first %}.FIRST{% endif %} ;;
+{% macro vec(op='ADD', first=false, imm='CR1') %}
+ MULT.VE LR0 {{ imm }} 0 LR0 {{ full }} {{ q }} ; ACC.{{ op }}{% if first %}.FIRST{% endif %} ;;
 {% endmacro %}
 {% macro clear() %}{{ vec(first=true,imm='CR0') }}{% endmacro %}
 {% macro mul(first=false, slot='LR0') %}
@@ -17,14 +18,13 @@
  {% if cyclic %}LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
  {% else %}LD.MULT R0 LR1 {{ cr.tmp }} ;;{% endif %}
 {% endmacro %}
-{% macro split(reg, count, dst=cr.tmp, step=none) %}
+{% macro split(reg, count) %}
  {% for p in range(count) %}
- ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ dst }} {{ reg }} ;;
+ ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} {{ reg }} ;;
  {% if not loop.last %}
- LD.MULT R0 {{ reg }} {{ dst }} ;;
+ LD.MULT R0 {{ reg }} {{ cr.tmp }} ;;
  {{ vec('SUB') }}
- {% if step %}ADD {{ reg }} {{ reg }} {{ step }} ;;
- {% else %}INC {{ reg }} 1 ;;{% endif %}
+ INC {{ reg }} 1 ;;
  {% endif %}
  {% endfor %}
 {% endmacro %}
@@ -83,9 +83,9 @@ variance_loop:
  INC LR5 1 ;;
  BLT.S LR5 LR6 variance_loop ;;
 variance_tail:
- {{ square_sum(cr.tail ~ '.L') }}
+ {{ square_sum(tail) }}
  {{ average('variance_scale') }}
- LD.MULT R0 LR10 {{ cr.crow }} ;;
+ LD.MULT R0 LR0 {{ cr.epsilon }} ;;
  {{ vec() }}
  {{ init('LR1',12) }}
  ACTIVATE.QUANTIZE rsqrt {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
@@ -94,19 +94,26 @@ variance_tail:
  ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
  {{ init('LR4',2) }}
 refine:
- {# Newton refinement: y <- 1.5*y - 0.5*v*y^3. #}
- {% for left,right,lcount,rcount,dst in [(12,12,2,2,14),(9,14,3,2,16),(12,16,2,2,18)] %}
- {% for i in range(lcount) %}
- {{ load(left+i,true) }}
- {% for j in range(rcount) %}{{ load(right+j) }}{{ mul(first=(i==0 and j==0)) }}{% endfor %}
- {% endfor %}
- {{ save(dst) }}
- {% endfor %}
+ {# Newton step: y <- 1.5*y - 0.5*v*y^3. #}
  {% for i in range(2) %}
  {{ load(12+i,true) }}
- {% for coeff in ['CR1', cr.half] %}
- MULT.RC.VE LR0 {{ coeff }} 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if i == 0 and loop.first %}.FIRST{% endif %} ;;
+ {% for j in range(2) %}{{ load(12+j) }}{{ mul(first=(i==0 and j==0)) }}{% endfor %}
  {% endfor %}
+ {{ save(14) }}
+ {% for i in range(3) %}
+ {{ load(9+i,true) }}
+ {% for j in range(2) %}{{ load(14+j) }}{{ mul(first=(i==0 and j==0)) }}{% endfor %}
+ {% endfor %}
+ {{ save(16) }}
+ {% for i in range(2) %}
+ {{ load(12+i,true) }}
+ {% for j in range(2) %}{{ load(16+j) }}{{ mul(first=(i==0 and j==0)) }}{% endfor %}
+ {% endfor %}
+ {{ save(18) }}
+ {% for i in range(2) %}
+ {{ load(12+i,true) }}
+ MULT.RC.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %} ;;
+ MULT.RC.VE LR0 {{ cr.half }} 0 LR0 {{ full }} {{ q }} ; ACC.ADD ;;
  {% endfor %}
  {% for n in [18,19] %}{{ load(n) }}{{ vec('SUB',imm=cr.half) }}{% endfor %}
  {{ save(12) }}
@@ -124,10 +131,10 @@ weight_loop:
  ADD LR10 LR10 {{ cr.K }} ; INC LR4 1 ;;
  BLT.S LR4 LR7 weight_loop ;;
  {{ save(20,3) }}
- {% for slot in ['LR0','LR3'] %}
- LD.MULT.CYCLIC LR9 {{ cr.tmp }} {{ slot }} ;;
+ LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;
  INC LR9 1 ;;
- {% endfor %}
+ LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR3 ;;
+ INC LR9 1 ;;
  {% for n in range(20,23) %}{{ load(n) }}{{ mul(first=loop.first) }}{{ mul(slot='LR3') }}{% endfor %}
  SET LR10 LR11 ;;
  {% for i in range(3) %}
@@ -135,25 +142,41 @@ weight_loop:
  MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; ADD LR10 LR10 {{ cr.K }} ;;
  {% endfor %}
  SET LR8 LR5 ;;
- {{ split('LR8',3,cr.normalized,'LR13') }}
+ {% for p in range(3) %}
+ ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.normalized }} LR8 ;;
+ {% if not loop.last %}
+ LD.MULT R0 LR8 {{ cr.normalized }} ;;
+ {{ vec('SUB') }}
+ ADD LR8 LR8 LR13 ;;
+ {% endif %}
+ {% endfor %}
  INC LR5 1 ; INC LR11 1 ;;
  BLT.S LR5 LR6 normalize ;;
  SET LR2 LR6 ;;
  BLT.S LR2 LR13 row_loop ;;
 
-{# Gather one channel at a time, recombining the residual planes before rounding. #}
+{# Gather the residual planes into row-axis tiles before final rounding. #}
+{% macro scatter() %}
+ MULT.EE LR4 CR1 0 LR15 {{ full }} {{ q }} ; ACC.RESHAPE LRD14 LRD10 7
+{%- endmacro %}
 {% macro gather(p) %}
- SET LR6 LR2 ; SET LR8 CR0 ; SET LR11 CR0 ;;
+ SET LR6 LR2 ; SET LR8 LR7 ; SET LR11 CR0 ;;
  {% for i in range(p) %}ADD LR6 LR6 LR13 ;;{% endfor %}
  {% if p == 2 %}
- BGE.S LR7 LR3 gather{{ p }} ;;
- {{ vec(first=true,imm='CR0',base='LR15') }}
+ BGE.S LR7 LR3 gather_start{{ p }} ;;
+ MULT.VE LR15 CR0 0 LR15 {{ full }} {{ q }} ; ACC.ADD.FIRST ;;
  {% endif %}
+gather_start{{ p }}:
+ {# Scatter the first row at slot zero. Peel the last row to avoid
+    reading beyond the tile (or the allocation) in the pipelined loop. #}
+ LD.MULT R0 LR6 {{ cr.normalized }} ; DEC LR8 2 ;;
+ {{ scatter() }} ; ADD LR6 LR6 {{ cr.K }} ; BLT.S LR8 CR0 gather_done{{ p }} ;;
+ LD.MULT R0 LR6 {{ cr.normalized }} ; BEQ LR8 CR0 gather_last{{ p }} ;;
 gather{{ p }}:
- LD.MULT R0 LR6 {{ cr.normalized }} ;;
- MULT.EE LR4 CR1 0 LR15 {{ full }} {{ q }} ; ACC.RESHAPE LRD14 LRD10 7 ;;
- ADDBI LRD10 1 ; ADD LR6 LR6 {{ cr.K }} ; INC LR8 1 ;;
- BLT.S LR8 LR7 gather{{ p }} ;;
+ {{ scatter() }} ; LD.MULT R0 LR6 {{ cr.normalized }} ; ADDBI LRD10 1 ; ADD LR6 LR6 {{ cr.K }} ; DEC LR8 1 ; BLT.S CR1 LR8 gather{{ p }} ;;
+gather_last{{ p }}:
+ {{ scatter() }} ; ADDBI LRD10 1 ; ADD LR6 LR6 {{ cr.K }} ;;
+gather_done{{ p }}:
 {% endmacro %}
 
  {{ init('LR2') }}{{ init('LR15') }}
@@ -166,13 +189,20 @@ tile:
  BGE.S LR5 LR3 tile_ready ;;
  SET LR7 LR5 ;;
 tile_ready:
+ {# Keep the extra residual for partial tiles, where small results
+    must survive the final output rounding. #}
  {% for p in [2,1,0] %}
+ {% if p == 2 %}
+ BLT.S LR7 LR3 low_plane ;;
+ MULT.VE LR15 CR0 0 LR15 {{ full }} {{ q }} ; ACC.ADD.FIRST ; BEQ CR0 CR0 gather_done2 ;;
+ low_plane:
+ {% endif %}
  {{ gather(p) }}
  {% if not loop.first %}
  {% for r in range(2 if p == 0 else 1) %}
  {{ init('LR8',r) }}
  LD.MULT R0 LR8 {{ cr.tmp }} ;;
- {{ vec(base='LR15') }}
+ MULT.VE LR15 CR1 0 LR15 {{ full }} {{ q }} ; ACC.ADD ;;
  {% endfor %}
  {% endif %}
  {% if not loop.last %}
@@ -180,17 +210,13 @@ tile_ready:
  ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR8 ;;
  {% if p == 1 %}
  LD.MULT R0 LR8 {{ cr.tmp }} ;;
- {{ vec('SUB',base='LR15') }}
+ MULT.VE LR15 CR1 0 LR15 {{ full }} {{ q }} ; ACC.SUB ;;
  INC LR8 1 ;;
  ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR8 ;;
  {% endif %}
  {% endif %}
  {% endfor %}
- BGE.S LR7 LR3 store_full ;;
- ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.output_tail }}.L {{ oq }} {{ cr.out0 }} LR0 ; BEQ CR0 CR0 stored ;;
-store_full:
  ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ full }} {{ oq }} {{ cr.out0 }} LR0 ;;
-stored:
  INC LR0 1 ; SUB LR5 LR5 LR7 ;;
  SET LR2 LR6 ;;
  BLT.S CR0 LR5 tile ;;
