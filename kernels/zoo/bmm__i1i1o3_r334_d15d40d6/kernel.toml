@@ -1,0 +1,55 @@
+[kernel]
+op = "bmm"
+formats = ["e2", "e4"]
+[params.b]
+type = "int"
+min = 1
+max = 256
+default = 12
+[params.k]
+type = "int"
+min = 2
+max = 4096
+multiple_of = 2
+default = 64
+[params.m]
+type = "int"
+min = 1
+max = 64
+default = 64
+[params.n]
+type = "int"
+min = 1
+max = 64
+default = 64
+[inputs.in0]
+shape = [1, "b*pairs", 128]
+range = [-2, 2]
+[inputs.in1]
+shape = [1, "b*pairs", 128]
+range = [-2, 2]
+[outputs.out0]
+shape = [1, "b", "m", "n"]
+[derived]
+pairs = "k // 2"
+mlast = "m - 1"
+blast = "b - 1"
+dstail = "ds(n)"
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+blast = "CR5"
+pairs = "CR6"
+m = "CR7"
+n = "CR9"
+mlast = "CR8"
+qf_in0 = "CR11"
+qf_in1 = "CR12"
+qf_out0 = "CR13"
+dstail = "CR14"
+[cases.default]
+b = 12
+k = 64
+m = 64
+n = 64
