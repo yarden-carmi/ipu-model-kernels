@@ -3,8 +3,8 @@
     INC LR5 1 ;;
 {% endmacro %}
 
-{% macro scatter() %}
-    MULT.EE LR6 CR1 0 LR0 CR15.L {{ cr.qf_in1 }}.L ; ACC.RESHAPE LRD0 LRD2 7
+{% macro gather_element() %}
+    MULT.EE LR6 CR1 0 LR0 {{ cr.one }}.L {{ cr.qf_in1 }}.L ; AGG.SUM.FIRST LR2 {{ cr.one }}.L
 {% endmacro %}
 
     SET LR0 CR0 ; SET LR5 CR0 ; SET LR6 CR0 ;;
@@ -16,21 +16,17 @@ row:
     ADD LR12 LR8 LR9 ; SET LR10 {{ cr.in0_d2 }} ;;
 chunk:
     // Split off the final gather so the pipeline never reads past a chunk.
-    SET LR2 CR0 ; SET LR3 CR0 ; SET LR11 CR1 ;;
+    // ACC sees the incremented destination; the branch sees the old counter.
+    SUB LR2 LR0 CR1 ; SET LR11 CR1 ;;
     SET LR13 LR14 ; BLT.S LR14 LR10 bound ;;
     SET LR13 LR10 ;;
 bound:
     SUB LR10 LR10 LR13 ; DEC LR13 1 ; LD.MULT R0 LR12 {{ cr.in1 }} ;;
     BEQ LR13 CR0 last ;;
-    // Lane zero needs no destination increment. Prime lane one here.
-    {{ scatter() }} ; ADD LR12 LR12 {{ cr.blocks }} ; INC LR11 1 ; LD.MULT R0 LR12 {{ cr.in1 }} ; BEQ LR13 CR1 last_inc ;;
 gather:
-    // ACC sees the incremented destination; the branch sees the old count.
-    {{ scatter() }} ; ADD LR12 LR12 {{ cr.blocks }} ; ADDBI LRD2 1 ; INC LR11 1 ; LD.MULT R0 LR12 {{ cr.in1 }} ; BLT.S LR11 LR13 gather ;;
-last_inc:
-    ADDBI LRD2 1 ;;
+    {{ gather_element() }} ; ADD LR12 LR12 {{ cr.blocks }} ; LD.MULT R0 LR12 {{ cr.in1 }} ; INC LR2 1 ; INC LR11 1 ; BLT.S LR11 LR13 gather ;;
 last:
-    {{ scatter() }} ; ADD LR12 LR12 {{ cr.blocks }} ; LD.MULT R0 LR5 {{ cr.in0 }} ; BEQ LR10 CR0 tail ;;
+    {{ gather_element() }} ; INC LR2 1 ; ADD LR12 LR12 {{ cr.blocks }} ; LD.MULT R0 LR5 {{ cr.in0 }} ; BEQ LR10 CR0 tail ;;
     {{ finish('CR15') }}
     B chunk ;;
 tail:
