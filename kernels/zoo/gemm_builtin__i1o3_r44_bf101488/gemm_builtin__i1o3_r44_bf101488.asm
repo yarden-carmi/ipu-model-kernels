@@ -7,6 +7,9 @@
 {% macro dot(slot) %}
     MULT.RC.VV {{ slot }} R0 0 LR0 {{ cr.full_ds }}.L {{ cr.qf_in0 }}.L ; AGG.SUM LR3 {{ cr.full_ds }}.L
 {%- endmacro %}
+{% macro load_point() %}
+    LD.MULT R0 LR12 {{ cr.in0 }} ; INC LR12 1
+{%- endmacro %}
 {% macro store(ds) %}
     ACTIVATE.QUANTIZE {{ act_out0 }} {{ ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR5 ; INC LR5 1
 {%- endmacro %}
@@ -31,16 +34,22 @@ init:
     {{ bias_mac('ADD') }} ; SET LR13 LR11 ;;
 {% if k <= 128 and in0_d1 <= 128 %}
     {{ load_weight('LR0') }} ;;
-    {{ load_weight('LR1') }} ;;
+    {{ load_weight('LR1') }} ; DEC LR4 1 ; BEQ LR3 LR4 final_point ;;
+    {{ load_point() }} ;;
 point:
-    LD.MULT R0 LR12 {{ cr.in0 }} ; INC LR12 1 ;;
     {{ dot('LR0') }} ; INC LR3 1 ;;
-    {{ dot('LR1') }} ; BLT.S LR3 LR4 point ;;
+    {{ dot('LR1') }} ; {{ load_point() }} ; BLT.S LR3 LR4 point ;;
+    B final_dot ;;
+final_point:
+    {{ load_point() }} ;;
+final_dot:
+    {{ dot('LR0') }} ; INC LR3 1 ;;
+    {{ dot('LR1') }} ;;
 {% else %}
 point:
     SET LR11 LR13 ; SET LR10 {{ cr.chunks }} ; INC LR3 1 ;;
 reduce:
-    LD.MULT R0 LR12 {{ cr.in0 }} ; INC LR12 1 ;;
+    {{ load_point() }} ;;
     {{ load_weight('LR0') }} ;;
     {{ dot('LR0') }} ; {{ load_weight('LR1') }} ;;
     {{ dot('LR1') }} ; DEC LR10 1 ; BNE LR10 CR1 reduce ;;
