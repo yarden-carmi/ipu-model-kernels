@@ -131,18 +131,16 @@ dot_block:
     MULT.RC.VE LR0 CR1 0 LR0 {{ full }} {{ wide }} ; ACC.ADD.FIRST ;;
     MULT.RC.VE LR2 LR0 0 LR0 {{ full }} {{ wide }} ; ACC.SUB ;;
     ACTIVATE.QUANTIZE identity {{ full }} {{ wide }} {{ w }} LR6 ;;
-    {{ imm('LR13',4) }}
+    {{ imm('LR13',3) }}
 center_pass:
     SET LR10 CR0 ;;
     {{ imm('LR5',16) }}
 center_tile:
     LD.MULT R0 LR5 {{ w }} ;;
-    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ wide }} ; ACC.ADD.FIRST ; INC LR5 1 ;;
-    LD.MULT R0 LR6 {{ w }} ;;
-    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ wide }} ; ACC.SUB ;;
+    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ wide }} ; ACC.ADD.FIRST ; LD.MULT R0 LR6 {{ w }} ; INC LR5 1 ;;
+    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ wide }} ; ACC.SUB ; LD.MULT R0 LR5 {{ w }} ;;
 {% for i in range(2) %}
-    LD.MULT R0 LR5 {{ w }} ;;
-    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ wide }} ; ACC.ADD ; INC LR5 1 ; {% if loop.last %}ACTIVATE.QUANTIZE relu {{ full }} {{ wide }} {{ w }} LR5 ; {% endif %};;
+    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ wide }} ; ACC.ADD ; INC LR5 1 ; {% if loop.last %}ACTIVATE.QUANTIZE relu {{ full }} {{ wide }} {{ w }} LR5 ; {% else %}LD.MULT R0 LR5 {{ w }} ; {% endif %};;
 {% endfor %}
     DEC LR5 3 ;;
     {{ split('LR5') }}
