@@ -1,0 +1,63 @@
+[kernel]
+op = "bmm"
+formats = ["e2"]
+
+[params]
+b = {type="int", min=1, max=32767, default=16}
+k = {type="int", min=1, max=32767, default=16}
+m = {type="int", min=1, max=32767, default=16}
+n = {type="int", min=1, max=32767, default=60}
+in0_d0 = {type="int", min=1, max=32767, default=4}
+in0_d1 = {type="int", min=1, max=32767, default=4}
+in0_d2 = {type="int", min=1, max=32767, default=16}
+in0_d3 = {type="int", min=1, max=32767, default=16}
+in1_d0 = {type="int", min=1, max=32767, default=4}
+in1_d1 = {type="int", min=1, max=32767, default=16}
+in1_d2 = {type="int", min=1, max=4194176, default=720}
+out0_d0 = {type="int", min=1, max=32767, default=4}
+out0_d1 = {type="int", min=1, max=32767, default=4}
+out0_d2 = {type="int", min=1, max=32767, default=16}
+out0_d3 = {type="int", min=1, max=32767, default=60}
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d1", "in0_d2", "arows*128"]
+range = [0, 1]
+[inputs.in1]
+shape = ["in1_d0", "in1_d1", "brows*128"]
+range = [-1, 1]
+[outputs.out0]
+shape = ["out0_d0", "out0_d1", "out0_d2", "ceil(out0_d3/128)*128"]
+
+[derived]
+arows = "ceil(in0_d3/128)"
+brows = "ceil(in1_d2/128)"
+key_offset = "2*in1_d2//3"
+key_row = "key_offset//128"
+key_lane = "key_offset%128"
+mh = "m + in0_d1*65536"
+ds = "ds(128) + ds((n-1)%128+1)*65536"
+group_jump = "in1_d1*brows-(key_offset+in0_d1*n)//128+key_row"
+in1_next = "base(in1)+1"
+ka = "k + arows*65536"
+stride_lane = "brows + key_lane*65536"
+last_key_row = "key_row+(k-1)*brows"
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+b = "CR5"
+ka = "CR6"
+mh = "CR7"
+n = "CR8"
+stride_lane = "CR9"
+ds = "CR10"
+qf_in0 = "CR11"
+qf_in1 = "CR12"
+qf_out0 = "CR13"
+group_jump = "CR14"
+in1_next = "CR15"
+key_lane = "LR3"
+last_key_row = "LR2"
+
+[cases.default]
