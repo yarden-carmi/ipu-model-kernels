@@ -126,21 +126,13 @@ variance_loop:
  LD.MULT R0 LR1 {{ cr.tmp }} ;;
  {{ scalar('SUB') }}{{ save(22,1) }}
 
- {# Refine the table estimate with two Newton corrections. #}
+ {# Refine the table estimate with a Newton correction. #}
  {{ load(8,true) }}{{ load(8) }}{{ mul(first=true) }}{{ save(13) }}
  {{ product(11,13,15) }}
  {{ load(8,true) }}{{ load(15) }}{{ mul(first=true,next=true) }}
  {{ mul() }}{{ save(17) }}
  MULT.RC.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ;;
  MULT.RC.VE LR0 {{ cr.half }} 0 LR0 {{ full }} {{ q }} ; ACC.ADD ;;
- {% for n in [17,18] %}{{ load(n) }}{{ scalar('SUB',imm=cr.half) }}{% endfor %}
- {{ save(19) }}
- {{ product(19,19,13) }}{{ product(11,13,15) }}{{ product(19,15,17) }}
- {% for n in [19,20] %}
- {{ load(n,true) }}
- MULT.RC.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %} ;;
- MULT.RC.VE LR0 {{ cr.half }} 0 LR0 {{ full }} {{ q }} ; ACC.ADD ;;
- {% endfor %}
  {% for n in [17,18] %}{{ load(n) }}{{ scalar('SUB',imm=cr.half) }}{% endfor %}
  {{ save(19) }}
  LD.MULT R0 LR1 {{ cr.tmp }} ;;
