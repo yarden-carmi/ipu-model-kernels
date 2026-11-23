@@ -105,12 +105,11 @@ center_tail:
  INC LR6 1 ;;
  {{ reset() }}{{ clear() }}
 variance_loop:
- SET LR3 LR9 ;;
- {% for part in range(2) %}
- LD.MULT.CYCLIC LR3 {{ cr.tmp }} LR0 {% if not loop.first %}; INC LR3 1{% endif %} ;;
- {{ dot(2,reduce=true,setup='; SET LR1 LR9',finish='; INC LR9 2 ; INC LR5 1 ; SET LR1 CR0' if loop.last else '') }}
- {% endfor %}
- BLT.S LR5 LR6 variance_loop ;;
+ LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;
+ MULT.RC.VS LR0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ full }} ; LD.MULT R0 LR9 {{ cr.tmp }} ; INC LR9 1 ;;
+ MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ full }} ; LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR14 ;;
+ MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ full }} ; INC LR5 1 ; INC LR9 1 ;;
+ MULT.RC.VS LR14 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ full }} ; SET LR1 CR0 ; BLT.S LR5 LR6 variance_loop ;;
  {{ average('; SET LR1 CR0') }}
  LD.MULT R0 LR1 {{ cr.stats }} ; INC LR1 3 ;;
  {{ vec(next='; ACTIVATE.QUANTIZE rsqrt ' ~ full ~ ' ' ~ q ~ ' ' ~ cr.tmp ~ ' LR7') }}
@@ -135,27 +134,33 @@ variance_loop:
  MULT.RC.VE LR14 {{ cr.half }} 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
  LD.MULT R0 LR1 {{ cr.tmp }} ;;
  {{ mul(first=true,slot='LR15') }}
- ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ; SET LR3 CR0 ;;
- LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR15 ; INC LR3 20 ;;
+ ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ; SET LR3 CR0 ; SET LR5 LR2 ; SET LR9 CR0 ;;
+ LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR15 ; INC LR3 20 ; INC LR9 32 ; SET LR11 CR0 ;;
 
- SET LR5 LR2 ; SET LR9 CR0 ; SET LR11 CR0 ;;
- INC LR9 32 ; DEC LR6 1 ;;
+ DEC LR6 1 ;;
 output_loop:
  LD.MULT R0 LR11 {{ cr.gamma }} ; SET LR10 LR11 ;;
  {% for part in range(3) %}
  {{ mul(first=loop.first,slot='LR14') }}
- {{ mul(slot='LR15',next='; LD.MULT R0 LR10 ' ~ cr.gamma ~ ' ; ADD LR10 LR10 ' ~ cr.K if not loop.last else '') }}
+ {{ mul(slot='LR15',next='; LD.MULT R0 LR10 ' ~ cr.gamma ~ ' ; ADD LR10 LR10 ' ~ cr.K if not loop.last else '; ' ~ aq('LR3') ~ ' ; SET LR1 LR3') }}
  {% endfor %}
-  {{ save(20,2) }}
-  {% for part in range(2) %}
- LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ; SET LR1 LR3 {% if not loop.first %}; INC LR9 1{% endif %} ;;
-  {{ dot(2,first=loop.first,finish='; SET LR1 LR11 ; INC LR9 1' if loop.last else '') }}
- {% endfor %}
+ LD.MULT R0 LR3 {{ cr.tmp }} ; INC LR1 1 ;;
+ {{ vec('SUB',next='; ' ~ aq('LR1') ~ ' ; LD.MULT.CYCLIC LR9 ' ~ cr.tmp ~ ' LR0') }}
+ {# R0 still holds the high product; alternate the centered rows while
+    keeping the high and low product planes live in R0 and R1. #}
+ {{ mul(true,next='; LD.MULT R1 LR1 ' ~ cr.tmp ~ ' ; INC LR9 1') }}
+ MULT.RC.VV LR0 R1 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;
+ {{ mul(next='; INC LR9 1') }}
+ MULT.RC.VV LR0 R1 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; LD.MULT R0 LR1 {{ cr.beta }} ; SET LR1 LR11 ;;
  {% if aligned %}
- {{ add_planes(3,base=cr.beta,step='ADD LR1 LR1 ' ~ cr.K,finish='; ' ~ store(full)) }}
+ {{ vec(next='; LD.MULT R0 LR1 ' ~ cr.beta ~ ' ; ADD LR1 LR1 ' ~ cr.K) }}
+ {{ vec(next='; LD.MULT R0 LR1 ' ~ cr.beta ~ ' ; ADD LR1 LR1 ' ~ cr.K) }}
+ {{ vec(next='; ' ~ store(full)) }}
  INC LR5 1 ; INC LR11 1 ; BLT.S LR5 LR6 output_loop ;;
  {% else %}
- {{ add_planes(3,base=cr.beta,step='ADD LR1 LR1 ' ~ cr.K) }}
+ {{ vec(next='; LD.MULT R0 LR1 ' ~ cr.beta ~ ' ; ADD LR1 LR1 ' ~ cr.K) }}
+ {{ vec(next='; LD.MULT R0 LR1 ' ~ cr.beta ~ ' ; ADD LR1 LR1 ' ~ cr.K) }}
+ {{ vec() }}
  BNE LR5 LR6 output_full ;;
  {{ store(tail) }} ;;
  {% endif %}
