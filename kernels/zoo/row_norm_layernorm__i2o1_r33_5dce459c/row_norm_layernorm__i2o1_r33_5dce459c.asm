@@ -156,18 +156,27 @@ weight_loop:
  BLT.S LR2 LR13 row_loop ;;
 
 {# Gather the residual planes into row-axis tiles before final rounding. #}
+{% macro scatter() %}
+ MULT.EE LR4 CR1 0 LR15 {{ full }} {{ q }} ; ACC.RESHAPE LRD14 LRD10 7
+{%- endmacro %}
 {% macro gather(p) %}
- SET LR6 LR2 ; SET LR8 CR0 ; SET LR11 CR0 ;;
+ SET LR6 LR2 ; SET LR8 LR7 ; SET LR11 CR0 ;;
  {% for i in range(p) %}ADD LR6 LR6 LR13 ;;{% endfor %}
  {% if p == 2 %}
- BGE.S LR7 LR3 gather{{ p }} ;;
+ BGE.S LR7 LR3 gather_start{{ p }} ;;
  MULT.VE LR15 CR0 0 LR15 {{ full }} {{ q }} ; ACC.ADD.FIRST ;;
  {% endif %}
+gather_start{{ p }}:
+ {# Scatter the first row at slot zero. Peel the last row to avoid
+    reading beyond the tile (or the allocation) in the pipelined loop. #}
+ LD.MULT R0 LR6 {{ cr.normalized }} ; DEC LR8 2 ;;
+ {{ scatter() }} ; ADD LR6 LR6 {{ cr.K }} ; BLT.S LR8 CR0 gather_done{{ p }} ;;
+ LD.MULT R0 LR6 {{ cr.normalized }} ; BEQ LR8 CR0 gather_last{{ p }} ;;
 gather{{ p }}:
- LD.MULT R0 LR6 {{ cr.normalized }} ;;
- MULT.EE LR4 CR1 0 LR15 {{ full }} {{ q }} ; ACC.RESHAPE LRD14 LRD10 7 ;;
- ADDBI LRD10 1 ; ADD LR6 LR6 {{ cr.K }} ; INC LR8 1 ;;
- BLT.S LR8 LR7 gather{{ p }} ;;
+ {{ scatter() }} ; LD.MULT R0 LR6 {{ cr.normalized }} ; ADDBI LRD10 1 ; ADD LR6 LR6 {{ cr.K }} ; DEC LR8 1 ; BLT.S CR1 LR8 gather{{ p }} ;;
+gather_last{{ p }}:
+ {{ scatter() }} ; ADDBI LRD10 1 ; ADD LR6 LR6 {{ cr.K }} ;;
+gather_done{{ p }}:
 {% endmacro %}
 
  {{ init('LR2') }}{{ init('LR15') }}
