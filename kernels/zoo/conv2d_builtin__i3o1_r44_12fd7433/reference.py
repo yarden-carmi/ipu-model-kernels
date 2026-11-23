@@ -62,27 +62,22 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    """Lay out weights by output block, spatial tap, and input channel."""
+    """Pack vectors by spatial tap, keeping residual rows for selected taps."""
     weight = module.weight.detach().to(torch.float64)
-    cout, per_group, kh, kw = weight.shape
-    groups = params['groups']
-    cin = groups * per_group
-    blocks = (cout + 127) // 128
-    dense = weight.new_zeros((blocks * 128, cin, kh, kw))
-    out_per_group = cout // groups
-    for group in range(groups):
-        channels = slice(group * out_per_group, (group + 1) * out_per_group)
-        dense[channels, group * per_group:(group + 1) * per_group] = weight[channels]
-    rows = weight.new_zeros((blocks, 1 + kh * kw * cin, 128))
-    rows[:, 1:] = dense.reshape(blocks, 128, cin, kh, kw).permute(
-        0, 3, 4, 2, 1).reshape(blocks, -1, 128)
+    cout = weight.shape[0]
+    rows = weight.new_zeros((10, 128))
+    rows[1:, :cout] = weight.reshape(cout, 9).T
     if params['bias']:
-        for block in range(blocks):
-            bias = module.bias[128 * block:128 * (block + 1)]
-            rows[block, 0, :bias.numel()] = bias
+        rows[0, :cout] = module.bias
 
     # Preserve the part lost by quantizing the main row in a second row.
     _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
     step = torch.exp2(exponent.to(rows.dtype) - 6)
     hi = rows.sign() * (rows.abs() / step + 0.5).floor().clamp(max=63) * step
-    return {'weights': torch.stack((hi, rows - hi), dim=2).reshape(blocks, -1, 128)}
+    packed = []
+    for i in range(10):
+        if i in (1, 3, 7):
+            packed.append(rows[i])
+        else:
+            packed.extend((hi[i], rows[i] - hi[i]))
+    return {'weights': torch.stack(packed)}
