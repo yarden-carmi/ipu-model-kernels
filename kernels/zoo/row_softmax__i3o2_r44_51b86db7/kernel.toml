@@ -1,6 +1,6 @@
 [kernel]
 op = "row_softmax"
-formats = ["e2"]
+formats = ["e4"]
 
 [params.n]
 type = "int"
@@ -52,12 +52,12 @@ type = "int"
 min = 1
 max = 128
 default = 50
-
 [derived]
 active = "ds(128)"
 part = "ds(n)"
 outpart = "ds(out0_d2)"
-scratch_qf = "312 * 65536 + 56"
+scratch_qf = "312 * 65536 + 88"
+plane_qf = "344"
 
 [inputs.in0]
 shape = ["in0_d0", "in0_d1", "in0_d2", 128]
@@ -73,6 +73,7 @@ shape = [3, "rows", 128]
 in0 = "CR2"
 out0 = "CR3"
 tmp = "CR5"
+plane_qf = "CR7"
 qf_in0 = "CR6"
 rows = "CR8"
 scratch_qf = "CR9"

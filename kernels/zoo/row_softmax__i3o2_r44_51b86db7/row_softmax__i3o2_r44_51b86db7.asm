@@ -2,6 +2,7 @@
 {% set qo = cr.qf_out0 ~ '.L' %}
 {% set qr = cr.scratch_qf ~ '.L' %}
 {% set qw = cr.scratch_qf ~ '.H' %}
+{% set qp = cr.plane_qf ~ '.L' %}
 {% set full = cr.active ~ '.L' %}
 {% set part = cr.part ~ '.L' %}
 {% set out = cr.outpart ~ '.L' %}
@@ -12,6 +13,24 @@
     SET {{ reg }} CR0 ;;
     INC {{ reg }} {{ value }} ;;
 {% endmacro %}
+{% macro coefficient(power, numerator, row) %}
+{{ addr('LR1',7) }}
+    LD.MULT R0 LR1 {{ cr.tmp }} ;;
+{{ clear() }}
+{{ addr('LR6',power) }}
+power_{{ row }}:
+    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB ; DEC LR6 1 ;;
+    BNE LR6 CR0 power_{{ row }} ;;
+{{ addr('LR1',row) }}
+    ACTIVATE.QUANTIZE exp2 {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
+    LD.MULT R0 LR1 {{ cr.tmp }} ;;
+{{ clear() }}
+{{ addr('LR6',numerator) }}
+numerator_{{ row }}:
+    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; DEC LR6 1 ;;
+    BNE LR6 CR0 numerator_{{ row }} ;;
+    ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
+{% endmacro %}
     SET LR0 CR0 ;;
 {{ addr('LR11',128) }}
     SET LR9 CR0 ;;
@@ -21,31 +40,11 @@
     SET LR13 LR12 ;;
     INC LR13 128 ;;
 
-{# Split log2(e)/2 into exactly representable coefficients. #}
+{# Dyadic expansion of log2(e) in the input format. #}
 {{ addr('LR1',7) }}
 {{ clear() }}
     ACTIVATE.QUANTIZE exp2 {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
-{% macro coefficient(power, numerator, row) %}
-{{ addr('LR1',7) }}
-    LD.MULT R0 LR1 {{ cr.tmp }} ;;
-{{ clear() }}
-{{ addr('LR6',power) }}
-power_{{ row }}:
-    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB ;;
-    DEC LR6 1 ;;
-    BNE LR6 CR0 power_{{ row }} ;;
-{{ addr('LR1',row) }}
-    ACTIVATE.QUANTIZE exp2 {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
-    LD.MULT R0 LR1 {{ cr.tmp }} ;;
-{{ clear() }}
-{{ addr('LR6',numerator) }}
-numerator_{{ row }}:
-    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD ;;
-    DEC LR6 1 ;;
-    BNE LR6 CR0 numerator_{{ row }} ;;
-    ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
-{% endmacro %}
-{% for p,k,r in [(5,23,5),(13,21,6),(19,18,8),(26,19,9)] %}
+{% for p,k,r in [(4,23,5),(12,21,6),(18,18,8),(25,19,9)] %}
 {{ coefficient(p,k,r) }}
 {% endfor %}
 {{ coefficient(16,1,10) }}
@@ -73,7 +72,7 @@ row:
     MULT.RC.VV LR9 R0 0 LR0 {{ part }} {{ q }} ; ACC.{% if loop.last %}SUB{% else %}ADD{% endif %}{% if loop.first %}.FIRST{% endif %} ;;
     MULT.RC.VV LR9 R1 0 LR0 {{ part }} {{ q }} ; ACC.{% if loop.last %}ADD{% else %}SUB{% endif %} ;;
 {% endfor %}
-{# A uniform negative offset cancels in normalization and keeps exp2 in range. #}
+{# Apply a common shift before exponentiation; it cancels in the ratio. #}
 {{ addr('LR5',5) }}
     LD.MULT.CYCLIC LR5 {{ cr.tmp }} LR9 ;;
     MULT.RC.VE LR9 CR1 0 LR0 {{ part }} {{ q }} ; ACC.SUB ;;
@@ -84,10 +83,9 @@ row:
     ACTIVATE.QUANTIZE identity {{ part }} {{ qr }} {{ cr.tmp }} LR3 ;;
 
 {{ clear() }}
-    LD.MULT R0 LR3 {{ cr.tmp }} ;;
     LD.MULT.CYCLIC LR3 {{ cr.tmp }} LR9 ;;
-    MULT.RC.VV LR9 R0 0 LR0 {{ part }} {{ qr }} ; AGG.SUM.FIRST LR0 {{ part }} ;;
-{# One Newton correction, using the high and low parts of the sum. #}
+    MULT.RC.VE LR9 CR1 0 LR0 {{ part }} {{ qr }} ; AGG.SUM.FIRST LR0 {{ part }} ;;
+{# Correct the reciprocal with the high and low parts of the sum. #}
     ACTIVATE.QUANTIZE identity {{ full }} {{ qw }} {{ cr.tmp }} LR0 ;;
     LD.MULT R0 LR0 {{ cr.tmp }} ;;
     MULT.VE LR0 CR1 0 LR0 {{ full }} {{ qw }} ; ACC.SUB ;;
@@ -110,7 +108,7 @@ row:
 
     LD.MULT.CYCLIC LR3 {{ cr.tmp }} LR9 ;;
     MULT.RC.VE LR13 CR1 0 LR0 {{ part }} {{ qr }} ; ACC.ADD.FIRST ;;
-    MULT.RC.VS LR9 0 LR0 {{ part }} {{ qr }} ; ACC.ADD ;;
+    MULT.RC.VE LR9 CR1 0 LR0 {{ part }} {{ qr }} ; ACC.ADD ;;
     MULT.RC.VE LR13 CR1 0 LR0 {{ part }} {{ qr }} ; ACC.SUB ;;
 {{ addr('LR5',12) }}
     ACTIVATE.QUANTIZE identity {{ part }} {{ qw }} {{ cr.tmp }} LR5 ;;
@@ -125,17 +123,16 @@ row:
     MULT.RC.VV LR9 R1 0 LR0 {{ part }} {{ qw }} ; ACC.ADD ;;
     SET LR5 LR2 ;;
 {% for plane in range(3) %}
-    ACTIVATE.QUANTIZE identity {{ part }} {{ qo }} {{ cr.norm }} LR5 ;;
+    ACTIVATE.QUANTIZE identity {{ part }} {{ qp }} {{ cr.norm }} LR5 ;;
 {% if not loop.last %}
     LD.MULT R0 LR5 {{ cr.norm }} ;;
-    MULT.VE LR0 CR1 0 LR0 {{ part }} {{ qo }} ; ACC.SUB ;;
-    ADD LR5 LR5 {{ cr.rows }} ;;
+    MULT.VE LR0 CR1 0 LR0 {{ part }} {{ qp }} ; ACC.SUB ; ADD LR5 LR5 {{ cr.rows }} ;;
 {% endif %}
 {% endfor %}
     INC LR2 1 ;;
     BLT.S LR2 {{ cr.rows }} row ;;
 
-{# Transpose the three precision planes and round only their combined value. #}
+{# Gather each column across input rows, combining the residual planes. #}
     SET LR2 CR0 ;;
     SET LR3 CR0 ;;
 {{ addr('LR7',2) }}
@@ -153,28 +150,25 @@ gather:
 {{ clear() }}
 transpose_lane:
     LD.MULT R0 LR4 {{ cr.norm }} ;;
-    MULT.EE LR10 CR1 0 LR0 {{ full }} {{ qo }} ; ACC.RESHAPE LRD12 LRD12 7 ;;
+    MULT.EE LR10 CR1 0 LR0 {{ full }} {{ qp }} ; ACC.RESHAPE LRD12 LRD12 7 ;;
     INC LR4 1 ;;
     ADDBI LRD12 1 ;;
     INC LR1 1 ;;
     BLT.S LR1 LR14 transpose_lane ;;
     BEQ LR6 LR7 gather_finish ;;
-    ACTIVATE.QUANTIZE identity {{ out }} {{ qo }} {{ cr.tmp }} LR6 ;;
-    ADD LR9 LR9 {{ cr.rows }} ;;
-    INC LR6 1 ;;
+    ACTIVATE.QUANTIZE identity {{ out }} {{ qp }} {{ cr.tmp }} LR6 ;;
+    ADD LR9 LR9 {{ cr.rows }} ; INC LR6 1 ;;
     B gather ;;
 gather_finish:
 {% for plane in [1,0] %}
     SET LR6 CR{{ plane }} ;;
     LD.MULT R0 LR6 {{ cr.tmp }} ;;
-    MULT.VE LR0 CR1 0 LR0 {{ out }} {{ qo }} ; ACC.ADD ;;
+    MULT.VE LR0 CR1 0 LR0 {{ out }} {{ qp }} ; ACC.ADD ;;
 {% endfor %}
-{# Flush underflow-scale remnants after the residual planes have been combined. #}
     MULT.RC.VE LR8 CR1 0 LR0 {{ out }} {{ qr }} ; ACC.ADD ;;
     MULT.RC.VE LR8 CR1 0 LR0 {{ out }} {{ qr }} ; ACC.SUB ;;
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ out }} {{ qo }} {{ cr.out0 }} LR3 ;;
-    INC LR3 1 ;;
-    INC LR10 1 ;;
+    INC LR3 1 ; INC LR10 1 ;;
     BLT.S LR10 LR15 transpose_column ;;
     ADD LR2 LR2 LR14 ;;
     BLT.S LR2 {{ cr.rows }} transpose_batch ;;
