@@ -1,16 +1,13 @@
-{% macro step(r,n) %}
-{% for k in range(0,n|abs,255) %}
- {{ 'INC' if n > 0 else 'DEC' }} {{ r }} {{ [255,(n|abs)-k]|min }} ;;
-{% endfor %}
+{# Alternate slots 0 and 128, loading each weight one word ahead. #}
+{% macro channel(i) %}
+{% set cur = 'LR15' if i % 2 == 0 else 'LR12' %}
+{% set nxt = 'LR12' if i % 2 == 0 else 'LR15' %}
+ {% if i < 15 %}LD.MULT.CYCLIC LR4 {{ cr.weights }} {{ nxt }} ; {% endif %}MULT.RC.VE {{ cur }} LR11 0 LR15 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR4 1 {% if i > 0 %}; INC LR11 1{% endif %} ;;
 {% endmacro %}
-
-{# LR15 selects cyclic slot 0. LR1 is the flat window origin. #}
- INC LR12 127 ;;
- {{ step('LR0', -padding) }}
- {{ step('LR1', -padding * (w + 1)) }}
+ INC LR12 128 ; DEC LR0 {{ padding }} ;;
 oy:
  SET LR2 CR0 ;;
- {{ step('LR2', -padding) }}
+ DEC LR2 {{ padding }} ;;
 ox:
  SET LR3 CR0 ; SET LR4 CR0 ;;
 block:
@@ -21,9 +18,9 @@ ky:
 kx:
  ADD LR7 LR0 LR5 ; ADD LR8 LR2 LR6 ;;
  BLT.S LR7 CR0 skip ;;
- BGE.S LR7 {{ cr.h }} skip ;;
+ BGE.S LR7 {{ cr.in0_d2 }} skip ;;
  BLT.S LR8 CR0 skip ;;
- BGE.S LR8 {{ cr.w }} skip ;;
+ BGE.S LR8 {{ cr.in0_d3 }} skip ;;
  ADD LR9 LR14 LR6 ; SET LR10 {{ cr.panel }} ;;
 {% if chunks > 1 %}
  SET LR7 LR9 ;;
@@ -33,16 +30,11 @@ kx:
 {% endif %}
 chunk:
  LD.MULT R0 LR9 {{ cr.in0 }} ; SET LR11 CR0 ;;
- INC LR9 1 ; DEC LR11 1 ;;
+ INC LR9 1 ;;
 channels:
- # Prime the cyclic register; each multiply then loads the next weight.
  LD.MULT.CYCLIC LR4 {{ cr.weights }} LR15 ; DEC LR10 16 ;;
-{% macro channel(load_next) %}
- MULT.RC.VE LR15 LR11 0 LR15 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD {% if load_next %}; LD.MULT.CYCLIC LR4 {{ cr.weights }} LR15{% endif %} ; INC LR4 1 ; INC LR11 1 {% if not load_next %}; BEQ LR10 CR0 next{% endif %} ;;
-{% endmacro %}
-{% for i in range(16) %}
- {{ channel(i < 15) }}
-{% endfor %}
+{% for i in range(16) %}{{ channel(i) }}{% endfor %}
+ INC LR11 1 ; BEQ LR10 CR0 next ;;
  BLT.S LR11 LR12 channels ;;
  BEQ LR15 CR0 chunk ;;
 skip:
@@ -51,8 +43,7 @@ next:
  INC LR6 1 ; SET LR7 CR0 ;;
  INC LR7 {{ kw }} ;;
  BLT.S LR6 LR7 kx ;;
- INC LR5 1 ; SET LR7 CR0 ;;
- {{ step('LR14', w) }}
+ INC LR5 1 ; SET LR7 CR0 ; ADD LR14 LR14 {{ cr.in0_d3 }} ;;
  INC LR7 {{ kh }} ;;
  BLT.S LR5 LR7 ky ;;
  INC LR3 1 ;;
@@ -65,7 +56,6 @@ fullstore:
 advance:
  INC LR1 {{ stride }} ; INC LR2 {{ stride }} ;;
  BLT.S LR2 {{ cr.xend }} ox ;;
- {{ step('LR1', stride * (w - wo)) }}
- INC LR0 {{ stride }} ;;
+ ADD LR1 LR1 {{ cr.row_delta }} ; INC LR0 {{ stride }} ;;
  BLT.S LR0 {{ cr.yend }} oy ;;
  HALT ;;

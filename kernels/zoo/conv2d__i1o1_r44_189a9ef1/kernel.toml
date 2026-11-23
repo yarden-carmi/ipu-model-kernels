@@ -1,35 +1,34 @@
 [kernel]
 op = "conv2d"
-formats = ["e2"]
+formats = ["e1", "e2"]
 
 [params.bias]
 type = "bool"
-default = false
+default = true
 [params.cin]
 type = "int"
 min = 1
 max = 1024
-default = 48
+default = 64
 [params.cout]
 type = "int"
 min = 1
 max = 1024
-default = 64
+default = 32
 [params.groups]
 type = "int"
-min = 1
-max = 1
+choices = [1]
 default = 1
 [params.h]
 type = "int"
 min = 1
-max = 256
-default = 64
+max = 1024
+default = 128
 [params.w]
 type = "int"
 min = 1
-max = 256
-default = 64
+max = 1024
+default = 128
 [params.kh]
 type = "int"
 min = 1
@@ -50,42 +49,82 @@ type = "int"
 min = 1
 max = 32
 default = 1
+[params.in0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 1024
+default = 64
+[params.in0_d2]
+type = "int"
+min = 1
+max = 1024
+default = 128
+[params.in0_d3]
+type = "int"
+min = 1
+max = 1024
+default = 128
+[params.out0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 1024
+default = 32
+[params.out0_d2]
+type = "int"
+min = 1
+max = 1056
+default = 128
+[params.out0_d3]
+type = "int"
+min = 1
+max = 1056
+default = 128
 
 [derived]
-ho = "(h + 2 * padding - kh) // stride + 1"
-wo = "(w + 2 * padding - kw) // stride + 1"
-yend = "ho * stride - padding"
-xend = "wo * stride - padding"
-chunks = "ceil(cin / 128)"
-blocks = "ceil(cout / 128)"
+origin = "-padding * (in0_d3 + 1)"
+yend = "out0_d2 * stride - padding"
+xend = "out0_d3 * stride - padding"
+row_delta = "stride * (in0_d3 - out0_d3)"
+chunks = "ceil(in0_d1 / 128)"
+blocks = "ceil(out0_d1 / 128)"
 panel = "ceil(cin / 16) * 16"
-tail = "ds(cout - (blocks - 1) * 128)"
+tail = "ds(out0_d1 - (blocks - 1) * 128)"
 full = "ds(128)"
 
 [inputs.in0]
-shape = ["h", "w", "chunks * 128"]
+shape = ["in0_d0", "in0_d2", "in0_d3", "chunks * 128"]
 range = [-2, 2]
 [inputs.weights]
 shape = ["blocks", "1 + kh * kw * panel", 128]
 range = [-1, 1]
 [outputs.out0]
-shape = ["ho", "wo", "blocks * 128"]
+shape = ["out0_d0", "out0_d2", "out0_d3", "blocks * 128"]
 
 [abi]
+origin = "LR1"
 in0 = "CR2"
 weights = "CR3"
 out0 = "CR4"
 qf_in0 = "CR5"
 qf_out0 = "CR6"
+row_delta = "CR7"
 blocks = "CR8"
-h = "CR9"
-w = "CR10"
+in0_d2 = "CR9"
+in0_d3 = "CR10"
 panel = "CR11"
 yend = "CR12"
 xend = "CR13"
 tail = "CR14"
 full = "CR15"
 
-[cases.default]
 [golden]
-tolerance = { e2 = "NX8_STEP" }
+tolerance = { e1 = "NX8_STEP", e2 = "NX8_STEP" }
+[cases.default]

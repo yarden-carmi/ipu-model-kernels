@@ -49,28 +49,25 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 64, 64], [262144, 4096, 64, 1], 0), module.weight, module.bias, [1, 1], [1, 1])
+    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 128, 128], [1048576, 16384, 128, 1], 0), module.weight, module.bias, [1, 1], [1, 1])
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 64, 64, 64])}
+    return {"out0": _out(op0, [1, 32, 128, 128])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
+    """Lay out weights by output block, tap, and input channel."""
     weight = module.weight
     co, ci, kh, kw = weight.shape
     blocks = (co + 127) // 128
     panel = (ci + 15) // 16 * 16
     rows = weight.new_zeros((blocks, 1 + kh * kw * panel, 128))
-    padded = weight.new_zeros((blocks * 128, ci, kh, kw))
-    padded[:co] = weight
-    rows[:, 1:].view(blocks, kh, kw, panel, 128)[:, :, :, :ci] = (
-        padded.view(blocks, 128, ci, kh, kw).permute(0, 3, 4, 2, 1)
-    )
-    if params.get("bias"):
-        bias = getattr(module, "bias_vec", None)
-        if bias is None:
-            bias = module.bias
-        bias_row = weight.new_zeros(blocks * 128)
-        bias_row[:co] = bias.reshape(-1)
-        rows[:, 0] = bias_row.view(blocks, 128)
+    taps = rows[:, 1:].view(blocks, kh, kw, panel, 128)
+    bias = getattr(module, "bias", None) if params.get("bias") else None
+    for block, start in enumerate(range(0, co, 128)):
+        tile = weight[start:start + 128]
+        active = tile.shape[0]
+        taps[block, :, :, :ci, :active] = tile.permute(2, 3, 1, 0)
+        if bias is not None:
+            rows[block, 0, :active] = bias.reshape(-1)[start:start + active]
     return {"weights": rows}
