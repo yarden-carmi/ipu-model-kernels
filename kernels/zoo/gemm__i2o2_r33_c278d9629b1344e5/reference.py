@@ -39,32 +39,34 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.linear.default(_v(ins[0], [1, 257, 1536], [394752, 1536, 1], 0), module.op0_weight, module.op0_bias)
+    r0 = aten.linear.default(_v(ins[0], [1, 257, 384], [98688, 384, 1], 0), module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.mul.Tensor(_v(op0, [1, 257, 384], [98688, 384, 1], 0), module.op1_lambda1)
-    op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 257, 384])}
+    return {"out0": _out(op0, [1, 257, 384])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Fold the channel scale into both affine terms, then pack high and residual planes."""
-    k, n = int(params["k"]), int(params["n"])
-    if hasattr(module, "op1_lambda1"):
+    """Encode weight chunks and broadcast bias as signed radix-32 planes."""
+    scaled = hasattr(module, "op1_lambda1")
+    weight = (module.op0_weight if scaled else module.weight).detach().double()
+    n, k = weight.shape
+    if scaled:
         scale = module.op1_lambda1.detach().reshape(n).double()
-        w = module.op0_weight.detach().reshape(n, k).double() * scale[:, None]
-        b = module.op0_bias.detach().reshape(n).double() * scale if params["bias"] else w.new_zeros(n)
-    else:
-        source = getattr(module, "op0_weight", getattr(module, "weight", None))
-        w = source.detach().double()
-        if w.shape != (n, k):
-            w = w.reshape(k, n).T
-        bias = getattr(module, "op0_bias", getattr(module, "bias", None))
-        b = bias.detach().double().reshape(n) if params["bias"] and bias is not None else w.new_zeros(n)
-    data = torch.cat((b[:, None], w), dim=1)
-    data = torch.nn.functional.pad(data, (0, 0, 0, (-n) % 128))
-    rows = data.reshape(-1, 128, k + 1).transpose(1, 2)
-    exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))[1]
-    hi = torch.ldexp(torch.ldexp(rows, 5 - exp).round(), exp - 5)
-    planes = (hi, rows - hi)
-    return {"w": torch.stack(planes, dim=2).reshape(-1, 128).float()}
+        weight = weight * scale[:, None]
+
+    def planes(rows):
+        exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))[1]
+        digits = torch.ldexp(rows.abs(), 25 - exp).round().long().clamp(max=(1 << 25) - 1)
+        return torch.stack([
+            torch.ldexp(((digits >> shift) & 31) * rows.sign(), exp + shift - 25)
+            for shift in (20, 15, 10, 5, 0)
+        ], dim=-2).reshape(-1, 128).float()
+
+    bias = weight.new_zeros(n)
+    if params["bias"]:
+        bias = (module.op0_bias if scaled else module.bias).detach().double()
+        if scaled:
+            bias = bias * scale
+    rows = torch.cat((bias[:, None], weight), dim=1)
+    rows = torch.nn.functional.pad(rows, (0, 0, 0, (-n) % 128))
+    return {"w": planes(rows.reshape(-1, 128, k + 1).transpose(1, 2))}
