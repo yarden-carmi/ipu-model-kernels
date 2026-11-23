@@ -150,6 +150,7 @@ variance_loop:
  {{ average('; SET LR1 CR0') }}
  LD.MULT R0 LR1 {{ cr.stats }} ; INC LR1 2 ;;
  {{ vec(next='; ACTIVATE.QUANTIZE rsqrt ' ~ full ~ ' ' ~ q ~ ' ' ~ cr.tmp ~ ' LR7') }}
+ {% if not pipeline %}
  {{ save(9,2) }}
  LD.MULT.CYCLIC LR7 {{ cr.tmp }} LR14 ;;
  LD.MULT R0 LR7 {{ cr.tmp }} ;;
@@ -173,6 +174,26 @@ variance_loop:
  {{ mul(first=true,slot='LR15') }}
  ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ; SET LR3 CR0 ; SET LR5 LR2 ; SET LR9 CR0 ;;
  LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR15 ; INC LR3 20 ; INC LR9 32 ; SET LR11 CR0 ;;
+ {% else %}
+ {# Keep r in the ring. Form the Newton correction using a split
+    variance and a split r*(r/2), folding the half into the residual. #}
+ {{ aq('LR1') }} ; LD.MULT.CYCLIC LR7 {{ cr.tmp }} LR14 ; SET LR11 CR1 ;;
+ LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ; SET LR3 CR0 ; SET LR5 LR2 ; SET LR9 CR0 ;;
+ MULT.RC.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB ; {{ aq('LR1') }} ; INC LR1 1 ;;
+ MULT.RC.VE LR14 {{ cr.half }} 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ; {{ aq('LR1') }} ; INC LR1 1 ; INC LR11 2 ;;
+ LD.MULT R0 LR1 {{ cr.tmp }} ;;
+ {{ mul(true,slot='LR14',next='; ' ~ aq('LR3') ~ ' ; INC LR3 14') }}
+ LD.MULT.CYCLIC LR3 {{ cr.tmp }} LR15 ;;
+ MULT.RC.VE LR15 CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB ; {{ aq('LR3') }} ; LD.MULT R0 LR11 {{ cr.stats }} ; INC LR3 1 ; DEC LR1 2 ;;
+ {{ vec(first=true,imm=cr.half,next='; LD.MULT R0 LR1 ' ~ cr.tmp) }}
+ MULT.RC.VV LR15 R0 0 LR0 {{ full }} {{ q }} ; ACC.SUB ; LD.MULT R0 LR3 {{ cr.tmp }} ;;
+ MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; ACC.SUB ; LD.MULT R0 LR1 {{ cr.tmp }} ; INC LR1 1 ;;
+ MULT.RC.VV LR15 R0 0 LR0 {{ full }} {{ q }} ; ACC.SUB ; LD.MULT.CYCLIC LR3 {{ cr.tmp }} LR0 ;;
+ MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; ACC.SUB ; {{ aq('LR1') }} ;;
+ LD.MULT R0 LR1 {{ cr.tmp }} ; INC LR3 5 ; INC LR9 32 ; SET LR11 CR0 ;;
+ {{ mul(true,slot='LR14',next='; ' ~ aq('LR1') ~ ' ; LD.MULT R0 LR11 ' ~ cr.gamma) }}
+ LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR15 ;;
+ {% endif %}
 
 {% macro output_chunk(pipelined=false,first=false,last=false) %}
  {% if not pipelined %}
@@ -192,7 +213,7 @@ variance_loop:
  MULT.RC.VV LR0 R1 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; LD.MULT R0 LR1 {{ cr.beta }} ; SET LR1 LR11 ;;
  {% if aligned %}
  {{ vec(next='; LD.MULT R0 LR1 ' ~ cr.beta ~ ' ; ADD LR1 LR1 ' ~ cr.K) }}
-   {{ vec(next='; ' ~ store(full) ~ (' ; LD.MULT R0 LR11 ' ~ cr.gamma ~ ' ; INC LR11 1' if pipelined and not last else '')) }}
+    {{ vec(next='; ' ~ store(full) ~ (' ; LD.MULT R0 LR11 ' ~ cr.gamma ~ ' ; INC LR11 1' if pipelined and not last else '')) }}
  {% else %}
  {{ vec(next='; LD.MULT R0 LR1 ' ~ cr.beta ~ ' ; ADD LR1 LR1 ' ~ cr.K) }}
   {{ vec() }}
@@ -202,7 +223,6 @@ variance_loop:
 {% endmacro %}
 {% if pipeline %}
  {# Subsequent gamma highs are fetched in the preceding output store. #}
- LD.MULT R0 LR11 {{ cr.gamma }} ;;
  {% for j in range(chunks) %}
  {{ output_chunk(true,loop.first,loop.last) }}
  {% endfor %}
