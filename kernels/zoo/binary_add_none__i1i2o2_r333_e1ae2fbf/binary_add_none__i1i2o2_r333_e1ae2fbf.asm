@@ -1,8 +1,10 @@
 {% macro add_store(ds) %}
-    LD.MULT R0 LR5 {{ cr.in1 }} ;;
-    MULT.VE LR0 CR1 0 LR0 {{ ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ;;
-    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR5 ;;
+    MULT.VE LR0 CR1 0 LR0 {{ ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ; ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR5 ;;
     INC LR5 1 ;;
+{% endmacro %}
+
+{% macro scatter() %}
+    MULT.EE LR6 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.RESHAPE LRD0 LRD2 7
 {% endmacro %}
 
     SET LR0 CR0 ; SET LR5 CR0 ; SET LR6 CR0 ;;
@@ -18,14 +20,19 @@ chunk:
     SET LR13 LR10 ;;
 gather_setup:
     SET LR2 CR0 ; SET LR3 CR0 ; SET LR11 CR0 ;;
-    // Load the first row, then bundle each subsequent load with the index updates.
+    // Keep the last element separate so the pipeline never reads beyond the chunk.
     LD.MULT R0 LR12 {{ cr.in0 }} ; DEC LR13 1 ;;
-    B scatter ;;
+    BEQ LR11 LR13 gather_single ;;
+    {{ scatter() }} ; ADD LR12 LR12 {{ cr.blocks }} ; INC LR11 1 ; LD.MULT R0 LR12 {{ cr.in0 }} ;;
+    DEC LR13 1 ;;
+    BLT.S LR13 LR11 gather_last ;;
 gather:
-    ADD LR12 LR12 {{ cr.blocks }} ; ADDBI LRD2 1 ; INC LR11 1 ; LD.MULT R0 LR12 {{ cr.in0 }} ;;
-scatter:
-    MULT.EE LR6 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.RESHAPE LRD0 LRD2 7 ; BLT.S LR11 LR13 gather ;;
-    ADD LR12 LR12 {{ cr.blocks }} ; INC LR11 1 ;;
+    // MULT consumes the previous load; RESHAPE sees the incremented destination.
+    {{ scatter() }} ; ADD LR12 LR12 {{ cr.blocks }} ; INC LR11 1 ; ADDBI LRD2 1 ; LD.MULT R0 LR12 {{ cr.in0 }} ; BLT.S LR11 LR13 gather ;;
+gather_last:
+    ADDBI LRD2 1 ;;
+gather_single:
+    {{ scatter() }} ; LD.MULT R0 LR5 {{ cr.in1 }} ; ADD LR12 LR12 {{ cr.blocks }} ; INC LR11 1 ;;
     BEQ LR10 LR11 tail ;;
     DEC LR10 128 ;;
     {{ add_store('CR15') }}
