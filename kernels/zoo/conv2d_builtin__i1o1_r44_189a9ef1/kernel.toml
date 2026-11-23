@@ -51,8 +51,8 @@ min = 1
 max = 2
 default = 2
 [derived]
-hp = "h + 2 * padding"
-wp = "w + 2 * padding"
+width = "w"
+width_plus_one = "w + 1"
 ho = "(h + 2 * padding - kh) // stride + 1"
 wo = "(w + 2 * padding - kw) // stride + 1"
 dsc = "ds(cout)"
@@ -63,20 +63,19 @@ range = [-2, 2]
 [inputs.weights]
 shape = [20, 128]
 range = [-1, 1]
-[scratch.pad]
-shape = ["hp * wp", 128]
 [outputs.out0]
 shape = ["ho", "wo", 128]
 [abi]
 in0 = "CR2"
 out0 = "CR3"
 weights = "CR4"
-pad = "CR5"
+width = "CR5"
 qf_in0 = "CR6"
 qf_weights = "CR7"
 qf_out0 = "CR8"
 dsc = "CR9"
 dsi = "CR10"
+width_plus_one = "CR11"
 [golden]
 tolerance = { e2 = "NX8_STEP" }
 [cases.default]
