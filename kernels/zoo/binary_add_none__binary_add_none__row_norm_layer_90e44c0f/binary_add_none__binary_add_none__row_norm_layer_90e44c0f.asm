@@ -86,20 +86,20 @@ center_loop:
  {{ added() }}
  {{ at('LR1',6) }}{{ add_planes(3,'SUB') }}
  BEQ LR5 LR6 center_tail ;;
- {{ split('LR9',3) }}
+  {{ split('LR9',2) }}
  INC LR9 1 ; INC LR5 1 ; BEQ LR0 CR0 center_loop ;;
 center_tail:
- {{ split('LR9',3,tail) }}
+  {{ split('LR9',2,tail) }}
 
  INC LR6 1 ;;
  {{ reset() }}{{ clear() }}
 variance_loop:
  SET LR3 LR9 ;;
- {% for part in range(3) %}
+  {% for part in range(2) %}
  LD.MULT.CYCLIC LR3 {{ cr.tmp }} LR0 ; SET LR1 LR9 {% if not loop.first %}; INC LR3 1{% endif %} ;;
- {{ dot(3,reduce=true) }}
+  {{ dot(2,reduce=true) }}
  {% endfor %}
- INC LR9 3 ; INC LR5 1 ;;
+  INC LR9 2 ; INC LR5 1 ;;
  BLT.S LR5 LR6 variance_loop ;;
  {{ average('variance_scale') }}
  {{ at('LR1',3) }}
@@ -141,11 +141,11 @@ output_loop:
  {{ mul(first=loop.first,next='; LD.MULT R0 LR1 ' ~ cr.tmp ~ ' ; INC LR1 1') }}
  {{ mul(next='; DEC LR1 1') }}
  {% endfor %}
- {{ save(20,3) }}
- {% for part in range(3) %}
+  {{ save(20,2) }}
+  {% for part in range(2) %}
  LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ; SET LR1 CR0 {% if not loop.first %}; INC LR9 1{% endif %} ;;
  INC LR1 20 ;;
- {{ dot(3,first=loop.first) }}
+  {{ dot(2,first=loop.first) }}
  {% endfor %}
  SET LR1 LR11 ; INC LR9 1 ;;
  {{ add_planes(3,base=cr.beta,step='ADD LR1 LR1 ' ~ cr.K) }}
