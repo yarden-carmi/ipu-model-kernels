@@ -24,32 +24,31 @@ select_path:
     BLT.S LR7 {{ cr.k }} transpose_start ;;
     ADD LR8 LR5 {{ cr.k }} ; SET LR2 LR12 ; SET LR9 {{ cr.m }} ;;
     BLT.S LR7 LR8 dot_split_start ;;
-{% macro dot_product() -%}
-    MULT.RC.VV LR5 R0 0 LR0 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; AGG.SUM.FIRST LR7 {{ cr.bconfig }}.H ; INC LR7 1
-{%- endmacro %}
 {% macro dot(tag, split) %}
 dot_{{ tag }}_start:
     SET LR3 {{ cr.n }} ;;
-    DEC LR3 {{ 2 if split else 1 }} ;;
+    DEC LR3 1 ;;
+{% if split %}
+    {# The fused branch sees the destination slot before its increment. #}
+    DEC LR3 1 ;;
+{% endif %}
 dot_{{ tag }}_row:
     LD.MULT R0 LR2 {{ cr.in0 }} ; SET LR6 LR4 ; SET LR7 CR0 ; SET LR1 LR3 ;;
     DEC LR7 1 ;;
 {% if not split %}
     LD.MULT.CYCLIC LR6 {{ cr.in1 }} LR0 ; BEQ LR3 CR0 dot_{{ tag }}_last ;;
 dot_{{ tag }}_column:
-    {{ dot_product() }} ; LD.MULT.CYCLIC LR6 {{ cr.in1 }} LR0 ; ADD LR6 LR6 {{ cr.bconfig }}.L ; DEC LR1 1 ; BNE LR1 CR1 dot_{{ tag }}_column ;;
-{% else %}
-    {# Prime both halves. Each product consumes the current pair while
-       replacing its upper half; the next word replaces the lower half. #}
-    SET LR1 CR0 ; ADD LR8 LR6 CR1 ;;
-    INC LR1 128 ; LD.MULT.CYCLIC LR8 {{ cr.in1 }} LR1 ;;
-    LD.MULT.CYCLIC LR6 {{ cr.in1 }} LR0 ; BLT.S LR3 CR0 dot_{{ tag }}_last ;;
-dot_{{ tag }}_column:
-    {{ dot_product() }} ; ADD LR8 LR8 {{ cr.bconfig }}.L ; LD.MULT.CYCLIC LR8 {{ cr.in1 }} LR1 ;;
-    ADD LR6 LR6 {{ cr.bconfig }}.L ; LD.MULT.CYCLIC LR6 {{ cr.in1 }} LR0 ; BLT.S LR7 LR3 dot_{{ tag }}_column ;;
-{% endif %}
+    MULT.RC.VV LR5 R0 0 LR0 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; AGG.SUM.FIRST LR7 {{ cr.bconfig }}.H ; LD.MULT.CYCLIC LR6 {{ cr.in1 }} LR0 ; ADD LR6 LR6 {{ cr.bconfig }}.L ; INC LR7 1 ; DEC LR1 1 ; BNE LR1 CR1 dot_{{ tag }}_column ;;
 dot_{{ tag }}_last:
-    {{ dot_product() }} ; ADD LR6 LR6 {{ cr.bconfig }}.L ;;
+    MULT.RC.VV LR5 R0 0 LR0 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; AGG.SUM.FIRST LR7 {{ cr.bconfig }}.H ; ADD LR6 LR6 {{ cr.bconfig }}.L ; INC LR7 1 ;;
+{% else %}
+    SET LR1 CR0 ;;
+    INC LR1 128 ;;
+dot_{{ tag }}_column:
+    LD.MULT.CYCLIC LR6 {{ cr.in1 }} LR0 ; ADD LR8 LR6 CR1 ;;
+    LD.MULT.CYCLIC LR8 {{ cr.in1 }} LR1 ;;
+    MULT.RC.VV LR5 R0 0 LR0 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; AGG.SUM.FIRST LR7 {{ cr.bconfig }}.H ; ADD LR6 LR6 {{ cr.bconfig }}.L ; INC LR7 1 ; BLT.S LR7 LR3 dot_{{ tag }}_column ;;
+{% endif %}
     {{ output_store('H') }}
     DEC LR9 1 ;;
     BEQ LR9 CR0 dot_done ;;
@@ -70,27 +69,27 @@ transpose_k:
 transpose_tile:
     SET LR3 CR0 ; SET LR1 CR0 ;;
     LD.MULT R0 LR6 {{ cr.in1 }} ;;
-    MULT.EE LR5 CR0 0 LR0 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD.FIRST ; SET LR2 CR0 ;;
+    MULT.EE LR5 CR0 0 LR0 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD.FIRST ;;
     INC LR1 128 ;;
     BLT.S LR1 LR9 gather ;;
     SET LR1 LR9 ;;
-{% macro gather_element() -%}
-    MULT.EE LR5 CR1 0 LR0 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.RESHAPE LRD0 LRD2 7 ; ADD LR6 LR6 {{ cr.bconfig }}.L
-{%- endmacro %}
-{% macro gather_prefetch() -%}
-    {{ gather_element() }} ; LD.MULT R0 LR6 {{ cr.in1 }} ; DEC LR1 1
-{%- endmacro %}
 gather:
     DEC LR1 1 ;;
-    BEQ LR1 CR0 gather_only ;;
-    {# Write slot zero before advancing the scatter index in the loop. #}
-    {{ gather_prefetch() }} ; BEQ LR1 CR1 gather_last ;;
+    BEQ LR1 CR0 gather_last ;;
+{# Scatter column zero without advancing the packed destination. Subsequent
+   prefetch words advance it for their scatter; the drain advances separately. #}
+{% macro gather_prefetch(advance) -%}
+    MULT.EE LR5 CR1 0 LR0 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.RESHAPE LRD0 LRD2 7 ; LD.MULT R0 LR6 {{ cr.in1 }} ; ADD LR6 LR6 {{ cr.bconfig }}.L ; DEC LR1 1 ; {% if advance %}ADDBI LRD2 1 ;{% endif %}
+{%- endmacro %}
+    {{ gather_prefetch(false) }}
+    BEQ LR1 CR1 gather_advance_last ;;
 gather_next:
-    {{ gather_prefetch() }} ; ADDBI LRD2 1 ; BNE LR1 CR1 gather_next ;;
-gather_last:
+    {{ gather_prefetch(true) }}
+    BNE LR1 CR1 gather_next ;;
+gather_advance_last:
     ADDBI LRD2 1 ;;
-gather_only:
-    {{ gather_element() }} ;;
+gather_last:
+    MULT.EE LR5 CR1 0 LR0 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.RESHAPE LRD0 LRD2 7 ; ADD LR6 LR6 {{ cr.bconfig }}.L ;;
     SET LR1 CR0 ;;
     INC LR1 128 ;;
     BLT.S LR1 LR9 panel_full ;;
