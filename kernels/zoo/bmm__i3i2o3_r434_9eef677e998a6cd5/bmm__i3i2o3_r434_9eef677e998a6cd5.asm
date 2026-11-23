@@ -32,9 +32,13 @@ width_ready:
     DEC LR9 1 ;;
     MULT.RC.VE LR3 LR11 0 LR14 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ; DEC LR12 1 ; ADD LR9 LR9 {{ cr.stride }}.L ; BGT.S LR12 CR1 {{ tag }}_inner ;;
 {% else %}
+{# Prime B, then load the next row in the word that consumes the current
+   one. Drain the final product without reading beyond the chunk. #}
+    LD.MULT.CYCLIC LR9 {{ cr.in1 }} LR14 ; DEC LR12 1 ; BEQ LR12 CR1 {{ tag }}_last ;;
 {{ tag }}_inner:
-    LD.MULT.CYCLIC LR9 {{ cr.in1 }} LR14 ; INC LR11 1 ;;
-    MULT.RC.VE LR3 LR11 0 LR14 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ; DEC LR12 1 ; ADD LR9 LR9 {{ cr.stride }}.L ; BGT.S LR12 CR1 {{ tag }}_inner ;;
+    MULT.RC.VE LR3 LR11 0 LR14 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ; LD.MULT.CYCLIC LR9 {{ cr.in1 }} LR14 ; INC LR11 1 ; ADD LR9 LR9 {{ cr.stride }}.L ; DEC LR12 1 ; BGT.S LR12 CR1 {{ tag }}_inner ;;
+{{ tag }}_last:
+    MULT.RC.VE LR3 LR11 0 LR14 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ; INC LR11 1 ; ADD LR9 LR9 {{ cr.stride }}.L ;;
 {% endif %}
     BNE LR10 CR0 {{ tag }}_chunk ;;
     B store ;;
