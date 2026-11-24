@@ -6,7 +6,6 @@
 {% set row = kw * step %}
 {% set taps = kh * kw %}
 {% set gc = cin // groups %}
-{% set prefetch = gc <= 3 %}
 {% set ds = cr.ds128 ~ '.L' %}
 {% set tail = cr.ds_tail ~ '.L' %}
 {% set qi = cr.qf_in0 ~ '.L' %}
@@ -22,18 +21,18 @@
 {% macro zeros(name) %}
  SET LR13 CR0 ;;
 {{ name }}:
- MULT.VE LR0 CR0 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ;
- ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.pad }} LR5 ;
- INC LR5 1 ; INC LR13 1 ; BLT.S LR13 LR12 {{ name }} ;;
+  MULT.VE LR0 CR0 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ;
+  ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.pad }} LR5 ;
+  INC LR5 1 ; INC LR13 1 ; BLT.S LR13 LR12 {{ name }} ;;
 {% endmacro %}
-{% macro shifted(k, x) %}
+{% macro shifted(k, x, last) %}
 {% set delta = k - padding %}
  SET LR8 {{ ['LR1','LR2','LR3'][x] if stride == 1 else ['LR1','LR3'][x] }} ;;
  {% if delta %} {{ inc('LR8', delta) }} ;; {% endif %}
 {% if stride == 1 %}
  MULT.RC.VE LR8 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ;
 {% elif paired %}
- MULT.RC.VE LR8 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.STRIDE 64 on off LR0 ;;
+ MULT.RC.VE LR8 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.STRIDE 64 on off LR0 ;
  ACTIVATE.QUANTIZE identity {{ tail }} {{ qi }} {{ cr.pad }} LR5 ; INC LR5 1 ;;
  MULT.RC.VE LR0 CR0 0 LR0 {{ ds }} {{ qi }} ; ACC.STRIDE 64 on off LR0 ;;
  MULT.RC.VE LR8 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.STRIDE 64 on off LR9 ;
@@ -41,7 +40,8 @@
  MULT.RC.VE LR8 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.STRIDE 64 on off LR0 ;;
  MULT.RC.VE LR8 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.STRIDE 64 on off LR9 ; INC LR8 128 ;
 {% endif %}
- ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.pad }} LR5 ; INC LR5 1 ;;
+ ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.pad }} LR5 ; INC LR5 1 ;
+ {% if last %} INC LR7 1 ; BLT.S LR7 LR10 stage_y ; {% endif %} ;;
 {% endmacro %}
 
  SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
@@ -64,9 +64,8 @@ stage_y:
  LD.MULT.CYCLIC LR4 {{ cr.in0 }} LR1 ; INC LR4 1 ;;
  {% if stride == 1 and in0_d3 == out0_d3 and in0_d3 < 128 %}
  {# Clear physical lane padding before the horizontal shifts can move it into view. #}
- MULT.RC.VE LR1 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ;;
- INC LR5 1 ;;
- ACTIVATE.QUANTIZE identity {{ tail }} {{ qi }} {{ cr.pad }} LR5 ;;
+ MULT.RC.VE LR1 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ;
+ ACTIVATE.QUANTIZE identity {{ tail }} {{ qi }} {{ cr.pad }} LR5 ; INC LR5 1 ;;
  LD.MULT.CYCLIC LR5 {{ cr.pad }} LR1 ;;
  DEC LR5 1 ;;
  {% endif %}
@@ -75,18 +74,18 @@ stage_y:
 {% endif %}
 {% for k in range(kw) %}
 {% for x in range(ox) %}
- {{ shifted(k, x) }}
+  {{ shifted(k, x, k + 1 == kw and x + 1 == ox) }}
 {% endfor %}
 {% endfor %}
- INC LR7 1 ; BLT.S LR7 LR10 stage_y ;;
  {{ zeros('bottom') }}
  INC LR6 1 ;;
  BLT.S LR6 LR11 stage_channel ;;
 
 {% macro convolve(x, upper=false) %}
  {% if not upper %}
- MULT.RC.VE LR2 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD.FIRST ; SET LR11 LR10 ; SET LR15 LR4 ;;
- MULT.RC.VE LR3 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; SET LR12 CR0 ; SET LR2 CR0 ; {{ inc('LR15', x) }} ;;
+  MULT.RC.VE LR2 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD.FIRST ; SET LR11 LR10 ; SET LR15 LR4 ;
+  {% if x == ( -1 if paired else 0) %} INC LR7 {{ 2 if paired else 1 }} ; {% endif %} ;;
+  MULT.RC.VE LR3 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; SET LR12 CR0 ; SET LR2 CR0 ; {{ inc('LR15', x) }} ;;
  {% else %}
  SET LR11 LR10 ; SET LR15 LR4 ; SET LR12 CR0 ;;
  {{ inc('LR15', x) }} ;;
@@ -95,31 +94,22 @@ input_channel_{{ x + 1 }}:
  LD.MULT R0 LR11 {{ cr.weights }} ; INC LR11 1 ; SET LR13 LR15 ; SET LR0 CR0 ;;
  LD.MULT R1 LR11 {{ cr.weights }} ; INC LR11 1 ; SET LR1 CR0 ; DEC LR0 1 ;;
  INC LR1 127 ;;
- {% if prefetch %}
- LD.MULT.CYCLIC LR13 {{ cr.pad }} LR2 ; INC LR13 {{ step }} ;;
+  LD.MULT.CYCLIC LR13 {{ cr.pad }} LR2 ; INC LR13 {{ step }} ;;
  {# Alternate cyclic slots so the prefetched row cannot replace the live row. #}
  {% for tap in range(taps) %}
  {% set cur = 'LR9' if tap % 2 else 'LR2' %}
  {% set next = 'LR2' if tap % 2 else 'LR9' %}
  MULT.RC.VE {{ cur }} LR0 0 LR2 {{ ds }} {{ qw }} ; ACC.ADD ; INC LR0 1 ; INC LR1 1 ;;
- MULT.RC.VE {{ cur }} LR1 0 LR2 {{ ds }} {{ qw }} ; ACC.ADD {% if tap + 1 < taps %} ; LD.MULT.CYCLIC LR13 {{ cr.pad }} {{ next }} ; INC LR13 {{ step }} {% endif %} ;;
- {% endfor %}
- {% else %}
- tap_{{ x + 1 }}:
- LD.MULT.CYCLIC LR13 {{ cr.pad }} LR2 ; INC LR13 {{ step }} ;;
- MULT.RC.VE LR2 LR0 0 LR2 {{ ds }} {{ qw }} ; ACC.ADD ; INC LR0 1 ; INC LR1 1 ;;
- MULT.RC.VE LR2 LR1 0 LR2 {{ ds }} {{ qw }} ; ACC.ADD ; BLT.S LR0 LR9 tap_{{ x + 1 }} ;;
- {% endif %}
-{% if gc > 1 %}
- INC LR12 1 ; ADD LR15 LR15 {{ cr.plane }} ;;
- BLT.S LR12 {{ cr.gcin }} input_channel_{{ x + 1 }} ;;
-{% else %}
- ADD LR15 LR15 {{ cr.plane }} ;;
- {% endif %}
- {% if not paired or upper %}
- INC LR2 128 ; SET LR0 CR0 ;;
- INC LR2 128 ;;
- ACTIVATE.QUANTIZE {{ 'generic' if act_out0 != 'identity' else 'identity' }} {{ tail if not paired and x + 1 == ox else ds }} {{ qo }} {{ cr.out0 }} LR5 ; INC LR5 1 ;;
+  MULT.RC.VE {{ cur }} LR1 0 LR2 {{ ds }} {{ qw }} ; ACC.ADD
+  {% if tap + 1 < taps %} ; LD.MULT.CYCLIC LR13 {{ cr.pad }} {{ next }} ; INC LR13 {{ step }}
+  {% elif gc > 1 %} ; INC LR12 1 ; ADD LR15 LR15 {{ cr.plane }} ; SET LR0 CR0 ; BLT.S LR12 {{ cr.gcin_last }} input_channel_{{ x + 1 }}
+  {% else %} ; ADD LR15 LR15 {{ cr.plane }} ; SET LR0 CR0
+  {% endif %} ;;
+  {% endfor %}
+  {% if not paired or upper %}
+  ADD LR2 LR9 LR9 ;
+  ACTIVATE.QUANTIZE {{ 'generic' if act_out0 != 'identity' else 'identity' }} {{ tail if not paired and x + 1 == ox else ds }} {{ qo }} {{ cr.out0 }} LR5 ; INC LR5 1 ;
+  {% if upper or x + 1 == ox %} INC LR4 {{ stride * row * (2 if paired else 1) }} ; BLT.S LR7 {{ cr.out0_d2 }} output_y ; {% endif %} ;;
  {% endif %}
 {% endmacro %}
 
@@ -131,12 +121,12 @@ input_channel_{{ x + 1 }}:
  SET LR6 CR0 ; SET LR5 CR0 ; SET LR10 CR0 ;;
  SET LR4 CR0 ;;
  DEC LR4 1 ; DEC LR10 1 ; DEC LR5 1 ;;
- {{ bound('LR9', 128 if prefetch else taps - 1) }}
+ {{ bound('LR9', 128) }}
 {% if groups > 1 %}
  {{ bound('LR8', cout // groups) }}
 {% endif %}
 output_channel:
- SET LR7 CR0 ;;
+ SET LR7 CR0 ; SET LR0 CR0 ;;
  LD.MULT.CYCLIC LR10 {{ cr.weights }} LR2 ; INC LR10 1 ;;
  LD.MULT.CYCLIC LR10 {{ cr.weights }} LR3 ; INC LR10 1 ;;
 output_y:
@@ -146,8 +136,6 @@ output_y:
  {% if paired %}
  {{ convolve(stride * row, true) }}
  {% endif %}
- INC LR7 {{ 2 if paired else 1 }} ; INC LR4 {{ stride * row * (2 if paired else 1) }} ;;
- BLT.S LR7 {{ cr.out0_d2 }} output_y ;;
  SET LR10 LR11 ; INC LR6 1 ;;
 {% if groups > 1 %}
  BLT.S LR6 LR8 same_group ;;
