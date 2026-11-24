@@ -1,11 +1,11 @@
 [kernel]
 op = "gemm_table"
-formats = ["e1", "e2"]
+formats = ["e1"]
 
 [params.act_out0]
 type = "str"
-choices = ["silu"]
-default = "silu"
+choices = ["hardswish", "hardsigmoid"]
+default = "hardswish"
 [params.bias]
 type = "bool"
 default = true
@@ -13,17 +13,17 @@ default = true
 type = "int"
 min = 1
 max = 4096
-default = 32
+default = 48
 [params.m]
 type = "int"
 min = 1
 max = 65536
-default = 16384
+default = 196
 [params.n]
 type = "int"
 min = 1
 max = 4096
-default = 128
+default = 144
 [params.in0_d0]
 type = "int"
 min = 1
@@ -33,17 +33,17 @@ default = 1
 type = "int"
 min = 1
 max = 4096
-default = 32
+default = 48
 [params.in0_d2]
 type = "int"
 min = 1
 max = 65536
-default = 128
+default = 14
 [params.in0_d3]
 type = "int"
 min = 1
 max = 128
-default = 128
+default = 14
 [params.out0_d0]
 type = "int"
 min = 1
@@ -53,28 +53,28 @@ default = 1
 type = "int"
 min = 1
 max = 4096
-default = 128
+default = 144
 [params.out0_d2]
 type = "int"
 min = 1
 max = 65536
-default = 128
+default = 14
 [params.out0_d3]
 type = "int"
 min = 1
 max = 128
-default = 128
+default = 14
 
 [derived]
 chunks = "ceil(k / 128)"
-leading_chunks = "chunks - 1"
-full_bound = "126"
-tail_bound = "k - 128 * leading_chunks - 2"
+blocks = "ceil(n / 128)"
+tail = "1 + (n - 1) % 128"
+preceding = "(k - 1) // 128"
+before_last = "(k - 2) % 128"
 input_rows = "m * chunks"
-blocks = "ceil(out0_d1 / 128)"
-full = "ds(128)"
-tail = "ds(out0_d1 - 128 * (blocks - 1))"
-coeff_rows = "2 * blocks * (k + 1)"
+coeff_rows = "blocks * (2 + 2 * k)"
+full_ds = "ds(128)"
+tail_ds = "ds(tail)"
 
 [inputs.in0]
 shape = ["input_rows", 128]
@@ -86,7 +86,7 @@ range = [-1, 1]
 shape = [5, 128]
 range = [0, 0]
 [outputs.out0]
-shape = ["out0_d0 * out0_d2 * out0_d3 * blocks", 128]
+shape = ["m * blocks", 128]
 
 [abi]
 in0 = "CR2"
@@ -95,13 +95,12 @@ lut = "CR4"
 out0 = "CR5"
 qf_in0 = "CR6"
 qf_out0 = "CR7"
-chunks = "CR8"
-input_rows = "CR9"
-blocks = "CR10"
-leading_chunks = "CR11"
-full = "CR12"
-tail = "CR13"
-full_bound = "CR14"
-tail_bound = "CR15"
+full_ds = "CR8"
+tail_ds = "CR9"
+preceding = "CR10"
+input_rows = "CR11"
+chunks = "CR12"
+blocks = "CR13"
+before_last = "CR14"
 
 [cases.default]

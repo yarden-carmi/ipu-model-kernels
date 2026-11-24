@@ -49,42 +49,33 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    import types
-    ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
-    module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
-                                      for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 16, 128, 128], [262144, 16384, 128, 1], 0), module.op0_weight)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 8, 1, 1], [8, 1, 1, 1], 0), module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 64, 128, 128], [1048576, 16384, 128, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.hardsigmoid.default(_v(op0, [1, 16, 1, 1], [16, 1, 1, 1], 0))
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.silu_.default(_v(op1, [1, 64, 128, 128], [1048576, 16384, 128, 1], 0))
-    op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 64, 128, 128])}
+    return {"out0": _out(op1, [1, 16, 1, 1])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Fold inference batch norm and pack two coefficient digits per tap."""
-    n, k = params["n"], params["k"]
-    if hasattr(module, "op0_weight"):
+    """Tile output channels and interleave coarse and residual coefficient rows."""
+    n, k = params['n'], params['k']
+    blocks = (n + 127) // 128
+    if hasattr(module, 'op0_weight'):
         scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
         weights = module.op0_weight.double().reshape(n, k) * scale[:, None]
         bias = module.op1_bias.double() - module.op1_running_mean.double() * scale
     else:
         weights = module.weight.double().reshape(n, k)
-        bias = getattr(module, "bias", None)
-    if bias is None or not params["bias"]:
+        bias = getattr(module, 'bias', None)
+    if bias is None or not params['bias']:
         bias = weights.new_zeros(n)
 
-    blocks = (n + 127) // 128
-    rows = weights.new_zeros((blocks, k + 1, 128))
-    for block in range(blocks):
-        start = 128 * block
-        end = min(n, start + 128)
-        rows[block, 0, :end - start] = bias[start:end]
-        rows[block, 1:, :end - start] = weights[start:end].T
-    rows = rows.reshape(-1, 128)
-    _, exp = torch.frexp(rows.abs().amax(dim=1, keepdim=True))
-    step = torch.ldexp(torch.ones_like(rows[:, :1]), exp - 4)
+    rows = weights.new_zeros(blocks * 128, k + 1)
+    rows[:n, 0] = bias
+    rows[:n, 1:] = weights
+    rows = rows.reshape(blocks, 128, k + 1).transpose(1, 2)
+    _, exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
+    step = torch.ldexp(torch.ones_like(rows[..., :1]), exp - 4)
     coarse = torch.round(rows / step) * step
-    return {"coeff": torch.stack((coarse, rows - coarse), dim=1).reshape(-1, 128)}
+    return {'coeff': torch.stack((coarse, rows - coarse), dim=-2).reshape(-1, 128)}
