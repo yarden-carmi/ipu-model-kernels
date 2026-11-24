@@ -56,8 +56,8 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    """Lay out one broadcast plane with the same row padding as the input."""
+    """Fold one broadcast plane into the input's padded physical rows."""
     height, width = params["in0_d2"], params["in0_d3"]
     operand = module.op0_const0.reshape(-1)
-    rows = operand.repeat(height * width // operand.numel()).reshape(height, width)
-    return {"operand": torch.nn.functional.pad(rows, (0, (-width) % 128)).reshape(-1, 128)}
+    plane = operand.repeat(height * width // operand.numel()).reshape(height, width)
+    return {"operand": torch.nn.functional.pad(plane, (0, (-width) % 128)).reshape(-1, 128)}
