@@ -167,10 +167,13 @@ affine_loop:
  {% for i in range(3) %}
  {{ scalar() }}{% if not loop.last %} ; ADD LR10 LR10 {{ cr.K }} ; LD.MULT R0 LR10 {{ cr.beta }}{% endif %} ;;
  {% endfor %}
+ BEQ LR5 LR6 store_tail ;;
  ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ full }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR2 ;;
  INC LR2 1 ; INC LR11 1 ; INC LR9 3 ;;
- INC LR5 1 ;;
- BGE.S LR6 LR5 affine_loop ;;
+ INC LR5 1 ; BEQ LR0 CR0 affine_loop ;;
+store_tail:
+ ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ tail }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR2 ;;
+ INC LR2 1 ;;
 
  {# Input patch groups are interleaved, while output groups are contiguous. #}
  BGE.S LR2 {{ cr.M }} finish ;;
