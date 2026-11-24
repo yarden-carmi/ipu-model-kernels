@@ -1,45 +1,43 @@
-{# Keep 128 successive RHS scalars resident in R0 while streaming A. #}
-{% macro product(first) %}
-    LD.MULT.CYCLIC LR11 {{ cr.in0 }} LR15 ;;
-    MULT.RC.VE LR15 LR5 0 LR15 {{ cr.ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{{ '.FIRST' if first else '' }} ; ADD LR11 LR11 {{ cr.tiles }} ; DEC LR14 1 ;;
-{% endmacro %}
-{% macro store(half) %}
-    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.ds }}.{{ half }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR0 ;;
-    INC LR0 1 ;;
-{% endmacro %}
-    SET LR0 CR0 ; SET LR1 CR0 ; SET LR10 CR0 ;;
-    SET LR15 CR0 ;;
+{# One A vector spans an M tile; one RHS row supplies up to 128 K
+   scalars for that output column. Prime A, then load ahead in each MAC. #}
+    INC LR15 128 ; INC LR11 2 ;;
 group:
-    SET LR2 LR1 ; SET LR4 {{ cr.out0_d1 }} ;;
+    ADD LR7 LR1 {{ cr.head_offset }} ; SET LR4 {{ cr.mh }}.H ;;
 head:
-    SET LR8 {{ cr.n }} ;;
+    SET LR5 {{ cr.n }} ;;
 column:
-    SET LR6 LR10 ; SET LR7 {{ cr.tiles }} ;;
+    SET LR2 LR0 ; SET LR6 {{ cr.mh }}.L ;;
 tile:
-    SET LR11 LR6 ; SET LR9 LR2 ; SET LR14 {{ cr.k }} ;;
-    SET LR5 CR0 ;;
-    LD.MULT R0 LR9 {{ cr.in1 }} ;;
-    {{ product(true) }}
-    B advance ;;
-reduce:
-    {{ product(false) }}
-advance:
-    INC.MODP2 LR5 CR1 7 ; BEQ LR14 CR0 write ;;
-    BNE LR5 CR0 reduce ;;
-    INC LR9 1 ;;
-    LD.MULT R0 LR9 {{ cr.in1 }} ;;
-    B reduce ;;
-write:
-    DEC LR7 1 ;;
-    BEQ LR7 CR0 tail ;;
-    {{ store('L') }}
-    INC LR6 1 ; B tile ;;
-tail:
-    {{ store('H') }}
-    ADD LR2 LR2 {{ cr.rhs_stride }} ; DEC LR8 1 ;;
-    BNE LR8 CR0 column ;;
-    ADD LR10 LR10 {{ cr.head_rows }} ; DEC LR4 1 ;;
-    BNE LR4 CR0 head ;;
-    ADD LR1 LR1 {{ cr.rhs_group }} ; DEC LR3 1 ;;
-    BNE LR3 CR0 group ;;
+    SET LR8 LR2 ; SET LR9 LR7 ; SET LR10 {{ cr.k }} ;;
+    MULT.VE LR14 CR0 0 LR14 {{ cr.ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
+chunk:
+    SET LR3 LR10 ; BLE.S LR10 LR15 chunk_ready ;;
+    SET LR3 LR15 ;;
+chunk_ready:
+    LD.MULT R0 LR9 {{ cr.in1 }} ; SUB LR10 LR10 LR3 ; SET LR12 CR0 ;;
+    LD.MULT.CYCLIC LR8 {{ cr.in0 }} LR14 ; DEC LR12 1 ; BEQ LR3 CR1 drain ;;
+{% macro mac(prefetch) %}
+    MULT.RC.VE LR14 LR12 0 LR14 {{ cr.ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR12 1
+    {%- if prefetch %} ; ADD LR8 LR8 {{ cr.stride }}.H ; LD.MULT.CYCLIC LR8 {{ cr.in0 }} LR14 ; DEC LR3 1 ; BGT.S LR3 LR11 key{% endif %} ;;
+{% endmacro %}
+key:
+    {{ mac(true) }}
+drain:
+    {{ mac(false) }}
+    BEQ LR10 CR0 store ;;
+    ADD LR8 LR8 {{ cr.stride }}.H ; INC LR9 1 ; B chunk ;;
+store:
+    BGT.S LR6 LR15 full ;;
+{% macro output(half) %}
+    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.ds }}.{{ half }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR13 ;;
+    INC LR13 1 ;;
+{% endmacro %}
+    {{ output('H') }}
+    ADD LR7 LR7 {{ cr.stride }}.L ; DEC LR5 1 ; BGT.S LR5 CR1 column ;;
+    ADD LR0 LR8 CR1 ; DEC LR4 1 ; BGT.S LR4 CR1 head ;;
+    ADD LR1 LR1 {{ cr.group_rows }} ;;
+    BNE LR1 {{ cr.all_group_rows }} group ;;
     HALT ;;
+full:
+    {{ output('L') }}
+    DEC LR6 128 ; INC LR2 1 ; B tile ;;
