@@ -3,12 +3,12 @@
 {% endmacro %}
 
 {% macro gather64(first) %}
+    LD.MULT R0 LR7 {{ cr.tile }} ; INC LR9 64 ;;
 {% for block in range(4) %}
-    LD.MULT R0 LR7 {{ cr.tile }} ; INC LR9 16 ;;
-    MULT.VE LR6 CR1 0 LR4 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.RESHAPE LRD0 LRD2 0 ; {% if not first or block != 0 %}ADDBI LRD2 8 ;{% endif %} INC LR7 1 ;;
-    MULT.VE LR6 CR1 0 LR4 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.RESHAPE LRD0 LRD2 0 ; ADDBI LRD2 8 ; INC LR6 8 ;;
-    DEC LR6 8 ;;
+    MULT.VE LR6 CR1 0 LR4 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.RESHAPE LRD0 LRD2 0 ; {% if not first or block != 0 %}ADDBI LRD2 8 ;{% endif %} {% if block != 0 %}DEC LR6 8 ;{% endif %} INC LR7 1 ;;
+    MULT.VE LR6 CR1 0 LR4 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.RESHAPE LRD0 LRD2 0 ; ADDBI LRD2 8 ; INC LR6 8 ; {% if block < 3 %}LD.MULT R0 LR7 {{ cr.tile }} ;{% endif %} ;;
 {% endfor %}
+    DEC LR6 8 ;;
 {% endmacro %}
 
 {% macro add_store(ds) %}
