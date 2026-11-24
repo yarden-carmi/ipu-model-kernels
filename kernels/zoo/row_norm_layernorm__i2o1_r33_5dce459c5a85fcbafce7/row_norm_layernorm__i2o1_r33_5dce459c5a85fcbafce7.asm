@@ -1,5 +1,6 @@
 {% set q = cr.qf_in0 ~ '.L' %}
 {% set oq = cr.qf_out0 ~ '.L' %}
+{% set out_act = act_out0 | default('identity') %}
 {% set full = 'CR15.L' %}
 {% set tail = cr.tail ~ '.L' %}
 {% macro init(reg, n=0) %}
@@ -90,35 +91,25 @@ variance_tail:
  {{ init('LR1',12) }}
  ACTIVATE.QUANTIZE rsqrt {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
  {{ save(9,3) }}
- {{ init('LR1',13) }}{{ clear() }}
- ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
- {{ init('LR4',2) }}
-refine:
- {# Newton step: y <- 1.5*y - 0.5*v*y^3. #}
- {% for i in range(2) %}
- {{ load(12+i,true) }}
- {% for j in range(2) %}{{ load(12+j) }}{{ mul(first=(i==0 and j==0)) }}{% endfor %}
- {% endfor %}
+ {# Newton step: y <- 1.5*y - 0.5*v*y^3. The initial y is a
+    single quantized row; its correction is zero until this step. #}
+ {{ load(12,true) }}
+ LD.MULT R0 LR1 {{ cr.tmp }} ;;
+ {{ mul(first=true) }}
  {{ save(14) }}
  {% for i in range(3) %}
  {{ load(9+i,true) }}
  {% for j in range(2) %}{{ load(14+j) }}{{ mul(first=(i==0 and j==0)) }}{% endfor %}
  {% endfor %}
  {{ save(16) }}
- {% for i in range(2) %}
- {{ load(12+i,true) }}
- {% for j in range(2) %}{{ load(16+j) }}{{ mul(first=(i==0 and j==0)) }}{% endfor %}
- {% endfor %}
+ {{ load(12,true) }}
+ {% for j in range(2) %}{{ load(16+j) }}{{ mul(first=loop.first) }}{% endfor %}
  {{ save(18) }}
- {% for i in range(2) %}
- {{ load(12+i,true) }}
- MULT.RC.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %} ;;
+ {# Saving the product only touches R0, so the seed is still in R_CYCLIC. #}
+ MULT.RC.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ;;
  MULT.RC.VE LR0 {{ cr.half }} 0 LR0 {{ full }} {{ q }} ; ACC.ADD ;;
- {% endfor %}
  {% for n in [18,19] %}{{ load(n) }}{{ vec('SUB',imm=cr.half) }}{% endfor %}
  {{ save(12) }}
- DEC LR4 1 ;;
- BLT.S CR0 LR4 refine ;;
 
  SET LR5 LR2 ;;
  {{ init('LR9',32) }}{{ init('LR11') }}{{ init('LR7',3) }}
@@ -142,7 +133,7 @@ weight_loop:
  MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; ADD LR10 LR10 {{ cr.K }} ;;
  {% endfor %}
  SET LR8 LR5 ;;
- {% for p in range(3) %}
+ {% for p in range(2) %}
  ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.normalized }} LR8 ;;
  {% if not loop.last %}
  LD.MULT R0 LR8 {{ cr.normalized }} ;;
@@ -155,14 +146,14 @@ weight_loop:
  SET LR2 LR6 ;;
  BLT.S LR2 LR13 row_loop ;;
 
-{# Gather the residual planes into row-axis tiles before final rounding. #}
+{# Transpose the leading value and its correction before final output rounding. #}
 {% macro scatter() %}
  MULT.EE LR4 CR1 0 LR15 {{ full }} {{ q }} ; ACC.RESHAPE LRD14 LRD10 7
 {%- endmacro %}
 {% macro gather(p) %}
  SET LR6 LR2 ; SET LR8 LR7 ; SET LR11 CR0 ;;
  {% for i in range(p) %}ADD LR6 LR6 LR13 ;;{% endfor %}
- {% if p == 2 %}
+ {% if p == 1 %}
  BGE.S LR7 LR3 gather_start{{ p }} ;;
  MULT.VE LR15 CR0 0 LR15 {{ full }} {{ q }} ; ACC.ADD.FIRST ;;
  {% endif %}
@@ -189,34 +180,19 @@ tile:
  BGE.S LR5 LR3 tile_ready ;;
  SET LR7 LR5 ;;
 tile_ready:
- {# Keep the extra residual for partial tiles, where small results
-    must survive the final output rounding. #}
- {% for p in [2,1,0] %}
- {% if p == 2 %}
- BLT.S LR7 LR3 low_plane ;;
- MULT.VE LR15 CR0 0 LR15 {{ full }} {{ q }} ; ACC.ADD.FIRST ; BEQ CR0 CR0 gather_done2 ;;
- low_plane:
- {% endif %}
+ {% for p in [1,0] %}
  {{ gather(p) }}
  {% if not loop.first %}
- {% for r in range(2 if p == 0 else 1) %}
- {{ init('LR8',r) }}
+ {{ init('LR8') }}
  LD.MULT R0 LR8 {{ cr.tmp }} ;;
  MULT.VE LR15 CR1 0 LR15 {{ full }} {{ q }} ; ACC.ADD ;;
- {% endfor %}
  {% endif %}
  {% if not loop.last %}
  {{ init('LR8') }}
  ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR8 ;;
- {% if p == 1 %}
- LD.MULT R0 LR8 {{ cr.tmp }} ;;
- MULT.VE LR15 CR1 0 LR15 {{ full }} {{ q }} ; ACC.SUB ;;
- INC LR8 1 ;;
- ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR8 ;;
- {% endif %}
  {% endif %}
  {% endfor %}
- ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ full }} {{ oq }} {{ cr.out0 }} LR0 ;;
+ ACTIVATE.QUANTIZE {{ out_act }} {{ full }} {{ oq }} {{ cr.out0 }} LR0 ;;
  INC LR0 1 ; SUB LR5 LR5 LR7 ;;
  SET LR2 LR6 ;;
  BLT.S CR0 LR5 tile ;;
