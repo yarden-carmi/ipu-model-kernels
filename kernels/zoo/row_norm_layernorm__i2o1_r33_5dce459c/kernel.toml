@@ -15,12 +15,12 @@ default = 384
 type = "int"
 min = 1
 max = 4096
-default = 256
+default = 257
 [params.eps]
 type = "float"
 min = 0.0
 max = 1.0
-default = 1e-12
+default = 1e-6
 [params.in0_d0]
 type = "int"
 min = 1
@@ -30,7 +30,7 @@ default = 1
 type = "int"
 min = 1
 max = 4096
-default = 256
+default = 257
 [params.in0_d2]
 type = "int"
 min = 1
@@ -45,7 +45,7 @@ default = 1
 type = "int"
 min = 1
 max = 4096
-default = 256
+default = 257
 [params.out0_d2]
 type = "int"
 min = 1
@@ -56,6 +56,7 @@ default = 384
 K = "ceil(channels / 128)"
 M = "rows * K"
 tail = "ds((channels - 1) % 128 + 1)"
+output_tail = "ds((out0_d1 - 1) % 128 + 1)"
 half = "1277440"
 
 [inputs.in0]
@@ -66,9 +67,7 @@ shape = ["3 * K", 128]
 [inputs.beta]
 shape = ["3 * K", 128]
 [inputs.crow]
-shape = [3, 128]
-[inputs.epsilon]
-shape = [128]
+shape = [5, 128]
 [scratch.tmp]
 shape = ["32 + 2 * K", 128]
 [scratch.normalized]
@@ -89,7 +88,7 @@ K = "CR10"
 M = "LR13"
 out0_d1 = "LR12"
 out0_d2 = "LR14"
-epsilon = "CR12"
+output_tail = "CR12"
 half = "CR13"
 tail = "CR14"
 normalized = "CR11"
