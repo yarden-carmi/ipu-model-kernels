@@ -64,7 +64,7 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    """Fold batch norm and pack bias and transposed weights by output tile."""
+    """Fold batch norm, then pack bias and transposed weights by output tile."""
     n, k = params["n"], params["k"]
     if hasattr(module, "op0_weight"):
         scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
