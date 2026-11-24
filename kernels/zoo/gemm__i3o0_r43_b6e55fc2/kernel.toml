@@ -1,0 +1,94 @@
+[kernel]
+op = "gemm"
+formats = ["e2", "e3"]
+
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 65536
+default = 240
+[params.m]
+type = "int"
+min = 1
+max = 65536
+default = 64
+[params.n]
+type = "int"
+min = 1
+max = 65536
+default = 240
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 4
+[params.in0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 4
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 16
+[params.in0_d3]
+type = "int"
+min = 1
+max = 128
+default = 60
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 4
+[params.out0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 16
+[params.out0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 240
+
+[derived]
+pieces = "ceil(k / in0_d3)"
+batch_step = "out0_d1 * pieces"
+weight_step = "3 * (pieces + 1)"
+tile_count = "ceil(m / 128)"
+full = "ds(128)"
+tail = "ds((m - 1) % 128 + 1)"
+valid = "ds(in0_d3)"
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d1 * in0_d2", 128]
+[inputs.w]
+shape = ["n * weight_step + 1", 128]
+[outputs.out0]
+shape = ["n * tile_count", 128]
+
+[abi]
+in0 = "CR2"
+w = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+pieces = "CR7"
+batch_step = "CR8"
+out0_d0 = "CR9"
+weight_step = "CR10"
+tile_count = "CR11"
+n = "CR12"
+full = "CR13"
+tail = "CR14"
+valid = "CR15"
+
+[golden]
+tolerance = { e2 = "NX8_STEP", e3 = "NX8_STEP" }
+
+[cases.default]
