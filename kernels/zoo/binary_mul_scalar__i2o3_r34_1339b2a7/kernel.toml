@@ -2,70 +2,24 @@
 op = "binary_mul_scalar"
 formats = ["e2", "e3"]
 
-[params.broadcast]
-type = "str"
-choices = ["scalar"]
-default = "scalar"
-[params.const]
-type = "int"
-min = 1
-max = 1
-default = 1
-[params.inner]
-type = "int"
-min = 0
-max = 0
-default = 0
-[params.op]
-type = "str"
-choices = ["mul"]
-default = "mul"
-[params.numel]
-type = "int"
-min = 1
-max = 2147483647
-default = 49152
-[params.in0_d0]
-type = "int"
-min = 1
-max = 65536
-default = 4
-[params.in0_d1]
-type = "int"
-min = 1
-max = 65536
-default = 64
-[params.in0_d2]
-type = "int"
-min = 1
-max = 65536
-default = 576
-[params.out0_d0]
-type = "int"
-min = 1
-max = 65536
-default = 4
-[params.out0_d1]
-type = "int"
-min = 1
-max = 65536
-default = 4
-[params.out0_d2]
-type = "int"
-min = 1
-max = 65536
-default = 64
-[params.out0_d3]
-type = "int"
-min = 1
-max = 128
-default = 48
+[params]
+broadcast = { type = "str", choices = ["scalar"], default = "scalar" }
+const = { type = "int", min = 1, max = 1, default = 1 }
+inner = { type = "int", min = 0, max = 0, default = 0 }
+op = { type = "str", choices = ["mul"], default = "mul" }
+numel = { type = "int", min = 1, max = 2147483647, default = 49152 }
+in0_d0 = { type = "int", min = 1, max = 65536, default = 4 }
+in0_d1 = { type = "int", min = 1, max = 65536, default = 64 }
+in0_d2 = { type = "int", min = 1, max = 65536, default = 576 }
+out0_d0 = { type = "int", min = 1, max = 65536, default = 4 }
+out0_d1 = { type = "int", min = 1, max = 65536, default = 4 }
+out0_d2 = { type = "int", min = 1, max = 65536, default = 64 }
+out0_d3 = { type = "int", min = 1, max = 128, default = 48 }
 
 [derived]
 chunks = "ceil(in0_d2 / 128)"
 batch_stride = "in0_d1 * chunks"
 ds_pair = "ds(out0_d3) + 65536 * ds(128)"
-# Synthesize the head width in both FP32 and NX8 before taking rsqrt.
 fp_base = "0x4b010080"
 fp_top = "fp_base + out0_d3"
 head_width = "0x18600 + out0_d3 + 128 * (1 - out0_d3 // 128) - 128 * (out0_d3 // 128)"
@@ -73,8 +27,10 @@ head_width = "0x18600 + out0_d3 + 128 * (1 - out0_d3 // 128) - 128 * (out0_d3 //
 [inputs.in0]
 shape = ["in0_d0 * batch_stride", 128]
 range = [-2, 2]
+
 [outputs.out0]
 shape = ["out0_d0 * out0_d1 * out0_d2", 128]
+
 [scratch.scalar]
 shape = [1, 128]
 
