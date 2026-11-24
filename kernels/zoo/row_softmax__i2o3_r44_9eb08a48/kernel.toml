@@ -1,0 +1,58 @@
+[kernel]
+op = "row_softmax"
+formats = ["e1"]
+
+[params]
+n = { type = "int", min = 1, max = 4096, default = 64 }
+rows = { type = "int", min = 1, default = 512 }
+in0_d0 = { type = "int", min = 1, default = 1 }
+in0_d1 = { type = "int", min = 1, default = 8 }
+in0_d2 = { type = "int", min = 1, default = 64 }
+in0_d3 = { type = "int", min = 1, default = 64 }
+out0_d0 = { type = "int", min = 1, default = 1 }
+out0_d1 = { type = "int", min = 1, default = 8 }
+out0_d2 = { type = "int", min = 1, default = 64 }
+out0_d3 = { type = "int", min = 1, default = 64 }
+
+[derived]
+stride = "ceil(in0_d2 / 128)"
+group = "in0_d3 * stride"
+count = "ceil(n / 128)"
+tail_count = "n - (count - 1) * 128"
+tail = "ds(tail_count)"
+full = "ds(128) + 65536 * ds(1)"
+logit_root = "280 + 65536 * 56"
+work = "312"
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d1", "in0_d3", "stride", 128]
+range = [-2, 2]
+
+[outputs.out0]
+shape = ["out0_d0", "out0_d1", "out0_d2", "ceil(out0_d3 / 128)", 128]
+
+[scratch.tiles]
+shape = ["count", 128]
+
+[scratch.tmp]
+shape = [8, 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+qf_in0 = "CR4"
+qf_out0 = "CR5"
+tiles = "CR6"
+tmp = "CR7"
+stride = "CR8"
+group = "CR9"
+in0_d2 = "CR10"
+rows = "CR11"
+logit_root = "CR12"
+work = "CR13"
+full = "CR14"
+tail = "CR15"
+count = "LR14"
+tail_count = "LR15"
+
+[cases.default]
