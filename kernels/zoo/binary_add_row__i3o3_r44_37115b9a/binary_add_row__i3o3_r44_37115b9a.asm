@@ -29,7 +29,7 @@ tail:
     BLT.S LR1 {{ cr.rows }} plane ;;
     HALT ;;
 
-# A one-chunk physical row can contain multiple logical rows. Overlap the next input load
+# A one-chunk physical row can hold several logical rows. Overlap the next input load
 # with the current store. Peel each plane's last row to bound the prefetch.
 single_plane:
     SET LR6 {{ cr.plane_rows }} ; SET LR7 {{ cr.rows }} ; SET LR8 CR0 ;;
