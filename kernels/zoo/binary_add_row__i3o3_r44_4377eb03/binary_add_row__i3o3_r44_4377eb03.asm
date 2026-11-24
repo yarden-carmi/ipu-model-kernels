@@ -1,12 +1,9 @@
-{% macro load_sum() %}
-    LD.MULT R0 LR1 {{ cr.in0 }} ;;
-    {{ start_sum() }} ;;
+{% macro load_sum(advance=false) %}
+    LD.MULT R0 LR1 {{ cr.in0 }}{% if advance %} ; INC LR1 1{% endif %} ;;
+    MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; LD.MULT R1 LR3 {{ cr.operand }}{% if advance %} ; INC LR3 1{% endif %} ;;
 {% endmacro %}
-{% macro start_sum() %}
-    MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; LD.MULT R1 LR3 {{ cr.operand }}
-{% endmacro %}
-{% macro store_sum(ds, offset='LR1') %}
-    MULT.VE LR2 CR1 0 LR0 CR15.L {{ cr.qf_operand }}.L ; ACC.ADD ; ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} {{ offset }}
+{% macro store_sum(ds) %}
+    MULT.VE LR2 CR1 0 LR0 CR15.L {{ cr.qf_operand }}.L ; ACC.ADD ; ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1
 {% endmacro %}
 
     SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
@@ -28,21 +25,16 @@ tail:
     BLT.S LR1 {{ cr.rows }} plane ;;
     HALT ;;
 
-# Keep the next input load in the store word. Peel the final row of
-# each plane so the prefetch never reads past the input.
+# A one-chunk row always uses the tail mask. Loads see the incremented
+# offsets; the store and loop branch both use the resulting row indices.
 single_plane:
-    SET LR3 CR0 ; SUB LR6 LR1 CR1 ; LD.MULT R0 LR1 {{ cr.in0 }} ;;
-    BEQ LR5 {{ cr.plane_rows }} single_last ;;
-{% macro single_sum(prefetch) %}
-    {{ start_sum() }} ; INC LR6 1 ;;
-    {{ store_sum(cr.tail ~ '.L', 'LR6') }} ; INC LR1 1 ; INC LR3 1
-    {% if prefetch %}
-    ; LD.MULT R0 LR1 {{ cr.in0 }} ; BLT.S LR3 {{ cr.plane_penultimate }} single_row
-    {% endif %} ;;
-{% endmacro %}
+    SET LR6 {{ cr.plane_rows }} ; SET LR7 {{ cr.rows }} ; DEC LR1 1 ;;
+    DEC LR6 1 ; DEC LR7 1 ;;
+single_plane_next:
+    SET LR3 CR0 ;;
+    DEC LR3 1 ;;
 single_row:
-    {{ single_sum(true) }}
-single_last:
-    {{ single_sum(false) }}
-    BLT.S LR1 {{ cr.rows }} single_plane ;;
+    {{ load_sum(true) }}
+    {{ store_sum(cr.tail ~ '.L') }} ; BLT.S LR3 LR6 single_row ;;
+    BLT.S LR1 LR7 single_plane_next ;;
     HALT ;;
