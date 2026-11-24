@@ -27,6 +27,7 @@ default = 56
 capacity = "max(1, 128 // out0_d3)"
 pack = "1 + (capacity - 1) * (1 - min(1, out0_d2 % capacity))"
 plane = "out0_d2 // pack"
+last_prefetch = "plane - 1"
 valid = "ds(out0_d3 * pack)"
 
 [inputs.in0]
@@ -47,6 +48,7 @@ qf_in1 = "CR6"
 qf_out0 = "CR7"
 inner = "CR8"
 plane = "CR9"
+last_prefetch = "CR10"
 valid = "CR15"
 
 [cases.default]
