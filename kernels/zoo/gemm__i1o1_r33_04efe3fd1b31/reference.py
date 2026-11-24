@@ -20,16 +20,6 @@ def _l(res, k, shape, stride, offset):
     return _v(t, shape, stride, offset)
 
 
-def _p(t, shape):
-    """A parameter read at the shape its record read it (a view of it: reshaped, or expanded)."""
-    if list(t.shape) == list(shape):
-        return t
-    n = 1
-    for d in shape:
-        n *= int(d)
-    return t.reshape(tuple(shape)) if t.numel() == n else t.expand(tuple(shape))
-
-
 def _pick(res, k):
     """Result k of a record (one tensor, or a tuple of them)."""
     return res[k] if isinstance(res, (tuple, list)) else res
@@ -49,16 +39,14 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.view.default(_v(ins[0], [1, 256, 768], [196608, 768, 1], 0), [-1, 768])
-    r1 = aten.addmm.default(module.bias, _l(r0, 0, [256, 768], [768, 1], 0), module.weight)
-    r2 = aten.view.default(_l(r1, 0, [256, 2304], [2304, 1], 0), [1, 256, 2304])
-    op0 = _pick(r2, 0)  # step 0
-    return {"out0": _out(op0, [1, 256, 2304])}
+    r0 = aten.linear.default(_v(ins[0], [1, 1829, 384], [702336, 384, 1], 0), module.weight, module.bias)
+    op0 = _pick(r0, 0)  # step 0
+    return {"out0": _out(op0, [1, 1829, 384])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Fold the channel scale into both affine terms, then pack high and residual planes."""
+    """Pack consecutive taps into scalar-register rows."""
     k, n = int(params["k"]), int(params["n"])
     if hasattr(module, "op1_lambda1"):
         scale = module.op1_lambda1.detach().reshape(n).double()
@@ -71,14 +59,5 @@ def fold(module, **params):
             w = w.reshape(k, n).T
         bias = getattr(module, "op0_bias", getattr(module, "bias", None))
         b = bias.detach().double().reshape(n) if params["bias"] and bias is not None else w.new_zeros(n)
-    def split(rows):
-        exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))[1]
-        hi = torch.ldexp(torch.ldexp(rows, 5 - exp).round(), exp - 5)
-        return hi, rows - hi
-
-    rows = torch.nn.functional.pad(w, (0, (-k) % 128)).reshape(n, -1, 128)
-    hi, lo = split(rows)
-    hi[..., ::4] = rows[..., ::4]
-    lo = torch.nn.functional.pad(lo.reshape(n, -1, 32, 4)[..., 1:].reshape(n, -1, 96), (0, 32))
-    bh, bl = split(b[:, None].expand(n, 128))
-    return {"w": torch.cat((bh[:, None], bl[:, None], torch.stack((hi, lo), dim=2).flatten(1, 2)), dim=1).reshape(-1, 128).float()}
+    return {"w": torch.nn.functional.pad(w, (0, (-k) % 128)).reshape(-1, 128).float(),
+            "b": b[:, None].expand(n, 128).contiguous().float()}

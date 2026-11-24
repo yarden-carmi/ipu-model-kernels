@@ -52,24 +52,24 @@ max = 16384
 default = 384
 
 [derived]
-stride_in = "ceil(in0_d1 / 128)"
-stride_out = "ceil(out0_d1 / 128)"
-batch_out = "out0_d2 * stride_out"
-batches = "out0_d0"
-features_out = "out0_d2"
-chunks = "(k - k % 128) / 128"
+blocks = "ceil(in0_d1 / 128)"
+batches = "in0_d0"
+batch_stride = "in0_d2 * blocks"
+weight_rows = "ceil(k / 128)"
+groups = "weight_rows - 1"
+last_bound = "(k - 1) % 128 - 1"
 full = "ds(128)"
 tail = "ds((out0_d1 - 1) % 128 + 1)"
-width = "128"
-four = "4"
 
 [inputs.in0]
-shape = ["in0_d0 * in0_d2 * stride_in", 128]
+shape = ["batches * batch_stride", 128]
 range = [-2, 2]
 [inputs.w]
-shape = ["2 * n * (ceil(k / 128) + 1)", 128]
+shape = ["n * weight_rows", 128]
+[inputs.b]
+shape = ["n", 128]
 [outputs.out0]
-shape = ["out0_d0 * batch_out", 128]
+shape = ["out0_d0 * out0_d2 * ceil(out0_d1 / 128)", 128]
 
 [abi]
 in0 = "CR2"
@@ -77,15 +77,15 @@ w = "CR3"
 out0 = "CR4"
 qf_in0 = "CR5"
 qf_out0 = "CR6"
-stride_in = "CR7"
+b = "CR7"
 full = "CR8"
 tail = "CR9"
-chunks = "CR10"
-stride_out = "CR11"
-width = "CR12"
-features_out = "CR13"
-four = "CR14"
-batches = "CR15"
+blocks = "CR10"
+last_bound = "CR11"
+groups = "CR12"
+n = "CR13"
+batches = "CR14"
+batch_stride = "CR15"
 
 [cases.default]
 m = 2
