@@ -49,17 +49,11 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    import types
-    ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
-    module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
-                                      for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 48, 14, 14], [9408, 196, 14, 1], 0), module.op0_weight)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 8, 1, 1], [8, 1, 1, 1], 0), module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 144, 14, 14], [28224, 196, 14, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.hardsigmoid.default(_v(op0, [1, 16, 1, 1], [16, 1, 1, 1], 0))
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.hardswish_.default(_v(op1, [1, 144, 14, 14], [28224, 196, 14, 1], 0))
-    op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 144, 14, 14])}
+    return {"out0": _out(op1, [1, 16, 1, 1])}
 # ---- end of the frozen reference ----
 
 
@@ -84,8 +78,16 @@ def fold(module, **params):
     rows = weights.new_zeros(n // pack, 1 + pack * chunks, 128)
     rows[:, 0, :pack * width] = bias.reshape(-1, 1).expand(-1, width).reshape(-1, pack * width)
     rows[:, 1:] = torch.nn.functional.pad(weights, (0, 128 * chunks - k)).reshape_as(rows[:, 1:])
-    rows = rows.reshape(-1, 128)
-    _, exp = torch.frexp(rows.abs().amax(dim=1, keepdim=True))
-    step = torch.ldexp(torch.ones_like(rows[:, :1]), exp - 4)
-    coarse = torch.round(rows / step) * step
-    return {'coeff': torch.stack((coarse, rows - coarse), dim=1).reshape(-1, 128)}
+    def split(values, parts):
+        pieces = []
+        for _ in range(parts - 1):
+            _, exp = torch.frexp(values.abs().amax(dim=-1, keepdim=True))
+            step = torch.ldexp(torch.ones_like(values[..., :1]), exp - 4)
+            coarse = torch.round(values / step) * step
+            pieces.append(coarse)
+            values = values - coarse
+        return torch.stack((*pieces, values), dim=-2).flatten(1, -2)
+
+    # Unpacked spatial groups use an extra weight residual for cancellation.
+    parts = 3 if width > 1 and pack == 1 and chunks == 1 else 2
+    return {'coeff': torch.cat((split(rows[:, :1], 2), split(rows[:, 1:], parts)), dim=1).reshape(-1, 128)}

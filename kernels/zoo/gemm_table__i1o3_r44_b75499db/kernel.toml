@@ -4,7 +4,7 @@ formats = ["e1"]
 
 [params.act_out0]
 type = "str"
-choices = ["hardswish"]
+choices = ["hardswish", "hardsigmoid"]
 default = "hardswish"
 [params.bias]
 type = "bool"
@@ -71,8 +71,11 @@ pack = "1 + (128 // out0_d3 - 1) * (1 - min(1, n % (128 // out0_d3)))"
 groups = "n // pack"
 active = "pack * out0_d3"
 strip_step = "out0_d3 * chunks"
+strip_last = "strip_step - 1"
+last_slot = "active - 1 - (1 - min(1, out0_d3 - 1)) * (2 - min(2, chunks))"
 input_rows = "m * chunks"
-coeff_rows = "2 * (groups + n * chunks)"
+dot_parts = "2 + min(1, out0_d3 - 1) * (1 - min(1, pack - 1)) * (2 - min(2, chunks))"
+coeff_rows = "2 * groups + dot_parts * n * chunks"
 dot_ds = "ds(128)"
 store_ds = "ds(active)"
 
@@ -100,7 +103,8 @@ store_ds = "CR9"
 strip_step = "CR10"
 input_rows = "CR11"
 chunks = "CR12"
-active = "CR13"
+last_slot = "CR13"
 coeff_rows = "CR14"
+strip_last = "CR15"
 
 [cases.default]
