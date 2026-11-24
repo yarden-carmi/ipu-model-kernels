@@ -39,9 +39,9 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.layer_norm.default(_v(ins[0], [1, 256, 384], [98304, 384, 1], 0), [384], module.weight, module.bias, 1e-12)
+    r0 = aten.layer_norm.default(_v(ins[0], [1, 257, 384], [98688, 384, 1], 0), [384], module.weight, module.bias, 1e-06)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 256, 384])}
+    return {"out0": _out(op0, [1, 257, 384])}
 # ---- end of the frozen reference ----
 
 
