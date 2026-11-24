@@ -1,5 +1,6 @@
 {% set q = cr.qf_in0 ~ '.L' %}
 {% set oq = cr.qf_out0 ~ '.L' %}
+{% set out_act = act_out0 | default('identity') %}
 {% set full = 'CR15.L' %}
 {% set tail = cr.tail ~ '.L' %}
 {% macro init(reg, n=0) %}
@@ -15,8 +16,7 @@
  {% if cyclic %}LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0
  {% else %}LD.MULT R0 LR1 {{ cr.tmp }}{% endif %}{% if n %} ; INC LR1 {{ n }}{% endif %} ;;
 {% endmacro %}
-{# LR1 walks the contiguous residual planes. Each product issues the
-   next load while consuming the previous one. #}
+{# Consume contiguous residual planes while prefetching the next plane. #}
 {% macro products(n, count, first=false, dual=false) %}
  {{ load(n) }}
  {% for p in range(count) %}
@@ -160,7 +160,7 @@ normalize:
  SET LR2 LR6 ;;
  BLT.S LR2 LR13 row_loop ;;
 
-{# Gather the residual planes into row-axis tiles before final rounding. #}
+ {# Transpose the leading value and its corrections before final output rounding. #}
 {% macro scatter() %}
  MULT.EE LR4 CR1 0 LR15 {{ full }} {{ q }} ; ACC.RESHAPE LRD14 LRD10 7
 {%- endmacro %}
@@ -194,8 +194,7 @@ tile:
  BGE.S LR5 LR3 tile_ready ;;
  SET LR7 LR5 ;;
 tile_ready:
- {# Keep the extra residual for partial tiles, where small results
-    must survive the final output rounding. #}
+ {# Partial tiles have a smaller dynamic range and need the extra residual. #}
  {% for p in [2,1,0] %}
  {% if p == 2 %}
  BLT.S LR7 LR3 low_plane ;;
@@ -215,13 +214,12 @@ tile_ready:
  ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR8 ;;
  {% if p == 1 %}
  LD.MULT R0 LR8 {{ cr.tmp }} ;;
- MULT.VE LR15 CR1 0 LR15 {{ full }} {{ q }} ; ACC.SUB ;;
- INC LR8 1 ;;
+ MULT.VE LR15 CR1 0 LR15 {{ full }} {{ q }} ; ACC.SUB ; INC LR8 1 ;;
  ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR8 ;;
  {% endif %}
  {% endif %}
  {% endfor %}
- ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ full }} {{ oq }} {{ cr.out0 }} LR0 ;;
+ ACTIVATE.QUANTIZE {{ out_act }} {{ full }} {{ oq }} {{ cr.out0 }} LR0 ;;
  INC LR0 1 ; SUB LR5 LR5 LR7 ;;
  SET LR2 LR6 ;;
  BLT.S CR0 LR5 tile ;;
