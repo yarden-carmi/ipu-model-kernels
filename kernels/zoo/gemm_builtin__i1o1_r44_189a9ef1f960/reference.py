@@ -49,26 +49,45 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.default(_v(ins[0], [1, 32, 224, 224], [1605632, 50176, 224, 1], 0), module.weight, module.bias)
+    import types
+    ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
+    module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
+                                      for k, v in vars(module).items()})
+    r0 = aten.conv2d.default(_v(ins[0], [1, 24, 28, 28], [18816, 784, 28, 1], 0), module.op0_weight)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.relu.default(_v(op0, [1, 1, 224, 224], [50176, 50176, 224, 1], 0))
+    r0 = aten.batch_norm.default(_v(op0, [1, 88, 28, 28], [68992, 784, 28, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 1, 224, 224])}
+    r0 = aten.relu_.default(_v(op1, [1, 88, 28, 28], [68992, 784, 28, 1], 0))
+    op2 = _pick(r0, 0)  # step 0
+    return {"out0": _out(op2, [1, 88, 28, 28])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Pack each output channel's bias and high/low weight chunks."""
-    n, k = int(params['n']), int(params['k'])
-    chunks = (k + 127) // 128
-    weight = torch.nn.functional.pad(module.weight.double().reshape(n, k),
-                                     (0, chunks * 128 - k)).reshape(n, chunks, 128)
-    _, exponent = torch.frexp(weight.abs().amax(dim=-1, keepdim=True))
-    step = torch.ldexp(torch.ones_like(exponent, dtype=weight.dtype), exponent - 4)
-    coarse = torch.round(weight / step) * step
-    rows = weight.new_zeros((n, 1 + 2 * chunks, 128))
-    if params['bias'] and getattr(module, 'bias', None) is not None:
-        rows[:, 0, 0] = module.bias.reshape(n)
-    rows[:, 1::2] = coarse
-    rows[:, 2::2] = weight - coarse
-    return {'coeff': rows.reshape(-1, 128).numpy()}
+    """Fold inference batch norm and pack coefficient rows by output panel."""
+    n, k = params['n'], params['k']
+    source = getattr(module, 'op0_weight', getattr(module, 'weight', None))
+    weights = source.detach().double().reshape(n, k)
+    source_bias = getattr(module, 'op0_bias', getattr(module, 'bias', None))
+    bias = weights.new_zeros(n) if source_bias is None else source_bias.detach().double().reshape(n)
+    if hasattr(module, 'op1_running_var'):
+        scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
+        weights = weights * scale[:, None]
+        bias = module.op1_bias.double() + (bias - module.op1_running_mean.double()) * scale
+    if not params['bias']:
+        bias = weights.new_zeros(n)
+
+    blocks = (n + 127) // 128
+    rows = weights.new_zeros((k + 1, blocks * 128))
+    rows[0, :n] = bias
+    rows[1:, :n] = weights.T
+    rows = rows.reshape(k + 1, blocks, 128).transpose(0, 1)
+    if k <= 16:
+        # Encode a coarse value and a residual in separate FP8 rows.
+        panel = rows[:, 1:]
+        _, exp = torch.frexp(panel.abs().amax(dim=-1, keepdim=True))
+        step = torch.ldexp(torch.ones_like(panel[..., :1]), exp - 4)
+        high = torch.round(panel / step) * step
+        pairs = torch.stack((high, panel - high), dim=-2).flatten(1, 2)
+        rows = torch.cat((rows[:, :1], pairs), dim=1)
+    return {'coeff': rows.reshape(-1, 128)}

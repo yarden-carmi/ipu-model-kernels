@@ -1,29 +1,29 @@
 [kernel]
-op = "gemm_builtin"
-formats = ["e1", "e4"]
+op = "gemm"
+formats = ["e1", "e2"]
 
+[params.bias]
+type = "bool"
+default = true
 [params.act_out0]
 type = "str"
 choices = ["relu"]
 default = "relu"
-[params.bias]
-type = "bool"
-default = true
 [params.k]
 type = "int"
 min = 1
 max = 4096
-default = 32
+default = 24
 [params.n]
 type = "int"
 min = 1
 max = 4096
-default = 1
+default = 88
 [params.m]
 type = "int"
 min = 1
 max = 65536
-default = 16
+default = 784
 [params.in0_d0]
 type = "int"
 min = 1
@@ -33,17 +33,17 @@ default = 1
 type = "int"
 min = 1
 max = 4096
-default = 32
+default = 24
 [params.in0_d2]
 type = "int"
 min = 1
 max = 65536
-default = 4
+default = 28
 [params.in0_d3]
 type = "int"
 min = 1
 max = 65536
-default = 4
+default = 28
 [params.out0_d0]
 type = "int"
 min = 1
@@ -53,34 +53,32 @@ default = 1
 type = "int"
 min = 1
 max = 4096
-default = 1
+default = 88
 [params.out0_d2]
 type = "int"
 min = 1
 max = 65536
-default = 4
+default = 28
 [params.out0_d3]
 type = "int"
 min = 1
 max = 65536
-default = 4
+default = 28
 
 [derived]
-chunks = "ceil(k / 128)"
-in_pitch = "ceil(in0_d1 / 128)"
-tiles = "ceil(n / 128)"
-full_chunks = "chunks - 1"
-full = "ds(128)"
-tail_k = "ds((k - 1) % 128 + 1)"
-tail_n = "ds((n - 1) % 128 + 1)"
-one = "ds(1)"
+blocks = "ceil(n / 128)"
+last = "blocks - 1"
+full_ds = "ds(128)"
+tail_ds = "ds(n - 128 * last)"
+chunks = "ceil(in0_d1 / 128)"
+in_rows = "in0_d0 * in0_d2 * in0_d3 * chunks"
+split = "k * max(0, 1 - max(0, k - 16))"
+coeff_rows = "blocks * (k + 1 + split)"
 
 [inputs.in0]
-shape = ["in0_d0 * in0_d2 * in0_d3 * in_pitch", 128]
-range = [-2, 2]
+shape = ["in_rows", 128]
 [inputs.coeff]
-shape = ["n * (1 + 2 * chunks)", 128]
-range = [-1, 1]
+shape = ["coeff_rows", 128]
 [outputs.out0]
 shape = ["out0_d0 * out0_d2 * out0_d3 * ceil(out0_d1 / 128)", 128]
 
@@ -89,14 +87,12 @@ in0 = "CR2"
 coeff = "CR3"
 out0 = "CR4"
 qf_in0 = "CR5"
-qf_coeff = "CR6"
-qf_out0 = "CR7"
-full = "CR8"
-tail_k = "CR9"
-tail_n = "CR10"
-one = "CR11"
-m = "CR12"
-in_pitch = "CR13"
-full_chunks = "CR14"
+qf_out0 = "CR6"
+k = "CR7"
+chunks = "CR8"
+in_rows = "CR9"
+last = "CR11"
+full_ds = "CR12"
+tail_ds = "CR13"
 
 [cases.default]
