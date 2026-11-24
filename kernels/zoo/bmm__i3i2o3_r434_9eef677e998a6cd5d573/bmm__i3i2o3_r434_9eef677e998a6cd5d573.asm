@@ -1,4 +1,4 @@
-{# Keep one A row resident and stream B rows, broadcasting A along N. #}
+{# Broadcast scalars from one resident A row against streamed B rows. #}
     INC LR15 128 ;;
 group:
     SET LR2 LR1 ; SET LR3 {{ cr.head_lane }} ; SET LR4 {{ cr.mh }}.H ;;
@@ -16,6 +16,9 @@ width_ready:
     ADD LR11 LR11 LR3 ;;
     BGT.S LR11 LR15 split_chunk ;;
 
+{% macro multiply() %}
+    MULT.RC.VE LR3 LR11 0 LR14 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD
+{%- endmacro %}
 {% macro reduce(tag, split) %}
 {{ tag }}_chunk:
     SET LR12 LR10 ; SET LR11 CR0 ; LD.MULT R0 LR8 {{ cr.in0 }} ;;
@@ -28,13 +31,13 @@ width_ready:
     LD.MULT.CYCLIC LR9 {{ cr.vbase }} LR14 ; INC LR11 1 ;;
     INC LR9 1 ; LD.MULT.CYCLIC LR9 {{ cr.vbase }} LR15 ;;
     DEC LR9 1 ;;
-    MULT.RC.VE LR3 LR11 0 LR14 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ; DEC LR12 1 ; ADD LR9 LR9 {{ cr.stride }}.L ; BGT.S LR12 CR1 {{ tag }}_inner ;;
+    {{ multiply() }} ; DEC LR12 1 ; ADD LR9 LR9 {{ cr.stride }}.L ; BGT.S LR12 CR1 {{ tag }}_inner ;;
 {% else %}
     LD.MULT.CYCLIC LR9 {{ cr.vbase }} LR14 ; DEC LR12 1 ; BEQ LR12 CR1 {{ tag }}_last ;;
 {{ tag }}_inner:
-    MULT.RC.VE LR3 LR11 0 LR14 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ; LD.MULT.CYCLIC LR9 {{ cr.vbase }} LR14 ; INC LR11 1 ; ADD LR9 LR9 {{ cr.stride }}.L ; DEC LR12 1 ; BGT.S LR12 CR1 {{ tag }}_inner ;;
+    {{ multiply() }} ; LD.MULT.CYCLIC LR9 {{ cr.vbase }} LR14 ; INC LR11 1 ; ADD LR9 LR9 {{ cr.stride }}.L ; DEC LR12 1 ; BGT.S LR12 CR1 {{ tag }}_inner ;;
 {{ tag }}_last:
-    MULT.RC.VE LR3 LR11 0 LR14 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ; INC LR11 1 ; ADD LR9 LR9 {{ cr.stride }}.L ;;
+    {{ multiply() }} ; INC LR11 1 ; ADD LR9 LR9 {{ cr.stride }}.L ;;
 {% endif %}
     BNE LR10 CR0 {{ tag }}_chunk ;;
     B store ;;
