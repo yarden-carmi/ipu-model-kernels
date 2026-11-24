@@ -37,12 +37,14 @@ max = 65536
 default = 8
 [params.in0_d2]
 type = "int"
-min = 1
+min = 64
+multiple_of = 64
 max = 65536
 default = 64
 [params.in0_d3]
 type = "int"
-min = 1
+min = 8
+multiple_of = 8
 max = 65536
 default = 64
 [params.out0_d0]
@@ -57,21 +59,27 @@ max = 65536
 default = 8
 [params.out0_d2]
 type = "int"
-min = 1
+min = 64
+multiple_of = 64
 max = 65536
 default = 64
 [params.out0_d3]
 type = "int"
-min = 1
+min = 8
+multiple_of = 8
 max = 65536
 default = 64
 
 [derived]
 ic = "ceil(in0_d3 / 128)"
 oc = "ceil(out0_d2 / 128)"
-plane_rows = "in0_d2 * ic"
 planes = "in0_d0 * in0_d1"
-tail = "ds((out0_d2 - 1) % 128 + 1)"
+half = "ds(64)"
+full = "ds(128)"
+seq_lo = "50462976"
+seq_hi = "117835012"
+pitch_lo = "807407616"
+pitch_hi = "1885360192"
 
 [inputs.in0]
 shape = ["in0_d0 * in0_d1 * in0_d2", "ic * 128"]
@@ -81,6 +89,8 @@ shape = ["out0_d3", "oc * 128"]
 range = [-2, 2]
 [outputs.out0]
 shape = ["out0_d0 * out0_d1 * out0_d3", "oc * 128"]
+[scratch.tile]
+shape = ["inner / 128", 128]
 
 [abi]
 in0 = "CR2"
@@ -90,10 +100,15 @@ qf_in0 = "CR5"
 qf_operand = "CR6"
 qf_out0 = "CR7"
 ic = "CR8"
-plane_rows = "CR9"
-planes = "CR10"
-in0_d2 = "CR11"
-in0_d3 = "CR12"
-tail = "CR13"
+full = "CR9"
+tile = "CR10"
+seq_lo = "CR11"
+seq_hi = "CR12"
+pitch_lo = "CR13"
+pitch_hi = "CR14"
+half = "CR15"
+planes = "LR13"
+in0_d2 = "LR14"
+in0_d3 = "LR15"
 
 [cases.default]

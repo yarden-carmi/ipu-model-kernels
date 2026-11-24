@@ -1,48 +1,65 @@
+{% macro contiguous(pair0, pair1) %}
+    SET {{ pair0 }} {{ cr.seq_lo }} ; SET {{ pair1 }} {{ cr.seq_hi }}
+{% endmacro %}
+
+{% macro gather64(first) %}
+{% for block in range(4) %}
+    LD.MULT R0 LR7 {{ cr.tile }} ; INC LR9 16 ;;
+    MULT.VE LR6 CR1 0 LR4 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.RESHAPE LRD0 LRD2 0 ; {% if not first or block != 0 %}ADDBI LRD2 8 ;{% endif %} INC LR7 1 ;;
+    MULT.VE LR6 CR1 0 LR4 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.RESHAPE LRD0 LRD2 0 ; ADDBI LRD2 8 ; INC LR6 8 ;;
+    DEC LR6 8 ;;
+{% endfor %}
+{% endmacro %}
+
 {% macro add_store(ds) %}
     LD.MULT R0 LR10 {{ cr.operand }} ;;
-    MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf_operand }}.L ; ACC.ADD ; INC LR10 1 ;;
+    MULT.VE LR4 CR1 0 LR4 {{ cr.full }}.L {{ cr.qf_operand }}.L ; ACC.ADD ; INC LR10 1 ;;
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR11 ;;
     INC LR11 1 ;;
 {% endmacro %}
 
-{% macro gather_lane() %}
-    MULT.EE LR6 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.RESHAPE LRD0 LRD2 7
-{% endmacro %}
-
-    SET LR0 CR0 ; SET LR1 CR0 ; SET LR4 CR0 ;;
-    SET LR5 {{ cr.planes }} ; SET LR11 CR0 ; SET LR14 CR0 ;;
-    SET LR15 CR0 ; INC LR14 128 ;;
-    INC LR15 1 ;;
+    SET LR4 CR0 ; SET LR5 CR0 ; SET LR11 CR0 ;;
 plane:
-    SET LR6 CR0 ; SET LR7 CR0 ; SET LR8 CR0 ;;
-    SET LR10 CR0 ;;
-column:
-    ADD LR9 LR4 LR8 ; SET LR12 {{ cr.in0_d2 }} ;;
-chunk:
-    SET LR2 CR0 ; SET LR3 CR0 ; SET LR13 LR12 ;
-    LD.MULT R0 LR9 {{ cr.in0 }} ; BLT.S LR12 LR14 chunk_count ;;
-    SET LR13 LR14 ;;
-chunk_count:
-    SUB LR12 LR12 LR13 ; BEQ LR13 LR15 last_lane ;;
-    # Peel the first lane to start the reshape destination at zero.
-    {{ gather_lane() }} ; ADD LR9 LR9 {{ cr.ic }} ; DEC LR13 2 ; LD.MULT R0 LR9 {{ cr.in0 }} ;;
-    BEQ LR13 CR0 advance_last ;;
-gather:
-    {{ gather_lane() }} ; ADDBI LRD2 1 ; ADD LR9 LR9 {{ cr.ic }} ; DEC LR13 1 ; LD.MULT R0 LR9 {{ cr.in0 }} ; BLT.S LR15 LR13 gather ;;
-advance_last:
-    ADDBI LRD2 1 ;;
-last_lane:
-    # Drain without loading beyond the last input row.
-    {{ gather_lane() }} ; ADD LR9 LR9 {{ cr.ic }} ; BEQ LR12 CR0 tail ;;
-    {{ add_store('CR15.L') }}
-    B chunk ;;
-tail:
-    {{ add_store(cr.tail ~ '.L') }}
-    INC LR7 1 ; INC LR6 1 ;;
-    BEQ LR7 {{ cr.in0_d3 }} next_plane ;;
-    BLT.S LR6 LR14 column ;;
-    SET LR6 CR0 ; INC LR8 1 ; B column ;;
-next_plane:
-    ADD LR4 LR4 {{ cr.plane_rows }} ; DEC LR5 1 ;;
-    BNE LR5 CR0 plane ;;
+    SET LR6 CR0 ; SET LR7 CR0 ; SET LR10 CR0 ;;
+    SET LR12 CR0 ; {{ contiguous('LR0', 'LR1') }} ;;
+tile_column:
+    ADD LR8 LR5 LR10 ; SET LR9 CR0 ;;
+tile_row:
+    SET LR2 {{ cr.pitch_lo }} ; SET LR3 {{ cr.pitch_hi }} ;;
+    LD.MULT R0 LR8 {{ cr.in0 }} ;;
+{% for row in range(15) %}
+    MULT.VE LR6 CR1 0 LR4 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.RESHAPE LRD0 LRD2 0 ; {% if row != 0 %}ADDBI LRD2 1 ;{% endif %} LD.MULT R0 LR8 {{ cr.in0 }} ; ADD LR8 LR8 {{ cr.ic }} ;;
+{% endfor %}
+    MULT.VE LR6 CR1 0 LR4 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.RESHAPE LRD0 LRD2 0 ; ACTIVATE.QUANTIZE identity {{ cr.full }}.L {{ cr.qf_in0 }}.L {{ cr.tile }} LR7 ; ADDBI LRD2 1 ; ADD LR8 LR8 {{ cr.ic }} ; INC LR9 16 ;;
+    INC LR7 1 ;;
+    BLT.S LR9 LR14 tile_row ;;
+    INC LR12 8 ; INC LR6 8 ;;
+    INC.MODP2 LR6 CR0 7 ; BEQ LR12 LR15 emit_plane ;;
+    BNE LR6 CR0 tile_column ;;
+    INC LR10 1 ; B tile_column ;;
+
+emit_plane:
+    SUB LR5 LR8 LR10 ;;
+    SET LR6 CR0 ; SET LR8 CR0 ; SET LR10 CR0 ;;
+    SET LR12 CR0 ;;
+emit_column:
+    SET LR7 LR8 ; SET LR9 CR0 ;;
+emit_chunk:
+    {{ contiguous('LR2', 'LR3') }} ;;
+    {{ gather64(true) }}
+    BEQ LR9 LR14 half_chunk ;;
+    {{ gather64(false) }}
+    {{ add_store(cr.full ~ '.L') }}
+    BLT.S LR9 LR14 emit_chunk ;;
+    B column_done ;;
+half_chunk:
+    {{ add_store(cr.half ~ '.L') }}
+column_done:
+    INC LR12 1 ; INC LR6 16 ;;
+    INC.MODP2 LR6 CR0 7 ; BEQ LR12 LR15 plane_done ;;
+    BNE LR6 CR0 emit_column ;;
+    SET LR8 LR7 ; B emit_column ;;
+plane_done:
+    DEC LR13 1 ;;
+    BNE LR13 CR0 plane ;;
     HALT ;;
