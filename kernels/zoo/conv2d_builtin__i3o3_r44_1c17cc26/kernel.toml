@@ -12,27 +12,23 @@ default = true
 [params.cin]
 type = "int"
 min = 1
-max = 1
 default = 1
 [params.cout]
 type = "int"
 min = 1
-max = 128
 default = 64
 [params.groups]
 type = "int"
-min = 1
-max = 1
+choices = [1]
 default = 1
 [params.h]
 type = "int"
 min = 1
-max = 224
 default = 224
 [params.w]
 type = "int"
 min = 1
-max = 224
+max = 256
 default = 224
 [params.kh]
 type = "int"
@@ -48,8 +44,7 @@ choices = [1]
 default = 1
 [params.stride]
 type = "int"
-min = 1
-max = 1
+choices = [1]
 default = 1
 [params.in0_d0]
 type = "int"
@@ -58,17 +53,15 @@ default = 1
 [params.in0_d1]
 type = "int"
 min = 1
-max = 1
 default = 1
 [params.in0_d2]
 type = "int"
 min = 1
-max = 224
 default = 224
 [params.in0_d3]
 type = "int"
 min = 1
-max = 224
+max = 256
 default = 224
 [params.out0_d0]
 type = "int"
@@ -77,38 +70,37 @@ default = 1
 [params.out0_d1]
 type = "int"
 min = 1
-max = 128
 default = 64
 [params.out0_d2]
 type = "int"
 min = 1
-max = 224
 default = 224
 [params.out0_d3]
 type = "int"
 min = 1
-max = 224
+max = 256
 default = 224
 
 [derived]
-input_pitch = "128 * ceil(in0_d3 / 128)"
-output_pitch = "128 * ceil(out0_d3 / 128)"
+chunks = "ceil(in0_d3 / 128)"
+out_chunks = "ceil(out0_d3 / 128)"
+channel_pitch = "in0_d2 * chunks"
+batch_pitch = "channel_pitch * in0_d1"
+out_rows = "out0_d0 * out0_d2 * out0_d1 * out_chunks"
+weight_rows = "1 + 2 * in0_d1 * out0_d1"
 full = "ds(128)"
 tail = "ds((out0_d3 - 1) % 128 + 1)"
+input_rows = "in0_d0 * batch_pitch"
 last_y = "in0_d2 - 1"
-weight_rows = "1 + 2 * out0_d1"
-last_weight = "2 * out0_d1"
-input_rows = "in0_d0 * in0_d2 * ceil(in0_d3 / 128)"
 
 [inputs.in0]
-shape = ["in0_d0", "in0_d1", "in0_d2", "input_pitch"]
-range = [-2, 2]
+shape = ["in0_d0", "in0_d1", "in0_d2", "chunks", 128]
+range = [-1, 1]
 [inputs.weights]
 shape = ["weight_rows", 128]
 range = [-1, 1]
 [outputs.out0]
-shape = ["out0_d0", "out0_d1", "out0_d2", "output_pitch"]
-
+shape = ["out_rows", 128]
 [scratch.clean]
 shape = ["input_rows", 128]
 
@@ -118,14 +110,22 @@ weights = "CR3"
 out0 = "CR4"
 qf_in0 = "CR5"
 qf_out0 = "CR6"
-in0_d0 = "LR10"
-tail = "CR7"
-full = "CR13"
-last_y = "CR8"
-last_weight = "CR9"
-clean = "CR10"
-input_rows = "CR11"
+full = "CR7"
+tail = "CR8"
+last_y = "CR9"
+channel_pitch = "CR10"
+batch_pitch = "CR11"
+out_rows = "CR13"
+weight_rows = "CR14"
+clean = "CR15"
+input_rows = "LR5"
 
 [cases.default]
-[golden]
-tolerance = { e1 = "NX8_STEP" }
+h = 3
+w = 129
+cout = 2
+in0_d2 = 3
+in0_d3 = 129
+out0_d1 = 2
+out0_d2 = 3
+out0_d3 = 129

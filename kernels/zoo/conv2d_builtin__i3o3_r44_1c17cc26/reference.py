@@ -62,17 +62,15 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    """Pack bias and nine taps as scalar digits in two rows per channel."""
+    """Pack nine taps and a bias into high and residual scalar rows."""
     weight = module.weight.detach().to(torch.float64)
-    cout = weight.shape[0]
-    rows = weight.new_zeros((cout, 128))
-    rows[:, 1:10] = weight.reshape(cout, 9)
+    cout, cin = weight.shape[:2]
+    rows = weight.new_zeros((cout, cin, 128))
+    rows[..., :9] = weight.reshape(cout, cin, 9)
     if params['bias']:
-        rows[:, 0] = module.bias
-
-    # Preserve the part lost by quantizing the main row in a second row.
+        rows[:, 0, 9] = module.bias
     _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
     step = torch.exp2(exponent.to(rows.dtype) - 6)
     hi = rows.sign() * (rows.abs() / step + 0.5).floor().clamp(max=63) * step
-    digits = torch.stack((hi, rows - hi), dim=1).reshape(-1, 128)
+    digits = torch.stack((hi, rows - hi), dim=2).reshape(-1, 128)
     return {'weights': torch.cat((rows.new_zeros((1, 128)), digits))}
