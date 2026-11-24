@@ -67,17 +67,14 @@ max = 65536
 default = 64
 
 [derived]
+ra_row = "128"
 ic = "ceil(in0_d3 / 128)"
 capacity = "max(1, 128 // in0_d3)"
 pack = "1 + (capacity - 1) * (1 - min(1, in0_d2 % capacity))"
 plane_rows = "in0_d2 // pack * ic"
+plane_penultimate = "max(0, plane_rows - 2)"
 rows = "in0_d0 * in0_d1 * plane_rows"
 tail = "ds((out0_d3 * pack - 1) % 128 + 1)"
-mixed_width = "min(1, ic - 1) * (out0_d3 % 128)"
-last_chunk = "ic - 1"
-last_row = "plane_rows - 1"
-penultimate_plane = "in0_d0 * in0_d1 - 2"
-last_output = "rows - 1"
 
 [inputs.in0]
 shape = ["rows", 128]
@@ -95,12 +92,11 @@ out0 = "CR4"
 qf_in0 = "CR5"
 qf_operand = "CR6"
 qf_out0 = "CR7"
-last_chunk = "CR8"
-last_output = "CR9"
-last_row = "CR10"
-plane_rows = "CR11"
-mixed_width = "CR12"
+ic = "CR8"
+rows = "CR9"
+plane_rows = "CR10"
+plane_penultimate = "CR11"
+ra_row = "CR12"
 tail = "CR13"
-penultimate_plane = "CR14"
 
 [cases.default]
