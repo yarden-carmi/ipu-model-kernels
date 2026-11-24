@@ -1,97 +1,90 @@
-{% set full = cr.full ~ '.L' %}
+{% set pitch = (in0_d3 + 2 * padding) * ic %}
+{% set ds = cr.ds128 ~ '.L' %}
 {% set qi = cr.qf_in0 ~ '.L' %}
-{% macro store(ds) %}
- ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR0 ; SET LR6 CR0 ;;
- INC LR0 1 ;;
+{% set qw = cr.qf_weights ~ '.L' %}
+{% set act = act_out0|default('identity') %}
+{% macro step(r, n) %}
+{% for k in range(0, n, 255) %}
+ INC {{ r }} {{ [255, n-k]|min }} ;;
+{% endfor %}
 {% endmacro %}
-{% macro init_segment() %}
- LD.MULT.CYCLIC LR1 {{ cr.weights }} LR13 ;;
- MULT.RC.VE LR13 {{ 'CR1' if bias else 'CR0' }} 0 LR13 {{ full }} {{ qi }} ; ACC.ADD.FIRST ;;
-{% endmacro %}
-{% macro dot(more) %}
- LD.MULT R0 LR7 {{ cr.weights }} ; INC LR7 1 ;;
- MULT.RC.VV LR13 R0 0 LR13 {{ full }} {{ qi }} ; AGG.SUM LR6 {{ full }} {% if more %}; INC LR11 1 ; LD.MULT.CYCLIC LR11 {{ cr.in0 }} LR13 {% endif %};;
+{% macro pad_store(src) %}
+ MULT.VE LR0 {{ src }} 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.pad }} LR9 ; INC LR9 1
+{%- endmacro %}
+{% macro zeros(label, count) %}
+ SET LR14 CR0 ; SET LR15 CR0 ;;
+ {{ step('LR15', count - 1) }}
+{{ label }}:
+ {{ pad_store('CR0') }} ; INC LR14 1 ; BLT.S LR14 LR15 {{ label }} ;;
 {% endmacro %}
 
- SET LR2 CR0 ; SET LR3 CR0 ;;
+ SET LR0 CR0 ;;
 {% if padding %}
- SET LR12 CR0 ;;
- DEC LR12 {{ padding }} ;;
-pad_base:
- SUB LR3 LR3 {{ cr.ytap_step }} ; DEC LR2 1 ;;
- DEC LR3 {{ chunks }} ; BGT.S LR2 LR12 pad_base ;;
+ SET LR9 CR0 ; SET LR10 CR0 ; SET LR7 CR0 ;;
+ DEC LR9 1 ; SET LR11 CR0 ; SET LR12 CR0 ;;
+ {{ step('LR11', in0_d3 * ic - 2) }}
+ {{ step('LR12', in0_d2) }}
+ {{ zeros('top', pitch + ic) }}
+copy_y:
+ SET LR6 CR0 ; LD.MULT R0 LR10 {{ cr.in0 }} ;;
+{% if in0_d3 * ic > 1 %}
+copy_x:
+ {{ pad_store('CR1') }} ; LD.MULT R0 LR10 {{ cr.in0 }} ; INC LR6 1 ; INC LR10 1 ; BLT.S LR6 LR11 copy_x ;;
 {% endif %}
-row:
- SET LR1 CR0 ;;
+ {{ pad_store('CR1') }} ; INC LR10 1 ;;
+ {{ zeros('edges', 2 * ic) }}
+ INC LR7 1 ;;
+ BLT.S LR7 LR12 copy_y ;;
+ {{ zeros('bottom', pitch - ic) }}
+{% endif %}
+
+{# A full width row stays in the accumulator until its final store. #}
+{% macro term() %}
+ MULT.RC.VV LR0 R0 0 LR0 {{ ds }} {{ qw }} ; AGG.SUM LR9 {{ ds }}
+{%- endmacro %}
+{% macro weight() %}
+ LD.MULT.CYCLIC LR12 {{ cr.weights }} LR0 ; INC LR12 1
+{%- endmacro %}
+{% macro tap() %}
+ LD.MULT R0 LR11 {{ cr.pad if padding else cr.in0 }} ; INC LR11 1 ;;
+ {{ weight() }} ;;
+ {{ term() }} ; {{ weight() }} ;;
+ {{ term() }} ; {{ weight() }} ;;
+ {{ term() }} ;;
+{% endmacro %}
+
+ SET LR2 CR0 ; SET LR3 CR0 ; SET LR15 CR0 ;;
+ INC LR15 {{ kh }} ; SET LR10 CR0 ;;
+ INC LR10 {{ out0_d3 - 1 }} ;;
 channel:
- SET LR4 CR0 ; SET LR5 LR3 ;;
-{% if padding %} DEC LR4 {{ padding }} ;; {% endif %}
-segment:
- {{ init_segment() }}
+ SET LR5 CR0 ; SET LR6 CR0 ; SET LR8 LR2 ;;
+ DEC LR5 1 ;;
+output_y:
+ SET LR7 LR5 ; SET LR9 CR0 ; SET LR12 LR3 ;;
+ DEC LR12 1 ;;
+ {{ weight() }} ;;
+ MULT.RC.VE LR0 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD.FIRST ; {{ weight() }} ;;
+ MULT.RC.VE LR0 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; {{ weight() }} ;;
+ MULT.RC.VE LR0 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ;;
 pixel:
-{% if kh == 3 and kw == 3 and chunks <= 3 %}
- SET LR8 LR2 ; SET LR10 LR4 ;;
- BLT.S LR2 CR0 edge_pixel ; INC LR8 2 ; INC LR10 2 ;;
- BGE.S LR8 {{ cr.h }} edge_pixel ;;
- BLT.S LR4 CR0 edge_pixel ;;
- BGE.S LR10 {{ cr.w }} edge_pixel ;;
- SET LR7 LR1 ; SET LR9 LR5 ; LD.MULT.CYCLIC LR5 {{ cr.in0 }} LR13 ; SET LR11 LR5 ;;
- {% for y in range(3) %}
-  {% if y %}
- ADD LR9 LR9 {{ cr.ytap_step }} ;;
- SET LR11 LR9 ; LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR13 ;;
-  {% endif %}
-  {% for x in range(3 * chunks) %}{{ dot(not loop.last) }}{% endfor %}
- {% endfor %}
- INC LR7 1 ; BEQ LR13 CR0 pixel_done ;;
-edge_pixel:
-{% endif %}
- SET LR7 LR1 ; SET LR8 LR2 ; SET LR9 LR5 ;;
- INC LR7 1 ; SET LR14 CR0 ;;
- INC LR14 {{ kh }} ;;
-tap_y:
- BLT.S LR8 CR0 skip_y ;;
- BGE.S LR8 {{ cr.h }} skip_y ;;
- SET LR10 LR4 ; SET LR11 LR9 ; SET LR12 CR0 ;;
- INC LR12 {{ kw }} ;;
-tap_x:
- BLT.S LR10 CR0 skip_x ;;
- BGE.S LR10 {{ cr.w }} skip_x ;;
-{% for c in range(chunks) %}
- LD.MULT.CYCLIC LR11 {{ cr.in0 }} LR13 ;;
- LD.MULT R0 LR7 {{ cr.weights }} ;;
- MULT.RC.VV LR13 R0 0 LR13 {{ full }} {{ qi }} ; AGG.SUM LR6 {{ full }} ; INC LR11 1 ; INC LR7 1 ;;
+ SET LR11 LR7 ; SET LR12 LR3 ; SET LR13 CR0 ;;
+ INC LR12 2 ;;
+ky:
+ SET LR14 CR0 ;;
+ INC LR14 {{ kw }} ;;
+kx:
+{% for c in range(ic) %}
+ {{ tap() }}
 {% endfor %}
- BEQ LR13 CR0 next_x ;;
-skip_x:
- INC LR7 {{ chunks }} ; INC LR11 {{ chunks }} ;;
-next_x:
- INC LR10 1 ; DEC LR12 1 ;;
- BNE LR12 CR0 tap_x ;;
- BEQ LR13 CR0 next_y ;;
-skip_y:
-{% for offset in range(0, kw * chunks, 255) %}
- INC LR7 {{ [255, kw * chunks - offset] | min }} ;;
-{% endfor %}
-next_y:
- INC LR8 1 ; ADD LR9 LR9 {{ cr.ytap_step }} ; DEC LR14 1 ;;
- BNE LR14 CR0 tap_y ;;
-pixel_done:
- INC LR6 1 ; INC LR4 {{ stride }} ; INC LR5 {{ input_step }} ;;
-{% if wo > 128 %}
- SET LR12 CR0 ;;
- INC LR12 128 ;;
- BLT.S LR6 LR12 segment_tail ;;
- {{ store(cr.full) }}
- BLT.S LR4 {{ cr.xstop }} segment ;;
- BEQ LR13 CR0 next_channel ;;
-segment_tail:
-{% endif %}
- BLT.S LR4 {{ cr.xstop }} pixel ;;
- {{ store(cr.tail) }}
-next_channel:
- SET LR1 LR7 ;;
- BLT.S LR1 LR15 channel ;;
- INC LR2 {{ stride }} ; ADD LR3 LR3 {{ cr.yout_step }} ;;
- BLT.S LR2 {{ cr.ystop }} row ;;
+ DEC LR14 1 ;;
+ BLT.S CR0 LR14 kx ;;
+ {{ step('LR11', pitch - kw * ic) }}
+ INC LR13 1 ;;
+ BLT.S LR13 LR15 ky ;;
+ INC LR7 {{ stride * ic }} ; INC LR9 1 ; BLT.S LR9 LR10 pixel ;;
+ ACTIVATE.QUANTIZE {{ act }} {{ cr.dstail }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR8 ;;
+ ADD LR8 LR8 {{ cr.cout }} ; ADD LR5 LR5 {{ cr.pitch }} ; INC LR6 1 ;;
+ BLT.S LR6 {{ cr.out0_d2 }} output_y ;;
+ ADD LR3 LR3 {{ cr.weight_block }} ; INC LR2 1 ;;
+ BLT.S LR2 {{ cr.cout }} channel ;;
  HALT ;;

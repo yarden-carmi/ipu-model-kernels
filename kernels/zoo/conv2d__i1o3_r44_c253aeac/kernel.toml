@@ -5,30 +5,30 @@ formats = ["e1", "e2"]
 [params.bias]
 type = "bool"
 default = true
-[params.groups]
-type = "int"
-choices = [1]
-default = 1
 [params.cin]
 type = "int"
 min = 1
-max = 896
+max = 512
 default = 64
 [params.cout]
 type = "int"
 min = 1
 max = 2048
 default = 64
+[params.groups]
+type = "int"
+choices = [1]
+default = 1
 [params.h]
 type = "int"
 min = 1
-max = 1024
-default = 64
+max = 512
+default = 32
 [params.w]
 type = "int"
 min = 1
-max = 1024
-default = 64
+max = 256
+default = 32
 [params.kh]
 type = "int"
 min = 1
@@ -41,8 +41,7 @@ max = 32
 default = 3
 [params.padding]
 type = "int"
-min = 0
-max = 16
+choices = [0, 1]
 default = 1
 [params.stride]
 type = "int"
@@ -56,18 +55,18 @@ default = 1
 [params.in0_d1]
 type = "int"
 min = 1
-max = 896
+max = 512
 default = 64
 [params.in0_d2]
 type = "int"
 min = 1
-max = 1024
-default = 64
+max = 512
+default = 32
 [params.in0_d3]
 type = "int"
 min = 1
-max = 1024
-default = 64
+max = 256
+default = 32
 [params.out0_d0]
 type = "int"
 choices = [1]
@@ -80,54 +79,47 @@ default = 64
 [params.out0_d2]
 type = "int"
 min = 1
-max = 1056
-default = 64
+max = 512
+default = 32
 [params.out0_d3]
 type = "int"
 min = 1
-max = 1056
-default = 64
+max = 128
+default = 32
 
 [derived]
-wo = "out0_d3"
-segments = "ceil(wo / 128)"
-chunks = "ceil(in0_d1 / 128)"
-span = "1 + kh * kw * chunks"
-weight_end = "out0_d1 * span"
-input_step = "stride * chunks"
-tail = "ds((wo - 1) % 128 + 1)"
-full = "ds(128)"
-ystop = "out0_d2 * stride - padding"
-xstop = "wo * stride - padding"
-ytap_step = "in0_d3 * chunks"
-yout_step = "stride * ytap_step"
+ic = "ceil(in0_d1 / 128)"
+weight_block = "3 * (1 + kh * kw * ic)"
+ds128 = "ds(128)"
+dstail = "ds(out0_d3)"
+pitch = "stride * (in0_d3 + 2 * padding) * ic"
 
 [inputs.in0]
-shape = ["in0_d0", "in0_d2", "in0_d3", "chunks", 128]
+shape = ["in0_d0", "in0_d2", "in0_d3", "ic", 128]
 range = [-2, 2]
 [inputs.weights]
-shape = ["out0_d1", "span", 128]
+shape = ["cout * weight_block", 128]
 range = [-1, 1]
+[scratch.pad]
+shape = ["(in0_d2 + 2 * padding) * (in0_d3 + 2 * padding) * ic", 128]
 [outputs.out0]
-shape = ["out0_d0", "out0_d2", "out0_d1", "segments", 128]
+shape = ["out0_d0", "out0_d2", "out0_d1", 128]
 
 [abi]
 in0 = "CR2"
-weights = "CR3"
-out0 = "CR4"
-qf_in0 = "CR5"
-qf_out0 = "CR6"
-tail = "CR8"
-full = "CR9"
-h = "CR10"
-w = "CR11"
-ystop = "CR12"
-xstop = "CR13"
-ytap_step = "CR14"
-yout_step = "CR15"
-weight_end = "LR15"
+out0 = "CR3"
+weights = "CR4"
+pad = "CR6"
+qf_in0 = "CR7"
+qf_weights = "CR8"
+qf_out0 = "CR9"
+ds128 = "CR10"
+cout = "CR11"
+out0_d2 = "CR12"
+pitch = "CR13"
+weight_block = "CR14"
+dstail = "CR15"
 
 [golden]
 tolerance = { e1 = "NX8_STEP", e2 = "NX8_STEP" }
-
 [cases.default]

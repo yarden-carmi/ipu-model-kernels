@@ -49,20 +49,30 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 64, 64], [262144, 4096, 64, 1], 0), module.weight, module.bias, [1, 1], [1, 1])
+    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 32, 32], [65536, 1024, 32, 1], 0), module.weight, module.bias, [1, 1], [1, 1])
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 64, 64, 64])}
+    return {"out0": _out(op0, [1, 64, 32, 32])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    weight = module.weight
+    """Pack input-channel dot products and split coefficients for precision."""
+    import numpy as np
+
+    weight = module.weight.detach().double()
     co, ci, kh, kw = weight.shape
     chunks = (ci + 127) // 128
-    taps = weight.new_zeros((co, kh, kw, chunks * 128))
-    taps[..., :ci] = weight.permute(0, 2, 3, 1)
-    rows = weight.new_zeros((co, 1 + kh * kw * chunks, 128))
-    rows[:, 1:] = taps.reshape(co, -1, 128)
-    if params.get("bias"):
-        rows[:, 0] = module.bias.reshape(co, 1)
-    return {"weights": rows}
+    taps = weight.permute(0, 2, 3, 1).reshape(co, kh * kw, ci).numpy()
+    taps = np.pad(taps, ((0, 0), (0, 0), (0, 128 * chunks - ci)))
+    bias = getattr(module, "bias", None)
+    bias = np.zeros(co) if bias is None else bias.detach().double().numpy()
+    rows = np.concatenate((np.broadcast_to(bias[:, None, None], (co, 1, 128)),
+                           taps.reshape(co, -1, 128)), axis=1)
+    terms = []
+    for _ in range(2):
+        exponent = np.frexp(np.max(np.abs(rows), axis=-1, keepdims=True))[1] - 1
+        step = np.exp2(exponent.astype(float) - 5)
+        high = np.sign(rows) * np.minimum(np.floor(np.abs(rows) / step + 0.5), 63) * step
+        terms.append(high)
+        rows = rows - high
+    return {"weights": np.stack((*terms, rows), axis=2).reshape(-1, 128)}
