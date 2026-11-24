@@ -1,0 +1,95 @@
+[kernel]
+op = "gemm"
+formats = ["e2"]
+
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 4096
+default = 512
+[params.m]
+type = "int"
+min = 1
+max = 65536
+default = 64
+[params.n]
+type = "int"
+min = 1
+max = 4096
+default = 512
+[params.in0_d0]
+type = "int"
+min = 1
+max = 1024
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 64
+default = 64
+[params.in0_d2]
+type = "int"
+min = 1
+max = 4096
+default = 512
+[params.out0_d0]
+type = "int"
+min = 1
+max = 1024
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 64
+default = 64
+[params.out0_d2]
+type = "int"
+min = 1
+max = 4096
+default = 512
+
+[derived]
+pairs = "ceil(n / 2)"
+chunks = "ceil(k / 128)"
+shifted = "128 - in0_d1"
+last_tap = "(k - 1) % 128"
+row_ds = "ds(2 * out0_d1)"
+clean_ds = "ds(in0_d1)"
+input_rows = "in0_d0 * in0_d2"
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d2", 128]
+range = [-1, 1]
+[inputs.w]
+shape = ["6 * pairs * chunks", 128]
+range = [-1, 1]
+[inputs.b]
+shape = ["3 * pairs", 128]
+range = [-1, 1]
+when = "bias"
+[outputs.out0]
+shape = ["ceil(out0_d0 * out0_d2 / 2)", 128]
+[scratch.clean]
+shape = ["input_rows", 128]
+
+[abi]
+in0 = "CR2"
+w = "CR3"
+out0 = "CR4"
+b = "CR5"
+qf_in0 = "CR6"
+qf_out0 = "CR7"
+pairs = "CR8"
+chunks = "CR9"
+shifted = "CR10"
+last_tap = "CR11"
+row_ds = "CR12"
+clean_ds = "CR13"
+in0_d0 = "CR14"
+clean = "CR15"
+input_rows = "LR14"
+
+[cases.default]
