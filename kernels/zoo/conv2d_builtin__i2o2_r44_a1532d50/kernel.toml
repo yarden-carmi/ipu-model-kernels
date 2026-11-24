@@ -1,0 +1,123 @@
+[kernel]
+op = "conv2d_builtin"
+formats = ["e1", "e2"]
+
+[params.act_out0]
+type = "str"
+choices = ["relu"]
+default = "relu"
+[params.bias]
+type = "bool"
+default = true
+[params.cin]
+type = "int"
+min = 1
+default = 16
+[params.cout]
+type = "int"
+min = 1
+default = 16
+[params.groups]
+type = "int"
+min = 1
+default = 16
+[params.kh]
+type = "int"
+choices = [3]
+default = 3
+[params.kw]
+type = "int"
+choices = [3]
+default = 3
+[params.padding]
+type = "int"
+choices = [1]
+default = 1
+[params.stride]
+type = "int"
+choices = [1, 2]
+default = 2
+[params.h]
+type = "int"
+min = 1
+max = 128
+default = 112
+[params.w]
+type = "int"
+min = 1
+default = 112
+[params.in0_d0]
+type = "int"
+min = 1
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+default = 16
+[params.in0_d2]
+type = "int"
+min = 1
+max = 128
+default = 112
+[params.in0_d3]
+type = "int"
+min = 1
+default = 112
+[params.out0_d0]
+type = "int"
+min = 1
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+default = 16
+[params.out0_d2]
+type = "int"
+min = 1
+max = 128
+default = 56
+[params.out0_d3]
+type = "int"
+min = 1
+default = 56
+
+[derived]
+candidate = "max(1, out0_d3 // ceil(out0_d3 / min(out0_d3, 128 // out0_d2)))"
+pack = "1 + (candidate - 1) * (1 - min(1, out0_d3 % candidate))"
+icg = "in0_d1 / groups"
+channel_weights = "4 + pack * 36 * icg"
+batch_rows = "in0_d3 * in0_d1"
+input_rows = "in0_d0 * batch_rows"
+output_rows = "out0_d0 * out0_d1 * (out0_d3 / pack)"
+weights_end = "1 + out0_d1 * channel_weights"
+last_weight = "weights_end - 1"
+full = "ds(128)"
+active = "ds(out0_d2 * pack)"
+
+[inputs.in0]
+shape = ["input_rows", 128]
+range = [-1, 1]
+[inputs.weights]
+shape = ["weights_end", 128]
+range = [-1, 1]
+[scratch.parity]
+shape = ["input_rows", 128]
+[outputs.out0]
+shape = ["output_rows", 128]
+
+[abi]
+in0 = "CR2"
+weights = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+full = "CR7"
+active = "CR8"
+parity = "CR9"
+input_rows = "CR10"
+output_rows = "CR11"
+last_weight = "CR12"
+in0_d3 = "CR14"
+batch_rows = "CR15"
+
+[cases.default]
