@@ -49,23 +49,35 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.default(_v(ins[0], [1, 32, 224, 224], [1605632, 50176, 224, 1], 0), module.weight, module.bias)
+    import types
+    ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
+    module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
+                                      for k, v in vars(module).items()})
+    r0 = aten.conv2d.default(_v(ins[0], [1, 16, 56, 56], [50176, 3136, 56, 1], 0), module.op0_weight)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.relu.default(_v(op0, [1, 1, 224, 224], [50176, 50176, 224, 1], 0))
+    r0 = aten.batch_norm.default(_v(op0, [1, 72, 56, 56], [225792, 3136, 56, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 1, 224, 224])}
+    r0 = aten.relu_.default(_v(op1, [1, 72, 56, 56], [225792, 3136, 56, 1], 0))
+    op2 = _pick(r0, 0)  # step 0
+    return {"out0": _out(op2, [1, 72, 56, 56])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Pack each output channel's bias and weights as coarse/residual pairs."""
+    """Fuse inference batch norm and split coefficients for FP8 precision."""
     n, k = params['n'], params['k']
     chunks = (k + 127) // 128
-    weights = module.weight.double().reshape(n, k)
-    bias = getattr(module, 'bias', None) if params['bias'] else None
-    bias = weights.new_zeros(n) if bias is None else bias.double().reshape(n)
+    if hasattr(module, 'op0_weight'):
+        scale = module.op1_weight.double() * (module.op1_running_var.double() + 1e-5).rsqrt()
+        weights = module.op0_weight.double().reshape(n, k) * scale[:, None]
+        bias = module.op1_bias.double() - scale * module.op1_running_mean.double()
+    else:
+        weights = module.weight.double().reshape(n, k)
+        bias = getattr(module, 'bias', None)
+    if bias is None or not params['bias']:
+        bias = weights.new_zeros(n)
     weights = torch.nn.functional.pad(weights, (0, chunks * 128 - k))
-    rows = torch.cat((bias[:, None, None].expand(n, 1, 128),
+    rows = torch.cat((bias.double().reshape(n, 1, 1).expand(n, 1, 128),
                       weights.reshape(n, chunks, 128)), dim=1)
     _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
     step = torch.ldexp(torch.ones_like(rows[..., :1]), exponent - 4)

@@ -1,5 +1,5 @@
 [kernel]
-op = "gemm_builtin"
+op = "gemm"
 formats = ["e1", "e2"]
 
 [params.act_out0]
@@ -13,17 +13,17 @@ default = true
 type = "int"
 min = 1
 max = 4096
-default = 32
-[params.m]
-type = "int"
-min = 1
-max = 65535
-default = 12
+default = 16
 [params.n]
 type = "int"
 min = 1
 max = 4096
-default = 1
+default = 72
+[params.m]
+type = "int"
+min = 1
+max = 65535
+default = 3136
 [params.in0_d0]
 type = "int"
 min = 1
@@ -33,17 +33,17 @@ default = 1
 type = "int"
 min = 1
 max = 4096
-default = 32
+default = 16
 [params.in0_d2]
 type = "int"
 min = 1
 max = 65535
-default = 3
+default = 56
 [params.in0_d3]
 type = "int"
 min = 1
-max = 65535
-default = 4
+max = 128
+default = 56
 [params.out0_d0]
 type = "int"
 min = 1
@@ -53,36 +53,29 @@ default = 1
 type = "int"
 min = 1
 max = 4096
-default = 1
+default = 72
 [params.out0_d2]
 type = "int"
 min = 1
 max = 65535
-default = 3
+default = 56
 [params.out0_d3]
 type = "int"
 min = 1
-max = 65535
-default = 4
+max = 128
+default = 56
 
 [derived]
+batch_stride = "in0_d1 * in0_d2"
 chunks = "ceil(k / 128)"
-in_tiles = "ceil(in0_d3 / 128)"
-in_row = "in0_d1 * in_tiles"
-in_batch = "in0_d2 * in_row"
-tiles = "ceil(out0_d3 / 128)"
-tail = "out0_d3 - 128 * (tiles - 1)"
-full_ds = "ds(128)"
-tail_ds = "ds(tail)"
+width_ds = "ds(in0_d3)"
 
 [inputs.in0]
-shape = ["in0_d0 * in_batch", 128]
-range = [-2, 2]
+shape = ["in0_d0 * batch_stride", 128]
 [inputs.w]
-shape = ["n * 2 * (1 + chunks)", 128]
-range = [-1, 1]
+shape = ["2 * n * (1 + chunks)", 128]
 [outputs.out0]
-shape = ["out0_d0 * out0_d1 * out0_d2 * tiles", 128]
+shape = ["out0_d0 * out0_d1 * out0_d2", 128]
 
 [abi]
 in0 = "CR2"
@@ -90,14 +83,11 @@ w = "CR3"
 out0 = "CR4"
 qf_in0 = "CR5"
 qf_out0 = "CR6"
-full_ds = "CR7"
-tail_ds = "CR8"
-in_tiles = "CR9"
-tiles = "CR10"
-in_row = "CR11"
-out0_d2 = "CR12"
-n = "CR13"
-out0_d0 = "CR14"
-in_batch = "CR15"
+width_ds = "CR7"
+in0_d1 = "CR8"
+in0_d2 = "CR9"
+batch_stride = "CR10"
+n = "CR11"
+out0_d0 = "CR12"
 
 [cases.default]
