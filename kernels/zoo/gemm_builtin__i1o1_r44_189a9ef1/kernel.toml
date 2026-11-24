@@ -1,86 +1,82 @@
 [kernel]
-op = "gemm_builtin"
+op = "gemm"
 formats = ["e1", "e2"]
 
+[params.bias]
+type = "bool"
+default = true
 [params.act_out0]
 type = "str"
 choices = ["relu"]
 default = "relu"
-[params.bias]
-type = "bool"
-default = true
 [params.k]
 type = "int"
 min = 1
 max = 4096
-default = 16
+default = 24
 [params.n]
 type = "int"
 min = 1
 max = 4096
-default = 72
+default = 88
 [params.m]
 type = "int"
 min = 1
 max = 65536
-default = 3136
+default = 784
 [params.in0_d0]
 type = "int"
-choices = [1]
+min = 1
+max = 65536
 default = 1
 [params.in0_d1]
 type = "int"
 min = 1
 max = 4096
-default = 16
+default = 24
 [params.in0_d2]
 type = "int"
 min = 1
 max = 65536
-default = 56
+default = 28
 [params.in0_d3]
 type = "int"
 min = 1
 max = 128
-default = 56
+default = 28
 [params.out0_d0]
 type = "int"
-choices = [1]
+min = 1
+max = 65536
 default = 1
 [params.out0_d1]
 type = "int"
 min = 1
 max = 4096
-default = 72
+default = 88
 [params.out0_d2]
 type = "int"
 min = 1
 max = 65536
-default = 56
+default = 28
 [params.out0_d3]
 type = "int"
 min = 1
 max = 65536
-default = 56
+default = 28
 
 [derived]
-chunks = "ceil(k / 128)"
-paired = "min(1, m - 1)"
-tiles = "ceil(n / 128)"
-full_chunks = "chunks - 1"
-tail_last = "(k - 1) % 128 - 1 + paired"
-full_last = "126 + paired"
-fast = "paired * (1 - min(1, max(0, k - 32) + max(0, n - 128)))"
-m_bound = "m - 1 - fast"
-last = "ds((n - 1) % 128 + 1)"
-full = "ds(128)"
+blocks = "ceil(n / 128)"
+last = "blocks - 1"
+full_ds = "ds(128)"
+tail_ds = "ds(n - 128 * last)"
+chunks = "ceil(in0_d1 / 128)"
+in_rows = "in0_d0 * in0_d2 * in0_d3 * chunks"
 
 [inputs.in0]
-shape = ["in0_d0 * in0_d2 * in0_d3 * ceil(in0_d1 / 128)", 128]
-range = [-2, 2]
+shape = ["in_rows", 128]
 [inputs.coeff]
-shape = ["tiles * (1 + k * (1 + paired)) + 1 - fast", 128]
-range = [-1, 1]
+shape = ["blocks * 2 * (k + 1)", 128]
 [outputs.out0]
 shape = ["out0_d0 * out0_d2 * out0_d3 * ceil(out0_d1 / 128)", 128]
 
@@ -90,13 +86,11 @@ coeff = "CR3"
 out0 = "CR4"
 qf_in0 = "CR5"
 qf_out0 = "CR6"
-qf_coeff = "CR7"
-full_chunks = "CR8"
-m_bound = "CR9"
-tail_last = "CR10"
-full_last = "CR11"
-tiles = "CR12"
-last = "CR14"
-full = "CR15"
+k = "CR7"
+chunks = "CR8"
+in_rows = "CR9"
+last = "CR11"
+full_ds = "CR12"
+tail_ds = "CR13"
 
 [cases.default]

@@ -64,31 +64,25 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    """Fold normalization and split weights for the unrolled spatial path."""
-    n, k = int(params["n"]), int(params["k"])
-    tiles = (n + 127) // 128
-    if hasattr(module, "op1_weight"):
+    """Fuse batch normalization and pack each coefficient as high plus residual."""
+    n, k = params['n'], params['k']
+    source = getattr(module, 'op0_weight', getattr(module, 'weight', None))
+    weights = source.detach().double().reshape(n, k)
+    source_bias = getattr(module, 'op0_bias', getattr(module, 'bias', None))
+    bias = weights.new_zeros(n) if source_bias is None else source_bias.detach().double().reshape(n)
+    if hasattr(module, 'op1_running_var'):
         scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
-        weight = module.op0_weight.double().reshape(n, k) * scale[:, None]
-        bias = module.op1_bias.double() - module.op1_running_mean.double() * scale
-    else:
-        weight = module.weight.double().reshape(n, k)
-        bias = getattr(module, "bias", None)
+        weights = weights * scale[:, None]
+        bias = module.op1_bias.double() + (bias - module.op1_running_mean.double()) * scale
+    if not params['bias']:
+        bias = weights.new_zeros(n)
 
-    rows = torch.zeros((tiles, k + 1, 128), dtype=torch.float64)
-    for tile in range(tiles):
-        lo, hi = tile * 128, min(n, (tile + 1) * 128)
-        if params.get("bias") and bias is not None:
-            rows[tile, 0, :hi - lo] = bias.reshape(n)[lo:hi]
-        rows[tile, 1:, :hi - lo] = weight[lo:hi].T
-    if int(params["m"]) > 1:
-        weights = rows[:, 1:]
-        _, exponent = torch.frexp(weights.abs().amax(dim=-1, keepdim=True))
-        step = torch.ldexp(torch.ones_like(exponent, dtype=weights.dtype), exponent - 4)
-        coarse = torch.round(weights / step) * step
-        paired = torch.stack((coarse, weights - coarse), dim=2).reshape(tiles, 2 * k, 128)
-        rows = torch.cat((rows[:, :1], paired), dim=1)
-        if k <= 32 and tiles == 1:
-            return {"coeff": rows.reshape(-1, 128).numpy()}
-    rows = rows.reshape(-1, 128)
-    return {"coeff": torch.cat((rows, rows.new_zeros((1, 128)))).numpy()}
+    blocks = (n + 127) // 128
+    rows = weights.new_zeros((k + 1, blocks * 128))
+    rows[0, :n] = bias
+    rows[1:, :n] = weights.T
+    rows = rows.reshape(k + 1, blocks, 128).transpose(0, 1)
+    _, exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
+    step = torch.ldexp(torch.ones_like(rows[..., :1]), exp - 4)
+    high = torch.round(rows / step) * step
+    return {'coeff': torch.stack((high, rows - high), dim=-2).reshape(-1, 128)}
