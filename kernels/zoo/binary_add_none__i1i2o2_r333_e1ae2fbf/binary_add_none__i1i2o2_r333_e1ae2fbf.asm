@@ -5,8 +5,13 @@
 {% macro save(part_ds) %}
     ACTIVATE.QUANTIZE identity {{ part_ds }} {{ q }} {{ tile }} LR1 ;
 {% endmacro %}
-{% macro tile_product(first=false, mask='R0') %}
-    MULT.RC.VV LR14 {{ mask }} 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if first %}.FIRST{% endif %} ;
+{% macro move(reg, delta) %}
+    {% if reg == 'LR14' %}{% set delta = (delta + 256) % 512 - 256 %}{% endif %}
+    {% if delta == -256 %}DEC {{ reg }} 128 ; DEC {{ reg }} 128 ;
+    {% elif delta > 0 %}INC {{ reg }} {{ delta }} ;{% elif delta < 0 %}DEC {{ reg }} {{ -delta }} ;{% endif %}
+{% endmacro %}
+{% macro tile_product(index, group, first=false) %}
+    MULT.RC.VV {{ index }} {% if group == 7 %}R1{% else %}R0{% endif %} 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if first %}.FIRST{% endif %} ;
 {% endmacro %}
     SET LR0 CR0 ; SET LR8 CR0 ; SET LR9 CR0 ;;
     SET LR15 LR14 ;;
@@ -28,46 +33,67 @@ mask:
     MULT.EE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.RESHAPE LRD10 LRD6 0 ; {% if half %}ADDBI LRD6 8 ; {{ save(full) }}{% endif %} ;;
     {% endfor %}
     ADDBI LRD6 8 ; INC LR1 1 ; BLT.S LR1 LR13 mask ;;
+    LD.MULT R1 LR13 {{ tile }} ;;
 
 tile_rows:
     SET LR6 LR8 ; SET LR7 LR15 ;;
 tile_chunk:
-    SET LR1 CR0 ; SET LR13 CR0 ;;
-    INC LR1 8 ; INC LR13 23 ;;
-pack:
+    SET LR1 CR0 ; SET LR13 CR0 ; SET LR12 CR0 ;;
+    LD.MULT R0 LR6 {{ cr.in0 }} ; INC LR1 8 ; SET LR11 LR10 ;;
+    // Pipeline the first column of the next tile through the residual store.
+    {% for packed in range(8) %}
     // Sixteen columns fill all 128 lanes of an 8x16 transposed tile.
-    LD.MULT R0 LR6 {{ cr.in0 }} ;;
     {% for col in range(16) %}
     MULT.VE LR0 {{ cr.lift }} 0 LR0 {{ full }} {{ q }} ; ACC.RESHAPE LRD2 LRD4 0 ;
-    ADD LR6 LR6 {{ cr.blocks }} ; {% if col %}ADDBI LRD4 1 ;{% endif %}
+    ADD LR6 LR6 {{ cr.blocks }} ; {% if col %}ADDBI LRD4 1 ;{% elif packed %}INC LR1 1 ;{% endif %}
     {% if not loop.last %}LD.MULT R0 LR6 {{ cr.in0 }} ;{% else %}{{ save(cr.tail ~ '.H') }}{% endif %} ;;
     {% endfor %}
     // Keep one residual alongside the rounded tile to recover precision
     // lost when the transposed lanes take on a shared row scale.
     LD.MULT R0 LR1 {{ tile }} ; ADDBI LRD4 -15 ;;
-    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB ; INC LR1 1 ; {{ save(full) }} ;;
-    INC LR1 1 ; BLT.S LR1 LR13 pack ;;
-
-    // Pin the first three tile rows in the ring; slot zero streams the rest.
-    SET LR14 CR0 ; SET LR1 CR0 ; SET LR13 CR0 ;;
-    INC LR14 128 ; INC LR1 8 ; INC LR13 2 ; LD.MULT.CYCLIC LR1 {{ tile }} LR14 ;;
-    INC LR14 128 ; INC LR1 1 ; LD.MULT.CYCLIC LR1 {{ tile }} LR14 ;;
-    INC LR14 128 ; INC LR1 1 ; LD.MULT.CYCLIC LR1 {{ tile }} LR14 ;;
-    SET LR14 CR0 ; SET LR12 CR0 ; SUB LR11 LR10 LR15 ; LD.MULT R1 LR0 {{ tile }} ;;
-    DEC LR12 112 ; DEC LR1 9 ;;
-emit:
-    {{ tile_product(true, 'R1') }} INC LR14 128 ; ADD LR11 LR11 LR15 ; LD.MULT R0 LR1 {{ tile }} ;;
-    {{ tile_product(false, 'R1') }} INC LR14 128 ; INC LR1 10 ; LD.MULT.CYCLIC LR1 {{ tile }} LR0 ;;
-    {{ tile_product() }} INC LR14 112 ; INC LR1 1 ; LD.MULT R1 LR13 {{ tile }} ;;
-    {{ tile_product() }} INC LR14 128 ; LD.MULT.CYCLIC LR1 {{ tile }} LR0 ;;
-    {{ tile_product(false, 'R1') }} DEC LR14 16 ; INC LR1 1 ; LD.MULT.CYCLIC LR1 {{ tile }} LR0 ;;
-    {{ tile_product(false, 'R1') }} INC LR1 1 ; INC LR13 1 ; LD.MULT R0 LR13 {{ tile }} ;;
-    {% for group in range(3, 8) %}
-    LD.MULT.CYCLIC LR1 {{ tile }} LR0 ; DEC LR14 16 ;;
-    {{ tile_product() }} LD.MULT.CYCLIC LR1 {{ tile }} LR0 ; INC LR1 1 ;;
-    {{ tile_product() }} {% if not loop.last %}INC LR1 1 ; INC LR13 1 ; LD.MULT R0 LR13 {{ tile }} ;{% else %}LD.MULT R0 LR11 {{ cr.in1 }} ; DEC LR13 5 ; SET LR1 CR0 ;{% endif %} ;;
+    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB ; INC LR1 1 ; {{ save(full) }} {% if packed == 7 %}LD.MULT R0 LR13 {{ tile }}{% else %}LD.MULT R0 LR6 {{ cr.in0 }}{% endif %} ;;
     {% endfor %}
-    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ cr.qf_in1 }}.L ; ACC.ADD ; ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ full }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR11 ; LD.MULT R1 LR0 {{ tile }} ; INC LR1 1 ; INC LR14 128 ; INC LR12 16 ; BLT.S LR12 CR0 emit ;;
+
+    // Keep three rounded groups resident. Slot zero streams the other
+    // rounded groups, all residuals, and the in1 row, in that order.
+    {% for slot in range(1, 4) %}
+    {{ move('LR1', -13 if loop.first else 2) }} INC LR12 128 ; LD.MULT.CYCLIC LR1 {{ tile }} LR12 ;;
+    {% endfor %}
+    DEC LR1 6 ; SET LR14 CR0 ; SET LR11 LR10 ; LD.MULT.CYCLIC LR1 {{ tile }} LR0 ;;
+
+    // Visit groups in opposite directions on successive rows so the
+    // final R0 selector is also the first selector of the next row.
+    // R1 holds group seven throughout; LR14 and LR12 track the rounded
+    // and residual rotations separately so each multiply can prepare the next.
+    {% set forward = [0, 1, 2, 3, 7, 4, 5, 6] %}
+    {% for output_row in range(8) %}
+    {% set order = forward if output_row % 2 == 0 else forward[::-1] %}
+    {% for group in order %}
+    {% set cached = group in [1, 2, 3] %}
+    {% set next = loop.nextitem | default(group) %}
+    {% set next_cached = next in [1, 2, 3] %}
+    {% set prev = loop.previtem | default(group) %}
+    {{ tile_product('LR14', group, loop.first) }}
+        {{ move('LR1', 2 * (group - prev) if cached else 1) }}
+        {% if loop.first and output_row == 0 %}SET LR12 CR0 ;{% else %}{{ move('LR12', 16 if loop.first else 16 * (prev - group)) }}{% endif %}
+        {% if loop.first and output_row %}ADD LR11 LR11 LR15 ;{% endif %}
+        LD.MULT.CYCLIC LR1 {{ tile }} LR0 ;;
+    {{ tile_product('LR12', group) }}
+        {{ move('LR14', 16 if loop.last else 16 * (group - next) + (128 * next if next_cached else 0) - (128 * group if cached else 0)) }}
+        {% if loop.last %}
+            LD.MULT.CYCLIC LR11 {{ cr.in1 }} LR0 ;
+        {% elif next != 7 %}
+            {{ move('LR13', next - (prev if group == 7 else group)) }} LD.MULT R0 LR13 {{ tile }} ;
+        {% else %}
+            {{ move('LR1', 2 * (next - group) - 1) }} LD.MULT.CYCLIC LR1 {{ tile }} LR0 ;
+        {% endif %} ;;
+    {% if not loop.last and not next_cached and next != 7 %}
+        {{ move('LR1', 2 * (next - group) - 1) }} LD.MULT.CYCLIC LR1 {{ tile }} LR0 ;;
+    {% endif %}
+    {% endfor %}
+    MULT.RC.VE LR0 CR1 0 LR0 {{ full }} {{ cr.qf_in1 }}.L ; ACC.ADD ; ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ full }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR11 ;
+        {% if not loop.last %}DEC LR1 1 ; LD.MULT.CYCLIC LR1 {{ tile }} LR0 ;{% endif %} ;;
+    {% endfor %}
     INC LR10 1 ; DEC LR7 1 ; BNE LR7 CR1 tile_chunk ;;
     // Restart at column zero for the next tile of eight logical rows.
     {% for delta in range(7) %}
