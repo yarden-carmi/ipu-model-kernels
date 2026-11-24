@@ -62,6 +62,9 @@
  INC LR7 1 ;;
  BLT.S LR7 LR8 {{ label }} ;;
 {% endmacro %}
+{% macro scatter(prefetch=false) %}
+ MULT.EE LR6 CR1 0 LR0 {{ full }} {{ iq }} ; ACC.RESHAPE LRD0 LRD2 7 ; ADD LR5 LR5 {{ cr.stride }}{% if prefetch %} ; LD.MULT R0 LR5 {{ cr.in0 }}{% endif %} ;;
+{% endmacro %}
 
  {# Gather time-lanes into channel-lanes, preserving the NX8 values in three parts. #}
  SET LR4 CR0 ; SET LR6 CR0 ; SET LR7 CR0 ;;
@@ -71,14 +74,21 @@ transpose_row:
  ADD LR5 LR8 LR9 ; SET LR10 {{ cr.channels }} ;;
 transpose_chunk:
  SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
- SET LR3 CR0 ; SET LR11 CR0 ;;
+ SET LR3 CR0 ; SET LR11 LR12 ;;
+ BLT.S LR12 LR10 gather_start ;;
+ SET LR11 LR10 ;;
+gather_start:
+ SUB LR10 LR10 LR11 ; DEC LR11 1 ; LD.MULT R0 LR5 {{ cr.in0 }} ;;
+ BEQ LR11 CR0 gather_last ;;
 gather:
- LD.MULT R0 LR5 {{ cr.in0 }} ;;
- MULT.EE LR6 CR1 0 LR0 {{ full }} {{ iq }} ; ACC.RESHAPE LRD0 LRD2 7 ;;
+ {# Consume the current row while loading the next one at the updated pointer. #}
+ {{ scatter(true) }}
  ADDBI LRD2 1 ;;
- ADD LR5 LR5 {{ cr.stride }} ; INC LR11 1 ; DEC LR10 1 ;;
+ DEC LR11 1 ; BLT.S CR1 LR11 gather ;;
+gather_last:
+ {# Drain without prefetching past the final channel. #}
+ {{ scatter() }}
  BEQ LR10 CR0 last_chunk ;;
- BLT.S LR11 LR12 gather ;;
  {{ encode('LR4',cr.trans) }}
  INC LR4 1 ;;
  B transpose_chunk ;;
