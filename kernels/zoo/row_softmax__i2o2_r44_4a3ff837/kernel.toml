@@ -1,0 +1,82 @@
+[kernel]
+op = "row_softmax"
+formats = ["e1", "e2"]
+
+[params.n]
+type = "int"
+min = 1
+max = 4096
+default = 257
+[params.rows]
+type = "int"
+min = 1
+default = 1542
+[params.in0_d0]
+type = "int"
+min = 1
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+default = 6
+[params.in0_d2]
+type = "int"
+min = 1
+default = 257
+[params.in0_d3]
+type = "int"
+min = 1
+default = 257
+[params.out0_d0]
+type = "int"
+min = 1
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+default = 6
+[params.out0_d2]
+type = "int"
+min = 1
+default = 257
+[params.out0_d3]
+type = "int"
+min = 1
+default = 257
+
+[derived]
+K = "ceil(in0_d2 / 128)"
+stride = "in0_d1 * K"
+batchstride = "n * stride"
+total = "in0_d0 * batchstride"
+active = "ds(128)"
+part = "ds(in0_d2 - (K - 1) * 128)"
+scratch_formats = "312 * 65536 + 56"
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d3", "in0_d1", "ceil(in0_d2 / 128)", 128]
+range = [-2, 2]
+[outputs.out0]
+shape = ["out0_d0", "out0_d3", "out0_d1", "ceil(out0_d2 / 128)", 128]
+[scratch.tmp]
+shape = [15, 128]
+[scratch.roots]
+shape = ["n", 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+stride = "CR4"
+tmp = "CR5"
+qf_in0 = "CR6"
+K = "CR7"
+total = "CR8"
+scratch_formats = "CR9"
+qf_out0 = "CR10"
+roots = "CR11"
+batchstride = "CR12"
+part = "CR14"
+active = "CR15"
+n = "LR15"
+
+[cases.default]
