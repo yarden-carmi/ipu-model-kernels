@@ -70,11 +70,12 @@ rows = "in0_d0 * in0_d1 * width"
 tail = "ds(in0_d2 - (width - 1) * 128)"
 last_chunk = "width - 1"
 last_row = "rows - 1"
+in1_width = "ceil(in1_d2 / 128)"
 [inputs.in0]
 shape = ["in0_d0", "in0_d1", "width * 128"]
 range = [-2, 2]
 [inputs.in1]
-shape = ["in1_d0", "in1_d1", "ceil(in1_d2 / 128) * 128"]
+shape = ["in1_d0", "in1_d1", "in1_width * 128"]
 range = [-2, 2]
 [outputs.out0]
 shape = ["out0_d0", "out0_d1", "ceil(out0_d2 / 128) * 128"]
