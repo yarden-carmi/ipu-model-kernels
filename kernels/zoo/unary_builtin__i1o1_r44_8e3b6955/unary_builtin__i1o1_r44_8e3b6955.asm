@@ -1,3 +1,4 @@
+{# Keep the first 64 lanes and place them in the selected accumulator half. #}
 {% macro pack_half(offset) %}
     MULT.RC.VE LR0 CR1 0 LR0 {{ cr.half }}.L {{ cr.qf_in0 }}.L ; ACC.STRIDE 64 off on {{ offset }}
 {% endmacro %}
