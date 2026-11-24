@@ -13,7 +13,8 @@
 
     SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
     DEC LR2 1 ;;
-    {# Construct the broadcast scale once in either arithmetic mode. #}
+    {# Build the broadcast factor once: the FP32 difference and NX8
+       scalar contribute in their respective arithmetic modes. #}
     {{ product('CR0', 'ADD.FIRST') }}
     ACTIVATE.QUANTIZE exp2 {{ full }} {{ qi }} {{ cr.scalar }} LR0 ;;
     LD.MULT R0 LR0 {{ cr.scalar }} ;;
@@ -23,20 +24,19 @@
     ACTIVATE.QUANTIZE identity {{ full }} {{ qi }} {{ cr.scalar }} LR0 ;;
     LD.MULT.CYCLIC LR0 {{ cr.scalar }} LR0 ; BNE LR5 CR0 partial ;;
 
-    {# Stream full rows with one lookahead load, never reading past the end. #}
-    LD.MULT R0 LR1 {{ cr.in0 }} ; BGE.S LR1 {{ cr.last_row }} final_row ;;
+    LD.MULT R0 LR1 {{ cr.in0 }} ; BEQ LR1 {{ cr.last_row }} final_row ;;
 dense:
-    {{ row(full, true) }} ; BLT.S LR1 {{ cr.penultimate_row }} dense ;;
+    {{ row(full, true) }} ; BLT.S LR1 {{ cr.penultimate }} dense ;;
 final_row:
     {{ row(full) }} ; HALT ;;
 
 partial:
     SET LR4 CR0 ;;
 group:
-    SET LR3 CR1 ; LD.MULT R0 LR1 {{ cr.in0 }} ; BEQ {{ cr.ic }} CR1 tail_row ;;
+    SET LR3 CR1 ; LD.MULT R0 LR1 {{ cr.in0 }} ; BEQ {{ cr.chunks }} CR1 tail_row ;;
 chunk:
     {{ row(full, true) }} ; INC LR3 1 ;;
-    BLT.S LR3 {{ cr.ic }} chunk ;;
+    BLT.S LR3 {{ cr.chunks }} chunk ;;
 tail_row:
     {{ row(tail) }} ; INC LR4 1 ; INC LR1 1 ;;
     BLT.S LR4 {{ cr.groups }} group ;;
