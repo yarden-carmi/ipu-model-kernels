@@ -6,15 +6,30 @@
  {% for i in range(n // 255) %}INC {{ reg }} 255 ;;{% endfor %}
  {% if n % 255 %}INC {{ reg }} {{ n % 255 }} ;;{% endif %}
 {% endmacro %}
-{% macro vec(op='ADD',first=false,imm='CR1',ds=full,extra='') %}
- MULT.VE LR0 {{ imm }} 0 LR0 {{ ds }} {{ q }} ; ACC.{{ op }}{% if first %}.FIRST{% endif %} {{ extra }} ;;
+{% macro vec(op='ADD',first=false,imm='CR1',ds=full,extra='',fmt=q) %}
+ MULT.VE LR0 {{ imm }} 0 LR0 {{ ds }} {{ fmt }} ; ACC.{{ op }}{% if first %}.FIRST{% endif %} {{ extra }} ;;
 {% endmacro %}
 {% macro mul(slot='LR0',first=false,extra='') %}
  MULT.RC.VV {{ slot }} R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if first %}.FIRST{% endif %} {{ extra }} ;;
 {% endmacro %}
-{% macro ld(n,slot='') %}
- {{ at('LR1',n) }}
- {% if slot %}LD.MULT.CYCLIC LR1 {{ cr.tmp }} {{ slot }} ;;{% else %}LD.MULT R0 LR1 {{ cr.tmp }} ;;{% endif %}
+{# Stream consecutive split parts, loading the next part alongside the multiply. #}
+{% macro next_part(ptr,base,last) -%}
+ ; INC {{ ptr }} 1{% if not last %} ; LD.MULT R0 {{ ptr }} {{ base }}{% endif %}
+{%- endmacro %}
+{% macro parts(ptr,base,op='ADD',first=false,ds=full,count=2) %}
+ LD.MULT R0 {{ ptr }} {{ base }} ;;
+ {% for i in range(count) %}
+ {% set advance = next_part(ptr,base,loop.last) %}
+ {% if op == 'MUL' %}
+ {{ mul(first=first and loop.first,extra=advance) }}
+ {% elif op == 'SUM' %}
+ MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ q }} ; AGG.SUM LR0 {{ ds }} {{ advance }} ;;
+ {% elif op == 'SQUARE' %}
+ MULT.RC.VV LR0 R0 0 LR0 {{ ds }} {{ q }} ; AGG.SUM LR0 {{ ds }} {{ advance }} ;;
+ {% else %}
+ {{ vec(op,first=first and loop.first,extra=advance) }}
+ {% endif %}
+ {% endfor %}
 {% endmacro %}
 {% macro encode(reg,p,ds=full) %}
  ACTIVATE.QUANTIZE identity {{ ds }} {{ q }} {{ cr.tmp }} {{ reg }} ;;
@@ -23,45 +38,69 @@
  {{ vec('SUB',ds=ds,extra='; INC ' ~ reg ~ ' 1 ; ACTIVATE.QUANTIZE identity ' ~ ds ~ ' ' ~ q ~ ' ' ~ cr.tmp ~ ' ' ~ reg) }}
  {% endfor %}
 {% endmacro %}
-{% macro save(n,p=3) %}{{ at('LR1',n) }}{{ encode('LR1',p) }}{% endmacro %}
+{% macro save(n,p=2) %}{{ at('LR1',n) }}{{ encode('LR1',p) }}{% endmacro %}
 {% macro wload(slot) %}LD.MULT.CYCLIC LR4 {{ cr.w }} {{ slot }} ; INC LR4 1{% endmacro %}
 {% macro dot(src,first=false,again=false) %}
- MULT.RC.VE LR0 {{ src }} 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if first %}.FIRST{% endif %} ; {{ wload('LR5') }}{% if not first %} ; INC LR3 1{% endif %} ;;
- MULT.RC.VE LR5 {{ src }} 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if again %} ; {{ wload('LR0') }} ; BLT.S LR3 LR7 dot_lane{% endif %} ;;
+ MULT.RC.VE LR0 {{ src }} 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if first %}.FIRST{% endif %}{% if not first %} ; INC LR3 1{% endif %}{% if again %} ; {{ wload('LR0') }} ; BLT.S LR3 LR7 dot_lane{% endif %} ;;
 {% endmacro %}
 
- {# Gather the strided binary operand from flat packed storage. #}
- SET LR0 CR0 ; SET LR8 CR0 ; SET LR9 CR0 ;;
+ {# Gather the recorded strided view from packed physical storage. #}
+ SET LR9 CR0 ;;
+ {{ at('LR5',128) }}
  {{ at('LR12',40) }}
  {{ at('LR13',in1_d0) }}
 gather_batch:
  SET LR10 LR9 ; SET LR11 CR0 ;;
  {{ at('LR14',in1_d1) }}
 gather_row:
- SET LR1 LR11 ; SET LR2 CR0 ; SET LR3 CR0 ;;
- {{ at('LR5',128) }}
- {% macro gather(label,limit,ds) %}
- {% set stride = in1_d0*in1_d1//128 %}
- {% set rem = in1_d0*in1_d1%128 %}
- {% if rem %}
- {{ at('LR6',limit) }}
- SET LR7 LR10 ;;
-{{ label }}:
+ SET LR1 LR11 ; SET LR7 LR10 ; SET LR2 CR0 ;;
+ SET LR3 CR0 ;;
+ {% macro gather(label,count,ds) %}
+ {% set stride = in1_d0*in1_d1 %}
+ {% macro scatter(src,extra='') %}
+ MULT.EE {{ src }} CR1 0 LR0 {{ full }} {{ cr.qf_in1 }}.L ; ACC.RESHAPE LRD0 LRD2 7 ; ADDBI LRD2 1 {{ extra }} ;;
+ {% endmacro %}
+ {% if stride % 128 == 0 or stride % 128 == 64 %}
+ {# Reshape sees the updated destination. Start its byte counter at zero
+    and handle lane zero in the prologue before advancing it. #}
  LD.MULT R0 LR1 {{ cr.in1 }} ;;
- MULT.EE LR7 CR1 0 LR0 {{ full }} {{ cr.qf_in1 }}.L ; ACC.RESHAPE LRD0 LRD2 7 ;;
- INC LR7 {{ rem }} ; INC LR1 {{ stride }} ; DEC LR6 1 ;;
- BLT.S LR7 LR5 {{ label }}_advance ;;
- DEC LR7 128 ; INC LR1 1 ;;
-{{ label }}_advance:
- ADDBI LRD2 1 ; BNE LR6 CR0 {{ label }} ;;
- {# Each tile starts at a multiple of 128 channels, except the last tile's end. #}
+ {% if stride % 128 == 0 %}
+ {{ at('LR6',count-3) }}
+ MULT.EE LR7 CR1 0 LR0 {{ full }} {{ cr.qf_in1 }}.L ; ACC.RESHAPE LRD0 LRD2 7 ; INC LR1 {{ stride//128 }} ; LD.MULT R0 LR1 {{ cr.in1 }} ;;
+ {{ label }}:
+ {{ scatter('LR7','; INC LR1 ' ~ (stride//128) ~ ' ; LD.MULT R0 LR1 ' ~ cr.in1 ~ ' ; DEC LR6 1 ; BLT.S CR0 LR6 ' ~ label) }}
+ {{ scatter('LR7', '; INC LR1 ' ~ (stride//128)) }}
  {% else %}
- {{ at('LR6',limit-3) }}
- LD.MULT R0 LR1 {{ cr.in1 }} ;;
- MULT.EE LR10 CR1 0 LR0 {{ full }} {{ cr.qf_in1 }}.L ; ACC.RESHAPE LRD0 LRD2 7 ; LD.MULT R0 LR1 {{ cr.in1 }} ; INC LR1 {{ stride }} ;;
+ {# A half-row stride alternates between the two lanes of each pair. #}
+ SET LR8 LR7 ;;
+ INC LR8 64 ;;
+ BLT.S LR8 LR5 {{ label }}_low ;;
+ DEC LR8 128 ;;
+ {% for hi in [true,false] %}
+ {% if not hi %}{{ label }}_low:{% endif %}
+ {{ at('LR6',count//2-1) }}
+ MULT.EE LR7 CR1 0 LR0 {{ full }} {{ cr.qf_in1 }}.L ; ACC.RESHAPE LRD0 LRD2 7 {% if stride//128 + hi %}; INC LR1 {{ stride//128 + hi }} ; LD.MULT R0 LR1 {{ cr.in1 }}{% endif %} ;;
+ {{ label }}_pair_{{ loop.index }}:
+ {{ scatter('LR8','; INC LR1 ' ~ (stride//128 + (not hi)) ~ ' ; LD.MULT R0 LR1 ' ~ cr.in1 ~ ' ; DEC LR6 1') if stride//128 + (not hi) else scatter('LR8','; DEC LR6 1') }}
+ {{ scatter('LR7', ('; INC LR1 ' ~ (stride//128 + hi) ~ ' ; LD.MULT R0 LR1 ' ~ cr.in1 if stride//128 + hi else '') ~ ' ; BLT.S CR0 LR6 ' ~ label ~ '_pair_' ~ loop.index) }}
+ {{ scatter('LR8', '; INC LR1 ' ~ (stride//128 + (not hi)) if stride//128 + (not hi) else '') }}
+ B {{ label }}_ready ;;
+ {% endfor %}
+ {{ label }}_ready:
+ {% endif %}
+ {% else %}
+ {{ at('LR6',count) }}
 {{ label }}:
- MULT.EE LR10 CR1 0 LR0 {{ full }} {{ cr.qf_in1 }}.L ; ACC.RESHAPE LRD0 LRD2 7 ; LD.MULT R0 LR1 {{ cr.in1 }} ; INC LR1 {{ stride }} ; ADDBI LRD2 1 ; DEC LR6 1 ; BNE LR6 CR0 {{ label }} ;;
- MULT.EE LR10 CR1 0 LR0 {{ full }} {{ cr.qf_in1 }}.L ; ACC.RESHAPE LRD0 LRD2 7 ; INC LR1 {{ stride }} ; ADDBI LRD2 1 ;;
+ LD.MULT R0 LR1 {{ cr.in1 }} ;;
+ MULT.EE LR7 CR1 0 LR0 {{ full }} {{ cr.qf_in1 }}.L ; ACC.RESHAPE LRD0 LRD2 7 {% if in1_d0*in1_d1//128 %}; INC LR1 {{ in1_d0*in1_d1//128 }} {% endif %};;
+ ADDBI LRD2 1 ; DEC LR6 1 ;;
+ {% if in1_d0*in1_d1%128 %}
+ INC LR7 {{ in1_d0*in1_d1%128 }} ;;
+ BLT.S LR7 LR5 {{ label }}_nowrap ;;
+ DEC LR7 128 ; INC LR1 1 ;;
+{{ label }}_nowrap:
+ {% endif %}
+ BNE LR6 CR0 {{ label }} ;;
  {% endif %}
  {{ encode('LR12',2,ds) }}
  INC LR12 1 ;;
@@ -70,16 +109,17 @@ gather_row:
  SET LR2 CR0 ; SET LR3 CR0 ;;
  {{ gather('gather_tail',s2_channels-128,tail) }}
  INC LR10 {{ in1_d0 }} ; DEC LR14 1 ;;
- BLT.S LR10 LR5 gather_no_wrap ;;
+ BLT.S LR10 LR5 gather_row_nowrap ;;
  DEC LR10 128 ; INC LR11 1 ;;
-gather_no_wrap:
+gather_row_nowrap:
  BNE LR14 CR0 gather_row ;;
  INC LR9 1 ; DEC LR13 1 ;;
  BNE LR13 CR0 gather_batch ;;
 
- SET LR8 CR0 ; SET LR12 CR0 ;;
+ SET LR8 CR0 ;;
  {{ at('LR14',40) }}
- {{ at('LR13',s2_rows) }}
+ {{ at('LR13',s2_rows) }}SET LR12 CR0 ;;
+ DEC LR12 1 ;;
 row:
  SET LR4 CR0 ; SET LR6 CR0 ;;
  DEC LR4 1 ; INC LR6 2 ; SET LR11 CR0 ;;
@@ -97,28 +137,25 @@ full_chunk:
 lane:
  DEC LR3 1 ;;
  {{ wload('LR0') }} ; DEC LR7 1 ; BLT.S LR7 CR0 dot_last ;;
-dot_lane:
+ DEC LR7 1 ;;
+ dot_lane:
  {{ dot('LR3',again=true) }}
 dot_last:
  {{ dot('LR3') }}
  BNE LR9 CR0 chunk ;;
- LD.MULT R0 LR14 {{ cr.tmp }} ;;
- {{ vec(extra='; LD.MULT R0 LR14 ' ~ cr.tmp ~ ' ; INC LR14 1 ; DEC LR6 1') }}
- {{ vec(extra='; INC LR14 1 ; BEQ LR6 CR0 tile_tail') }}
- {{ encode('LR11',3) }}
+ {{ parts('LR14',cr.tmp,count=2) }}
+ DEC LR6 1 ;;
+ BEQ LR6 CR0 tile_tail ;;
+ {{ encode('LR11',2) }}
  INC LR11 1 ; B tile ;;
 tile_tail:
- {{ encode('LR11',3,tail) }}
+ {{ encode('LR11',2,tail) }}
  INC LR8 {{ (in0_d2+127)//128 }} ;;
 
- {# Mean and variance both use the same compensated scalar reduction.
-    The variance cross-products load the next plane alongside the current sum. #}
+ {# Compensated mean and variance reductions. #}
  {{ vec(first=true,imm='CR0',extra='; SET LR1 CR0 ; SET LR15 CR0') }}
  {% for ds in [full,tail] %}
- {% for i in range(3) %}
- LD.MULT R0 LR1 {{ cr.tmp }} ;;
- MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ q }} ; AGG.SUM LR0 {{ ds }} ; INC LR1 1 ;;
- {% endfor %}
+ {{ parts('LR1',cr.tmp,'SUM',ds=ds) }}
  {% endfor %}
  B average ;;
 mean_ready:
@@ -126,143 +163,115 @@ mean_ready:
  SET LR11 CR0 ;;
  {{ at('LR9',32) }}
  {% for ds in [full,tail] %}
- {% for i in range(3) %}
- LD.MULT R0 LR11 {{ cr.tmp }} ;;
- {{ vec(first=loop.first,extra='; INC LR11 1') }}
- {% endfor %}
+ {{ parts('LR11',cr.tmp,first=true) }}
  {{ at('LR1',6) }}
- {% for i in range(3) %}
- LD.MULT R0 LR1 {{ cr.tmp }} ;;
- {{ vec('SUB',extra='; INC LR1 1') }}
- {% endfor %}
- {{ encode('LR9',3,ds) }}
+ {{ parts('LR1',cr.tmp,'SUB') }}
+ {{ encode('LR9',2,ds) }}
  INC LR9 1 ;;
  {% endfor %}
  {{ vec(first=true,imm='CR0',extra='; SET LR15 CR1') }}
  {% for ds in [full,tail] %}
- {{ at('LR11',32+3*loop.index0) }}
+ {{ at('LR11',32+2*loop.index0) }}
  SET LR7 LR11 ;;
+ INC LR7 2 ;;
+var_{{ loop.index0 }}:
  LD.MULT.CYCLIC LR11 {{ cr.tmp }} LR0 ;;
- {% for j in range(3) %}
- LD.MULT R0 LR1 {{ cr.tmp }} ; SET LR1 LR7 ;;
- {% for i in range(3) %}
- MULT.RC.VV LR0 R0 0 LR0 {{ ds }} {{ q }} ; AGG.SUM LR0 {{ ds }}{% if i < 2 %} ; LD.MULT R0 LR1 {{ cr.tmp }} ; INC LR1 1{% elif j < 2 %} ; LD.MULT.CYCLIC LR11 {{ cr.tmp }} LR0 ; INC LR11 1{% endif %} ;;
- {% endfor %}
- {% endfor %}
+ {{ at('LR1',32+2*loop.index0) }}
+ {{ parts('LR1',cr.tmp,'SQUARE',ds=ds) }}
+ INC LR11 1 ;;
+ BLT.S LR11 LR7 var_{{ loop.index0 }} ;;
  {% endfor %}
 average:
  {{ save(9) }}
  {{ at('LR1',9) }}
- {% for i in range(3) %}
+ {% for i in range(2) %}
  LD.MULT R0 LR1 {{ cr.tmp }} ;;
  MULT.EE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %} ; INC LR1 1 ;;
  {% endfor %}
  {{ save(9) }}
  SET LR7 CR0 ;;
- {{ at('LR6',3) }}
+ {{ at('LR6',2) }}
  {{ vec(first=true,imm='CR0') }}
 average_part:
  LD.MULT.CYCLIC LR7 {{ cr.crow }} LR0 ;;
  {{ at('LR1',9) }}
- {% for i in range(3) %}
- LD.MULT R0 LR1 {{ cr.tmp }} ;;
- {{ mul(extra='; INC LR1 1') }}
- {% endfor %}
+ {{ parts('LR1',cr.tmp,'MUL') }}
  INC LR7 1 ;;
  BLT.S LR7 LR6 average_part ;;
  BEQ LR15 CR0 mean_ready ;;
  LD.MULT R0 LR7 {{ cr.crow }} ;;
  {{ vec() }}
- {{ at('LR1',13) }}
+ {{ at('LR1',17) }}
  ACTIVATE.QUANTIZE rsqrt {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
  {{ save(14) }}
-
-{# Refine the rsqrt seed with y = y * (1.5 - 0.5 * variance * y*y).
-   y is represented by three planes, as are the small products. Keep the
-   nine products in their original order and overlap each with the next load. #}
- {{ ld(13) }}
- {{ vec(first=true) }}
- {{ save(17) }}
- SET LR15 CR0 ;;
- INC LR15 2 ;;
-newton:
- {% macro product(a,b,d,p=3) %}
+ {# One Newton correction. The native estimate is a single stored part,
+    so both its square and its final multiplication need no outer loop. #}
+ LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ; INC LR1 2 ;;
+ LD.MULT R0 LR1 {{ cr.tmp }} ;;
+ {{ mul(first=true) }}
+ {{ save(20) }}
+ {% macro product(a,b,d) %}
+ {{ vec(first=true,imm='CR0') }}
  {{ at('LR11',a) }}
- {{ at('LR7',b) }}
+ SET LR7 LR11 ;;
+ INC LR7 2 ;;
+prod_{{ d }}:
  LD.MULT.CYCLIC LR11 {{ cr.tmp }} LR0 ;;
- {% for j in range(3) %}
- LD.MULT R0 LR1 {{ cr.tmp }} ; SET LR1 LR7 ;;
- {% for i in range(3) %}
- {% if i < 2 %}
- {{ mul(first=j == 0 and i == 0,extra='; LD.MULT R0 LR1 ' ~ cr.tmp ~ ' ; INC LR1 1') }}
- {% elif j < 2 %}
- {{ mul(extra='; LD.MULT.CYCLIC LR11 ' ~ cr.tmp ~ ' LR0 ; INC LR11 1') }}
- {% else %}
- {{ mul() }}
- {% endif %}
- {% endfor %}
- {% endfor %}
- {{ save(d,p) }}
+ {{ at('LR1',b) }}
+ {{ parts('LR1',cr.tmp,'MUL') }}
+ INC LR11 1 ;;
+ BLT.S LR11 LR7 prod_{{ d }} ;;
+ {{ save(d) }}
  {% endmacro %}
- {{ product(17,17,20) }}
  {{ product(14,20,23) }}
- {{ at('LR1',4) }}
+ {{ at('LR1',3) }}
  LD.MULT R0 LR1 {{ cr.crow }} ;;
  {{ vec(first=true) }}
  INC LR1 1 ; LD.MULT.CYCLIC LR1 {{ cr.crow }} LR0 ;;
  {{ at('LR1',23) }}
- {% for i in range(3) %}
+ {% for i in range(2) %}
  LD.MULT R0 LR1 {{ cr.tmp }} ;;
  MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; ACC.SUB ; INC LR1 1 ;;
  {% endfor %}
  {{ save(26) }}
- {{ product(17,26,17) }}
- DEC LR15 1 ;;
- BNE LR15 CR0 newton ;;
+ {{ at('LR11',17) }}
+ LD.MULT.CYCLIC LR11 {{ cr.tmp }} LR0 ;;
+ {{ at('LR1',26) }}
+ {{ parts('LR1',cr.tmp,'MUL',first=true) }}
+ {{ save(17) }}
 
  SET LR2 CR0 ; SET LR3 CR0 ;;
  INC LR3 32 ; SET LR15 CR0 ;;
  INC LR15 2 ;;
 affine_tile:
  {{ vec(first=true,imm='CR0') }}
- {{ at('LR11',17) }}
- INC LR11 3 ;;
+ {{ at('LR11',19) }}
 scaled_gamma:
  DEC LR11 1 ; LD.MULT.CYCLIC LR11 {{ cr.tmp }} LR0 ; SET LR1 LR2 ;;
- {% for i in range(3) %}
- LD.MULT R0 LR1 {{ cr.affine }} ;;
- {{ mul(extra='; INC LR1 1') }}
- {% endfor %}
+ {{ parts('LR1',cr.affine,'MUL') }}
  {{ at('LR7',17) }}
  BLT.S LR7 LR11 scaled_gamma ;;
  {{ save(29) }}
  {{ vec(first=true,imm='CR0',extra='; SET LR11 LR3') }}
- INC LR3 3 ;;
+ INC LR3 2 ;;
 scaled_center:
  LD.MULT.CYCLIC LR11 {{ cr.tmp }} LR0 ;;
  INC LR11 1 ;;
  {{ at('LR1',29) }}
- {% for i in range(3) %}
- LD.MULT R0 LR1 {{ cr.tmp }} ;;
- {{ mul(extra='; INC LR1 1') }}
- {% endfor %}
+ {{ parts('LR1',cr.tmp,'MUL') }}
  BLT.S LR11 LR3 scaled_center ;;
  SET LR1 LR2 ;;
- INC LR1 6 ;;
- {% for i in range(3) %}
- LD.MULT R0 LR1 {{ cr.affine }} ;;
- {{ vec(extra='; INC LR1 1') }}
- {% endfor %}
- BEQ LR15 CR1 affine_tail ;;
- {% macro output(ds) %}
- ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR12 ;;
+ INC LR1 4 ;;
+ {{ parts('LR1',cr.affine) }}
+ BEQ LR15 CR1 store_tail ;;
+ {% macro store(ds) %}
+ ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR12 ; INC LR12 1 ;;
  {% endmacro %}
- {{ output(full) }}
- INC LR12 1 ; INC LR2 3 ; DEC LR15 1 ;;
- B affine_tile ;;
-affine_tail:
- {{ output(tail) }}
- INC LR12 1 ;;
+ {{ store(full) }}
+ INC LR2 2 ; DEC LR15 1 ; B affine_tile ;;
+store_tail:
+ {{ store(tail) }}
  DEC LR13 1 ;;
  BNE LR13 CR0 row ;;
+
  HALT ;;

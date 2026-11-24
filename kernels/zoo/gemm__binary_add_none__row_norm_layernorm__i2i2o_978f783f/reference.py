@@ -69,7 +69,7 @@ def fold(module, **params):
         parts = []
         for _ in range(count - 1):
             exp = torch.frexp(residual.abs().amax(dim=-1, keepdim=True))[1]
-            high = torch.ldexp(torch.ldexp(residual, 5 - exp).round(), exp - 5)
+            high = torch.ldexp(torch.ldexp(residual, 4 - exp).round(), exp - 4)
             parts.append(high)
             residual = residual - high
         return torch.stack([*parts, residual], dim=1).float()
@@ -81,9 +81,9 @@ def fold(module, **params):
     affine = torch.stack((module.op2_weight.reshape(n), module.op2_bias.reshape(n)))
     affine = torch.nn.functional.pad(affine, (0, 256 - n))
     return {
-        'w': split(w, 2).reshape(-1, 128),
-        'affine': split(affine, 3).reshape(-1, 128),
-        'crow': torch.cat((split(torch.full((128,), 1 / n), 3).reshape(-1, 128),
+        'w': w.reshape(-1, 128).contiguous(),
+        'affine': split(affine, 2).reshape(-1, 128),
+        'crow': torch.cat((split(torch.full((128,), 1 / n), 2).reshape(-1, 128),
                            torch.full((1, 128), params['s2_eps']),
                            torch.full((1, 128), 1.5), torch.full((1, 128), 0.5))),
     }
