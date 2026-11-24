@@ -21,8 +21,7 @@ single:
 last:
     {{ dot(false, false) }}
 column_done:
-    SET LR5 LR10 ; DEC LR6 1 ; INC.MODP2 LR8 CR1 7 ;;
-    BEQ LR6 CR0 tail ;;
+    SET LR5 LR10 ; DEC LR6 1 ; INC.MODP2 LR8 CR1 7 ; BEQ LR6 CR1 tail ;;
     BNE LR8 CR0 column ;;
 {# AAQ sees the incremented offset. A full tile has already wrapped LR8. #}
 {% macro store(half, control) %}
@@ -31,6 +30,5 @@ column_done:
     {{ store('L', 'B column') }}
 tail:
     {{ store('H', 'ADD LR1 LR1 ' ~ cr.chunks ~ ' ; DEC LR4 1 ; BNE LR4 CR1 row') }}
-    ADD LR2 LR2 {{ cr.rhs_batch }} ; DEC LR3 1 ;;
-    BNE LR3 CR0 batch ;;
+    ADD LR2 LR2 {{ cr.rhs_batch }} ; DEC LR3 1 ; BNE LR3 CR1 batch ;;
     HALT ;;
