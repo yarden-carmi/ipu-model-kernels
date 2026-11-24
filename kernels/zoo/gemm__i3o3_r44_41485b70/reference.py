@@ -56,7 +56,7 @@ def reference(module, *ins, _round=None, **params):
 
 
 def _digits(rows):
-    """Encode each coefficient as a coarse term plus a quantized residual."""
+    """Split each coefficient into a coarse term and a residual."""
     _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
     step = torch.ldexp(torch.ones_like(rows[..., :1]), exponent - 4)
     coarse = torch.round(rows / step) * step
