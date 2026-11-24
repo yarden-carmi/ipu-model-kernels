@@ -13,7 +13,9 @@
     MULT.RC.VE {{ src if rows <= 8 else ('LR10' if reverse else 'LR0') }} LR0 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.SUB.FIRST {{ advance }} ;;
     MULT.RC.VE {{ src if rows <= 8 else ('LR0' if reverse else 'LR10') }} LR3 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; {{ 'ACC.ADD' if rows <= 8 else 'ACC.SUB' }} ; LD.MULT R1 LR9 {{ cr.s0 }} ;;
     {% endif %}
-    MULT.EE LR3 {{ cr.base_cap }} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD {% if not reverse and rows <= 8 %}; LD.MULT R0 LR0 {{ cr.s0 }}{% endif %} ;;
+    {% if rows > 8 %}
+    MULT.EE LR3 {{ cr.base_cap }} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ;;
+    {% endif %}
     MULT.EE LR3 {{ cr.neg_cap }} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.MAX ; ACTIVATE.QUANTIZE identity {{ cr.full }}.L {{ cr.qf_out0 }}.L {{ cr.s0 }} {{ dst }} {{ prefetch }} ;;
 {% else %}
     MULT.RC.VE {{ src }} LR0 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; {{ 'ACC.SUB.FIRST' if reverse else 'ACC.ADD.FIRST' }} ; ACTIVATE.QUANTIZE relu {{ cr.full }}.L {{ cr.qf_out0 }}.L {{ cr.s0 }} {{ dst }} {{ prefetch }} {{ advance }} ;;
@@ -51,7 +53,6 @@
     {% endif %}
 {% macro compute_row(advance='',src='LR15',next_load='') %}
 {% if rows <= 8 %}
-    {# Quantize the signed base once, then reuse it for both sign merges. #}
     MULT.RC.VE {{ src }} LR0 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ cr.full }}.L {{ cr.qf_out0 }}.L {{ cr.s0 }} LR13 ;;
     MULT.RC.VE {{ src }} CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE relu {{ cr.full }}.L {{ cr.qf_in0 }}.L {{ cr.s0 }} LR7 ; LD.MULT R0 LR0 {{ cr.s0 }} {{ advance }} ;;
     {{ clip('LR8',true,true,prefetch='; LD.MULT.CYCLIC LR7 ' ~ cr.s0 ~ ' LR10',src=src) }}
@@ -82,7 +83,7 @@
 {% for i in range(rows) %}
     {{ compute_row('; INC LR1 1 ; INC LR2 1' if i else '', 'LR3' if i else 'LR15', '; LD.MULT.CYCLIC LR2 ' ~ cr.in0 ~ ' LR3' if i + 1 < rows else '') }}
     {% set ds = cr.tail if out0_d1 % 128 and (i + 1) % chunks == 0 else cr.full %}
-    {{ store(ds, '; LD.MULT R0 LR11 ' ~ cr.s0 if i + 1 < rows else '; HALT') }}
+     {{ store(ds, '; LD.MULT R0 LR11 ' ~ cr.s0 if i + 1 < rows else '; HALT') }}
 {% endfor %}
 {% else %}
     SET LR6 {{ cr.loop }}.L ;;
