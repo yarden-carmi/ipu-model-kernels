@@ -1,20 +1,21 @@
-{# Each vector holds 128 query rows. Keep a key chunk of RHS scalars
-   in R0, and pipeline the next A vector into the cyclic registers. #}
+{# M occupies the lanes. Keep a packed RHS column chunk resident and
+   stream one A vector per key, loading the next vector in the MAC word. #}
 {% macro mac(prefetch) %}
     MULT.RC.VE LR14 LR12 0 LR14 {{ cr.ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR12 1
-    {%- if prefetch %} ; ADD LR8 LR8 {{ cr.stride }}.H ; LD.MULT.CYCLIC LR8 {{ cr.in0 }} LR14 ; DEC LR3 1 ; BGT.S LR3 LR11 key{% endif %} ;;
+    {%- if prefetch %} ; ADD LR8 LR8 {{ cr.stride }}.H ; LD.MULT.CYCLIC LR8 {{ cr.in0 }} LR14 ; DEC LR3 1 ; BGT.S LR3 {{ cr.two }} key{% endif %} ;;
 {% endmacro %}
 {% macro output(half) %}
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.ds }}.{{ half }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR13 ;;
     INC LR13 1 ;;
 {% endmacro %}
-    INC LR15 128 ; INC LR11 2 ;;
+
+    INC LR15 128 ;;
 group:
-    SET LR4 {{ cr.mh }}.H ;;
+    SET LR4 {{ cr.heads }} ;;
 head:
     SET LR5 {{ cr.n }} ;;
 column:
-    SET LR2 LR0 ; SET LR6 {{ cr.mh }}.L ;;
+    SET LR2 LR0 ; SET LR6 {{ cr.m }} ;;
 tile:
     SET LR8 LR2 ; SET LR9 LR7 ; SET LR10 {{ cr.k }} ;;
     MULT.VE LR14 CR0 0 LR14 {{ cr.ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
@@ -34,8 +35,8 @@ store:
     BGT.S LR6 LR15 full ;;
     {{ output('H') }}
     ADD LR7 LR7 {{ cr.stride }}.L ; DEC LR5 1 ; BGT.S LR5 CR1 column ;;
-    ADD LR0 LR0 {{ cr.astride }} ; DEC LR4 1 ; BGT.S LR4 CR1 head ;;
-    ADD LR7 LR7 {{ cr.correction }} ; DEC LR1 1 ; BGT.S LR1 CR1 group ;;
+    ADD LR0 LR0 {{ cr.a_head_rows }} ; DEC LR4 1 ; BGT.S LR4 CR1 head ;;
+    ADD LR7 LR7 LR1 ; DEC LR11 1 ; BGT.S LR11 CR1 group ;;
     HALT ;;
 full:
     {{ output('L') }}
