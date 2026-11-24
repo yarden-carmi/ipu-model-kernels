@@ -18,7 +18,7 @@ default = 0
 type = "int"
 min = 1
 max = 16777216
-default = 98304
+default = 196608
 [params.in0_d0]
 type = "int"
 min = 1
@@ -33,7 +33,7 @@ default = 256
 type = "int"
 min = 1
 max = 16777216
-default = 384
+default = 768
 [params.in1_d0]
 type = "int"
 min = 1
@@ -48,7 +48,7 @@ default = 256
 type = "int"
 min = 1
 max = 16777216
-default = 384
+default = 768
 [params.out0_d0]
 type = "int"
 min = 1
@@ -63,13 +63,12 @@ default = 256
 type = "int"
 min = 1
 max = 16777216
-default = 384
+default = 768
 [derived]
 width = "ceil(in0_d2 / 128)"
 rows = "in0_d0 * in0_d1 * width"
-tail = "ds(in0_d2 - (width - 1) * 128)"
 last = "rows - 1"
-repeat = "width - 1 + (ceil((in0_d2 + 1) / 128) - width) * (rows - width)"
+tail = "ds(in0_d2 - (width - 1) * 128) + ds(128) * 65536"
 [inputs.in0]
 shape = ["in0_d0", "in0_d1", "width * 128"]
 range = [-2, 2]
@@ -86,8 +85,8 @@ qf_in0 = "CR5"
 qf_in1 = "CR6"
 qf_out0 = "CR7"
 last = "CR8"
-repeat = "CR9"
 tail = "CR10"
+width = "LR14"
 [golden]
 tolerance = { e2 = "EXACT", e3 = "EXACT", e4 = "EXACT" }
 [cases.default]
