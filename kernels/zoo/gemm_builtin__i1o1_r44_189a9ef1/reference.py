@@ -62,7 +62,7 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    """Pack the bias and weights as high plus residual rows."""
+    """Pack bias and weights in the order consumed by the MAC stream."""
     n, k = params['n'], params['k']
     source = getattr(module, 'op0_weight', getattr(module, 'weight', None))
     weights = source.detach().double().reshape(n, k)
@@ -91,7 +91,12 @@ def fold(module, **params):
         rows[0, :n] = bias
         rows[1:, :n] = weights.T
         rows = rows.reshape(k + 1, blocks, 128).transpose(0, 1)
-    _, exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
-    step = torch.ldexp(torch.ones_like(rows[..., :1]), exp - 4)
-    high = torch.round(rows / step) * step
-    return {'coeff': torch.stack((high, rows - high), dim=-2).reshape(-1, 128)}
+        if k <= 16 and n <= 128 and params['in0_d1'] <= 128:
+            split = min(k, 12)
+            panel = rows[:, 1:split + 1]
+            _, exp = torch.frexp(panel.abs().amax(dim=-1, keepdim=True))
+            step = torch.ldexp(torch.ones_like(panel[..., :1]), exp - 4)
+            high = torch.round(panel / step) * step
+            pairs = torch.stack((high, panel - high), dim=-2).flatten(1, 2)
+            rows = torch.cat((rows[:, :1], pairs, rows[:, split + 1:]), dim=1)
+    return {'coeff': rows.reshape(-1, 128)}

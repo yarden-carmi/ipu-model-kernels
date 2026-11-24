@@ -24,17 +24,15 @@ LD.MULT R0 LR8 {{ cr.coeff }} ; INC LR8 1
 {%- endmacro %}
 {% macro dot_body(count, ds, tag) %}
     {{ read_coeff() }} ; SET LR6 CR0 ; SET LR7 CR0 ;;
-    MULT.VE LR0 CR1 0 LR0 {{ cr.full_ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; {{ read_coeff() }} ; DEC LR6 1 ; INC LR7 {{ count - 1 }} ;;
-    MULT.VE LR0 CR1 0 LR0 {{ cr.full_ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ;;
+    MULT.VE LR0 CR1 0 LR0 {{ cr.full_ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; DEC LR6 1 ; INC LR7 {{ count - 1 }} ;;
 {{ tag }}:
-    {{ read_coeff() }} ; SET LR2 CR0 ;;
+    {{ read_coeff() }} ; SET LR2 CR0 {% if tiles == 1 %}; INC LR6 1{% endif %} ;;
 {% for j in range(tiles) %}
 {% set slot = ['LR0', 'LR1', 'LR11', 'LR12'][[j, 3] | min] %}
-{% if j >= resident %}
+    MULT.RC.VV {{ slot }} R0 0 LR0 {{ cr.full_ds }}.L {{ cr.qf_in0 }}.L ; AGG.SUM LR6 {{ cr.full_ds }}.L {% if j == 0 and tiles > 1 %}; INC LR6 1{% endif %} {% if j + 1 == tiles %}; BLT.S LR6 LR7 {{ tag }}{% elif j + 1 >= resident %}; INC LR2 {{ resident if j + 1 == resident else 1 }} ; LD.MULT.CYCLIC LR2 {{ cr.in0 }} LR12{% else %}; {{ read_coeff() }}{% endif %} ;;
+{% if resident <= j + 1 < tiles %}
     {{ read_coeff() }} ;;
 {% endif %}
-    MULT.RC.VV {{ slot }} R0 0 LR0 {{ cr.full_ds }}.L {{ cr.qf_in0 }}.L ; AGG.SUM LR6 {{ cr.full_ds }}.L ; {{ read_coeff() }} {% if j == 0 %}; INC LR6 1{% endif %} ;;
-    MULT.RC.VV {{ slot }} R0 0 LR0 {{ cr.full_ds }}.L {{ cr.qf_in0 }}.L ; AGG.SUM LR6 {{ cr.full_ds }}.L {% if j + 1 == tiles %}; BLT.S LR6 LR7 {{ tag }}{% elif j + 1 >= resident %}; INC LR2 {{ resident if j + 1 == resident else 1 }} ; LD.MULT.CYCLIC LR2 {{ cr.in0 }} LR12{% else %}; {{ read_coeff() }}{% endif %} ;;
 {% endfor %}
     {{ store(ds) }} ;;
 {% endmacro %}
@@ -53,20 +51,21 @@ dot_full:
     {{ dot_body(n - (groups - 1) * 128, cr.tail_ds, 'dot_tail_channel') }}
     HALT ;;
 {% elif k <= 32 and n <= 128 and in0_d1 <= 128 %}
-{# Broadcast short channel vectors; issue every split coefficient in
-   consecutive words and forward the final MAC directly to the store. #}
+{# Broadcast short channel vectors with a one-row-ahead coefficient load. #}
     SET LR6 {{ cr.in_rows }} ;;
 short_pixel:
     SUB LR8 LR0 CR1 ; SUB LR9 LR0 CR1 ; LD.MULT R0 LR5 {{ cr.in0 }} ;;
     {{ coeff_load() }} ;;
     {{ mac('CR1', 'ACC.ADD.FIRST') }} ; {{ coeff_load() }} ;;
-    {{ mac('CR1') }} ; {{ coeff_load() }} ;;
 {% for j in range(k) %}
+{% if k <= 16 and j < 12 %}
     {{ mac('LR9') }} ; INC LR9 1 ; {{ coeff_load() }} ;;
+{% endif %}
 {% if j + 1 < k %}
-    {{ mac('LR9') }} ; {{ coeff_load() }} ;;
+    {{ mac('LR9') }} {% if k > 16 or j >= 12 %}; INC LR9 1{% endif %} ; {{ coeff_load() }} ;;
 {% else %}
-    {{ mac('LR9') }} ; {{ store(cr.tail_ds) }} ; INC LR5 1 ; DEC LR6 1 ; BNE LR6 CR1 short_pixel ;;
+    {{ mac('LR9') }} {% if k > 16 or j >= 12 %}; INC LR9 1{% endif %} ;;
+    {{ store(cr.tail_ds) }} ; INC LR5 1 ; DEC LR6 1 ; BNE LR6 CR1 short_pixel ;;
 {% endif %}
 {% endfor %}
     HALT ;;
@@ -75,17 +74,16 @@ pixel:
     SUB LR8 LR0 CR1 ; SET LR6 CR0 ;;
 block:
     SUB LR2 LR5 CR1 ; SET LR7 {{ cr.k }} ; {{ coeff_load() }} ;;
-    {{ mac('CR1', 'ACC.ADD.FIRST') }} ; {{ coeff_load() }} ;;
-    {{ mac('CR1') }} ;;
+    {{ mac('CR1', 'ACC.ADD.FIRST') }} ;;
 chunk:
     LD.MULT R0 LR2 {{ cr.in0 }} ; INC LR2 1 ; SET LR9 CR0 ; SUB LR10 LR1 CR1 ; BLT.S LR7 LR1 short_chunk ;;
 load_high:
     {{ coeff_load() }} ;;
 high:
-    {{ mac('LR9') }} ; {{ coeff_load() }} ; DEC LR7 1 ; BEQ LR9 LR10 chunk_end ;;
-    {{ mac('LR12') }} ; SET LR12 LR9 ; INC LR9 1 ; {{ coeff_load() }} ; B high ;;
+    {{ mac('LR9') }} ; DEC LR7 1 ; BEQ LR9 LR10 chunk_end ;;
+    INC LR9 1 ; {{ coeff_load() }} ; B high ;;
 chunk_end:
-    {{ mac('LR9') }} ; BNE LR7 CR0 chunk ;;
+    BNE LR7 CR0 chunk ;;
     BLT.S LR6 {{ cr.last }} store_full ;;
     {{ store(cr.tail_ds) }} ; ADD LR5 LR5 {{ cr.chunks }} ;;
     BLT.S LR5 {{ cr.in_rows }} pixel ;;
