@@ -76,7 +76,7 @@ tail = "ds((out0_d3 * pack - 1) % 128 + 1)"
 mixed_width = "min(1, ic - 1) * (out0_d3 % 128)"
 last_chunk = "ic - 1"
 last_row = "plane_rows - 1"
-penultimate_row = "plane_rows - 2"
+penultimate_plane = "in0_d0 * in0_d1 - 2"
 last_output = "rows - 1"
 
 [inputs.in0]
@@ -98,8 +98,9 @@ qf_out0 = "CR7"
 last_chunk = "CR8"
 last_output = "CR9"
 last_row = "CR10"
-penultimate_row = "CR11"
+plane_rows = "CR11"
 mixed_width = "CR12"
 tail = "CR13"
+penultimate_plane = "CR14"
 
 [cases.default]

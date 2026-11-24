@@ -56,7 +56,7 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    # Pack adjacent rows only when they partition the plane evenly.
+    # Use the same grouping of adjacent rows as the input and output layouts.
     operand = module.op0_const0
     height, width = operand.shape[-2:]
     capacity = max(1, 128 // width)
