@@ -27,7 +27,7 @@ default = 1
 [params.in0_d1]
 type = "int"
 min = 1
-max = 16777216
+max = 4194176
 default = 256
 [params.in0_d2]
 type = "int"
@@ -42,7 +42,7 @@ default = 1
 [params.in1_d1]
 type = "int"
 min = 1
-max = 16777216
+max = 4194176
 default = 256
 [params.in1_d2]
 type = "int"
@@ -68,7 +68,8 @@ default = 384
 width = "ceil(in0_d2 / 128)"
 rows = "in0_d0 * in0_d1 * width"
 tail = "ds(in0_d2 - (width - 1) * 128)"
-last = "rows - 1"
+last_chunk = "width - 1"
+last_row = "rows - 1"
 [inputs.in0]
 shape = ["in0_d0", "in0_d1", "width * 128"]
 range = [-2, 2]
@@ -84,9 +85,9 @@ out0 = "CR4"
 qf_in0 = "CR5"
 qf_in1 = "CR6"
 qf_out0 = "CR7"
-last = "CR8"
-tail = "CR9"
-width = "LR14"
+last_row = "CR8"
+last_chunk = "CR9"
+tail = "CR10"
 [golden]
 tolerance = { e2 = "EXACT", e3 = "EXACT", e4 = "EXACT" }
 [cases.default]
