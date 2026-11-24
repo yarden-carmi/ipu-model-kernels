@@ -1,85 +1,75 @@
-{% set chunks = (in0_d3 + 127) // 128 %}
+{# Depthwise 3x3, one input and output per group. #}
+{% if cin == groups and cout == groups %}
 {% set full = cr.full ~ '.L' %}
-{% set q = cr.qf_in0 ~ '.L' %}
+{% set qi = cr.qf_in0 ~ '.L' %}
+{% set tail = cr.tail ~ '.L' %}
+{% set shifts = ['LR12', 'LR13', 'LR14'] %}
 
-{# Each horizontal tap is a cyclic read across the current width row and
-   its neighbor. At the image boundary a shifted mask suppresses the wrap. #}
-{% macro panel(c, ky) %}
-{% set tag = c ~ '_' ~ ky %}
- SET LR7 LR5 ; SET LR9 {{ cr.cin }} ;;
- {% if c %}INC LR7 {{ c }} ;;{% endif %}
- channel_{{ tag }}:
- LD.MULT.CYCLIC LR7 {{ cr.clean }} LR10 ;;
- {% if chunks == 2 %}
- SET LR14 LR7 ; SET LR13 CR0 ;;
- {% if c == 0 %}INC LR14 1 ; INC LR13 255 ;; INC LR13 1 ;;
- {% else %}DEC LR14 1 ;;{% endif %}
- LD.MULT.CYCLIC LR14 {{ cr.clean }} LR13 ;;
- {% endif %}
- SET LR14 CR0 ;;
- DEC LR14 1 ;;
- {% for part in range(2) %}
- LD.MULT R0 LR8 {{ cr.weights }} ; SET LR13 LR14 ;;
+{# Stage stride-two taps in output coordinates. Both halves are needed
+   because ACC.STRIDE selects even lanes from a 64-column panel. #}
+{% macro stage(y) %}
+ LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR13 ; SET LR3 CR0 ;;
+ {% if y %}INC LR3 {{ 3*y }} ;;{% endif %}
  {% for x in range(3) %}
- {% set mask = 'CR1' if x == 0 and c == 0 else ('LR14' if x == 2 and c == chunks - 1 and in0_d3 % 128 == 0 else 'LR0') %}
- {# mask_shift is an LR, so use LR14 for the negative shift and LR6 for +1. #}
- MULT.RC.VE {{ ['LR11','LR10','LR12'][x] }} LR13 0 {{ 'LR6' if mask == 'CR1' else mask }} {{ full }} {{ q }} ; ACC.ADD ; INC LR13 1 ;;
+ ADD LR11 {{ shifts[x] }} LR15 ;;
+ MULT.RC.VE {{ shifts[x] }} CR1 0 LR0 {{ full }} {{ qi }} ; ACC.STRIDE 64 on off LR0 ;;
+ MULT.RC.VE LR11 CR1 0 LR0 {{ full }} {{ qi }} ; ACC.STRIDE 64 on off LR14 ;;
+ ACTIVATE.QUANTIZE identity {{ tail }} {{ qi }} {{ cr.taps }} LR3 ;;
+ INC LR3 1 ;;
  {% endfor %}
- INC LR8 1 ;;
- {% endfor %}
- INC LR7 {{ chunks }} ; DEC LR9 1 ;;
- BNE LR9 CR0 channel_{{ tag }} ;;
 {% endmacro %}
 
-{% macro tile(c) %}
- SET LR8 LR4 ;;
- {% for part in range(2) %}
- LD.MULT R0 LR8 {{ cr.weights }} ;;
- MULT.EE LR0 CR1 0 LR0 {{ full }} {{ q }} ; {{ 'ACC.ADD.FIRST' if part == 0 else 'ACC.ADD' }} ; INC LR8 1 ;;
- {% endfor %}
- SUB LR5 LR2 {{ cr.pitch }} ;;
- BEQ LR3 CR0 top_pad_{{ c }} ;;
- {{ panel(c, 0) }}
- BEQ LR0 CR0 center_{{ c }} ;;
- top_pad_{{ c }}:
- ADD LR8 LR8 {{ cr.panel }} ;;
- center_{{ c }}:
- SET LR5 LR2 ;;
- {{ panel(c, 1) }}
- ADD LR5 LR2 {{ cr.pitch }} ; ADD LR14 LR3 CR1 ;;
- BGE.S LR14 {{ cr.in0_d2 }} bottom_pad_{{ c }} ;;
- {{ panel(c, 2) }}
- BEQ LR0 CR0 store_{{ c }} ;;
- bottom_pad_{{ c }}:
- ADD LR8 LR8 {{ cr.panel }} ;;
- store_{{ c }}:
- ACTIVATE.QUANTIZE {{ act_out0 }} {{ full if c < chunks - 1 else cr.tail ~ '.L' }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;;
- INC LR1 1 ;;
+{% macro window(op) %}
+ BEQ LR8 CR0 {{ op }}_center ; SUB LR9 LR10 {{ cr.in0_d1 }} ;;
+ {{ stage(0) if op == 'stage' else accumulate(0) }}
+{{ op }}_center:
+ SET LR9 LR10 ;;
+ {{ stage(1) if op == 'stage' else accumulate(1) }}
+ BEQ LR8 {{ cr.last_y }} {{ op }}_done ; ADD LR9 LR10 {{ cr.in0_d1 }} ;;
+ {{ stage(2) if op == 'stage' else accumulate(2) }}
+{{ op }}_done:
 {% endmacro %}
 
- SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
- SET LR15 {{ cr.in0_d0 }} ; SET LR6 CR1 ; SET LR10 CR0 ;;
- INC LR10 128 ; SET LR11 CR0 ; SET LR12 CR0 ;;
- INC LR11 127 ; INC LR12 129 ;;
- {# Clear inactive lanes before any shifted window can read them. #}
-clean_rows:
- {% for c in range(chunks) %}
- LD.MULT.CYCLIC LR2 {{ cr.in0 }} LR0 ;;
- MULT.RC.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ full if c < chunks - 1 else cr.tail ~ '.L' }} {{ q }} {{ cr.clean }} LR2 ;;
- INC LR2 1 ;;
+{% macro weight(r) %}LD.MULT R{{ r }} LR3 {{ cr.weights }} ; INC LR3 1{% endmacro %}
+
+{% macro accumulate(y) %}
+ {% if stride == 1 %}LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR13 ;;{% endif %}
+ SET LR3 LR2 ; SET LR11 CR0 ;;
+ INC LR3 {{ 2 + 9*y }} ; {% if y %}INC LR11 {{ 3*y }} ; {% endif %};;
+ {% for x in range(3) %}
+ {% if stride == 2 %}LD.MULT.CYCLIC LR11 {{ cr.taps }} LR1 ;; INC LR11 1 ;;{% endif %}
+ {{ weight(0) }} ;;
+ {% for part in range(3) %}
+ MULT.RC.VV {{ 'LR1' if stride == 2 else shifts[x] }} R{{ part % 2 }} 0 LR0 {{ full }} {{ qi }} ; ACC.ADD {% if part < 2 %}; {{ weight((part+1)%2) }}{% endif %} ;;
  {% endfor %}
- BLT.S LR2 LR14 clean_rows ;;
- SET LR2 CR0 ;;
+ {% endfor %}
+{% endmacro %}
+
+ SET LR0 CR0 ; SET LR4 CR0 ; SET LR5 CR0 ;;
+ DEC LR5 1 ;;
+ SET LR7 {{ cr.in0_d0 }} ; SET LR12 CR0 ; SET LR13 CR0 ;;
+ SET LR14 CR0 ; SET LR15 CR0 ; INC LR12 127 ;;
+ INC LR13 128 ; INC LR14 129 ; INC LR15 64 ;;
+ SET LR1 CR0 ;; INC LR1 255 ;; INC LR1 1 ;;
 batch:
- SET LR3 CR0 ;;
+ SET LR8 CR0 ;;
 row:
- SET LR4 CR0 ;;
-output_channel:
- {% for c in range(chunks) %}{{ tile(c) }}{% endfor %}
- SET LR4 LR8 ;;
- BLT.S LR4 {{ cr.weight_end }} output_channel ;;
- ADD LR2 LR2 {{ cr.pitch }} ; INC LR3 1 ;;
- BLT.S LR3 {{ cr.in0_d2 }} row ;;
- DEC LR15 1 ;;
- BNE LR15 CR0 batch ;;
+ SET LR10 LR4 ; SET LR2 CR0 ; SET LR6 {{ cr.in0_d1 }} ;;
+channel:
+ {% if stride == 2 %}{{ window('stage') }}{% endif %}
+ SET LR3 LR2 ;;
+ DEC LR3 1 ;;
+ {% for part in range(3) %}
+ {{ weight(0) }} ;;
+ MULT.EE LR0 CR1 0 LR0 {{ full }} {{ qi }} ; {{ 'ACC.ADD.FIRST' if part == 0 else 'ACC.ADD' }} ;;
+ {% endfor %}
+ {{ window('accumulate') }}
+ ACTIVATE.QUANTIZE {{ act_out0 }} {{ tail }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR5 ; INC LR5 1 ; INC LR10 1 ;;
+ INC LR2 30 ; DEC LR6 1 ;;
+ BNE LR6 CR0 channel ;;
+ INC LR8 {{ stride }} ; ADD LR4 LR4 {{ cr.pitch }} ;;
+ BLT.S LR8 {{ cr.in0_d2 }} row ;;
+ SUB LR4 LR4 {{ cr.batch_fix }} ; DEC LR7 1 ;;
+ BNE LR7 CR0 batch ;;
+{% endif %}
  HALT ;;

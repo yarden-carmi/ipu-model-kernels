@@ -8,28 +8,32 @@ choices = ["relu"]
 default = "relu"
 [params.bias]
 type = "bool"
+choices = [true]
 default = true
 [params.cin]
 type = "int"
 min = 1
-default = 64
+max = 256
+default = 16
 [params.cout]
 type = "int"
 min = 1
-default = 64
+max = 256
+default = 16
 [params.groups]
-type = "int"
-choices = [1]
-default = 1
-[params.h]
-type = "int"
-min = 2
-default = 32
-[params.w]
 type = "int"
 min = 1
 max = 256
-default = 32
+default = 16
+[params.h]
+type = "int"
+min = 1
+default = 112
+[params.w]
+type = "int"
+min = 1
+max = 128
+default = 112
 [params.kh]
 type = "int"
 choices = [3]
@@ -44,9 +48,8 @@ choices = [1]
 default = 1
 [params.stride]
 type = "int"
-choices = [1]
-default = 1
-
+choices = [1, 2]
+default = 2
 [params.in0_d0]
 type = "int"
 min = 1
@@ -54,16 +57,17 @@ default = 1
 [params.in0_d1]
 type = "int"
 min = 1
-default = 64
+max = 256
+default = 16
 [params.in0_d2]
 type = "int"
-min = 2
-default = 32
+min = 1
+default = 112
 [params.in0_d3]
 type = "int"
 min = 1
-max = 256
-default = 32
+max = 128
+default = 112
 [params.out0_d0]
 type = "int"
 min = 1
@@ -71,54 +75,50 @@ default = 1
 [params.out0_d1]
 type = "int"
 min = 1
-default = 64
+max = 256
+default = 16
 [params.out0_d2]
 type = "int"
-min = 2
-default = 32
+min = 1
+default = 56
 [params.out0_d3]
 type = "int"
 min = 1
-max = 256
-default = 32
+max = 128
+default = 56
 
 [derived]
-chunks = "ceil(in0_d3 / 128)"
-out_chunks = "ceil(out0_d3 / 128)"
-pitch = "in0_d1 * chunks"
-weight_pitch = "1 + 3 * cin"
-weight_end = "2 * weight_pitch * out0_d1"
-panel = "2 * cin"
 full = "ds(128)"
-tail = "ds(out0_d3 - 128 * (out_chunks - 1))"
-input_rows = "in0_d0 * in0_d2 * pitch"
+tail = "ds(out0_d3)"
+last_y = "in0_d2 - 1"
+pitch = "stride * in0_d1"
+batch_fix = "(out0_d2 * stride - in0_d2) * in0_d1"
 
 [inputs.in0]
-shape = ["in0_d0", "in0_d2", "in0_d1", "chunks", 128]
+shape = ["in0_d0", "in0_d2", "in0_d1", 128]
 range = [-1, 1]
 [inputs.weights]
-shape = ["out0_d1", "weight_pitch", 2, 128]
+shape = ["out0_d1", 10, 3, 128]
 range = [-1, 1]
 [outputs.out0]
-shape = ["out0_d0", "out0_d2", "out0_d1", "out_chunks", 128]
-[scratch.clean]
-shape = ["input_rows", 128]
+shape = ["out0_d0", "out0_d2", "out0_d1", 128]
+[scratch.taps]
+shape = [9, 128]
 
 [abi]
 in0 = "CR2"
 weights = "CR3"
 out0 = "CR4"
-qf_in0 = "CR5"
-qf_out0 = "CR6"
-full = "CR7"
-tail = "CR8"
-pitch = "CR9"
-cin = "CR10"
-weight_end = "CR11"
-in0_d2 = "CR12"
-in0_d0 = "CR13"
-panel = "CR14"
-clean = "CR15"
-input_rows = "LR14"
+taps = "CR5"
+qf_in0 = "CR6"
+qf_out0 = "CR7"
+full = "CR8"
+tail = "CR9"
+last_y = "CR10"
+in0_d1 = "CR11"
+in0_d0 = "CR12"
+in0_d2 = "CR13"
+pitch = "CR14"
+batch_fix = "CR15"
 
 [cases.default]
