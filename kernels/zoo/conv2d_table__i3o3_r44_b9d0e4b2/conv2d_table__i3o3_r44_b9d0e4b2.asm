@@ -14,7 +14,12 @@
  {% if n < 0 %} DEC {{r}} {{0-n}} ;; {% endif %}
 {% endmacro %}
 
-{# One guarded input plane at a time. The patch cache is in output-pack order. #}
+{# Guard one input plane and stage nine spatial vectors per output pack. #}
+{% macro clear_guard(label, limit) %}
+{{label}}:
+ MULT.VE LR0 CR0 0 LR0 {{ds}} {{qi}} ; ACC.ADD.FIRST ; INC LR12 1 ;
+ ACTIVATE.QUANTIZE identity {{ds}} {{qi}} {{cr.guard}} LR15 ; INC LR15 1 ; BLT.S LR12 {{limit}} {{label}} ;;
+{% endmacro %}
 {{ imm('LR4',128) }}
 {{ imm('LR8',-1) }}
 {{ imm('LR11',-1) }}
@@ -25,20 +30,23 @@
 stage_plane:
  SET LR15 CR0 ; SET LR12 CR0 ;;
  DEC LR15 1 ;;
-clear_guard:
- MULT.VE LR0 CR0 0 LR0 {{ds}} {{qi}} ; ACC.ADD.FIRST ; INC LR12 1 ;
- ACTIVATE.QUANTIZE identity {{ds}} {{qi}} {{cr.guard}} LR15 ; INC LR15 1 ; BLT.S LR12 LR2 clear_guard ;;
+ {{ clear_guard('clear_top', 'LR2') }}
  {{ imm('LR13',ip-1) }}
  SET LR12 CR0 ;;
+ {% if ip > 1 or h*w % 128 == 0 %}
 copy_plane:
  LD.MULT R0 LR11 {{cr.in0}} ; INC LR11 1 ;;
  MULT.VE LR0 CR1 0 LR0 {{ds}} {{qi}} ; ACC.ADD.FIRST ;
  ACTIVATE.QUANTIZE identity {{ds}} {{qi}} {{cr.guard}} LR15 ; INC LR15 1 ; INC LR12 1 ; BLT.S LR12 LR13 copy_plane ;;
+ {% endif %}
+ {% if h*w % 128 %}
+ LD.MULT R0 LR11 {{cr.in0}} ; INC LR11 1 ;;
+ MULT.VE LR0 CR1 0 LR0 {{cr.input_tail}}.L {{qi}} ; ACC.ADD.FIRST ;
+ ACTIVATE.QUANTIZE identity {{cr.input_tail}}.L {{qi}} {{cr.guard}} LR15 ; INC LR15 1 ; INC LR12 1 ;;
+ {% endif %}
  {{ imm('LR13',raw+5) }}
  INC LR12 3 ;;
-clear_end:
- MULT.VE LR0 CR0 0 LR0 {{ds}} {{qi}} ; ACC.ADD.FIRST ; INC LR12 1 ;
- ACTIVATE.QUANTIZE identity {{ds}} {{qi}} {{cr.guard}} LR15 ; INC LR15 1 ; BLT.S LR12 LR13 clear_end ;;
+ {{ clear_guard('clear_bottom', 'LR13') }}
  SET LR6 LR3 ; SET LR9 CR0 ;;
  {{ imm('LR13',op) }}
 
@@ -104,7 +112,7 @@ input_channel:
  {% if t < 8 %} INC LR2 1 ; {% else %} INC LR6 1 ; ADD LR4 LR4 {{cr.plane}} ; {% endif %} ;;
  {% endfor %}
  {% if cin//groups > 1 %} DEC LR4 8 ; BLT.S LR6 {{cr.gcin}} input_channel ;; {% endif %}
- {% set act = 'identity' if act_out0 == 'identity' else 'generic' %}
+ {% set act = 'generic' if act_out0 == 'silu' else act_out0 %}
  {% if out0_d2*out0_d3%128 %} BEQ LR13 LR14 tail_pack ;; {% endif %}
  ACTIVATE.QUANTIZE {{act}} {{ds}} {{qo}} {{cr.out0}} LR11 ; INC LR11 1 ;
  INC LR10 9 ; INC LR13 1 ; BLT.S LR13 LR14 output_pack ;;
@@ -115,7 +123,13 @@ tail_pack:
  SET LR12 LR5 ; INC LR7 1 ;;
  {% if groups > 1 %}
  BLT.S LR7 LR8 same_group ;;
- ADD LR9 LR9 {{cr.groupstep}} ;;
+ {% if cin//groups > 1 %}
+ SET LR6 CR0 ;;
+next_group_plane:
+ ADD LR9 LR9 {{cr.plane}} ; INC LR6 1 ; BLT.S LR6 {{cr.gcin}} next_group_plane ;;
+ {% else %}
+ ADD LR9 LR9 {{cr.plane}} ;;
+ {% endif %}
  {% for j in range(0,cout//groups,255) %} INC LR8 {{[255,cout//groups-j]|min}} ;; {% endfor %}
 same_group:
  {% endif %}
