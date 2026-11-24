@@ -8,17 +8,15 @@
     MULT.RC.VE {{ a }} LR0 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.SUB.FIRST ;;
 {% endif %}
 {% if a == b and not reverse %}
-    MULT.RC.VE {{ b }} LR3 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ;;
+    MULT.RC.VE {{ b }} LR3 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; LD.MULT R1 LR9 {{ cr.s0 }} ;;
 {% else %}
-    MULT.RC.VE {{ b }} LR3 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.SUB ;;
+    MULT.RC.VE {{ b }} LR3 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.SUB ; LD.MULT R1 LR9 {{ cr.s0 }} ;;
 {% endif %}
-    LD.MULT R1 LR9 {{ cr.s0 }} ;;
 {% if a != b %}
     MULT.EE LR3 {{ cr.base_cap }} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ;;
 {% endif %}
     MULT.EE LR3 {{ cr.neg_cap }} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.MAX ;;
-    ACTIVATE.QUANTIZE identity {{ cr.full }}.L {{ cr.qf_out0 }}.L {{ cr.s0 }} {{ dst }} ;;
-    LD.MULT R1 {{ neg }} {{ cr.s0 }} ;;
+    ACTIVATE.QUANTIZE identity {{ cr.full }}.L {{ cr.qf_out0 }}.L {{ cr.s0 }} {{ dst }} ; LD.MULT R1 {{ neg }} {{ cr.s0 }} ;;
 {% endmacro %}
 {% macro reciprocal(scale,pos,neg) %}
     LD.MULT R0 LR0 {{ cr.in1 }} ;;
@@ -58,15 +56,15 @@
     ACTIVATE.QUANTIZE exp2 {{ cr.full }}.H {{ cr.qf_in0 }}.L {{ cr.s0 }} LR9 ;;
     {{ reciprocal('CR1','LR11','LR12') }}
     {{ reciprocal(cr.factor,'LR0','LR4') }}
+    SET LR6 {{ cr.loop }}.L ;;
 row:
     LD.MULT.CYCLIC LR1 {{ cr.in0 }} LR15 ;;
     MULT.RC.VE LR15 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
     ACTIVATE.QUANTIZE relu {{ cr.full }}.L {{ cr.qf_in0 }}.L {{ cr.s0 }} LR7 ;;
-    MULT.RC.VE LR15 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.SUB.FIRST ;;
+    MULT.RC.VE LR15 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.SUB.FIRST ; LD.MULT R0 LR11 {{ cr.s0 }} ;;
     ACTIVATE.QUANTIZE relu {{ cr.full }}.L {{ cr.qf_in0 }}.L {{ cr.s0 }} LR8 ;;
     LD.MULT.CYCLIC LR7 {{ cr.s0 }} LR0 ;;
     LD.MULT.CYCLIC LR8 {{ cr.s0 }} LR10 ;;
-    LD.MULT R0 LR11 {{ cr.s0 }} ;;
     LD.MULT R1 LR12 {{ cr.s0 }} ;;
     {{ clip('LR15','LR15','LR13','LR12') }}
     {{ clip('LR15','LR15','LR14','LR12',true) }}
@@ -82,6 +80,11 @@ row:
     MULT.RC.VE LR0 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_out0 }}.L ; ACC.ADD ;;
     MULT.RC.VE LR10 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_out0 }}.L ; ACC.SUB ;;
     MULT.RC.VE LR10 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_out0 }}.L ; ACC.SUB ;;
+{% if out0_d1 % 128 == 0 %}
+    {{ store(cr.full) }}
+    INC LR1 1 ;;
+    BLT.S LR1 LR6 row ;;
+{% else %}
     SET LR6 {{ cr.loop }}.H ;;
     BEQ LR2 LR6 tail ;;
     {{ store(cr.full) }}
@@ -92,4 +95,5 @@ tail:
     INC LR1 1 ; SET LR2 CR1 ;;
     SET LR6 {{ cr.loop }}.L ;;
     BLT.S LR1 LR6 row ;;
+{% endif %}
     HALT ;;
