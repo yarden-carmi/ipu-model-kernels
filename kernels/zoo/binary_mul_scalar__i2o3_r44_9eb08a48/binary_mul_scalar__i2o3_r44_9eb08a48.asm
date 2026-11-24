@@ -16,7 +16,7 @@
 
     SET LR14 CR0 ; SET LR0 CR0 ; SET LR1 CR0 ;;
     SET LR3 CR0 ;;
-    {# Generate 1/8 in the input format and bind it as a cyclic operand. #}
+    {# Synthesize 1/8 in the input format and broadcast it. #}
     {{ product('CR0', 'ADD.FIRST') }}
     ACTIVATE.QUANTIZE exp2 {{ full }} {{ qi }} {{ cr.scalar }} LR14 ;;
     LD.MULT R0 LR14 {{ cr.scalar }} ;;
@@ -38,7 +38,7 @@ tile:
     SET LR8 LR15 ;;
 gather:
     LD.MULT R0 LR4 {{ cr.in0 }} ; BEQ LR8 CR1 singleton ;;
-    {# Gather a fixed dimension-2 lane across dimension-3 rows. #}
+    {# One lane from each input row becomes one lane of the output row. #}
     {{ scatter(prefetch=true) }} ; INC LR6 2 ;;
     BLT.S LR8 LR6 finish_gather ;;
 gather_next:
