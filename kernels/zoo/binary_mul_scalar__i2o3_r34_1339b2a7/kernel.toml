@@ -62,30 +62,35 @@ default = 36
 [inputs.in0]
 shape = ["in0_d0 * in0_d1", "ceil(in0_d2 / 128) * 128"]
 range = [-2.0, 2.0]
-[inputs.operand]
-shape = [2, 128]
-range = [0.0, 0.0]
+[scratch.scalar]
+shape = [1, 128]
 [outputs.out0]
 shape = ["out0_d0 * out0_d1 * out0_d2", 128]
 [derived]
 ic = "ceil(in0_d2 / 128)"
 brows = "in0_d1 * ceil(in0_d2 / 128)"
 tail = "ds(out0_d3)"
-single_limit = "129 - out0_d3"
 wrap_limit = "128 - out0_d3"
+# Unsigned e1 with scale 2^7: codes 129..255 give 1..127; code 0 gives 128.
+head_width = "0x18600 + out0_d3 + 128 * (1 - out0_d3 // 128) - 128 * (out0_d3 // 128)"
+# FP32 truth path: the mantissa increment is one unit per lane at this exponent.
+fp_base = "0x4b010080"
+fp_top = "fp_base + out0_d3"
 [abi]
 in0 = "CR2"
 out0 = "CR3"
 qf_in0 = "CR4"
 qf_out0 = "CR5"
-operand = "CR6"
+scalar = "CR6"
+head_width = "CR14"
 tail = "CR7"
-out0_d3 = "CR8"
+out0_d3 = "LR13"
 out0_d1 = "CR9"
 out0_d2 = "CR10"
 out0_d0 = "CR11"
-ic = "CR12"
+ic = "LR15"
+fp_top = "CR8"
+fp_base = "CR12"
 brows = "CR13"
-single_limit = "CR14"
 wrap_limit = "CR15"
 [cases.default]

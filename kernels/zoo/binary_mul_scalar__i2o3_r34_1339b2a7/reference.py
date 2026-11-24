@@ -56,11 +56,4 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    import math
-    import torch
-    # the scalar is head_dim ** -0.5; two frames: hi keeps 2 fraction bits (exact in every format with >= 2), lo = the rest (>= 0, smaller than hi, so both products have the sign of x)
-    s = float(params["out0_d3"]) ** -0.5
-    m, e = math.frexp(s)
-    hi = math.ldexp(math.floor(m * 8) / 8, e)
-    lo = s - hi
-    return {"operand": torch.stack([torch.full((128,), hi), torch.full((128,), lo)])}
+    return {}
