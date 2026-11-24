@@ -9,30 +9,22 @@ default = "relu"
 
 [params.numel]
 type = "int"
-default = 65536
-
-[params.in0_d0]
-type = "int"
-default = 1
-
-[params.in0_d1]
-type = "int"
-default = 64
+default = 16384
 
 [params.in0_d2]
 type = "int"
-default = 32
+default = 16
 
 [params.in0_d3]
 type = "int"
-default = 32
+default = 16
 
 [derived]
 capacity = "max(1, 128 // in0_d3)"
 pack = "1 + (capacity - 1) * (1 - min(1, in0_d2 % capacity))"
 rows = "numel // (pack * in0_d3)"
 last_row = "rows - 1"
-penultimate = "max(0, rows - 2)"
+penultimate = "rows - 2"
 active = "ds(pack * in0_d3)"
 
 [inputs.in0]
