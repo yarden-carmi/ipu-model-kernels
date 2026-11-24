@@ -33,23 +33,24 @@
    input scalar R0[ci]. Weight rows stream through the two R_CYCLIC slots, one row per word. #}
 {% set ic = (in1_d1 + 127) // 128 %}
 {% set ocn = (out0_d1 + 127) // 128 %}
-{% set rep = 2 %}
 {% set cwl = cin - 128 * (ic - 1) %}
 {% set wp = in1_d3 + 2 %}
 {% set wo = out0_d3 %}
-{% macro ciwords(n, label=none) %}
+{% macro ciwords(n, rep, phase, label=none) %}
 {% for c in range(n) %}{% for r in range(rep) %}{% set j = c * rep + r %}
- MULT.RC.VE {{ 'LR0' if j % 2 == 0 else 'LR1' }} LR9 0 LR0 {{ cr.ds128 }}.L {{ cr.qf_weights }}.L ; ACC.ADD ; LD.MULT.CYCLIC LR13 {{ cr.weights }} {{ 'LR1' if j % 2 == 0 else 'LR0' }} ; INC LR13 1{% if r == 0 %} ; INC LR9 1{% endif %}{% if label and j == n * rep - 1 %} ; BLT.S LR9 LR15 {{ label }}{% endif %} ;;
+ MULT.RC.VE {{ 'LR0' if (j + phase) % 2 == 0 else 'LR1' }} LR9 0 LR0 {{ cr.ds128 }}.L {{ cr.qf_weights }}.L ; ACC.ADD ; LD.MULT.CYCLIC LR13 {{ cr.weights }} {{ 'LR1' if (j + phase) % 2 == 0 else 'LR0' }} ; INC LR13 1{% if r == 0 %} ; INC LR9 1{% endif %}{% if label and j == n * rep - 1 %} ; BLT.S LR9 LR15 {{ label }}{% endif %} ;;
 {% endfor %}{% endfor %}
 {% endmacro %}
-{% macro block(tag, lim, loop) %}
+{% macro block(tag, lim, rep, phase) %}
  LD.MULT R0 LR4 {{ cr.pad }} ; INC LR4 1 ; SET LR9 CR0 ; SET LR15 CR0 ;;
- DEC LR9 1 ; INC LR15 {{ lim - 2 }} ;;
-{% if loop %}
+{% if lim > 8 %}
+ DEC LR9 1 ; INC LR15 {{ lim - lim % 8 - 2 }} ;;
 {{ tag }}:
-{{ ciwords(8, tag) }}
+{{ ciwords(8, rep, phase, tag) }}
+{{ ciwords(lim % 8, rep, phase) }}
 {% else %}
-{{ ciwords(lim) }}
+ DEC LR9 1 ;;
+{{ ciwords(lim, rep, phase) }}
 {% endif %}
 {% endmacro %}
  SET LR9 CR0 ; SET LR14 CR0 ; SET LR15 CR0 ;;
@@ -84,15 +85,18 @@ pix:
  MULT.RC.VE LR0 CR1 0 LR0 {{ cr.ds128 }}.L {{ cr.qf_weights }}.L ; ACC.ADD.FIRST ; LD.MULT.CYCLIC LR13 {{ cr.weights }} LR1 ; INC LR13 1 ;;
  MULT.RC.VE LR1 CR1 0 LR0 {{ cr.ds128 }}.L {{ cr.qf_weights }}.L ; ACC.ADD ; LD.MULT.CYCLIC LR13 {{ cr.weights }} LR0 ; INC LR13 1 ;;
 {% for t in range(9) %}
+{# The two corner taps stream native weight rows; the others retain residual rows. #}
+{% set rep = 1 if t == 0 or t == 8 else 2 %}
+{% set phase = 0 if t == 0 else cin % 2 %}
 {% if ic > 1 %}
  SET LR12 CR0 ;;
  INC LR12 {{ ic - 1 }} ;;
 f{{ t }}:
-{{ block('fc' ~ t, 128, true) }}
+ {{ block('fc' ~ t, 128, rep, phase) }}
  DEC LR12 1 ;;
  BNE LR12 CR0 f{{ t }} ;;
 {% endif %}
-{{ block('lc' ~ t, cwl, cin > 8) }}
+ {{ block('lc' ~ t, cwl, rep, phase) }}
 {% if t % 3 == 2 and t < 8 %}
 {{ step('LR4', (wp - 3) * ic) }}
 {% endif %}

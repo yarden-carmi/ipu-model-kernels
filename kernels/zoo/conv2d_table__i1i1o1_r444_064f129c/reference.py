@@ -76,10 +76,9 @@ def fold(module, **params):
         bias = module.op1_bias.double() + (bias - module.op1_running_mean.double()) * scale
         weight = weight * scale[:, None, None, None]
     if groups == 1:
-        # dense: per output chunk of 128 channels: bias hi row, bias lo row, then one row per (tap, input channel)
-        # (hi, and lo right after it for tiny cin), then the bias hi row once more (the pipeline's last prefetch)
+        # Per output chunk: split bias, tap-major weights, then a final
+        # prefetch row. Two corner taps use native weights without a residual.
         cin = weight.shape[1]
-        rep = 2
         chunks = (channels + 127) // 128
         w = np.zeros((9, cin, chunks * 128))
         w[:, :, :channels] = weight.permute(2, 3, 1, 0).reshape(9, cin, channels).numpy()
@@ -89,8 +88,6 @@ def fold(module, **params):
         b = b.reshape(chunks, 128)
 
         def split(rows):
-            if rep == 1:
-                return rows, np.zeros_like(rows)
             exponent = np.frexp(np.max(np.abs(rows), axis=-1, keepdims=True))[1] - 1
             step = np.exp2(exponent.astype(float) - 5)
             hi = np.sign(rows) * np.minimum(np.floor(np.abs(rows) / step + 0.5), 63) * step
@@ -102,10 +99,12 @@ def fold(module, **params):
         for o in range(chunks):
             out.append(bh[o][None])
             out.append(bl[o][None])
-            if rep == 1:
-                out.append(wh[o])
-            else:
-                out.append(np.stack((wh[o], wl[o]), axis=1).reshape(-1, 128))
+            for t in range(9):
+                s = slice(t * cin, (t + 1) * cin)
+                if t in (0, 8):
+                    out.append(w[o, t])
+                else:
+                    out.append(np.stack((wh[o, s], wl[o, s]), axis=1).reshape(-1, 128))
             out.append(bh[o][None])
         return {"weights": np.concatenate(out, 0)}
     if groups != params["cin"] or params["cin"] != channels:
