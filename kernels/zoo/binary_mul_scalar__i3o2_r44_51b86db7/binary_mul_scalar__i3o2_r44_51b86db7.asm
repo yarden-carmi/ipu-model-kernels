@@ -16,7 +16,7 @@
 
     SET LR14 CR0 ; SET LR0 CR0 ; SET LR1 CR0 ;;
     SET LR3 CR0 ;;
-    {# Construct the 0.125 coefficient in the input QF. #}
+    {# Synthesize the 1/8 coefficient row in the input format. #}
     {{ product('CR0', 'ADD.FIRST') }}
     ACTIVATE.QUANTIZE exp2 {{ full }} {{ qi }} {{ cr.scalar }} LR14 ;;
     LD.MULT R0 LR14 {{ cr.scalar }} ;;
@@ -38,7 +38,7 @@ tile:
     SET LR8 LR15 ;;
 gather:
     LD.MULT R0 LR4 {{ cr.in0 }} ; BEQ LR8 CR1 singleton ;;
-    {# Pick the column lane from each source row and scatter into the output row. #}
+    {# Select one column from each loaded row, placing it in the next output lane. #}
     {{ scatter(prefetch=true) }} ; INC LR6 2 ;;
     BLT.S LR8 LR6 finish_gather ;;
 gather_next:
