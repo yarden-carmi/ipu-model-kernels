@@ -1,29 +1,29 @@
 [kernel]
-op = "gemm_builtin"
+op = "gemm"
 formats = ["e1", "e2"]
 
+[params.bias]
+type = "bool"
+default = true
 [params.act_out0]
 type = "str"
 choices = ["relu"]
 default = "relu"
-[params.bias]
-type = "bool"
-default = true
 [params.k]
 type = "int"
 min = 1
 max = 4096
-default = 16
+default = 24
 [params.n]
 type = "int"
 min = 1
 max = 4096
-default = 72
+default = 88
 [params.m]
 type = "int"
 min = 1
 max = 65536
-default = 3136
+default = 784
 [params.in0_d0]
 type = "int"
 min = 1
@@ -33,17 +33,17 @@ default = 1
 type = "int"
 min = 1
 max = 4096
-default = 16
+default = 24
 [params.in0_d2]
 type = "int"
 min = 1
 max = 65536
-default = 56
+default = 28
 [params.in0_d3]
 type = "int"
 min = 1
 max = 128
-default = 56
+default = 28
 [params.out0_d0]
 type = "int"
 min = 1
@@ -53,30 +53,29 @@ default = 1
 type = "int"
 min = 1
 max = 4096
-default = 72
+default = 88
 [params.out0_d2]
 type = "int"
 min = 1
 max = 65536
-default = 56
+default = 28
 [params.out0_d3]
 type = "int"
 min = 1
 max = 65536
-default = 56
+default = 28
 
 [derived]
-tiles = "ceil(n / 128)"
-full_tiles = "tiles - 1"
-last = "ds((n - 1) % 128 + 1)"
-full = "ds(128)"
+blocks = "ceil(n / 128)"
+last = "blocks - 1"
+full_ds = "ds(128)"
+tail_ds = "ds(n - 128 * last)"
+stripes = "in0_d0 * in0_d2"
 
 [inputs.in0]
-shape = ["in0_d0 * in0_d2 * in0_d1", 128]
-range = [-2, 2]
+shape = ["stripes * in0_d1", 128]
 [inputs.coeff]
-shape = ["tiles * (2 * k + 1)", 128]
-range = [-1, 1]
+shape = ["blocks * 2 * (k + 1)", 128]
 [outputs.out0]
 shape = ["out0_d0 * out0_d2 * out0_d3 * ceil(out0_d1 / 128)", 128]
 
@@ -86,13 +85,12 @@ coeff = "CR3"
 out0 = "CR4"
 qf_in0 = "CR5"
 qf_out0 = "CR6"
-qf_coeff = "CR7"
-k = "CR8"
-m = "CR9"
-in0_d1 = "CR10"
-in0_d3 = "CR11"
-full_tiles = "CR12"
-last = "CR14"
-full = "CR15"
+k = "CR7"
+stripes = "CR8"
+in0_d1 = "CR9"
+in0_d3 = "CR10"
+last = "CR11"
+full_ds = "CR12"
+tail_ds = "CR13"
 
 [cases.default]

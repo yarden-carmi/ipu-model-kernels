@@ -53,36 +53,36 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 16, 56, 56], [50176, 3136, 56, 1], 0), module.op0_weight)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 24, 28, 28], [18816, 784, 28, 1], 0), module.op0_weight)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 72, 56, 56], [225792, 3136, 56, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 88, 28, 28], [68992, 784, 28, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.relu_.default(_v(op1, [1, 72, 56, 56], [225792, 3136, 56, 1], 0))
+    r0 = aten.relu_.default(_v(op1, [1, 88, 28, 28], [68992, 784, 28, 1], 0))
     op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 72, 56, 56])}
+    return {"out0": _out(op2, [1, 88, 28, 28])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Fuse batch normalization and split each weight row for FP8 precision."""
-    n, k = int(params["n"]), int(params["k"])
-    if hasattr(module, "op1_weight"):
+    """Fuse batch normalization and pack each coefficient as high plus residual."""
+    n, k = params['n'], params['k']
+    source = getattr(module, 'op0_weight', getattr(module, 'weight', None))
+    weights = source.detach().double().reshape(n, k)
+    source_bias = getattr(module, 'op0_bias', getattr(module, 'bias', None))
+    bias = weights.new_zeros(n) if source_bias is None else source_bias.detach().double().reshape(n)
+    if hasattr(module, 'op1_running_var'):
         scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
-        weight = module.op0_weight.double().reshape(n, k) * scale[:, None]
-        bias = module.op1_bias.double() - module.op1_running_mean.double() * scale
-    else:
-        weight = module.weight.double().reshape(n, k)
-        bias = getattr(module, "bias", None)
+        weights = weights * scale[:, None]
+        bias = module.op1_bias.double() + (bias - module.op1_running_mean.double()) * scale
+    if not params['bias']:
+        bias = weights.new_zeros(n)
 
-    rows = weight.new_zeros(((n + 127) // 128, 2 * k + 1, 128))
-    for tile, lo in enumerate(range(0, n, 128)):
-        hi = min(n, lo + 128)
-        w = weight[lo:hi].T
-        _, exponent = torch.frexp(w.abs().amax(dim=1, keepdim=True))
-        step = torch.ldexp(torch.ones_like(exponent, dtype=w.dtype), exponent - 4)
-        coarse = torch.round(w / step) * step
-        rows[tile, 1::2, :hi - lo] = coarse
-        rows[tile, 2::2, :hi - lo] = w - coarse
-        if params.get("bias") and bias is not None:
-            rows[tile, 0, :hi - lo] = bias.reshape(n)[lo:hi]
-    return {"coeff": rows.reshape(-1, 128).numpy()}
+    blocks = (n + 127) // 128
+    rows = weights.new_zeros((k + 1, blocks * 128))
+    rows[0, :n] = bias
+    rows[1:, :n] = weights.T
+    rows = rows.reshape(k + 1, blocks, 128).transpose(0, 1)
+    _, exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
+    step = torch.ldexp(torch.ones_like(rows[..., :1]), exp - 4)
+    high = torch.round(rows / step) * step
+    return {'coeff': torch.stack((high, rows - high), dim=-2).reshape(-1, 128)}
