@@ -1,0 +1,148 @@
+[kernel]
+op = "conv2d_table"
+formats = ["e1", "e2"]
+
+[params.act_out0]
+type = "str"
+choices = ["hardswish"]
+default = "hardswish"
+[params.bias]
+type = "bool"
+default = true
+[params.cin]
+type = "int"
+min = 1
+max = 640
+default = 120
+[params.cout]
+type = "int"
+min = 1
+max = 640
+default = 120
+[params.groups]
+type = "int"
+min = 1
+max = 640
+default = 120
+[params.h]
+type = "int"
+min = 1
+max = 256
+default = 14
+[params.w]
+type = "int"
+min = 1
+max = 256
+default = 14
+[params.kh]
+type = "int"
+min = 1
+max = 5
+default = 5
+[params.kw]
+type = "int"
+min = 1
+max = 5
+default = 5
+[params.padding]
+type = "int"
+min = 0
+max = 2
+default = 2
+[params.stride]
+type = "int"
+choices = [1, 2]
+default = 1
+[params.in0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 640
+default = 120
+[params.in0_d2]
+type = "int"
+min = 1
+max = 256
+default = 14
+[params.in0_d3]
+type = "int"
+min = 1
+max = 256
+default = 14
+[params.out0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 640
+default = 120
+[params.out0_d2]
+type = "int"
+min = 1
+max = 260
+default = 14
+[params.out0_d3]
+type = "int"
+min = 1
+max = 128
+default = 14
+
+[derived]
+ix = "ceil(in0_d3 / 128)"
+full = "min(out0_d2, 128 // out0_d3)"
+pack = "1 + (full - 1) * (1 - min(1, out0_d2 % full)) + (1 - out0_d2 % 2) * min(1, out0_d2 % full) * min(1, 64 // out0_d3)"
+tiles = "out0_d2 // pack"
+extra = "stride * (pack - 1)"
+plane = "(in0_d2 + 2 * padding + extra) * kw"
+gcin = "cin // groups"
+group_plane = "plane * gcin"
+mask_rows = "pack * min(1, pack - 1)"
+segments = "1 + (1 - min(1, max(pack - 2, 2 - pack)))"
+segment_plane = "plane * segments"
+output_group_plane = "segment_plane * gcin"
+weights_end = "mask_rows + cout * (3 + 3 * gcin) - 1"
+ds128 = "ds(128)"
+ds_in = "ds(1 + (in0_d3 - 1) % 128)"
+ds_out = "ds(pack * out0_d3)"
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d1", "in0_d2", "ix", 128]
+range = [-2, 2]
+[inputs.weights]
+shape = ["weights_end + 1", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[scratch.shifted]
+shape = ["1 + cin * plane", 128]
+[scratch.packed]
+shape = ["1 + cin * segment_plane * min(1, pack - 1)", 128]
+[outputs.out0]
+shape = ["out0_d0", "out0_d1", "tiles", 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+weights = "CR4"
+lut = "CR5"
+shifted = "CR6"
+packed = "CR7"
+qf_in0 = "CR8"
+qf_weights = "CR9"
+qf_out0 = "CR10"
+ds128 = "CR11"
+ds_in = "CR12"
+ds_out = "CR13"
+segment_plane = "CR14"
+weights_end = "CR15"
+output_group_plane = "LR15"
+
+[golden]
+tolerance = { e1 = "NX8_STEP", e2 = "NX8_STEP" }
+[cases.default]
