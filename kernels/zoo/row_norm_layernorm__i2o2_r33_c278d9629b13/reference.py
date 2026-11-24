@@ -56,20 +56,25 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    def split(t):
-        residual = t.to(torch.float32).reshape(-1, 128)
-        pieces = []
+    channels = params["channels"]
+
+    def split(tensor):
+        residual = tensor.reshape(-1, 128)
+        parts = []
         for _ in range(2):
             peak = residual.abs().amax(dim=1, keepdim=True).clamp_min(1e-30)
             step = 2.0 ** (torch.floor(torch.log2(peak)) - 4)
-            high = torch.round(residual / step) * step
-            pieces.append(high)
-            residual = residual - high
-        return torch.stack([*pieces, residual], dim=1).reshape(-1, 128)
+            part = torch.round(residual / step) * step
+            parts.append(part)
+            residual = residual - part
+        return torch.cat([*parts, residual])
+
+    def affine(tensor):
+        return split(torch.nn.functional.pad(tensor.reshape(-1), (0, (-channels) % 128)))
 
     return {
-        "gamma": split(module.weight * 0.5),
-        "beta": split(module.bias),
-        "inv_channels": split(torch.full((128,), 1 / params["channels"])),
+        "gamma": affine(module.weight),
+        "beta": affine(module.bias),
+        "crow": split(torch.full((128,), 1 / channels)),
         "epsilon": torch.full((128,), params["eps"]),
     }
