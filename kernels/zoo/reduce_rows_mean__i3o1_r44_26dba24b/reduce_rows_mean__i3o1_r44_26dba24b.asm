@@ -1,4 +1,4 @@
-{# Stream packed spatial rows into the channel's output accumulator lane. #}
+{# Stream packed spatial rows into the corresponding channel lane. #}
 {% set inv = cr.inv_fp32 if format == 'fp32' else cr.inv %}
 {% macro store(ds) %}
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR2 ;;
