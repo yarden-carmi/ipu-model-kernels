@@ -65,24 +65,21 @@ type = "int"
 min = 1
 max = 2147483647
 default = 256
-
 [inputs.in0]
-shape = ["planes * plane_rows", 128]
+shape = ["in0_d0 * in0_d1 * plane_rows", 128]
 range = [-2.0, 2.0]
 [outputs.out0]
-shape = ["out0_d0 * out0_d1 * out0_d2 * oc", 128]
+shape = ["planes * out0_d2 * oc", 128]
 [scratch.scalar]
 shape = [1, 128]
 
 [derived]
-planes = "in0_d0 * in0_d1"
+planes = "out0_d0 * out0_d1"
 ic = "ceil(in0_d2 / 128)"
 oc = "ceil(out0_d3 / 128)"
-h = "out0_d2"
 plane_rows = "in0_d3 * ic"
 last = "(out0_d3 - 1) % 128 + 1"
 ds_pair = "ds(last) + ds(128) * 65536"
-# Both arithmetic modes synthesize the same broadcast coefficient, 1/8.
 fp_lo = "0x43010080"
 fp_hi = "fp_lo + 8192"
 nx_scale = "0x00017c00"
@@ -94,7 +91,7 @@ qf_in0 = "CR4"
 qf_out0 = "CR5"
 ic = "CR6"
 oc = "CR7"
-h = "CR8"
+out0_d2 = "CR8"
 planes = "CR9"
 plane_rows = "CR10"
 ds_pair = "CR11"
