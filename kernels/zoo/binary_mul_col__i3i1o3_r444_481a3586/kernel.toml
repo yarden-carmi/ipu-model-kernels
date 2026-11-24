@@ -1,0 +1,49 @@
+[kernel]
+op = "binary_mul_col"
+formats = ["e1"]
+
+[params.broadcast]
+type = "str"
+choices = ["col"]
+default = "col"
+[params.op]
+type = "str"
+choices = ["mul"]
+default = "mul"
+[params.inner]
+type = "int"
+default = 120
+[params.numel]
+type = "int"
+default = 23520
+[params.in0_d3]
+type = "int"
+default = 14
+
+[derived]
+rows = "numel // in0_d3"
+planes = "rows // inner"
+valid = "ds(in0_d3)"
+
+[inputs.in0]
+shape = ["rows", 128]
+range = [-2, 2]
+[inputs.in1]
+shape = ["(inner + 127) // 128", 128]
+range = [-2, 2]
+[outputs.out0]
+shape = ["rows", 128]
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_in1 = "CR6"
+qf_out0 = "CR7"
+inner = "CR8"
+planes = "CR9"
+valid = "CR15"
+
+[cases.default]
+numel = 23520
