@@ -49,36 +49,33 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.layer_norm.default(_v(ins[0], [4, 256, 144], [1, 4, 1024], 0), [144], module.weight, module.bias)
+    r0 = aten.layer_norm.default(_v(ins[0], [4, 16, 240], [1, 4, 64], 0), [240], module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [4, 256, 144])}
+    return {"out0": _out(op0, [4, 16, 240])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    ch = int(params["channels"])
-    K = -(-ch // 128)
-
-    def pad(t):
-        t = t.reshape(-1).to(torch.float32)
-        out = torch.zeros(K * 128, dtype=torch.float32)
-        out[: t.numel()] = t
-        return out
+    ch = int(params['channels'])
+    padding = (-ch) % 128
 
     def split(tensor):
         residual = tensor.reshape(-1, 128)
-        parts = []
+        pieces = []
         for _ in range(2):
-            peak = residual.abs().amax(1, keepdim=True).clamp_min(1e-30)
+            peak = residual.abs().amax(dim=1, keepdim=True).clamp_min(1e-30)
             step = 2.0 ** (torch.floor(torch.log2(peak)) - 4)
             part = torch.round(residual / step) * step
-            parts.append(part)
+            pieces.append(part)
             residual = residual - part
-        return torch.cat([*parts, residual])
+        return torch.cat([*pieces, residual])
+
+    def affine(tensor):
+        return split(torch.nn.functional.pad(tensor.flatten().float(), (0, padding)))
 
     return {
-        "gamma": split(pad(module.weight)),
-        "beta": split(pad(module.bias)),
-        "crow": split(torch.full((128,), 1 / ch)),
-        "epsilon": torch.full((128,), params["eps"]),
+        'gamma': affine(module.weight),
+        'beta': affine(module.bias),
+        'crow': split(torch.full((128,), 1 / ch)),
+        'epsilon': torch.full((128,), params['eps']),
     }

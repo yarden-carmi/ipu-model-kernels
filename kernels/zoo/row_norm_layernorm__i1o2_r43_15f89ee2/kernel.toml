@@ -8,14 +8,14 @@ choices = ["layernorm"]
 default = "layernorm"
 [params.channels]
 type = "int"
-min = 129
+min = 1
 max = 4096
-default = 144
+default = 240
 [params.rows]
 type = "int"
 min = 1
 max = 4096
-default = 8
+default = 64
 [params.eps]
 type = "float"
 min = 0.0
@@ -29,43 +29,43 @@ default = 1
 [params.in0_d1]
 type = "int"
 min = 1
-max = 65535
-default = 144
+max = 4096
+default = 240
 [params.in0_d2]
 type = "int"
 min = 1
-max = 65535
-default = 4
+max = 4096
+default = 8
 [params.in0_d3]
 type = "int"
 min = 1
-max = 65535
-default = 2
+max = 4096
+default = 8
 [params.out0_d0]
 type = "int"
-min = 4
-max = 4
+min = 1
+max = 4096
 default = 4
 [params.out0_d1]
 type = "int"
 min = 1
-max = 65535
-default = 2
+max = 4096
+default = 16
 [params.out0_d2]
 type = "int"
-min = 129
+min = 1
 max = 4096
-default = 144
+default = 240
 
 [derived]
-half = "1277440"
-K = "ceil(channels / 128)"
-K4 = "4 * K"
+K = "(channels + 127) // 128"
 M = "rows * K"
-dsl = "ds(channels - 128 * (K - 1))"
+step = "out0_d0 * K"
+tail = "ds(channels - (K - 1) * 128) + 65536 * ds(128)"
+half = "1277440"
+
 [inputs.in0]
 shape = ["in0_d0 * in0_d2 * in0_d3 * K", 128]
-range = [-2.0, 2.0]
 [inputs.gamma]
 shape = ["3 * K", 128]
 [inputs.beta]
@@ -92,8 +92,9 @@ K = "CR10"
 M = "CR11"
 epsilon = "CR12"
 half = "CR13"
-dsl = "CR14"
-K4 = "LR13"
+tail = "CR14"
+qf_gamma = "CR15"
+step = "LR13"
 
 [golden]
 tolerance = { e1 = "NX8_STEP", e2 = "NX8_STEP" }
