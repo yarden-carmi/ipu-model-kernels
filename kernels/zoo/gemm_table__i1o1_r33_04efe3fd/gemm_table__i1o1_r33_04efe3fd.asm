@@ -1,3 +1,5 @@
+{# Each lane accumulates one matrix row. Input rows for successive taps
+   are MB physical rows apart; weight lanes hold successive scalar taps. #}
 {% macro tap() %}
     MULT.RC.VE LR0 LR5 0 LR0 {{ cr.full_ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD
 {% endmacro %}
@@ -23,7 +25,6 @@ weight_loop:
     SET LR8 {{ cr.tail_bound }} ;;
 preload:
     LD.MULT.CYCLIC LR3 {{ cr.in0 }} LR0 ; DEC LR5 1 ; DEC LR8 1 ; BLT.S LR8 CR0 last_tap ;;
-# The cyclic load feeds the next multiply; do not prefetch beyond the chunk.
 k_loop:
     {{ tap() }} ; LD.MULT.CYCLIC LR3 {{ cr.in0 }} LR0 ; ADD LR3 LR3 {{ cr.MB }} ; INC LR5 1 ; BLT.S LR5 LR8 k_loop ;;
 last_tap:

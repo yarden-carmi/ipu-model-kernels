@@ -58,11 +58,10 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    """Pack one output channel's weights in successive 128-tap rows."""
+    """Pack each output channel's successive taps into 128-lane rows."""
     n, k = params["n"], params["k"]
-    weight = module.weight.reshape(n, k)
-    padded = torch.nn.functional.pad(weight, (0, (-k) % 128))
-    result = {"w": padded.reshape(-1, 128)}
+    weight = module.weight.detach().reshape(n, k)
+    result = {"w": torch.nn.functional.pad(weight, (0, (-k) % 128)).reshape(-1, 128)}
     if params["bias"]:
-        result["b"] = module.bias.reshape(n, 1).expand(n, 128).contiguous()
+        result["b"] = module.bias.detach().reshape(n, 1).expand(n, 128).contiguous()
     return result

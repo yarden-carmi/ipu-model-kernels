@@ -1,10 +1,11 @@
 [kernel]
 op = "gemm_table"
-formats = ["e3", "e2"]
+formats = ["e2", "e3"]
+
 [params.act_out0]
 type = "str"
-choices = ["gelu"]
-default = "gelu"
+choices = ["gelu_tanh", "gelu"]
+default = "gelu_tanh"
 [params.bias]
 type = "bool"
 default = true
@@ -12,17 +13,17 @@ default = true
 type = "int"
 min = 1
 max = 65535
-default = 257
+default = 256
 [params.k]
 type = "int"
 min = 1
 max = 4096
-default = 17
+default = 768
 [params.n]
 type = "int"
 min = 1
 max = 4096
-default = 5
+default = 3072
 [params.in0_d0]
 type = "int"
 min = 1
@@ -32,12 +33,12 @@ default = 1
 type = "int"
 min = 1
 max = 65535
-default = 257
+default = 256
 [params.in0_d2]
 type = "int"
 min = 1
 max = 4096
-default = 17
+default = 768
 [params.out0_d0]
 type = "int"
 min = 1
@@ -47,12 +48,12 @@ default = 1
 type = "int"
 min = 1
 max = 65535
-default = 257
+default = 256
 [params.out0_d2]
 type = "int"
 min = 1
 max = 4096
-default = 5
+default = 3072
 
 [derived]
 MB = "ceil(in0_d1 / 128)"
