@@ -49,35 +49,32 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    import types
-    ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
-    module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
-                                      for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 72, 56, 56], [225792, 3136, 56, 1], 0), module.op0_weight, None, [2, 2], [1, 1], [1, 1], 72)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 32, 32], [65536, 1024, 32, 1], 0), module.weight, module.bias, [1, 1], [1, 1])
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 72, 28, 28], [56448, 784, 28, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.relu.default(_v(op0, [1, 64, 32, 32], [65536, 1024, 32, 1], 0))
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.relu_.default(_v(op1, [1, 72, 28, 28], [56448, 784, 28, 1], 0))
-    op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 72, 28, 28])}
+    return {"out0": _out(op1, [1, 64, 32, 32])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Fold inference batch norm into depthwise taps and bias."""
-    weight = module.op0_weight.detach().double()
-    scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
-    bias = module.op1_bias.double() - module.op1_running_mean.double() * scale
-    coeff = torch.cat((bias[:, None], weight.reshape(weight.shape[0], 9) * scale[:, None]), dim=1)
-    rows = coeff.new_zeros((weight.shape[0], 10, 3, 128))
-    _, exponent = torch.frexp(coeff.abs())
-    for part in range(2):
-        step = torch.exp2(exponent.to(coeff.dtype) - 5 * (part + 1))
-        rounded = (coeff / step).round().clamp(-31, 31) * step
-        rows[:, :, part, :] = rounded.unsqueeze(-1)
-        coeff = coeff - rounded
-    rows[:, :, 2, :] = coeff.unsqueeze(-1)
-    rows[:, 1::3, :, 0] = 0
-    width, stride = params['in0_d3'], params['stride']
-    rows[:, 3::3, :, (width - 1 + stride - 1) // stride:] = 0
-    return {'weights': rows}
+    """Pack each vertical tap into 32-channel panels, with two parts per row."""
+    weight = module.weight.detach().to(torch.float64)
+    outputs, per_group, _, _ = weight.shape
+    groups = params['groups']
+    channels = per_group * groups
+    panels = (channels + 31) // 32
+    rows = weight.new_zeros((outputs, 1 + 3 * panels, 128))
+    if params['bias']:
+        rows[:, 0, 0] = module.bias
+    dense = weight.new_zeros((outputs, panels * 32, 3, 3))
+    for group in range(groups):
+        oc = slice(group * (outputs // groups), (group + 1) * (outputs // groups))
+        ic = slice(group * per_group, (group + 1) * per_group)
+        dense[oc, ic] = weight[oc]
+    rows[:, 1:, :96] = dense.permute(0, 2, 1, 3).reshape(outputs, 3 * panels, 96)
+    _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
+    step = torch.exp2(exponent.to(rows.dtype) - 6)
+    hi = rows.sign() * (rows.abs() / step + 0.5).floor().clamp(max=63) * step
+    return {'weights': torch.cat((weight.new_zeros((1, 128)),
+                                  torch.stack((hi, rows - hi), dim=2).reshape(-1, 128)))}
