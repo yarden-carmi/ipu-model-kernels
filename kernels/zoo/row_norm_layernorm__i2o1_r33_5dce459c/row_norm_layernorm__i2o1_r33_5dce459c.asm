@@ -159,16 +159,22 @@ weight_loop:
  MULT.EE LR4 CR1 0 LR15 {{ full }} {{ q }} ; ACC.RESHAPE LRD14 LRD10 7
 {%- endmacro %}
 {% macro gather(p) %}
- SET LR6 LR2 ; SET LR8 CR0 ; SET LR11 CR0 ;;
+ SET LR6 LR2 ; SET LR8 CR1 ; SET LR11 CR0 ;;
  {% for i in range(p) %}ADD LR6 LR6 LR13 ;;{% endfor %}
  {% if p == 2 %}
- BGE.S LR7 LR3 gather{{ p }} ;;
+ BGE.S LR7 LR3 prefetch{{ p }} ;;
  MULT.VE LR15 CR0 0 LR15 {{ full }} {{ q }} ; ACC.ADD.FIRST ;;
  {% endif %}
-gather{{ p }}:
+ {# Prefetch the next row in the destination-counter word.
+    Drain separately so the last tile never loads beyond the plane. #}
+prefetch{{ p }}:
  LD.MULT R0 LR6 {{ cr.normalized }} ;;
+ BGE.S LR8 LR7 drain{{ p }} ;;
+gather{{ p }}:
  {{ scatter() }} ; ADD LR6 LR6 {{ cr.K }} ; INC LR8 1 ;;
- ADDBI LRD10 1 ; BLT.S LR8 LR7 gather{{ p }} ;;
+ ADDBI LRD10 1 ; LD.MULT R0 LR6 {{ cr.normalized }} ; BLT.S LR8 LR7 gather{{ p }} ;;
+drain{{ p }}:
+ {{ scatter() }} ; ADD LR6 LR6 {{ cr.K }} ;;
 {% endmacro %}
 
  {{ init('LR2') }}{{ init('LR11') }}{{ init('LR15') }}
