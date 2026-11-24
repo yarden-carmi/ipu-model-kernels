@@ -1,0 +1,99 @@
+[kernel]
+op = "gemm"
+formats = ["e1", "e2"]
+
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 4096
+default = 128
+[params.n]
+type = "int"
+min = 1
+max = 4096
+default = 64
+[params.m]
+type = "int"
+min = 1
+max = 65536
+default = 4096
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 128
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 64
+[params.in0_d3]
+type = "int"
+min = 1
+max = 128
+default = 64
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 64
+[params.out0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 64
+[params.out0_d3]
+type = "int"
+min = 1
+max = 128
+default = 64
+
+[derived]
+pack = "128 // in0_d3"
+pitch = "(in0_d2 + pack - 1) // pack"
+height = "in0_d2"
+width = "in0_d3"
+batch = "in0_d0"
+full_blocks = "(k - 1) // 32"
+active = "ds(out0_d3)"
+lanes = "128"
+
+[inputs.in0]
+shape = ["batch * pitch * in0_d1", 128]
+range = [-2, 2]
+[inputs.coeff]
+shape = ["n * (4 + 2 * full_blocks)", 128]
+range = [-1, 1]
+[outputs.out0]
+shape = ["out0_d0 * out0_d2 * out0_d1", 128]
+
+[abi]
+in0 = "CR2"
+coeff = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+n = "CR7"
+height = "CR8"
+active = "CR9"
+lanes = "CR10"
+full_blocks = "CR11"
+pitch = "CR12"
+pack = "CR13"
+width = "CR14"
+batch = "CR15"
+
+[cases.default]
