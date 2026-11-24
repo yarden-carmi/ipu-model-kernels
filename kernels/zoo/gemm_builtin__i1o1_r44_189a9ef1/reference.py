@@ -53,16 +53,16 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 240, 1, 1], [240, 1, 1, 1], 0), module.weight, module.bias)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 144, 1, 1], [144, 1, 1, 1], 0), module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.relu_.default(_v(op0, [1, 64, 1, 1], [64, 1, 1, 1], 0))
+    r0 = aten.relu_.default(_v(op0, [1, 40, 1, 1], [40, 1, 1, 1], 0))
     op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 64, 1, 1])}
+    return {"out0": _out(op1, [1, 40, 1, 1])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Fuse batch normalization and pack coefficient rows."""
+    """Pack the bias and weights as high plus residual rows."""
     n, k = params['n'], params['k']
     source = getattr(module, 'op0_weight', getattr(module, 'weight', None))
     weights = source.detach().double().reshape(n, k)
@@ -76,14 +76,22 @@ def fold(module, **params):
         bias = weights.new_zeros(n)
 
     blocks = (n + 127) // 128
-    rows = weights.new_zeros((k + 1, blocks * 128))
-    rows[0, :n] = bias
-    rows[1:, :n] = weights.T
-    rows = rows.reshape(k + 1, blocks, 128).transpose(0, 1)
-    # Preserve extra coefficient precision for the spatial pixel stream.
-    if params['m'] > 1 and k <= 128 and n <= 128:
-        _, exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
-        step = torch.ldexp(torch.ones_like(rows[..., :1]), exp - 4)
-        high = torch.round(rows / step) * step
-        rows = torch.stack((high, rows - high), dim=-2)
-    return {'coeff': rows.reshape(-1, 128)}
+    if (params['m'] == 1 and params['in0_d0'] * params['in0_d2'] * params['in0_d3'] == 1
+            and k == params['in0_d1']):
+        chunks = (k + 127) // 128
+        panels = torch.nn.functional.pad(weights, (0, chunks * 128 - k)).reshape(n, chunks, 128)
+        packed = []
+        for start in range(0, n, 128):
+            end = min(start + 128, n)
+            b = torch.nn.functional.pad(bias[start:end], (0, 128 - end + start))
+            packed.extend((b.reshape(1, 128), panels[start:end].reshape(-1, 128)))
+        rows = torch.cat(packed)
+    else:
+        rows = weights.new_zeros((k + 1, blocks * 128))
+        rows[0, :n] = bias
+        rows[1:, :n] = weights.T
+        rows = rows.reshape(k + 1, blocks, 128).transpose(0, 1)
+    _, exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
+    step = torch.ldexp(torch.ones_like(rows[..., :1]), exp - 4)
+    high = torch.round(rows / step) * step
+    return {'coeff': torch.stack((high, rows - high), dim=-2).reshape(-1, 128)}

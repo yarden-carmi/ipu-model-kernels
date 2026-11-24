@@ -72,16 +72,13 @@ full_ds = "ds(128)"
 tail_ds = "ds(n - 128 * last)"
 chunks = "ceil(in0_d1 / 128)"
 in_rows = "in0_d0 * in0_d2 * in0_d3 * chunks"
-full_chunks = "ceil(k / 128) - 1"
-split = "min(1, m - 1) * max(0, 1 - (chunks - 1)) * max(0, 1 - (blocks - 1))"
-coeff_parts = "1 + split"
-full_stop = "125 * (1 - split) + (k - 2) * split"
-tail_stop = "((k - 1) % 128 - 2) * (1 - split) + (in_rows - 1) * split"
+dot = "min(1, max(0, 2 - m)) * min(1, max(0, 2 - in0_d0 * in0_d2 * in0_d3)) * max(0, 1 - max(k - in0_d1, in0_d1 - k))"
+coeff_rows = "(1 - dot) * blocks * 2 * (k + 1) + dot * 2 * (blocks + n * chunks)"
 
 [inputs.in0]
 shape = ["in_rows", 128]
 [inputs.coeff]
-shape = ["blocks * coeff_parts * (k + 1)", 128]
+shape = ["coeff_rows", 128]
 [outputs.out0]
 shape = ["out0_d0 * out0_d2 * out0_d3 * ceil(out0_d1 / 128)", 128]
 
@@ -94,11 +91,8 @@ qf_out0 = "CR6"
 k = "CR7"
 chunks = "CR8"
 in_rows = "CR9"
-full_chunks = "CR10"
 last = "CR11"
 full_ds = "CR12"
 tail_ds = "CR13"
-full_stop = "CR14"
-tail_stop = "CR15"
 
 [cases.default]
