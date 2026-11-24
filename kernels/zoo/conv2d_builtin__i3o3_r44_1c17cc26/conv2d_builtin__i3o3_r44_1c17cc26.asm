@@ -18,6 +18,38 @@
  {% endfor %}
 {% endmacro %}
 
+{# Keep slots 2 and 3 zero. Slots 0 and 1 hold the two chunks of a
+   source scanline in order, so either output chunk can shift across them. #}
+{% macro single_products(c, y) %}
+ {% set center = 'LR0' if c == 0 else 'LR2' %}
+ {% set neighbor = 'LR2' if c == 0 else 'LR0' %}
+ {% set shifts = ['LR4', 'LR0', 'LR9'] if c == 0 else ['LR1', 'LR2', 'LR3'] %}
+ {% if y == 0 %}DEC LR10 {{ chunks }} ; {% elif y == 1 %}SET LR10 LR12 ; {% else %}INC LR10 {{ chunks - 1 if c == 0 and chunks == 2 else chunks + 1 if c == 1 else chunks }} ; {% endif %}
+ LD.MULT.CYCLIC LR10 {{ last_input if c == chunks-1 else cr.in0 }} {{ center }} ;;
+ {% set load_neighbor = ('INC' if c == 0 else 'DEC') ~ ' LR10 1 ; LD.MULT.CYCLIC LR10 ' ~ (last_input if c == 0 else cr.in0) ~ ' ' ~ neighbor ~ ' ;' %}
+ {% if c == 1 %}{{ load_neighbor }} ;;{% endif %}
+ {% for shift in shifts %}
+ MULT.RC.VE {{ shift }} LR7 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ; INC LR7 1 ; {{ load_neighbor if c == 0 and chunks == 2 and loop.first else '' }} ;;
+ MULT.RC.VE {{ shift }} LR6 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ; INC LR6 1 ; {{ 'BEQ LR13 ' ~ cr.last_y ~ ' single_store_' ~ c if y == 1 and loop.last else '' }} ;;
+ {% endfor %}
+{% endmacro %}
+
+{% macro single_tile(c) %}
+ SET LR10 LR12 ; SET LR7 LR4 ; SET LR6 LR1 ; MULT.EE LR0 CR0 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ; BNE LR13 CR0 single_top_{{ c }} ;;
+ INC LR7 3 ; INC LR6 3 ; BEQ LR0 CR0 single_middle_{{ c }} ;;
+ single_top_{{ c }}:
+ {{ single_products(c, 0) }}
+ single_middle_{{ c }}:
+ {{ single_products(c, 1) }}
+ {{ single_products(c, 2) }}
+ single_store_{{ c }}:
+ {% if bias %}
+ MULT.EE LR8 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ;;
+ MULT.EE LR11 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ;
+ {% endif %}
+ ACTIVATE.QUANTIZE {{ act_out0 }} {{ cr.tail if c == chunks-1 else cr.full }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR14 ; INC LR14 1 ; INC LR12 1 ; {{ 'INC LR13 1 ; BLT.S LR13 ' ~ cr.last_y ~ ' row' if c == chunks-1 else '' }} ;;
+{% endmacro %}
+
 {% macro tile(c) %}
  {{ 'SET LR8 LR15 ;' if not single else '' }} SET LR9 LR12 ; LD.MULT.CYCLIC LR0 {{ cr.weights }} {{ 'LR0' if c == 0 else 'LR4' }} ;;
  {% if chunks == 1 %}LD.MULT.CYCLIC LR0 {{ cr.weights }} LR4 ;;{% endif %}
@@ -68,6 +100,12 @@ clean_tail:
  BLT.S LR9 LR5 clean_tail ;;
  {% endif %}
 
+ {% if single %}
+ SET LR4 CR0 ; SET LR9 CR1 ;
+ LD.MULT.CYCLIC LR0 {{ cr.weights }} LR0 ;;
+ DEC LR4 1 ; LD.MULT.CYCLIC LR0 {{ cr.weights }} LR2 ;;
+ {# At startup all other cyclic slots are zero and are never written. #}
+ {% endif %}
  {% if single and bias %}
  SET LR8 CR0 ; SET LR11 LR2 ;;
  INC LR8 9 ; INC LR11 9 ;;
@@ -83,9 +121,11 @@ output_channel:
  SET LR12 LR5 ; SET LR13 CR0 ;;
 row:
  {% if not single %}ADD LR11 LR12 {{ cr.batch_pitch }} ;;{% endif %}
- {% for c in range(chunks) %}{{ tile(c) }}{% endfor %}
+ {% for c in range(chunks) %}{{ single_tile(c) if single else tile(c) }}{% endfor %}
+ {% if not single %}
  INC LR12 {{ chunks }} ; INC LR13 1 ;;
  BGE.S {{ cr.last_y }} LR13 row ;;
+ {% endif %}
  {% if single %}
  INC LR15 1 ; BLT.S LR15 {{ cr.last_weight }} output_channel ;;
  {% else %}
