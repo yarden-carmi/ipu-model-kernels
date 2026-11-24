@@ -49,11 +49,11 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 16, 16], [16384, 256, 16, 1], 0), module.weight, module.bias, [1, 1], [1, 1])
+    r0 = aten.conv2d.default(_v(ins[0], [1, 32, 224, 224], [1605632, 50176, 224, 1], 0), module.weight, module.bias, [1, 1], [1, 1])
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.relu.default(_v(op0, [1, 16, 16, 16], [4096, 256, 16, 1], 0))
+    r0 = aten.relu.default(_v(op0, [1, 32, 224, 224], [1605632, 50176, 224, 1], 0))
     op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 16, 16, 16])}
+    return {"out0": _out(op1, [1, 32, 224, 224])}
 # ---- end of the frozen reference ----
 
 
@@ -71,6 +71,12 @@ def fold(module, **params):
     segments = (kw * cin + 127) // 128
     taps = weight.new_zeros((kh, cout, segments * 128))
     taps[..., :kw * cin] = dense.permute(2, 0, 3, 1).reshape(kh, cout, kw * cin)
+    if cin == 64:
+        # Pair the otherwise half-empty rightmost segments of the first two taps.
+        wide = taps[..., :128]
+        right = taps[..., 128:192]
+        taps = torch.cat((wide, torch.cat((right[0], right[1]), dim=-1)[None],
+                          torch.nn.functional.pad(right[2], (0, 64))[None]), dim=0)
     bias_row = weight.new_zeros((1, 128))
     if params['bias']:
         bias_row[0, :cout] = module.bias

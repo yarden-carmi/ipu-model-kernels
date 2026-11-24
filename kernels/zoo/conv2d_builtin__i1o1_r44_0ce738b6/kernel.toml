@@ -80,10 +80,16 @@ wo = "(w + 2 * padding - kw) // stride + 1"
 pack = "128 // in0_d1"
 packed_width = "in0_d3 // pack"
 segments = "(3 * in0_d1 + 127) // 128"
-oc_end = "((out0_d1 - 1) // 32) * 32 - 1"
+packed_pair = "min(in0_d1 // 64, 1) - in0_d1 // 128"
+panel = "32 - 16 * packed_pair"
+oc_end = "((out0_d1 - 1) // panel) * panel - 1"
 last_packed_column = "packed_width - 1"
-tap_rows = "2 * segments * out0_d1"
+last_x = "in0_d3 - 1"
+column_limit = "last_x * packed_pair + last_packed_column * (1 - packed_pair)"
+tap_rows = "2 * (segments - packed_pair) * out0_d1"
+weight_rows = "3 + 2 * out0_d1 * (3 * segments - packed_pair)"
 phase_end = "128 - in0_d1"
+pack_or_pair = "base(pair) * packed_pair + phase_end * (1 - packed_pair)"
 full = "ds(128)"
 last = "ds((3 * in0_d1 - 1) % 128 + 1)"
 tail = "ds(out0_d1)"
@@ -92,10 +98,13 @@ tail = "ds(out0_d1)"
 shape = ["in0_d0", "in0_d2", "packed_width", 128]
 range = [-2, 2]
 [inputs.weights]
-shape = ["3 + kh * tap_rows", 128]
+shape = ["weight_rows", 128]
 range = [-1, 1]
 [outputs.out0]
 shape = ["in0_d0", "ho", "wo", 128]
+
+[scratch.pair]
+shape = [1, 128]
 
 [abi]
 in0 = "CR2"
@@ -105,9 +114,9 @@ qf_in0 = "CR5"
 qf_out0 = "CR6"
 in0_d0 = "LR10"
 tail = "CR7"
-last_packed_column = "CR8"
+column_limit = "CR8"
 in0_d2 = "CR9"
-phase_end = "CR10"
+pack_or_pair = "CR10"
 in0_d3 = "CR11"
 last = "CR12"
 oc_end = "CR13"
