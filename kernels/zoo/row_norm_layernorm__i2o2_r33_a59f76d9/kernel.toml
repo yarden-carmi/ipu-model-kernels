@@ -54,8 +54,8 @@ default = 240
 
 [derived]
 half = "1277440"
-c128 = "128"
-cC = "channels"
+c128 = "128 + (1 - min(1, rows % 8 + channels % 16)) * (50462976 - 128)"
+cC = "channels + (1 - min(1, rows % 8 + channels % 16)) * (117835012 - channels)"
 dsl = "ds(channels - 128)"
 [inputs.in0]
 shape = ["in0_d0 * in0_d1 * 2", 128]
@@ -69,7 +69,7 @@ shape = [3, 128]
 [inputs.epsilon]
 shape = [128]
 [scratch.tmp]
-shape = ["40 + 2 * rows", 128]
+shape = ["40 + 2 * rows + (rows // 8) * (channels // 16)", 128]
 [outputs.out0]
 shape = ["out0_d0 * out0_d1 * 2", 128]
 [abi]

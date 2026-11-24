@@ -95,6 +95,104 @@
  BNE LR11 LR14 {{ label }}_group ;;
 {% endmacro %}
 
+ {% if rows % 8 == 0 and channels % 16 == 0 %}
+ {# Transpose an 8-row tile through interleaved blocks of 16 channels. #}
+ {{ at('LR10',40 + 2 * rows) }}{{ at('LR11',rows // 8) }}
+ {{ at('LR14',channels) }}{{ at('LR15',128) }}
+ SET LR12 CR0 ; SET LR13 CR0 ; SET LR7 CR0 ;;
+ pack_tile:
+ {% if channels == 192 and rows % channels == 64 %}
+ {# The source lane rotates through three 64-lane bands. Pipeline
+    each block with statically known row increments and lane shifts. #}
+ SET LR4 LR12 ; SET LR8 CR0 ; SET LR9 CR0 ;;
+ INC LR8 {{ channels // 16 }} ; INC.MODP2 LR9 LR13 6 ; SET LR6 CR0 ;;
+ INC LR6 64 ;;
+ BLT.S LR13 LR6 pack_phase0 ;;
+ BLT.S LR13 LR15 pack_phase1 ;;
+ INC LR4 1 ; B pack_phase2 ;;
+ {% macro pack_phase(p) %}
+ pack_phase{{ p }}:
+ SET LR0 {{ cr.c128 }} ; SET LR1 {{ cr.cC }} ; DEC LR8 1 ;;
+ SET LR2 {{ cr.c128 }} ; SET LR3 {{ cr.cC }} ; ADDB LRD0 LR9 ; LD.MULT R0 LR4 {{ cr.in0 }} ;;
+ {% for i in range(16) %}
+ {% set phase = (p+i) % 3 %}
+ {% set next = (phase+1) % 3 %}
+ {% set advance = 2*(rows//channels) + [0,0,1][next] - [0,0,1][phase] + (2 if phase == 2 else 0) %}
+ {% set shift = (64 if phase == 1 else 0) - (64 if (phase + 2) % 3 == 1 and i else 0) %}
+ {% if shift %}ADDBI LRD0 {{ shift }} ; {% endif %}
+ {% if i %}ADDBI LRD2 8 ; {% endif %}
+ {% if advance %}INC LR4 {{ advance }} ; {% endif %}
+ {% if not loop.last %}LD.MULT R0 LR4 {{ cr.in0 }} ; {% endif %}
+ MULT.VE LR7 CR1 0 LR7 CR15.L {{ q }} ; ACC.RESHAPE LRD0 LRD2 0 ;;
+ {% endfor %}
+ ACTIVATE.QUANTIZE identity CR15.L {{ q }} {{ cr.tmp }} LR10 ;;
+ INC LR10 1 ; BNE LR8 CR0 pack_phase{{ (p+16) % 3 }} ;;
+ B pack_tile_finish ;;
+ {% endmacro %}
+ {% for p in range(3) %}{{ pack_phase(p) }}{% endfor %}
+ pack_tile_finish:
+ {% else %}
+ SET LR5 LR12 ; SET LR6 LR13 ; SET LR8 CR0 ;;
+ INC LR8 {{ channels // 16 }} ;;
+ pack_block:
+ SET LR2 {{ cr.c128 }} ; SET LR3 {{ cr.cC }} ; SET LR9 CR0 ;;
+ INC LR9 16 ;;
+ pack_channel:
+ SET LR4 LR5 ; BLT.S LR6 LR15 pack_low ;;
+ INC LR4 1 ;;
+ pack_low:
+ SET LR0 {{ cr.c128 }} ; SET LR1 {{ cr.cC }} ; LD.MULT R0 LR4 {{ cr.in0 }} ;;
+ INC.MODP2 LR7 LR6 7 ;;
+ ADDB LRD0 LR7 ; SET LR7 CR0 ; DEC LR9 1 ;
+ MULT.VE LR7 CR1 0 LR7 CR15.L {{ q }} ; ACC.RESHAPE LRD0 LRD2 0 ;;
+ {% if rows % channels %}INC LR6 {{ rows % channels }} ; ADDBI LRD2 8 ;;{% endif %}
+ {% if rows // channels %}INC LR5 {{ 2 * (rows // channels) }} ;{% endif %}BLT.S LR6 LR14 pack_nowrap ;;
+ SUB LR6 LR6 LR14 ; INC LR5 2 ;;
+ pack_nowrap:
+ {% if not rows % channels %}ADDBI LRD2 8 ; {% endif %}BNE LR9 CR0 pack_channel ;;
+ DEC LR8 1 ; ACTIVATE.QUANTIZE identity CR15.L {{ q }} {{ cr.tmp }} LR10 ;;
+ INC LR10 1 ; BNE LR8 CR0 pack_block ;;
+ {% endif %}
+ INC LR13 8 ; DEC LR11 1 ;;
+ BLT.S LR13 LR14 pack_tile_next ;;
+ SUB LR13 LR13 LR14 ; INC LR12 2 ;;
+ pack_tile_next:
+ BNE LR11 CR0 pack_tile ;;
+
+ {{ at('LR4',40 + 2 * rows) }}{{ at('LR11',rows) }}
+ {{ at('LR9',40) }}{{ at('LR13',rows // 2) }}
+ SET LR5 CR0 ; SET LR12 CR0 ;;
+ unpack_row:
+ SET LR10 LR4 ;;
+ {% for h in range(2) %}
+ SET LR0 {{ cr.c128 }} ; SET LR1 {{ cr.cC }} ; SET LR8 CR0 ;;
+ {% for _ in range(3) %}ADD LR0 LR0 LR0 ; ADD LR1 LR1 LR1 ;;{% endfor %}
+ ADDB LRD0 LR5 ; INC LR8 {{ 8 if h == 0 else channels // 16 - 8 }} ;;
+ SET LR2 {{ cr.c128 }} ; SET LR3 {{ cr.cC }} ;;
+ LD.MULT R0 LR10 {{ cr.tmp }} ;;
+ B unpack_first{{ h }} ;;
+ unpack_half{{ h }}:
+ ADDBI LRD0 -64 ; ADDBI LRD2 8 ; LD.MULT R0 LR10 {{ cr.tmp }} ;;
+ unpack_first{{ h }}:
+ DEC LR8 1 ; MULT.VE LR12 CR1 0 LR12 CR15.L {{ q }} ; ACC.RESHAPE LRD0 LRD2 0 ;;
+ ADDBI LRD0 64 ; ADDBI LRD2 8 ; INC LR10 1 ; MULT.VE LR12 CR1 0 LR12 CR15.L {{ q }} ; ACC.RESHAPE LRD0 LRD2 0 ; BNE LR8 CR0 unpack_half{{ h }} ;;
+ ACTIVATE.QUANTIZE identity {{ 'CR15.L' if h == 0 else cr.dsl ~ '.L' }} {{ q }} {{ cr.tmp }} LR9 ;;
+ {% if h == 0 %}INC LR9 1 ;;{% endif %}
+ {% endfor %}
+ DEC LR9 1 ; INC LR5 1 ; DEC LR11 1 ;;
+ ADD LR9 LR9 LR13 ; SET LR15 CR0 ;;
+ INC.MODP2 LR15 LR11 2 ;;
+ BNE LR15 CR0 unpack_next ;;
+ {% for _ in range(4) %}SUB LR9 LR9 LR13 ;;{% endfor %}
+ INC LR9 2 ;;
+ unpack_next:
+ SET LR15 CR0 ;;
+ INC.MODP2 LR15 LR11 3 ;;
+ BNE LR15 CR0 unpack_continue ;;
+ SET LR5 CR0 ; INC LR4 {{ channels // 16 }} ;;
+ unpack_continue:
+ BNE LR11 CR0 unpack_row ;;
+ {% else %}
  SET LR0 CR0 ; SET LR4 CR0 ; SET LR5 CR0 ;;
  {{ at('LR1',rows) }}{{ at('LR9',40) }}{{ at('LR13',rows // 2) }}
 gather:
@@ -132,6 +230,7 @@ gather_no_wrap:
  INC LR9 2 ;;
 gather_next:
  BNE LR1 CR0 gather ;;
+ {% endif %}
 
  SET LR0 CR0 ; SET LR2 CR0 ; SET LR3 CR0 ;;
  DEC LR2 1 ; INC LR3 128 ; SET LR14 CR0 ;;
@@ -201,7 +300,7 @@ row_loop:
  SET LR5 LR14 ; SET LR15 LR2 ; SET LR11 CR0 ;;
  SET LR6 LR14 ;;
  INC LR6 1 ;;
-output_loop:
+ output_loop:
  SET LR10 LR11 ; SET LR1 CR0 ;;
  INC LR1 19 ; LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
  INC LR1 1 ; LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR3 ;;
