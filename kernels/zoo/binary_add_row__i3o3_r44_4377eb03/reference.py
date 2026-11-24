@@ -57,9 +57,6 @@ def reference(module, *ins, _round=None, **params):
 
 def fold(module, **params):
     height, width = params["in0_d2"], params["in0_d3"]
-    operand = module.op0_const0
-    if operand.numel() == width:
-        rows = operand.reshape(1, width).expand(height, width)
-    else:
-        rows = operand.reshape(height, width)
+    operand = module.op0_const0.reshape(-1)
+    rows = operand.repeat(height * width // operand.numel()).reshape(height, width)
     return {"operand": torch.nn.functional.pad(rows, (0, (-width) % 128)).reshape(-1, 128)}
