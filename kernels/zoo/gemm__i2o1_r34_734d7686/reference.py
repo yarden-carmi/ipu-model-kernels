@@ -51,7 +51,7 @@ def reference(module, *ins, _round=None, **params):
     r_ = _round or (lambda t, where: t)
     r0 = aten.conv2d.default(_v(ins[0], [1, 384, 16, 16], [98304, 256, 16, 1], 0), module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 96, 16, 16])}
+    return {"out0": _out(op0, [1, 384, 16, 16])}
 # ---- end of the frozen reference ----
 
 

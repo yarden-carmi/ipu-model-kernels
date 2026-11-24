@@ -18,11 +18,15 @@ row:
     DEC LR4 1 ;;
 tile:
     SET LR2 LR11 ; SET LR12 {{ cr.k }} ; {{ load('LR0') }} ;;
-    {{ planes('CR1' if bias else 'CR0', first=true) }}
+    {{ planes('CR1' if bias else 'CR0', ' ; LD.MULT R0 LR2 ' ~ cr.in0 ~ ' ; DEC LR12 1 ; BEQ LR12 CR1 final_k', first=true) }}
+# The last plane consumes the old R0 while LOAD fills it for the next k.
 reduce:
-    LD.MULT R0 LR2 {{ cr.in0 }} ; DEC LR12 1 ;;
-    {{ load('LR0') }} ; ADD LR2 LR2 {{ cr.pitch }} ;;
-    {{ planes('LR10', ' ; BNE LR12 CR0 reduce') }}
+    {{ load('LR0') }} ;;
+    {{ planes('LR10', ' ; LD.MULT R0 LR2 ' ~ cr.in0 ~ ' ; ADD LR2 LR2 ' ~ cr.pitch ~ ' ; DEC LR12 1 ; BLT.S CR1 LR12 reduce') }}
+# Drain without reading beyond the viewed input.
+final_k:
+    {{ load('LR0') }} ;;
+    {{ planes('LR10') }}
     DEC LR13 1 ;;
     BEQ LR13 CR0 tail ;;
     {{ store(cr.full) }}
