@@ -67,4 +67,6 @@ def fold(module, **params):
     code = torch.ldexp(rows.abs(), 12 - exp).round().long().clamp(max=4095)
     planes = [torch.ldexp(((code >> shift) & 15) * rows.sign(), exp + shift - 12)
               for shift in (8, 4, 0)]
-    return {"w": torch.stack(planes, dim=2).reshape(-1, 128).float()}
+    packed = torch.stack(planes, dim=2).reshape(-1, 128).float()
+    # The pipelined final multiply reads ahead by one row.
+    return {"w": torch.nn.functional.pad(packed, (0, 0, 0, 1))}
