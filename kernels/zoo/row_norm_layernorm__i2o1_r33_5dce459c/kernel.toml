@@ -1,6 +1,6 @@
 [kernel]
 op = "row_norm"
-formats = ["e2"]
+formats = ["e3"]
 
 [params.kind]
 type = "str"
@@ -10,7 +10,7 @@ default = "layernorm"
 type = "int"
 min = 1
 max = 4096
-default = 384
+default = 768
 [params.rows]
 type = "int"
 min = 1
@@ -35,7 +35,7 @@ default = 256
 type = "int"
 min = 1
 max = 4096
-default = 384
+default = 768
 [params.out0_d0]
 type = "int"
 min = 1
@@ -50,8 +50,7 @@ default = 256
 type = "int"
 min = 1
 max = 4096
-default = 384
-
+default = 768
 [derived]
 K = "ceil(channels / 128)"
 M = "rows * K"
@@ -94,4 +93,6 @@ half = "CR13"
 tail = "CR14"
 normalized = "CR11"
 
+[golden]
+tolerance = { e3 = "NX8_STEP" }
 [cases.default]

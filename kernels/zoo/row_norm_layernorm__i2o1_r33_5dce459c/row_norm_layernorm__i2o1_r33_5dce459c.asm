@@ -1,6 +1,5 @@
 {% set q = cr.qf_in0 ~ '.L' %}
 {% set oq = cr.qf_out0 ~ '.L' %}
-{% set out_act = act_out0 | default('identity') %}
 {% set full = 'CR15.L' %}
 {% set tail = cr.tail ~ '.L' %}
 {% macro init(reg, n=0) %}
@@ -11,42 +10,38 @@
  MULT.VE LR0 {{ imm }} 0 LR0 {{ full }} {{ q }} ; ACC.{{ op }}{% if first %}.FIRST{% endif %} ;;
 {% endmacro %}
 {% macro clear() %}{{ vec(first=true,imm='CR0') }}{% endmacro %}
+{% macro mul(first=false, slot='LR0') %}
+ MULT.RC.VV {{ slot }} R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if first %}.FIRST{% endif %} ;;
+{% endmacro %}
 {% macro load(n, cyclic=false) %}
- SET LR1 CR0 ;;
- {% if cyclic %}LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0
- {% else %}LD.MULT R0 LR1 {{ cr.tmp }}{% endif %}{% if n %} ; INC LR1 {{ n }}{% endif %} ;;
+ {{ init('LR1',n) }}
+ {% if cyclic %}LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
+ {% else %}LD.MULT R0 LR1 {{ cr.tmp }} ;;{% endif %}
 {% endmacro %}
-{# Consume contiguous residual planes while prefetching the next plane. #}
-{% macro products(n, count, first=false, dual=false) %}
- {{ load(n) }}
+{% macro split(reg, count, ds=full) %}
  {% for p in range(count) %}
- MULT.RC.VV LR0 R{{ p % 2 }} 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if first and loop.first %}.FIRST{% endif %}{% if not dual and not loop.last %} ; LD.MULT R{{ (p + 1) % 2 }} LR1 {{ cr.tmp }} ; INC LR1 1{% endif %} ;;
- {% if dual %}
- MULT.RC.VV LR3 R{{ p % 2 }} 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if not loop.last %} ; LD.MULT R{{ (p + 1) % 2 }} LR1 {{ cr.tmp }} ; INC LR1 1{% endif %} ;;
- {% endif %}
- {% endfor %}
-{% endmacro %}
-{% macro split(reg, count) %}
- ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} {{ reg }} ;;
- {% for p in range(count-1) %}
+ ACTIVATE.QUANTIZE identity {{ ds }} {{ q }} {{ cr.tmp }} {{ reg }} ;;
+ {% if not loop.last %}
  LD.MULT R0 {{ reg }} {{ cr.tmp }} ;;
- MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB ; INC {{ reg }} 1 ; ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} {{ reg }} ;;
+ {{ vec('SUB') }}
+ INC {{ reg }} 1 ;;
+ {% endif %}
  {% endfor %}
 {% endmacro %}
 {% macro save(n, count=2) %}{{ init('LR1',n) }}{{ split('LR1',count) }}{% endmacro %}
-{# Keep the reduction residuals scalar until multiplying by 1/channels. #}
-{% macro average() %}
+{% macro average(label) %}
  {{ save(0,3) }}
  {% for j in range(3) %}
- {% if loop.first %}SET LR10 CR0 ; LD.MULT.CYCLIC LR10 {{ cr.crow }} LR0 ;;
- {% endif %}
- SET LR1 CR0 ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
- {% for p in range(3) %}
- MULT.RC.VE LR0 LR0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if j == 0 and loop.first %}.FIRST{% endif %}
- {%- if not loop.last %} ; INC LR1 1 ; LD.MULT R0 LR1 {{ cr.tmp }}
- {%- elif j < 2 %} ; INC LR10 1 ; LD.MULT.CYCLIC LR10 {{ cr.crow }} LR0{% endif %} ;;
+ {{ load(j) }}
+ MULT.EE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %} ;;
  {% endfor %}
- {% endfor %}
+ {{ save(3,3) }}
+ {{ init('LR10') }}{{ init('LR7',3) }}{{ clear() }}
+{{ label }}:
+ LD.MULT.CYCLIC LR10 {{ cr.crow }} LR0 ;;
+ {% for j in range(3,6) %}{{ load(j) }}{{ mul() }}{% endfor %}
+ INC LR10 1 ;;
+ BLT.S LR10 LR7 {{ label }} ;;
 {% endmacro %}
 {% macro square_sum(ds) %}
  {% for a,b in [(0,0),(0,1),(1,1)] %}
@@ -67,22 +62,17 @@ sum_loop:
  LD.MULT R0 LR5 {{ cr.in0 }} ;;
  MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ full }} ; INC LR5 1 ;;
  BLT.S LR5 LR6 sum_loop ;;
- {{ average() }}{{ save(6,3) }}
+ {{ average('mean_scale') }}{{ save(6,3) }}
 
  SET LR5 LR2 ;;
  {{ init('LR9',32) }}
- {{ init('LR7',6) }}
 center_loop:
- LD.MULT R0 LR5 {{ cr.in0 }} ; SET LR1 LR7 ;;
- MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
- {% for p in range(3) %}
- MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB
- {%- if not loop.last %} ; INC LR1 1 ; LD.MULT R0 LR1 {{ cr.tmp }}
- {%- else %} ; ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR9 ; INC LR5 1{% endif %} ;;
- {% endfor %}
- LD.MULT R0 LR9 {{ cr.tmp }} ;;
- MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB ; INC LR9 1 ; ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR9 ;;
- INC LR9 1 ; BLT.S LR5 LR6 center_loop ;;
+ LD.MULT R0 LR5 {{ cr.in0 }} ;;
+ {{ vec(first=true) }}
+ {% for n in range(6,9) %}{{ load(n) }}{{ vec('SUB') }}{% endfor %}
+ {{ split('LR9',2) }}
+ INC LR9 1 ; INC LR5 1 ;;
+ BLT.S LR5 LR6 center_loop ;;
 
  {{ clear() }}
  {{ init('LR9',32) }}
@@ -94,7 +84,7 @@ variance_loop:
  BLT.S LR5 LR6 variance_loop ;;
 variance_tail:
  {{ square_sum(tail) }}
- {{ average() }}
+ {{ average('variance_scale') }}
  LD.MULT R0 LR0 {{ cr.epsilon }} ;;
  {{ vec() }}
  {{ init('LR1',12) }}
@@ -102,20 +92,21 @@ variance_tail:
  {{ save(9,3) }}
  {{ init('LR1',13) }}{{ clear() }}
  ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
- {# Newton step: y <- 1.5*y - 0.5*v*y^3. #}
+ {{ init('LR4',2) }}
+refine:
  {% for i in range(2) %}
  {{ load(12+i,true) }}
- {{ products(12,2,first=(i==0)) }}
+ {% for j in range(2) %}{{ load(12+j) }}{{ mul(first=(i==0 and j==0)) }}{% endfor %}
  {% endfor %}
  {{ save(14) }}
  {% for i in range(3) %}
  {{ load(9+i,true) }}
- {{ products(14,2,first=(i==0)) }}
+ {% for j in range(2) %}{{ load(14+j) }}{{ mul(first=(i==0 and j==0)) }}{% endfor %}
  {% endfor %}
  {{ save(16) }}
  {% for i in range(2) %}
  {{ load(12+i,true) }}
- {{ products(16,2,first=(i==0)) }}
+ {% for j in range(2) %}{{ load(16+j) }}{{ mul(first=(i==0 and j==0)) }}{% endfor %}
  {% endfor %}
  {{ save(18) }}
  {% for i in range(2) %}
@@ -125,38 +116,45 @@ variance_tail:
  {% endfor %}
  {% for n in [18,19] %}{{ load(n) }}{{ vec('SUB',imm=cr.half) }}{% endfor %}
  {{ save(12) }}
+ DEC LR4 1 ;;
+ BLT.S CR0 LR4 refine ;;
 
  SET LR5 LR2 ;;
- {{ init('LR9',32) }}{{ init('LR11') }}
+ {{ init('LR9',32) }}{{ init('LR11') }}{{ init('LR7',3) }}
 normalize:
- SET LR10 LR11 ;;
- {% for i in range(3) %}
+ SET LR10 LR11 ; SET LR4 CR0 ;;
+ {{ clear() }}
+weight_loop:
  LD.MULT.CYCLIC LR10 {{ cr.gamma }} LR0 ;;
- {{ products(12,2,first=loop.first) }}
- {% if not loop.last %}ADD LR10 LR10 {{ cr.K }} ;;{% endif %}
- {% endfor %}
+ {% for n in [12,13] %}{{ load(n) }}{{ mul() }}{% endfor %}
+ ADD LR10 LR10 {{ cr.K }} ; INC LR4 1 ;;
+ BLT.S LR4 LR7 weight_loop ;;
  {{ save(20,3) }}
  LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;
  INC LR9 1 ;;
  LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR3 ;;
  INC LR9 1 ;;
- {{ products(20,3,first=true,dual=true) }}
+ {% for n in range(20,23) %}{{ load(n) }}{{ mul(first=loop.first) }}{{ mul(slot='LR3') }}{% endfor %}
  SET LR10 LR11 ;;
  {% for i in range(3) %}
- {% if loop.first %}LD.MULT R0 LR10 {{ cr.beta }} ;;{% endif %}
- MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if not loop.last %} ; ADD LR10 LR10 {{ cr.K }} ; LD.MULT R0 LR10 {{ cr.beta }}{% endif %} ;;
+ LD.MULT R0 LR10 {{ cr.beta }} ;;
+ MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; ADD LR10 LR10 {{ cr.K }} ;;
  {% endfor %}
- SET LR8 LR5 ; ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.normalized }} LR8 ;;
- {% for p in range(2) %}
+ SET LR8 LR5 ;;
+ {% for p in range(3) %}
+ ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.normalized }} LR8 ;;
+ {% if not loop.last %}
  LD.MULT R0 LR8 {{ cr.normalized }} ;;
- MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB ; ADD LR8 LR8 LR13 ; ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.normalized }} LR8 ;;
+ {{ vec('SUB') }}
+ ADD LR8 LR8 LR13 ;;
+ {% endif %}
  {% endfor %}
  INC LR5 1 ; INC LR11 1 ;;
  BLT.S LR5 LR6 normalize ;;
  SET LR2 LR6 ;;
  BLT.S LR2 LR13 row_loop ;;
 
- {# Transpose the leading value and its corrections before final output rounding. #}
+{# Gather residual planes first, so only the final store rounds to the output format. #}
 {% macro scatter() %}
  MULT.EE LR4 CR1 0 LR15 {{ full }} {{ q }} ; ACC.RESHAPE LRD14 LRD10 7
 {%- endmacro %}
@@ -168,8 +166,7 @@ normalize:
  MULT.VE LR15 CR0 0 LR15 {{ full }} {{ q }} ; ACC.ADD.FIRST ;;
  {% endif %}
 gather_start{{ p }}:
- {# Scatter the first row at slot zero. Peel the last row to avoid
-    reading beyond the tile (or the allocation) in the pipelined loop. #}
+ {# Load ahead in the body; peel the last scatter to stay within the plane. #}
  LD.MULT R0 LR6 {{ cr.normalized }} ; DEC LR8 2 ;;
  {{ scatter() }} ; ADD LR6 LR6 {{ cr.K }} ; BLT.S LR8 CR0 gather_done{{ p }} ;;
  LD.MULT R0 LR6 {{ cr.normalized }} ; BEQ LR8 CR0 gather_last{{ p }} ;;
@@ -180,7 +177,7 @@ gather_last{{ p }}:
 gather_done{{ p }}:
 {% endmacro %}
 
- {{ init('LR2') }}{{ init('LR15') }}
+ {{ init('LR2') }}{{ init('LR11') }}{{ init('LR15') }}
 batch:
  SET LR4 CR0 ; SET LR1 LR2 ; SET LR9 CR0 ;;
 channel:
@@ -190,13 +187,7 @@ tile:
  BGE.S LR5 LR3 tile_ready ;;
  SET LR7 LR5 ;;
 tile_ready:
- {# Partial tiles have a smaller dynamic range and need the extra residual. #}
  {% for p in [2,1,0] %}
- {% if p == 2 %}
- BLT.S LR7 LR3 low_plane ;;
- MULT.VE LR15 CR0 0 LR15 {{ full }} {{ q }} ; ACC.ADD.FIRST ; BEQ CR0 CR0 gather_done2 ;;
- low_plane:
- {% endif %}
  {{ gather(p) }}
  {% if not loop.first %}
  {% for r in range(2 if p == 0 else 1) %}
@@ -210,12 +201,13 @@ tile_ready:
  ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR8 ;;
  {% if p == 1 %}
  LD.MULT R0 LR8 {{ cr.tmp }} ;;
- MULT.VE LR15 CR1 0 LR15 {{ full }} {{ q }} ; ACC.SUB ; INC LR8 1 ;;
+ MULT.VE LR15 CR1 0 LR15 {{ full }} {{ q }} ; ACC.SUB ;;
+ INC LR8 1 ;;
  ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR8 ;;
  {% endif %}
  {% endif %}
  {% endfor %}
- ACTIVATE.QUANTIZE {{ out_act }} {{ full }} {{ oq }} {{ cr.out0 }} LR0 ;;
+ ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ full }} {{ oq }} {{ cr.out0 }} LR0 ;;
  INC LR0 1 ; SUB LR5 LR5 LR7 ;;
  SET LR2 LR6 ;;
  BLT.S CR0 LR5 tile ;;
