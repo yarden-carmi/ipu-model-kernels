@@ -35,28 +35,18 @@ panel_full:
     ADD LR8 LR8 {{ cr.k }} ; B panel_tile ;;
 
 {# Multiply one panel tile by one column of packed scalar weights. #}
-{% macro mac(prefetch) %}
-    MULT.RC.VE LR0 LR3 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR3 1 {% if prefetch %}; LD.MULT.CYCLIC LR8 {{ cr.panel }} LR0 ; INC LR8 1 {% endif %} ;;
+{% macro mac(next_label='') %}
+    MULT.RC.VE LR0 LR3 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR3 1 ; INC LR8 1 {% if next_label %}; LD.MULT.CYCLIC LR8 {{ cr.panel }} LR0 ; BLT.S LR3 LR2 {{ next_label }} {% endif %} ;;
 {% endmacro %}
 {% macro chunk(count, label) %}
-    LD.MULT R0 LR11 {{ cr.w }} ; SET LR3 CR0 ;;
-    LD.MULT.CYCLIC LR8 {{ cr.panel }} LR0 ; INC LR11 1 ; DEC LR3 1 ;;
-{% if count > 8 %}
-    SET LR2 CR0 ;;
-    INC LR2 {{ (count - 1) // 8 }} ;;
+    LD.MULT R0 LR11 {{ cr.w }} ; SET LR3 CR0 ; SET LR2 CR0 ;;
+    LD.MULT.CYCLIC LR8 {{ cr.panel }} LR0 ; INC LR11 1 ; DEC LR3 1 {% if count > 3 %}; INC LR2 {{ count - 3 }} {% elif count == 2 %}; DEC LR2 1 {% endif %} ;;
+{# LR3 is -1 before the first MAC; MULT sees the increment, BLT sees the old index. #}
+{% if count > 1 %}
 {{ label }}:
-{% for i in range(7) %}
-    {{ mac(true) }}
-{% endfor %}
-    DEC LR2 1 ;;
-    {{ mac(true) }}
-    BNE LR2 CR0 {{ label }} ;;
+    {{ mac(label) }}
 {% endif %}
-{% for i in range((count - 1) % 8) %}
-    {{ mac(true) }}
-{% endfor %}
-    {{ mac(false) }}
-    INC LR8 1 ;;
+    {{ mac() }}
 {% endmacro %}
 multiply:
     SET LR4 LR9 ; SET LR5 CR0 ; SET LR6 CR0 ;;
