@@ -1,10 +1,15 @@
 {% set qi = cr.qf_in0 ~ '.L' %}
 {% set qo = cr.qf_out0 ~ '.L' %}
 {% set full = cr.full ~ '.L' %}
-{% set data = cr.parity %}
 
-{# LR0 is zero; LR1 and LR2 are the two input slots. Their neighboring
-   lanes supply horizontal zero padding even for a full-width input. #}
+{% macro split_parity(addr, even) %}
+ MULT.RC.VE LR0 CR0 0 LR0 {{ full }} {{ qi }} ; ACC.ADD.FIRST ;;
+ MULT.RC.VE {{ addr }} CR1 0 LR0 {{ full }} {{ qi }} ; ACC.STRIDE 64 on off LR0 ;;
+ ACTIVATE.QUANTIZE identity {{ cr.store_ds if even else cr.input_ds }}.{{ 'L' if even else 'H' }} {{ qi }} {{ cr.parity }} LR9 ;;
+ INC LR9 1 ;;
+{% endmacro %}
+
+{# LR0 is zero. Neighboring lanes of the input slots supply horizontal padding. #}
 {% macro vertical(ky) %}
  ADD LR14 LR9 {{ cr.ky_rows }} ; SET LR10 LR6 ;;
  {% if ky == 0 %}
@@ -23,20 +28,24 @@
  {% endif %}
  INC LR13 126 ;;
  input_{{ ky }}:
- LD.MULT.CYCLIC LR10 {{ data }} LR1 {% if stride == 2 %}; SET LR15 LR10{% endif %} ;;
+ LD.MULT.CYCLIC LR10 {{ cr.parity }} LR1 {% if stride == 2 %}; SET LR15 LR10{% endif %} ;;
  {% if stride == 2 %}
  INC LR15 1 ;;
- LD.MULT.CYCLIC LR15 {{ data }} LR2 ;;
+ LD.MULT.CYCLIC LR15 {{ cr.parity }} LR2 ;;
  {% endif %}
  {% for addr in ['LR3', 'LR1', 'LR4'] %}
- MULT.RC.VE {{ addr }} LR11 0 LR0 {{ full }} {{ qi }} ; ACC.ADD ;;
- MULT.RC.VE {{ addr }} LR12 0 LR0 {{ full }} {{ qi }} ; ACC.ADD ; INC LR11 1 ;;
- INC LR12 1 {% if loop.last %}; ADD LR10 LR10 {{ cr.pitch }}{% endif %} ;;
+ {{ mac(addr, loop.last) }}
  {% endfor %}
  BLT.S LR11 LR13 input_{{ ky }} ;;
  BLT.S LR9 LR14 panel_{{ ky }} ;;
  end_{{ ky }}:
  SET LR9 LR14 ;;
+{% endmacro %}
+
+{% macro mac(addr, last) %}
+ MULT.RC.VE {{ addr }} LR11 0 LR0 {{ full }} {{ qi }} ; ACC.ADD ;;
+ MULT.RC.VE {{ addr }} LR12 0 LR0 {{ full }} {{ qi }} ; ACC.ADD ; INC LR11 1 ;;
+ INC LR12 1 {% if last %}; ADD LR10 LR10 {{ cr.pitch }}{% endif %} ;;
 {% endmacro %}
 
  SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
@@ -45,7 +54,7 @@
  INC LR2 1 ; SET LR3 LR1 ; SET LR4 LR1 ;;
  LD.MULT.CYCLIC LR0 {{ cr.weights }} LR0 ; DEC LR3 1 ; INC LR4 1 ;;
  LD.MULT.CYCLIC LR0 {{ cr.weights }} LR2 ;;
- {# Clear non-view lanes. For stride two, also split horizontal parity. #}
+ {# Clear non-view lanes, then split horizontal parity for stride two. #}
  SET LR8 LR0 ; SET LR9 LR0 ;;
  parity_row:
  LD.MULT.CYCLIC LR8 {{ cr.in0 }} LR1 ;;
@@ -54,10 +63,7 @@
  {% if stride == 2 %}
  LD.MULT.CYCLIC LR9 {{ cr.parity }} LR1 ;;
  {% for addr in ['LR1', 'LR4'] %}
- MULT.RC.VE LR0 CR0 0 LR0 {{ full }} {{ qi }} ; ACC.ADD.FIRST ;;
- MULT.RC.VE {{ addr }} CR1 0 LR0 {{ full }} {{ qi }} ; ACC.STRIDE 64 on off LR0 ;;
- ACTIVATE.QUANTIZE identity {{ cr.store_ds if loop.first else cr.input_ds }}.{{ 'L' if loop.first else 'H' }} {{ qi }} {{ cr.parity }} LR9 ;;
- INC LR9 1 ;;
+ {{ split_parity(addr, loop.first) }}
  {% endfor %}
  {% else %}
  INC LR9 1 ;;

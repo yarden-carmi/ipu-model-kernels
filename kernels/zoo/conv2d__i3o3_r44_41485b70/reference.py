@@ -49,14 +49,14 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 64, 64], [262144, 4096, 64, 1], 0), module.weight, module.bias, [1, 1], [1, 1])
+    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 128, 128], [1048576, 16384, 128, 1], 0), module.weight, module.bias, [1, 1], [1, 1])
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 64, 64, 64])}
+    return {"out0": _out(op0, [1, 16, 128, 128])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Pack each vertical tap into scalar panels, with a correction row per panel."""
+    """Pack each vertical tap in 42-channel panels, with a residual row."""
     weight = module.weight.double()
     co, ci, _, _ = weight.shape
     blocks = (ci + 41) // 42
@@ -76,8 +76,7 @@ def fold(module, **params):
     payload = rows[1:].view(co, 1 + 6 * blocks, 128)
     bias = getattr(module, 'bias', None) if params['bias'] else None
     if bias is not None:
-        high_bias, low_bias = split(bias.double().reshape(co, 1))
-        payload[:, 0, 0] = high_bias[:, 0]
-        payload[:, 0, 1] = low_bias[:, 0]
+        hi, lo = split(bias.double().reshape(co, 1))
+        payload[:, 0, 0], payload[:, 0, 1] = hi[:, 0], lo[:, 0]
     payload[:, 1:] = torch.stack((high, low), dim=3).reshape(co, 6 * blocks, 128)
     return {'weights': rows}
