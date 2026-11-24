@@ -1,0 +1,56 @@
+[kernel]
+op = "bmm"
+formats = ["e2"]
+
+[params]
+b = {type="int", min=1, max=65535, default=16}
+k = {type="int", min=1, max=128, default=48}
+m = {type="int", min=1, max=65535, default=64}
+n = {type="int", min=1, max=65535, default=64}
+in0_d0 = {type="int", min=1, max=128, default=4}
+in0_d1 = {type="int", min=1, max=255, default=4}
+in0_d2 = {type="int", min=1, max=65535, default=64}
+in0_d3 = {type="int", min=1, max=128, default=48}
+in1_d0 = {type="int", min=1, max=128, default=4}
+in1_d1 = {type="int", min=1, max=65535, default=64}
+in1_d2 = {type="int", min=1, max=8388480, default=576}
+out0_d0 = {type="int", min=1, max=128, default=4}
+out0_d1 = {type="int", min=1, max=65535, default=4}
+out0_d2 = {type="int", min=1, max=65535, default=64}
+out0_d3 = {type="int", min=1, max=65535, default=64}
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d1", "in0_d2", 128]
+range = [-1, 1]
+[inputs.in1]
+shape = ["in1_d1", "in1_d2", 128]
+range = [-1, 1]
+[outputs.out0]
+shape = ["out0_d0", "out0_d1", "out0_d2", "ceil(out0_d3/128)*128"]
+[scratch.panel]
+shape = ["ceil(n/128)*2*k", 128]
+
+[derived]
+geometry = "in0_d1 + in1_d0*65536"
+start = "in0_d1*k"
+rhs_tile = "128*in1_d2"
+ds_n = "ds(128) + ds((n-1)%128+1)*65536"
+mn = "m + n*65536"
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+panel = "CR5"
+qf_in0 = "CR6"
+qf_in1 = "CR7"
+qf_out0 = "CR8"
+ds_n = "CR9"
+k = "CR10"
+mn = "CR11"
+rhs_tile = "CR12"
+in1_d2 = "CR13"
+geometry = "CR14"
+start = "CR15"
+
+[cases.default]
