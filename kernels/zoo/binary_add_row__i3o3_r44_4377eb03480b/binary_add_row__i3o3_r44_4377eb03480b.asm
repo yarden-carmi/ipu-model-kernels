@@ -12,7 +12,7 @@ plane:
 row:
     SET LR4 {{ cr.chunks }} ; BEQ {{ cr.chunks }} LR5 tail ;;
 chunk:
-    {{ add_row('CR15.L') }}
+    {{ add_row(cr.full ~ '.L') }}
     DEC LR4 1 ;;
     BNE LR4 LR5 chunk ;;
 tail:

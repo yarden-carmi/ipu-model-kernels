@@ -69,6 +69,7 @@ default = 64
 chunks = "ceil(in0_d3 / 128)"
 plane_rows = "in0_d2 * chunks"
 rows = "in0_d0 * in0_d1 * plane_rows"
+full = "ds(128)"
 tail = "ds((out0_d3 - 1) % 128 + 1)"
 
 [inputs.in0]
@@ -90,6 +91,7 @@ qf_out0 = "CR7"
 chunks = "CR8"
 rows = "CR9"
 plane_rows = "CR10"
+full = "CR11"
 tail = "CR13"
 
 [cases.default]
