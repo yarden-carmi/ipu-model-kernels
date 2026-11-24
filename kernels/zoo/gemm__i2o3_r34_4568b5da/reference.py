@@ -51,24 +51,20 @@ def reference(module, *ins, _round=None, **params):
     r_ = _round or (lambda t, where: t)
     r0 = aten.conv2d.default(_v(ins[0], [1, 384, 16, 16], [98304, 256, 16, 1], 0), module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 192, 16, 16])}
+    return {"out0": _out(op0, [1, 384, 16, 16])}
 # ---- end of the frozen reference ----
 
 
-def _digits(rows):
-    _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
-    step = torch.ldexp(torch.ones_like(rows[..., :1]), exponent - 4)
-    coarse = torch.round(rows / step) * step
-    return torch.stack((coarse, rows - coarse), dim=-2)
-
-
 def fold(module, **params):
-    """Pack a replicated bias and coarse/residual pairs for 32 taps at a time."""
-    n, k = params['n'], params['k']
-    weights = module.weight.detach().double().reshape(n, k)
-    bias = module.bias.detach().double().reshape(n) if params['bias'] else weights.new_zeros(n)
-    blocks = (k + 31) // 32
-    weights = torch.nn.functional.pad(weights, (0, (-k) % 32)).reshape(n, blocks, 32)
-    weights = torch.nn.functional.pad(_digits(weights), (0, 96)).reshape(n, blocks * 2, 128)
-    biases = _digits(bias[:, None].expand(n, 128))
-    return {'coeff': torch.cat((biases, weights), dim=1).reshape(-1, 128)}
+    """Encode each bias and weight chunk in six radix-4 planes."""
+    n, k = params["n"], params["k"]
+    w = module.weight.detach().reshape(-1, k)[:n].double()
+    w = torch.nn.functional.pad(w, (0, (-k) % 128)).reshape(n, -1, 128)
+    b = module.bias.detach().reshape(-1)[:n].double() if params["bias"] else w.new_zeros(n)
+    rows = torch.cat((b[:, None, None].expand(-1, 1, 128), w), dim=1)
+    exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))[1]
+    digits = torch.ldexp(rows.abs(), 12 - exp).round().long().clamp(max=4095)
+    return {"coeff": torch.stack([
+        torch.ldexp(((digits >> shift) & 3) * rows.sign(), exp + shift - 12)
+        for shift in (10, 8, 6, 4, 2, 0)
+    ], dim=1).reshape(-1, 128).float()}

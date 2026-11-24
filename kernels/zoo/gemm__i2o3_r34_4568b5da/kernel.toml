@@ -8,7 +8,7 @@ default = true
 [params.k]
 type = "int"
 min = 1
-max = 65536
+max = 16384
 default = 384
 [params.m]
 type = "int"
@@ -19,8 +19,8 @@ default = 256
 [params.n]
 type = "int"
 min = 1
-max = 65536
-default = 192
+max = 16384
+default = 384
 [params.in0_d0]
 type = "int"
 min = 1
@@ -34,7 +34,7 @@ default = 257
 [params.in0_d2]
 type = "int"
 min = 128
-max = 65536
+max = 16384
 multiple_of = 128
 default = 384
 [params.out0_d0]
@@ -45,8 +45,8 @@ default = 1
 [params.out0_d1]
 type = "int"
 min = 1
-max = 65536
-default = 192
+max = 16384
+default = 384
 [params.out0_d2]
 type = "int"
 min = 1
@@ -56,25 +56,22 @@ default = 16
 type = "int"
 choices = [1, 2, 4, 8, 16, 32, 64, 128]
 default = 16
+
 [derived]
-blocks = "ceil(k / 32)"
-full_blocks = "(k - 1) // 32"
-pitch = "m // 128"
-pack = "128 // out0_d3"
-lanes = "128"
-batch = "out0_d0"
-height = "out0_d2"
-width = "out0_d3"
-active = "ds(out0_d3)"
+chunks = "ceil(k / 128)"
+tail = "(k - 1) % 128 + 1"
+spatial = "out0_d2 * out0_d3 // 128"
+batch_gap = "(k - 1) * spatial"
+planes = "6"
+store_ds = "ds(out0_d3)"
+pitch = "out0_d0 * out0_d2"
 
 [inputs.in0]
 shape = ["in0_d0 * in0_d1 * (in0_d2 // 128)", 128]
-range = [-2, 2]
 [inputs.coeff]
-shape = ["n * (blocks + 1) * 2", 128]
-range = [-1, 1]
+shape = ["n * planes * (chunks + 1)", 128]
 [outputs.out0]
-shape = ["out0_d1 * out0_d0 * out0_d2", 128]
+shape = ["pitch * out0_d1", 128]
 
 [abi]
 in0 = "CR2"
@@ -82,14 +79,15 @@ coeff = "CR3"
 out0 = "CR4"
 qf_in0 = "CR5"
 qf_out0 = "CR6"
-pitch = "CR7"
-pack = "CR8"
-lanes = "CR9"
-active = "CR10"
-width = "CR11"
-n = "CR12"
-full_blocks = "CR13"
-batch = "CR14"
-height = "CR15"
+store_ds = "CR7"
+chunks = "CR8"
+tail = "CR9"
+spatial = "CR10"
+batch_gap = "CR11"
+out0_d0 = "CR12"
+n = "CR13"
+pitch = "CR14"
+out0_d3 = "CR15"
+out0_d2 = "LR6"
 
 [cases.default]
