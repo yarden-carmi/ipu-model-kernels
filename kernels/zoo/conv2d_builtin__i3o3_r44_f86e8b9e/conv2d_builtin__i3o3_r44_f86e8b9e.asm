@@ -9,34 +9,35 @@
  LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR13 ; SET LR3 CR0 ;;
  {% if y %}INC LR3 {{ 3*y }} ;;{% endif %}
  {% for x in range(3) %}
- ADD LR11 {{ shifts[x] }} LR15 ;;
+ ADD LR11 {{ shifts[x] }} LR15 ; {% if x %}INC LR3 1 ;{% endif %} ;;
  MULT.RC.VE {{ shifts[x] }} CR1 0 LR0 {{ full }} {{ qi }} ; ACC.STRIDE 64 on off LR0 ;;
  MULT.RC.VE LR11 CR1 0 LR0 {{ full }} {{ qi }} ; ACC.STRIDE 64 on off LR14 ;;
  ACTIVATE.QUANTIZE identity {{ cr.tail }}.L {{ qi }} {{ cr.wide_row }} LR3 ;;
- INC LR3 1 ;;
  {% endfor %}
 {% endmacro %}
 
 {# Prime one register, then fetch the next coefficient into the other
    register while accumulating the current product. LR3 is post-incremented. #}
-{% macro products(operand) %}
+{% macro products(operands) %}
  LD.MULT R0 LR3 {{ cr.weights }} ; INC LR3 1 ;;
- {% for part in range(3) %}
- MULT.RC.VV {{ operand }} R{{ part % 2 }} 0 LR0 {{ full }} {{ qi }} ; ACC.ADD ; {% if part < 2 %}LD.MULT R{{ (part + 1) % 2 }} LR3 {{ cr.weights }} ; INC LR3 1 ;{% endif %} ;;
+ {% for part in range(9) %}
+ MULT.RC.VV {{ operands[part // 3] }} R{{ part % 2 }} 0 LR0 {{ full }} {{ qi }} ; ACC.ADD ; {% if part < 8 %}LD.MULT R{{ (part + 1) % 2 }} LR3 {{ cr.weights }} ; INC LR3 1 ;{% endif %} ;;
  {% endfor %}
 {% endmacro %}
 
 {% macro taps(y) %}
- {% if stride == 1 %}LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR13 ;;{% endif %}
- SET LR3 LR2 ; SET LR11 CR0 ;;
- INC LR3 {{ 2 + 9*y }} ; {% if y %}INC LR11 {{ 3*y }} ;{% endif %} ;;
- {% for x in range(3) %}
+ {% if stride == 1 %}LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR13 ;{% endif %} SET LR3 LR2 ; SET LR11 CR0 ;;
+ INC LR3 {{ 2 + 9*y }} ; {% if y and stride == 2 %}INC LR11 {{ 3*y }} ;{% endif %} ;;
  {% if stride == 2 %}
- LD.MULT.CYCLIC LR11 {{ cr.wide_row }} LR1 ;;
+ LD.MULT.CYCLIC LR11 {{ cr.wide_row }} LR0 ;;
  INC LR11 1 ;;
+ LD.MULT.CYCLIC LR11 {{ cr.wide_row }} LR13 ;;
+ INC LR11 1 ;;
+ LD.MULT.CYCLIC LR11 {{ cr.wide_row }} LR1 ;;
+ {{ products(['LR0', 'LR13', 'LR1']) }}
+ {% else %}
+ {{ products(shifts) }}
  {% endif %}
- {{ products('LR1' if stride == 2 else shifts[x]) }}
- {% endfor %}
 {% endmacro %}
 
  SET LR0 CR0 ; SET LR4 CR0 ; SET LR5 CR0 ;;
@@ -65,9 +66,9 @@ stage_done:
  {% endif %}
  SET LR3 LR2 ; SET LR9 LR10 ;;
  DEC LR3 1 ;;
- {% for part in range(3) %}
  LD.MULT R0 LR3 {{ cr.weights }} ; INC LR3 1 ;;
- MULT.EE LR0 CR1 0 LR0 {{ full }} {{ qi }} ; {{ 'ACC.ADD.FIRST' if part == 0 else 'ACC.ADD' }} ;;
+ {% for part in range(3) %}
+ MULT.EE {{ 'LR0' if part % 2 == 0 else 'LR13' }} CR1 0 LR0 {{ full }} {{ qi }} ; {{ 'ACC.ADD.FIRST' if part == 0 else 'ACC.ADD' }} ; {% if part < 2 %}LD.MULT R{{ (part + 1) % 2 }} LR3 {{ cr.weights }} ; INC LR3 1 ;{% endif %} ;;
  {% endfor %}
  BEQ LR8 CR0 center ;;
  SUB LR9 LR10 {{ cr.in0_d1 }} ;;
