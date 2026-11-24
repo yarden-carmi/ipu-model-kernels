@@ -1,7 +1,12 @@
-{# A row holds an M tile, B supplies one scalar from the current N tile. #}
-{# Consume R0 before refilling it. The following word fetches the next A row. #}
-{% macro product(first, preload, jump='') %}
-    MULT.RC.VE LR9 LR3 0 LR9 {{ cr.ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{{ '.FIRST' if first else '' }} ; ADD LR5 LR5 {{ cr.ar }} ; ADD LR6 LR6 {{ cr.bc }} {% if preload %}; LD.MULT R0 LR6 {{ cr.in1 }} ; DEC LR7 1{% endif %}{% if jump %} ; B {{ jump }}{% endif %} ;;
+{# Keep M on the lanes and preserve per-feature quantization of both inputs. #}
+{% macro load_a() -%}
+    LD.MULT.CYCLIC LR5 {{ cr.in0 }} LR9 ;
+{%- endmacro %}
+{% macro load_b(last) %}
+    LD.MULT R0 LR6 {{ cr.in1 }} ; DEC LR7 1 ; BEQ LR7 CR1 {{ last }} ;;
+{% endmacro %}
+{% macro product(first, next_a, target) %}
+    MULT.RC.VE LR9 LR3 0 LR9 {{ cr.ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{{ '.FIRST' if first else '' }} ; ADD LR5 LR5 {{ cr.ar }} ; ADD LR6 LR6 {{ cr.bc }} ; {% if next_a %}{{ load_a() }}{% endif %}{% if target %} B {{ target }} ;{% endif %} ;;
 {% endmacro %}
 {% macro output(half) %}
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.ds }}.{{ half }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR0 ;;
@@ -17,13 +22,16 @@ head:
 column:
     SET LR8 CR0 ;;
 tile:
-    ADD LR5 LR1 LR8 ; ADD LR6 LR4 LR10 ; SET LR7 {{ cr.k }} ;;
-    LD.MULT R0 LR6 {{ cr.in1 }} ;;
-    LD.MULT.CYCLIC LR5 {{ cr.in0 }} LR9 ; BEQ LR7 CR1 single ;;
-    {{ product(true, true) }}
-next_pair:
-    LD.MULT.CYCLIC LR5 {{ cr.in0 }} LR9 ; BNE LR7 CR1 reduce ;;
-    {{ product(false, false) }}
+    ADD LR5 LR1 LR8 ; ADD LR6 LR4 LR10 ; SET LR7 {{ cr.k }} ; {{ load_a() }} ;;
+    {{ load_b('single') }}
+    {{ product(true, true, '') }}
+reduce:
+    {{ load_b('last') }}
+    {{ product(false, true, 'reduce') }}
+single:
+    {{ product(true, false, 'store') }}
+last:
+    {{ product(false, false, '') }}
 store:
     INC LR8 1 ;;
     BEQ LR8 {{ cr.mc }} tail ;;
@@ -43,7 +51,3 @@ next_head:
     ADD LR1 LR1 LR12 ; ADD LR4 LR4 {{ cr.bgap }} ; DEC LR15 1 ;;
     BNE LR15 CR0 group ;;
     HALT ;;
-reduce:
-    {{ product(false, true, 'next_pair') }}
-single:
-    {{ product(true, false, 'store') }}
