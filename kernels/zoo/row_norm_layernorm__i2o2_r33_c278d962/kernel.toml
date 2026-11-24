@@ -10,12 +10,12 @@ default = "layernorm"
 type = "int"
 min = 1
 max = 4096
-default = 768
+default = 384
 [params.rows]
 type = "int"
 min = 1
 max = 4096
-default = 256
+default = 1829
 [params.eps]
 type = "float"
 min = 0.0
@@ -30,12 +30,12 @@ default = 1
 type = "int"
 min = 1
 max = 4096
-default = 256
+default = 1829
 [params.in0_d2]
 type = "int"
 min = 1
 max = 4096
-default = 768
+default = 384
 [params.out0_d0]
 type = "int"
 min = 1
@@ -45,12 +45,12 @@ default = 1
 type = "int"
 min = 1
 max = 4096
-default = 256
+default = 1829
 [params.out0_d2]
 type = "int"
 min = 1
 max = 4096
-default = 768
+default = 384
 
 [derived]
 K = "(channels + 127) // 128"
@@ -60,7 +60,6 @@ half = "1277440"
 
 [inputs.in0]
 shape = ["in0_d0 * in0_d1 * ((in0_d2 + 127) // 128)", 128]
-range = [-2.0, 2.0]
 [inputs.gamma]
 shape = ["3 * K", 128]
 [inputs.beta]
@@ -70,7 +69,7 @@ shape = [3, 128]
 [inputs.epsilon]
 shape = [128]
 [scratch.tmp]
-shape = ["32 + 3 * K", 128]
+shape = ["32 + 2 * K", 128]
 [outputs.out0]
 shape = ["out0_d0 * out0_d1 * ((out0_d2 + 127) // 128)", 128]
 
@@ -92,4 +91,5 @@ qf_gamma = "CR15"
 
 [golden]
 tolerance = { e2 = "NX8_STEP" }
+
 [cases.default]
