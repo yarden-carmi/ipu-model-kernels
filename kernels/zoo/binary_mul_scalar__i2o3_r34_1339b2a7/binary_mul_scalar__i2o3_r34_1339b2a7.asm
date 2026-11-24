@@ -3,10 +3,10 @@
     The scalar is broadcast from R0.
     Crossing windows ping-pong between cyclic slot pairs. Single-chunk windows
     prefetch the next row in the multiply/store word. -#}
-{% macro product(window) %}
+{% macro product(window, dst='LR1') %}
     MULT.RC.VE {{ window }} LR0 0 LR0 {{ cr.tail }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;
-    INC LR1 1 ;
-    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.tail }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;
+    INC {{ dst }} 1 ;
+    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.tail }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} {{ dst }} ;
 {% endmacro %}
 {% macro crossing(window, next_first, next_second, loop, drain) %}
     ADD LR7 LR7 LR15 ; LD.MULT.CYCLIC LR7 {{ cr.in0 }} {{ next_first }} ;;
@@ -26,6 +26,7 @@
     MULT.VE LR0 {{ cr.fp_base }} 0 LR0 {{ cr.tail }}.L {{ cr.qf_in0 }}.L ; ACC.SUB ;;
     MULT.VE LR0 {{ cr.head_width }} 0 LR0 {{ cr.tail }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; ACTIVATE.QUANTIZE rsqrt {{ cr.tail }}.L {{ cr.qf_in0 }}.L {{ cr.scalar }} LR0 ;;
     LD.MULT R0 LR0 {{ cr.scalar }} ;;
+    BEQ LR9 CR0 tiled ;;
     ADD LR9 LR8 LR8 ;;
     ADD LR11 LR9 LR8 ;;
 batch:
@@ -58,3 +59,27 @@ batch_done:
 wrapped:
     INC LR3 1 ; BLT.S LR5 {{ cr.out0_d1 }} head ;;
     B batch_done ;;
+
+{# Process the four heads of a sequence position together. Head 0 only
+   uses slot 0, so its word can load slot 1 for the later heads. Head 3
+   uses the old contents of both slots while prefetching the next slot 0. #}
+{% macro tile_last() %}
+    {{ product('LR12', 'LR4') }} ADD LR5 LR5 LR15 ; ADD LR6 LR6 LR15 ;
+{% endmacro %}
+tiled:
+    ADD LR11 LR13 LR13 ; SET LR5 CR0 ; SET LR6 CR1 ;;
+    ADD LR12 LR11 LR13 ;;
+tile_batch:
+    ADD LR2 LR1 {{ cr.out0_d2 }} ; SET LR7 {{ cr.out0_d2 }} ; LD.MULT.CYCLIC LR5 {{ cr.in0 }} LR0 ;;
+    ADD LR3 LR2 {{ cr.out0_d2 }} ;;
+    ADD LR4 LR3 {{ cr.out0_d2 }} ;;
+tile_row:
+    {{ product('LR0') }} LD.MULT.CYCLIC LR6 {{ cr.in0 }} LR8 ;;
+    {{ product('LR13', 'LR2') }} ;;
+    {{ product('LR11', 'LR3') }} DEC LR7 1 ; BEQ LR7 CR1 tile_drain ;;
+    {{ tile_last() }} LD.MULT.CYCLIC LR5 {{ cr.in0 }} LR0 ; B tile_row ;;
+tile_drain:
+    {{ tile_last() }} ;;
+    SET LR1 LR4 ; INC LR10 1 ;;
+    BLT.S LR10 {{ cr.out0_d0 }} tile_batch ;;
+    HALT ;;

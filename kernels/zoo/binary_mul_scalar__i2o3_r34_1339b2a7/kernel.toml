@@ -71,6 +71,8 @@ ic = "ceil(in0_d2 / 128)"
 brows = "in0_d1 * ceil(in0_d2 / 128)"
 tail = "ds(out0_d3)"
 wrap_limit = "128 - out0_d3"
+# Four heads of up to 64 lanes fit in two adjacent input chunks.
+tile_miss = "max(out0_d1 - 4, 4 - out0_d1, out0_d3 - 64, 2 - ic)"
 # Unsigned e1 with scale 2^7: codes 129..255 give 1..127; code 0 gives 128.
 head_width = "0x18600 + out0_d3 + 128 * (1 - out0_d3 // 128) - 128 * (out0_d3 // 128)"
 # FP32 truth path: the mantissa increment is one unit per lane at this exponent.
@@ -89,6 +91,7 @@ out0_d1 = "CR9"
 out0_d2 = "CR10"
 out0_d0 = "CR11"
 ic = "LR15"
+tile_miss = "LR9"
 fp_top = "CR8"
 fp_base = "CR12"
 brows = "CR13"
