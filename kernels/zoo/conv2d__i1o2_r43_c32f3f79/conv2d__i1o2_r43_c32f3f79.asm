@@ -8,11 +8,10 @@
  LD.MULT.CYCLIC LR4 {{cr.weights}} LR15 ; INC LR11 1 ;;
  MULT.RC.VE LR15 LR11 0 LR15 {{cr.full}}.L {{cr.qf_in0}}.L ; ACC.ADD ; INC LR4 1 ;;
 {% endmacro %}
-{% macro tap() %}
- LD.MULT R0 LR10 {{cr.in0}} ; SET LR11 CR0 ;;
- LD.MULT.CYCLIC LR4 {{cr.weights}} LR15 ; INC LR4 1 ; DEC LR11 1 ;;
+{% macro tap(load_next) %}
+ LD.MULT.CYCLIC LR4 {{cr.weights}} LR15 ; INC LR4 1 ; SET LR11 CR0 ;;
  {% for c in range(cin) %}
- MULT.RC.VE LR15 LR11 0 LR15 {{cr.full}}.L {{cr.qf_in0}}.L ; ACC.ADD ; INC LR11 1 {% if c + 1 < cin %}; LD.MULT.CYCLIC LR4 {{cr.weights}} LR15 ; INC LR4 1 {% else %}; INC LR10 1 {% endif %};;
+ MULT.RC.VE LR15 LR11 0 LR15 {{cr.full}}.L {{cr.qf_in0}}.L ; ACC.ADD {% if c > 0 %}; INC LR11 1 {% endif %}{% if c + 1 < cin %}; LD.MULT.CYCLIC LR4 {{cr.weights}} LR15 ; INC LR4 1 {% elif load_next %}; LD.MULT R0 LR10 {{cr.in0}} ; INC LR10 1 {% endif %};;
  {% endfor %}
 {% endmacro %}
 {# LR15 is zero throughout (mask shift and cyclic element index). #}
@@ -45,7 +44,9 @@ block:
 ky:
 {% if not padding and cin <= 8 %}
  ADD LR10 LR7 LR2 ;;
- {% for x in range(kw) %}{{tap()}}{% endfor %}
+ LD.MULT R0 LR10 {{cr.in0}} ;;
+ {# The final MAC of each tap reads the old R0 while preloading the next pixel. #}
+ {% for x in range(kw) %}{{tap(x + 1 < kw)}}{% endfor %}
 {% else %}
  SET LR6 LR2 ; SET LR9 CR0 ;;
  INC LR9 {{kw}} ;;
