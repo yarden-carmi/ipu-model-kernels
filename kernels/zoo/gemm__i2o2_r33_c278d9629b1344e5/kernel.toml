@@ -5,16 +5,16 @@ formats = ["e2", "e3"]
 [params.bias]
 type = "bool"
 default = true
-[params.k]
-type = "int"
-min = 1
-max = 16384
-default = 384
 [params.m]
 type = "int"
 min = 1
 max = 65536
 default = 257
+[params.k]
+type = "int"
+min = 1
+max = 16384
+default = 1536
 [params.n]
 type = "int"
 min = 1
@@ -34,7 +34,7 @@ default = 257
 type = "int"
 min = 1
 max = 16384
-default = 384
+default = 1536
 [params.out0_d0]
 type = "int"
 min = 1
@@ -52,37 +52,41 @@ max = 16384
 default = 384
 
 [derived]
-chunks = "ceil(k / 128)"
-istep = "ceil(in0_d2 / 128)"
-width = "128"
-last_width = "(k - 1) % 128 + 1"
+tiles = "ceil(out0_d2 / 128)"
 rows = "out0_d0 * out0_d1"
-tiles = "ceil(n / 128)"
+chunks = "ceil(in0_d2 / 128)"
+end = "(k - 1) % 128"
 full = "ds(128)"
-tail = "ds((n - 1) % 128 + 1)"
+tail = "ds((out0_d2 - 1) % 128 + 1)"
+full_end = "127"
 
 [inputs.in0]
-shape = ["in0_d0 * in0_d1 * istep", 128]
+shape = ["in0_d0 * in0_d1 * chunks", 128]
 range = [-2, 2]
 [inputs.w]
-shape = ["5 * tiles * (k + 1)", 128]
-range = [-1, 1]
+shape = ["tiles * (k + 1)", 128]
 [outputs.out0]
 shape = ["rows * tiles", 128]
 
 [abi]
 in0 = "CR2"
 w = "CR3"
-width = "CR4"
-out0 = "CR5"
-qf_in0 = "CR6"
-qf_out0 = "CR7"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+tiles = "CR7"
 full = "CR8"
 tail = "CR9"
 chunks = "CR10"
-istep = "CR11"
-last_width = "CR12"
-rows = "CR13"
-tiles = "CR14"
+end = "CR11"
+full_end = "CR13"
+rows = "CR14"
 
 [cases.default]
+m = 2
+k = 129
+n = 135
+in0_d1 = 2
+in0_d2 = 129
+out0_d1 = 2
+out0_d2 = 135
