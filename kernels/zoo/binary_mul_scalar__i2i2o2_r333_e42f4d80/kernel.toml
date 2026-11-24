@@ -1,0 +1,145 @@
+[kernel]
+op = "binary_mul_scalar"
+formats = ["e1"]
+
+[params.broadcast]
+type = "str"
+choices = ["scalar"]
+default = "scalar"
+[params.const]
+type = "int"
+min = 1
+max = 2147483647
+default = 1
+[params.inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.op]
+type = "str"
+choices = ["mul"]
+default = "mul"
+[params.reciprocal]
+type = "bool"
+default = true
+[params.numel]
+type = "int"
+min = 1
+max = 2147483647
+default = 2048
+[params.in0_d0]
+type = "int"
+min = 1
+max = 2147483647
+default = 2
+[params.in0_d1]
+type = "int"
+min = 1
+max = 2147483647
+default = 512
+[params.in0_d2]
+type = "int"
+min = 1
+max = 2147483647
+default = 2
+[params.out0_d0]
+type = "int"
+min = 1
+max = 2147483647
+default = 2
+[params.out0_d1]
+type = "int"
+min = 1
+max = 2147483647
+default = 512
+[params.out0_d2]
+type = "int"
+min = 1
+max = 2147483647
+default = 3
+
+[inputs.in0]
+shape = ["in0_rows", 128]
+range = [-2.0, 2.0]
+
+[inputs.in1]
+shape = ["groups", 128]
+range = [-2.0, 2.0]
+
+[inputs.constfull]
+shape = [1, 128]
+range = [-2.0, 2.0]
+
+[inputs.consttail]
+shape = [1, 128]
+range = [-2.0, 2.0]
+
+[inputs.onehot]
+shape = [1, 128]
+range = [-2.0, 2.0]
+
+[outputs.out0]
+shape = ["out0_rows", 128]
+
+[derived]
+groups = "in0_d0 * in0_d1"
+tin0 = "in0_d2 % 128"
+ic = "ceil(in0_d2 / 128)"
+oc = "ceil((in0_d2 + 1) / 128)"
+ocm1 = "oc - 1"
+gstep = "ic - oc + 1"
+full_lanes = "128"
+in0_rows = "groups * ic"
+out0_rows = "groups * oc"
+ds_pair = "ds(tin0 + 1) + ds(128) * 65536"
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+constfull = "CR5"
+consttail = "CR6"
+onehot = "CR7"
+qf_in0 = "CR8"
+qf_in1 = "CR9"
+qf_out0 = "CR10"
+full_lanes = "CR11"
+gstep = "CR12"
+ocm1 = "CR13"
+ds_pair = "CR14"
+groups = "CR15"
+
+[cases.default]
+
+[cases.q_zero]
+in0_d0 = 1
+in0_d1 = 3
+in0_d2 = 128
+out0_d0 = 1
+out0_d1 = 3
+out0_d2 = 129
+
+[cases.crossing]
+in0_d0 = 1
+in0_d1 = 3
+in0_d2 = 130
+out0_d0 = 1
+out0_d1 = 3
+out0_d2 = 131
+
+[cases.q127]
+in0_d0 = 1
+in0_d1 = 2
+in0_d2 = 127
+out0_d0 = 1
+out0_d1 = 2
+out0_d2 = 128
+
+[cases.tiny]
+in0_d0 = 1
+in0_d1 = 2
+in0_d2 = 1
+out0_d0 = 1
+out0_d1 = 2
+out0_d2 = 2
