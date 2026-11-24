@@ -67,11 +67,11 @@ max = 128
 default = 64
 
 [derived]
-capacity = "max(1, 128 // in0_d3)"
+capacity = "128 // in0_d3"
 pack = "1 + (capacity - 1) * (1 - min(1, in0_d2 % capacity))"
-width = "pack * in0_d3"
-period = "inner // width"
+width = "in0_d3 * pack"
 rows = "numel // width"
+period = "inner // width"
 last_row = "period - 1"
 penultimate_row = "period - 2"
 tail = "ds(width)"

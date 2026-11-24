@@ -58,8 +58,8 @@ def reference(module, *ins, _round=None, **params):
 def fold(module, **params):
     operand = module.op0_const0
     width = operand.shape[-1]
-    capacity = max(1, 128 // width)
+    capacity = 128 // width
     if params["in0_d2"] % capacity == 0:
         width *= capacity
     rows = operand.reshape(-1, width)
-    return {"operand": torch.nn.functional.pad(rows, (0, (-width) % 128)).reshape(-1, 128).contiguous()}
+    return {"operand": torch.nn.functional.pad(rows, (0, (-width) % 128)).contiguous()}

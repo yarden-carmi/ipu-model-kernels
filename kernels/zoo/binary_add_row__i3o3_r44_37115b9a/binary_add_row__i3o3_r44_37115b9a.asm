@@ -1,5 +1,4 @@
-{# Each iteration adds a packed physical row. Advance LR1 for the prefetch,
-   keeping the current store offset in LR4. LR2 selects the operand in R1. #}
+{# Advance LR1 for the prefetch, keeping the current store offset in LR4. #}
 {% macro add_input() %}
     MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; LD.MULT R1 LR3 {{ cr.operand }} ; ADD LR4 LR1 CR0 ; INC LR1 1 ;;
 {% endmacro %}
