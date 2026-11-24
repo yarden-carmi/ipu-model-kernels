@@ -76,7 +76,7 @@ shape = ["out0_d0 * out0_d1 * out0_d2 * ceil(out0_d3 / 128)", 128]
 groups = "in0_d0 * in0_d1 * in0_d2"
 chunks = "ceil(in0_d3 / 128)"
 ds_pair = "ds((in0_d3 - 1) % 128 + 1) + ds(128) * 65536"
-# The FP32 difference and the NX8 immediate each encode the scale 1/sqrt(32).
+# The FP32 difference and the NX8 immediate each approximate 1/sqrt(32).
 fp_hi = "0x43012d41"
 fp_lo = "0x43010000"
 nx_scale = "0x00017c35"
