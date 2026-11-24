@@ -4,7 +4,7 @@ formats = ["e2"]
 
 [params.act_out0]
 type = "str"
-choices = ["silu"]
+choices = ["silu", "hardswish", "hardsigmoid"]
 default = "silu"
 [params.bias]
 type = "bool"
@@ -12,7 +12,7 @@ default = true
 [params.k]
 type = "int"
 min = 1
-max = 256
+max = 4096
 default = 16
 [params.n]
 type = "int"
@@ -32,7 +32,7 @@ default = 1
 [params.in0_d1]
 type = "int"
 min = 1
-max = 256
+max = 4096
 default = 16
 [params.in0_d2]
 type = "int"
@@ -66,19 +66,22 @@ max = 65535
 default = 128
 
 [derived]
-k_last = "k - 2"
-input_rows = "ceil(k / 128)"
-m_last = "m - 1"
+chunks = "ceil(k / 128)"
 blocks = "ceil(n / 128)"
-last = "blocks - 1"
+tail = "1 + (n - 1) % 128"
+preceding = "(k - 1) // 128"
+spatial = "min(1, m - 1)"
+before_last = "(k - 1) % 128 - (k - 1) % 4 * spatial - 1"
+input_rows = "m * chunks"
+coeff_rows = "blocks * (1 + k + (1 + k - ceil(k / 4)) * spatial)"
 full_ds = "ds(128)"
-tail_ds = "ds(n - 128 * last)"
+tail_ds = "ds(tail)"
 
 [inputs.in0]
-shape = ["m * input_rows", 128]
+shape = ["input_rows", 128]
 range = [-2, 2]
 [inputs.coeff]
-shape = ["blocks * 2 * (k + 1)", 128]
+shape = ["coeff_rows", 128]
 range = [-1, 1]
 [inputs.lut]
 shape = [5, 128]
@@ -93,11 +96,12 @@ out0 = "CR4"
 lut = "CR5"
 qf_in0 = "CR6"
 qf_out0 = "CR7"
-k_last = "CR8"
-m_last = "CR9"
-input_rows = "CR10"
-last = "CR11"
-full_ds = "CR12"
-tail_ds = "CR13"
+full_ds = "CR8"
+tail_ds = "CR9"
+preceding = "CR10"
+input_rows = "CR11"
+chunks = "CR12"
+blocks = "CR13"
+before_last = "CR14"
 
 [cases.default]

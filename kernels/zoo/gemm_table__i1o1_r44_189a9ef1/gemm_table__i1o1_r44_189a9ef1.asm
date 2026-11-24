@@ -1,35 +1,68 @@
-{% macro coeff_load() %}
-LD.MULT.CYCLIC LR8 {{ cr.coeff }} LR0 ; INC LR8 1
-{% endmacro %}
-{% macro mac(src, op='ACC.ADD') %}
-MULT.RC.VE LR0 {{ src }} 0 LR0 {{ cr.full_ds }}.L {{ cr.qf_in0 }}.L ; {{ op }}
-{% endmacro %}
-{% macro store(ds, extra='') %}
-ACTIVATE.QUANTIZE {{ 'generic' if act_out0 == 'silu' else act_out0 }} {{ ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR3 ; INC LR3 1 {{ extra }}
-{% endmacro %}
+{# Broadcast each input channel across an output tile. #}
+{% macro next_coeff() -%}
+    INC LR4 1 ; LD.MULT.CYCLIC LR4 {{ cr.coeff }} LR0
+{%- endmacro %}
+{% macro mac(src, mode='ADD') -%}
+    MULT.RC.VE LR0 {{ src }} 0 LR0 {{ cr.full_ds }}.L {{ cr.qf_in0 }}.L ; ACC.{{ mode }}
+{%- endmacro %}
+{% macro store(ds) -%}
+    INC LR2 1 ; ACTIVATE.QUANTIZE generic {{ ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR2
+{%- endmacro %}
+{% macro channel(split, advance=true, prefetch=true) -%}
+    {% if split %}{{ mac('LR5') }} ; {{ next_coeff() }} ;;{% endif %}
+    {% if advance %}{{ mac('LR7') }} ; SET LR7 LR5 ; INC LR5 1{% else %}{{ mac('LR5') }}{% endif %}
+    {% if prefetch %}; {{ next_coeff() }}{% endif %}
+{%- endmacro %}
+{% set period = 4 if m > 1 else 1 %}
+{% set tail = 1 + (k - 1) % 128 %}
+{% set remainder = 1 + (tail - 1) % period %}
 
-    SET LR0 CR0 ; SET LR3 CR0 ; SET LR2 CR0 ;;
-    SET LR10 CR0 ; DEC LR3 1 ; DEC LR2 1 ;;
-    DEC LR10 1 ;;
+    SET LR0 CR0 ; SET LR2 CR0 ; SET LR3 CR0 ;;
+    SET LR1 CR0 ; SET LR10 CR0 ; DEC LR2 1 ;;
 {% for i in range(5) %}
-    LD.LUT {{ i }} {{ cr.lut }} LR10 ; INC LR10 1 ;;
+    {% if i %}INC LR1 1 ; {% endif %}LD.LUT {{ i }} {{ cr.lut }} LR1 ;;
 {% endfor %}
-    SET LR10 CR0 ;;
+{% if k > 128 %}
+    INC LR10 127 ;;
+{% endif %}
 pixel:
-    INC LR2 1 ; LD.MULT R0 LR2 {{ cr.in0 }} ; SET LR8 CR0 ; SET LR6 CR0 ; BEQ {{ cr.input_rows }} CR1 init_coeff ;;
-    INC LR2 1 ; LD.MULT R1 LR2 {{ cr.in0 }} ;;
-init_coeff:
-    DEC LR8 1 ;;
+    SET LR4 CR0 ; SET LR9 {{ cr.blocks }} ;;
+    DEC LR4 1 ;;
 block:
-    SET LR7 CR0 ; {{ coeff_load() }} ;;
-    {{ mac('CR1', 'ACC.ADD.FIRST') }} ; {{ coeff_load() }} ; DEC LR7 1 ;;
-    {{ mac('CR1') }} ; {{ coeff_load() }} ;;
-channel:
-    {{ mac('LR7') }} ; INC LR7 1 ; {{ coeff_load() }} ; BEQ LR7 {{ cr.k_last }} finish ;;
-    {{ mac('LR7') }} ; {{ coeff_load() }} ; BNE CR0 CR1 channel ;;
-finish:
-    BLT.S LR6 {{ cr.last }} store_full ;;
-    {{ mac('LR7') }} ; {{ store(cr.tail_ds, '; INC LR10 1') }} ; BLT.S LR10 {{ cr.m_last }} pixel ;;
+    {{ next_coeff() }} ; SET LR6 LR3 ; DEC LR9 1 ;;
+    {{ mac('CR1', 'ADD.FIRST') }} ; {{ next_coeff() }} ; SET LR8 {{ cr.preceding }} ;;
+{% if m > 1 %}
+    {{ mac('CR1') }} ; {{ next_coeff() }} ;;
+{% endif %}
+{% if k > 128 %}
+full_chunk:
+    LD.MULT R0 LR6 {{ cr.in0 }} ; DEC LR8 1 ; SET LR5 CR0 ;;
+full_scalar:
+{% for i in range(period) %}
+    {{ channel(period > 1 and i != 0) }} {% if loop.last %}; BNE LR5 LR10 full_scalar{% endif %} ;;
+{% endfor %}
+    INC LR6 1 ; BNE LR8 CR0 full_chunk ;;
+{% endif %}
+    LD.MULT R0 LR6 {{ cr.in0 }} ; SET LR5 CR0 ;;
+{% if tail > period %}
+tail_scalar:
+{% for i in range(period) %}
+    {{ channel(period > 1 and i != 0) }} {% if loop.last %}; BNE LR5 {{ cr.before_last }} tail_scalar{% endif %} ;;
+{% endfor %}
+{% endif %}
+{% for i in range(remainder - 1) %}
+    {{ channel(period > 1 and i != 0) }} ;;
+{% endfor %}
+{% if n > 128 and n % 128 %}
+    {{ channel(period > 1 and remainder != 1, false, false) }} ; BNE LR9 CR0 full_store ;;
+    {{ store(cr.tail_ds) }} ;;
+{% else %}
+    {{ channel(period > 1 and remainder != 1, false, false) }} ; {{ store(cr.tail_ds) }} ; BNE LR9 CR0 block ;;
+{% endif %}
+    ADD LR3 LR3 {{ cr.chunks }} ;;
+    BNE LR3 {{ cr.input_rows }} pixel ;;
     HALT ;;
-store_full:
-    {{ mac('LR7') }} ; {{ store(cr.full_ds, '; INC LR6 1') }} ; BNE CR0 CR1 block ;;
+{% if n > 128 and n % 128 %}
+full_store:
+    {{ store(cr.full_ds) }} ; B block ;;
+{% endif %}
