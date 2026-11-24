@@ -1,0 +1,135 @@
+[kernel]
+op = "conv2d"
+formats = ["e1", "e2"]
+
+[params.bias]
+type = "bool"
+default = true
+[params.cin]
+type = "int"
+min = 1
+max = 1024
+default = 64
+[params.cout]
+type = "int"
+min = 1
+max = 2048
+default = 64
+[params.groups]
+type = "int"
+choices = [1]
+default = 1
+[params.h]
+type = "int"
+min = 1
+max = 1024
+default = 64
+[params.w]
+type = "int"
+min = 1
+max = 1024
+default = 64
+[params.kh]
+type = "int"
+min = 1
+max = 32
+default = 3
+[params.kw]
+type = "int"
+min = 1
+max = 32
+default = 3
+[params.padding]
+type = "int"
+min = 0
+max = 16
+default = 1
+[params.stride]
+type = "int"
+min = 1
+max = 32
+default = 1
+[params.in0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 1024
+default = 64
+[params.in0_d2]
+type = "int"
+min = 1
+max = 1024
+default = 64
+[params.in0_d3]
+type = "int"
+min = 1
+max = 1024
+default = 64
+[params.out0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 2048
+default = 64
+[params.out0_d2]
+type = "int"
+min = 1
+max = 128
+default = 64
+[params.out0_d3]
+type = "int"
+min = 1
+max = 1056
+default = 64
+
+[derived]
+chunks = "ceil(in0_d1 / 128)"
+blocks = "ceil(out0_d1 / 128)"
+panel = "ceil(cin / 16) * 16"
+pack = "min(max(1, 128 // out0_d2), 2 - out0_d3 % 2)"
+origin = "-padding * (in0_d3 + 1)"
+yend = "out0_d2 * stride - padding"
+xend = "out0_d3 * stride - padding"
+row_delta = "stride * (in0_d3 - out0_d3)"
+temp_pitch = "2 * out0_d3 * blocks"
+full = "ds(128)"
+one = "ds(1)"
+packed_ds = "ds(out0_d2 * pack)"
+
+[inputs.in0]
+shape = ["in0_d2", "in0_d3", "chunks", 128]
+range = [-2, 2]
+[inputs.weights]
+shape = ["blocks", "1 + kh * kw * panel", 128]
+range = [-1, 1]
+[scratch.temp]
+shape = ["out0_d2", "out0_d3", "blocks", 2, 128]
+[outputs.out0]
+shape = ["out0_d1", "out0_d3 // pack", 128]
+
+[abi]
+in0 = "CR2"
+weights = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+temp = "CR7"
+packed_ds = "CR8"
+in0_d2 = "CR9"
+in0_d3 = "CR10"
+panel = "CR11"
+yend = "CR12"
+xend = "CR13"
+full = "CR15"
+one = "CR14"
+
+[golden]
+tolerance = { e1 = "NX8_STEP", e2 = "NX8_STEP" }
+
+[cases.default]
