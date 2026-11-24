@@ -1,29 +1,29 @@
 [kernel]
 op = "gemm_table"
-formats = ["e3"]
+formats = ["e2"]
 
 [params.k]
 type = "int"
 min = 1
 max = 4096
-default = 512
+default = 384
 [params.n]
 type = "int"
 min = 1
 max = 4096
-default = 2048
+default = 1536
 [params.m]
 type = "int"
 min = 1
 max = 65535
-default = 64
+default = 257
 [params.bias]
 type = "bool"
 default = true
 [params.act_out0]
 type = "str"
-choices = ["quick_gelu"]
-default = "quick_gelu"
+choices = ["gelu"]
+default = "gelu"
 [params.in0_d0]
 type = "int"
 min = 1
@@ -32,13 +32,13 @@ default = 1
 [params.in0_d1]
 type = "int"
 min = 1
-max = 128
-default = 64
+max = 65535
+default = 257
 [params.in0_d2]
 type = "int"
 min = 1
 max = 4096
-default = 512
+default = 384
 [params.out0_d0]
 type = "int"
 min = 1
@@ -48,19 +48,21 @@ default = 1
 type = "int"
 min = 1
 max = 65535
-default = 64
+default = 257
 [params.out0_d2]
 type = "int"
 min = 1
 max = 4096
-default = 2048
+default = 1536
 
 [derived]
-I = "in0_d0 * in0_d2"
+tiles = "ceil(in0_d1 / 128)"
+batch_stride = "tiles * in0_d2"
+I = "in0_d0 * batch_stride"
 O = "ceil(out0_d2 / 128)"
 R = "out0_d0 * out0_d1 * O"
 W = "O * (k + 1)"
-G = "k // 8"
+G = "k // 16"
 full = "ds(128)"
 tail = "ds(out0_d2 - 128 * (O - 1))"
 
@@ -86,8 +88,9 @@ qf_out0 = "CR7"
 O = "CR8"
 I = "CR9"
 in0_d1 = "CR10"
-in0_d2 = "CR11"
+batch_stride = "CR11"
 G = "CR12"
+tiles = "CR13"
 full = "CR14"
 tail = "CR15"
 
