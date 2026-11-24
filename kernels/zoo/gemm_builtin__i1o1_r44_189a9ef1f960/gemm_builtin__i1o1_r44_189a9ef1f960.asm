@@ -1,4 +1,4 @@
-{# Broadcast one activation scalar across a panel of output channels. #}
+{# Broadcast one input channel across a panel of output channels. #}
 {% macro coeff_load() -%}
 LD.MULT.CYCLIC LR8 {{ cr.coeff }} LR0 ; INC LR8 1
 {%- endmacro %}
