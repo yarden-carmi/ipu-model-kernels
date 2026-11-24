@@ -1,4 +1,4 @@
-// All tensors share the producer's width-packed row order.
+// Matching width-packed layouts let each pair of rows be added in place of a transpose.
 {% macro add_row(ds) %}
     LD.MULT R0 LR1 {{ cr.in0 }} ;;
     MULT.VE LR0 CR1 0 LR0 {{ ds }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; LD.MULT R0 LR1 {{ cr.in1 }} ;;
