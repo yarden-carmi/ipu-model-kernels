@@ -9,9 +9,14 @@
     {% if advance %}; ADDBI LRD12 1{% endif %}
     {% if prefetch %}; ADD LR4 LR4 {{ cr.ic }} ; LD.MULT R0 LR4 {{ cr.in0 }}{% endif %}
 {% endmacro %}
+{% macro store(ds) %}
+    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR3 ;;
+    INC LR3 1 ;;
+{% endmacro %}
+
     SET LR14 CR0 ; SET LR0 CR0 ; SET LR1 CR0 ;;
     SET LR3 CR0 ;;
-{# Build ones, then synthesize the scale in both arithmetic modes. #}
+    {# Synthesize a resident coefficient row in the input format. #}
     {{ product('CR0', 'ADD.FIRST') }}
     ACTIVATE.QUANTIZE exp2 {{ full }} {{ qi }} {{ cr.scalar }} LR14 ;;
     LD.MULT R0 LR14 {{ cr.scalar }} ;;
@@ -33,22 +38,16 @@ tile:
     SET LR8 LR15 ;;
 gather:
     LD.MULT R0 LR4 {{ cr.in0 }} ; BEQ LR8 CR1 singleton ;;
-    {# MULT consumes the primed row while LOAD uses the updated row pointer. #}
+    {# Each input row contributes one lane to the transposed output row. #}
     {{ scatter(prefetch=true) }} ; INC LR6 2 ;;
     BLT.S LR8 LR6 finish_gather ;;
 gather_next:
-    {# LR6 is the one-based index of the row being prefetched. Stop before crossing the tile. #}
     {{ scatter(advance=true, prefetch=true) }} ; INC LR6 1 ; BLT.S LR6 LR8 gather_next ;;
 finish_gather:
     {{ scatter(advance=true) }} ; B gathered ;;
 singleton:
     {{ scatter() }} ;;
 gathered:
-{% macro store(ds) %}
-    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR3 ;;
-    INC LR3 1 ;;
-{% endmacro %}
-    {# Leave the input pointer at the first row of the next tile. #}
     ADD LR4 LR4 {{ cr.ic }} ; BEQ LR7 {{ cr.oc }} tail_store ;;
     {{ store(full) }}
     B tile ;;
@@ -58,7 +57,7 @@ tail_store:
     BNE LR11 CR0 same_chunk ;;
     INC LR10 1 ;;
 same_chunk:
-    BLT.S LR2 {{ cr.w }} column ;;
+    BLT.S LR2 {{ cr.out0_d3 }} column ;;
     ADD LR1 LR1 {{ cr.plane_rows }} ; INC LR0 1 ;;
     BLT.S LR0 {{ cr.planes }} plane ;;
     HALT ;;

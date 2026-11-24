@@ -67,7 +67,7 @@ max = 2147483647
 default = 256
 
 [inputs.in0]
-shape = ["planes * in0_d2 * ic", 128]
+shape = ["planes * plane_rows", 128]
 range = [-2.0, 2.0]
 [outputs.out0]
 shape = ["out0_d0 * out0_d1 * out0_d3 * oc", 128]
@@ -78,13 +78,12 @@ shape = [1, 128]
 planes = "in0_d0 * in0_d1"
 ic = "ceil(in0_d3 / 128)"
 oc = "ceil(out0_d2 / 128)"
-w = "out0_d3"
 plane_rows = "in0_d2 * ic"
 last = "(out0_d2 - 1) % 128 + 1"
 ds_pair = "ds(last) + ds(128) * 65536"
-fp_hi = "0x43012d41"
+fp_hi = "0x43012000"
 fp_lo = "0x43010000"
-nx_scale = "0x00017c35"
+nx_scale = "0x00017c00"
 
 [abi]
 in0 = "CR2"
@@ -93,7 +92,7 @@ qf_in0 = "CR4"
 qf_out0 = "CR5"
 ic = "CR6"
 oc = "CR7"
-w = "CR8"
+out0_d3 = "CR8"
 planes = "CR9"
 plane_rows = "CR10"
 ds_pair = "CR11"
