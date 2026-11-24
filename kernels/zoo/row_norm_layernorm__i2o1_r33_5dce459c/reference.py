@@ -49,9 +49,9 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.layer_norm.default(_v(ins[0], [1, 64, 512], [32768, 512, 1], 0), [512], module.weight, module.bias)
+    r0 = aten.layer_norm.default(_v(ins[0], [1, 257, 384], [98688, 384, 1], 0), [384], module.weight, module.bias, 1e-06)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 64, 512])}
+    return {"out0": _out(op0, [1, 257, 384])}
 # ---- end of the frozen reference ----
 
 
@@ -68,13 +68,9 @@ def fold(module, **params):
             residual = residual - part
         return torch.cat([*parts, residual])
 
-    peak = torch.maximum(module.weight.abs(), module.bias.abs())
-    scale = torch.exp2(torch.floor(torch.log2(peak.clamp_min(2.0 ** -126))))
-    weight = torch.where(peak == 0, torch.copysign(torch.ones_like(peak) * 2.0 ** -5, module.weight), module.weight / scale)
     return {
-        "gamma": split(weight),
-        "beta": split(torch.where(peak == 0, torch.full_like(peak, -2.0 ** -19), module.bias / scale)),
-        "crow": torch.cat((split(torch.full((128,), 1 / params["channels"])),
-                           torch.full((1, 128), params["eps"]),
-                           scale.reshape(-1, 1).expand(-1, 128))),
+        "gamma": split(module.weight),
+        "beta": split(module.bias),
+        "crow": split(torch.full((128,), 1 / params["channels"])),
+        "epsilon": torch.full((128,), params["eps"]),
     }
