@@ -12,12 +12,12 @@ default = true
 [params.k]
 type = "int"
 min = 1
-max = 4096
+max = 65536
 default = 16
 [params.n]
 type = "int"
 min = 1
-max = 4096
+max = 65536
 default = 72
 [params.m]
 type = "int"
@@ -26,12 +26,13 @@ max = 65536
 default = 3136
 [params.in0_d0]
 type = "int"
-choices = [1]
+min = 1
+max = 65536
 default = 1
 [params.in0_d1]
 type = "int"
 min = 1
-max = 4096
+max = 65536
 default = 16
 [params.in0_d2]
 type = "int"
@@ -45,12 +46,13 @@ max = 128
 default = 56
 [params.out0_d0]
 type = "int"
-choices = [1]
+min = 1
+max = 65536
 default = 1
 [params.out0_d1]
 type = "int"
 min = 1
-max = 4096
+max = 65536
 default = 72
 [params.out0_d2]
 type = "int"
@@ -60,29 +62,26 @@ default = 56
 [params.out0_d3]
 type = "int"
 min = 1
-max = 65536
+max = 128
 default = 56
 
 [derived]
 capacity = "128 // in0_d3"
-pack = "1 + (capacity - 1) * max(1 - min(1, in0_d2 % capacity), 1 - min(1, max(in0_d2 * in0_d3 - 64, 64 - in0_d2 * in0_d3) + 128 % in0_d3)) - (1 - min(1, max(in0_d3 - 32, 32 - in0_d3) + in0_d2 % 4 + max(0, k - 96)))"
+spatial = "in0_d2 * in0_d3"
+pack = "1 + (capacity - 1) * max(1 - min(1, in0_d2 % capacity), 1 - min(1, max(spatial - 64, 64 - spatial) + 128 % in0_d3)) - (1 - min(1, max(in0_d3 - 32, 32 - in0_d3) + in0_d2 % 4 + max(0, k - 96)))"
 pitch = "ceil(in0_d2 / pack)"
-group = "pack * in0_d3"
-group_last = "group - 1"
-m_last = "m - 1"
-paired = "min(1, m - 1) * (1 - min(1, max(0, k - 32) + max(0, n - 128) + in0_d2 % pack))"
+last_strip = "pitch - 1"
+batch_pitch = "in0_d1 * pitch"
+packed_width = "pack * in0_d3"
 tiles = "ceil(n / 128)"
 full_tiles = "tiles - 1"
-tile_or_last = "paired * m_last + (1 - paired) * full_tiles"
 last = "ds((n - 1) % 128 + 1)"
 full = "ds(128)"
 
 [inputs.in0]
-shape = ["in0_d0 * in0_d1 * pitch", 128]
-range = [-2, 2]
+shape = ["in0_d0 * batch_pitch", 128]
 [inputs.coeff]
-shape = ["tiles * (k + 1 + paired * k) + 1 - paired", 128]
-range = [-1, 1]
+shape = ["tiles * (2 * k + 1) + 1", 128]
 [outputs.out0]
 shape = ["out0_d0 * out0_d2 * out0_d3 * ceil(out0_d1 / 128)", 128]
 
@@ -94,12 +93,15 @@ qf_in0 = "CR5"
 qf_out0 = "CR6"
 qf_coeff = "CR7"
 k = "CR8"
-m = "CR9"
-pitch = "CR10"
-group = "CR11"
-group_last = "CR13"
-tile_or_last = "CR12"
+pitch = "CR9"
+in0_d2 = "CR10"
+packed_width = "CR11"
+full_tiles = "CR12"
+in0_d3 = "CR13"
 last = "CR14"
 full = "CR15"
+batch_pitch = "LR14"
+in0_d0 = "LR15"
+last_strip = "LR13"
 
 [cases.default]

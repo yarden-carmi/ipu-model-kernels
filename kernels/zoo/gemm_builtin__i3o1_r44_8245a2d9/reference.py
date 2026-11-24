@@ -64,9 +64,8 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    """Fold normalization and split weights for the unrolled spatial path."""
+    """Fuse inference batch norm and emit bias and two weight rows per channel."""
     n, k = int(params["n"]), int(params["k"])
-    tiles = (n + 127) // 128
     if hasattr(module, "op1_weight"):
         scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
         weight = module.op0_weight.double().reshape(n, k) * scale[:, None]
@@ -75,22 +74,16 @@ def fold(module, **params):
         weight = module.weight.double().reshape(n, k)
         bias = getattr(module, "bias", None)
 
-    rows = torch.zeros((tiles, k + 1, 128), dtype=torch.float64)
-    for tile in range(tiles):
+    rows = torch.zeros(((n + 127) // 128, 2 * k + 1, 128), dtype=torch.float64)
+    for tile, block in enumerate(rows):
         lo, hi = tile * 128, min(n, (tile + 1) * 128)
-        if params.get("bias") and bias is not None:
-            rows[tile, 0, :hi - lo] = bias.reshape(n)[lo:hi]
-        rows[tile, 1:, :hi - lo] = weight[lo:hi].T
-    h, w = int(params["in0_d2"]), int(params["in0_d3"])
-    capacity = 128 // w
-    pack = 1 + (capacity - 1) * int(h % capacity == 0 or (h * w == 64 and 128 % w == 0))
-    pack -= int(w == 32 and h % 4 == 0 and k <= 96)
-    if int(params["m"]) > 1 and k <= 32 and n <= 128 and h % pack == 0:
-        weights = rows[0, 1:]
-        _, exponent = torch.frexp(weights.abs().amax(dim=1, keepdim=True))
-        step = torch.ldexp(torch.ones_like(exponent, dtype=weights.dtype), exponent - 4)
-        coarse = torch.round(weights / step) * step
-        paired = torch.stack((coarse, weights - coarse), dim=1).reshape(-1, 128)
-        return {"coeff": torch.cat((rows[0, :1], paired)).numpy()}
-    rows = rows.reshape(-1, 128)
-    return {"coeff": torch.cat((rows, rows.new_zeros((1, 128)))).numpy()}
+        if params["bias"] and bias is not None:
+            block[0, :hi - lo] = bias.reshape(n)[lo:hi]
+        w = weight[lo:hi].T
+        _, exponent = torch.frexp(w.abs().amax(dim=1, keepdim=True))
+        step = torch.ldexp(torch.ones_like(exponent, dtype=w.dtype), exponent - 4)
+        coarse = torch.round(w / step) * step
+        block[1::2, :hi - lo] = coarse
+        block[2::2, :hi - lo] = w - coarse
+    # The pipelined final multiply reads one row ahead.
+    return {"coeff": torch.cat((rows.reshape(-1, 128), rows.new_zeros((1, 128)))).numpy()}
