@@ -1,0 +1,126 @@
+[kernel]
+op = "conv2d_builtin"
+formats = ["e1", "e2"]
+
+[params.act_out0]
+type = "str"
+choices = ["relu"]
+default = "relu"
+[params.bias]
+type = "bool"
+default = true
+[params.cin]
+type = "int"
+min = 1
+max = 64
+default = 64
+[params.cout]
+type = "int"
+min = 1
+max = 128
+default = 32
+[params.groups]
+type = "int"
+choices = [1]
+default = 1
+[params.h]
+type = "int"
+min = 1
+default = 64
+[params.w]
+type = "int"
+min = 2
+multiple_of = 2
+default = 64
+[params.kh]
+type = "int"
+choices = [3]
+default = 3
+[params.kw]
+type = "int"
+choices = [3]
+default = 3
+[params.padding]
+type = "int"
+choices = [1]
+default = 1
+[params.stride]
+type = "int"
+choices = [1, 2]
+default = 1
+[params.in0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 64
+default = 64
+[params.in0_d2]
+type = "int"
+min = 1
+default = 64
+[params.in0_d3]
+type = "int"
+min = 2
+multiple_of = 2
+default = 64
+[params.out0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 128
+default = 32
+[params.out0_d2]
+type = "int"
+min = 1
+default = 64
+[params.out0_d3]
+type = "int"
+min = 1
+default = 64
+
+[derived]
+pitch = "in0_d3 // 2"
+rowstep = "pitch * stride"
+last_x = "in0_d3 - 1"
+last_y = "in0_d2 - 1"
+xend = "out0_d3 * stride"
+yend = "out0_d2 * stride"
+lane_end = "cout - 3"
+ds_in = "ds(cin)"
+ds_out = "ds(cout)"
+
+[inputs.in0]
+shape = ["in0_d2 * pitch", 128]
+range = [-2, 2]
+[inputs.weights]
+shape = ["1 + 9 * cout", 128]
+range = [-1, 1]
+[outputs.out0]
+shape = ["out0_d2 * out0_d3", 128]
+
+[abi]
+in0 = "CR2"
+weights = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+pitch = "CR7"
+rowstep = "CR8"
+last_x = "CR9"
+last_y = "CR10"
+xend = "CR11"
+yend = "CR12"
+lane_end = "CR13"
+ds_in = "CR14"
+ds_out = "CR15"
+
+[golden]
+tolerance = { e1 = "NX8_STEP", e2 = "NX8_STEP" }
+
+[cases.default]
