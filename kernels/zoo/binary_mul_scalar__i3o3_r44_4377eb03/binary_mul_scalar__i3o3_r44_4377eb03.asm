@@ -1,6 +1,7 @@
 {% macro product(coefficient, acc, ds) %}
     MULT.VE LR0 {{ coefficient }} 0 LR0 {{ ds }} {{ cr.qf_in0 }}.L ; ACC.{{ acc }}
 {% endmacro %}
+
 {% macro row(ds) %}
     LD.MULT R0 LR1 {{ cr.in0 }} ;;
     {{ product(cr.fp_hi, 'ADD.FIRST', ds) }} ;;
