@@ -51,43 +51,33 @@ def reference(module, *ins, _round=None, **params):
     r_ = _round or (lambda t, where: t)
     r0 = aten.conv2d.default(_v(ins[0], [1, 64, 128, 128], [1048576, 16384, 128, 1], 0), module.weight, module.bias, [1, 1], [1, 1])
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 32, 128, 128])}
+    return {"out0": _out(op0, [1, 16, 128, 128])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Lay out weights by output block, tap, and input channel."""
     weight = module.weight
     co, ci, kh, kw = weight.shape
+    chunks = (ci + 127) // 128
     blocks = (co + 127) // 128
-    bias = getattr(module, "bias", None) if params.get("bias") else None
-    if (kh == kw == 3 and params['padding'] == 1 and params['stride'] == 2
-            and ci % 128 == co % 128 == params['in0_d3'] % 2 == params['out0_d3'] % 2 == 0
-            and params['out0_d3'] >= 4):
-        rows = weight.new_zeros((blocks, 1 + 12 * ci, 128))
-        for block in range(blocks):
-            tile = weight[128 * block:128 * (block + 1)]
-            taps = torch.cat((tile, tile[..., :1] + tile[..., 2:]), dim=-1)
-            rows[block, 1:] = taps.permute(2, 3, 1, 0).reshape(-1, 128)
-            if bias is not None:
-                rows[block, 0] = bias.reshape(-1)[128 * block:128 * (block + 1)]
-        return {"weights": rows}
-    if ci >= 96 and co <= 64:
-        chunks = (ci + 127) // 128
-        rows = weight.new_zeros((1, 1 + kh * kw * chunks * co, 128))
-        tile = weight.new_zeros((co, chunks * 128, kh, kw))
-        tile[:, :ci] = weight
-        rows[0, 1:] = tile.reshape(co, chunks, 128, kh, kw).permute(3, 4, 1, 0, 2).reshape(-1, 128)
-        if bias is not None:
-            rows[0, 0, :co] = bias.reshape(-1)
-        return {"weights": rows}
-    panel = (ci + 15) // 16 * 16
+    dot = co < ci and co <= 128
+    panel = chunks * co if dot else (ci + 15) // 16 * 16
     rows = weight.new_zeros((blocks, 1 + kh * kw * panel, 128))
-    taps = rows[:, 1:].view(blocks, kh, kw, panel, 128)
-    for block, start in enumerate(range(0, co, 128)):
-        tile = weight[start:start + 128]
-        active = tile.shape[0]
-        taps[block, :, :, :ci, :active] = tile.permute(2, 3, 1, 0)
-        if bias is not None:
-            rows[block, 0, :active] = bias.reshape(-1)[start:start + active]
+    if dot:
+        padded = weight.new_zeros((co, chunks * 128, kh, kw))
+        padded[:, :ci] = weight
+        rows[0, 1:] = padded.view(co, chunks, 128, kh, kw).permute(3, 4, 1, 0, 2).reshape(-1, 128)
+    else:
+        padded = weight.new_zeros((blocks * 128, ci, kh, kw))
+        padded[:co] = weight
+        rows[:, 1:].view(blocks, kh, kw, panel, 128)[:, :, :, :ci] = (
+            padded.view(blocks, 128, ci, kh, kw).permute(0, 3, 4, 2, 1)
+        )
+    if params.get("bias"):
+        bias = getattr(module, "bias_vec", None)
+        if bias is None:
+            bias = module.bias
+        padded_bias = weight.new_zeros(blocks * 128)
+        padded_bias[:co] = bias.reshape(-1)
+        rows[:, 0] = padded_bias.view(blocks, 128)
     return {"weights": rows}

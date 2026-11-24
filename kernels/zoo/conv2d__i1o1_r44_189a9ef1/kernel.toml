@@ -14,10 +14,11 @@ default = 64
 type = "int"
 min = 1
 max = 1024
-default = 32
+default = 16
 [params.groups]
 type = "int"
-choices = [1]
+min = 1
+max = 1
 default = 1
 [params.h]
 type = "int"
@@ -51,7 +52,8 @@ max = 32
 default = 1
 [params.in0_d0]
 type = "int"
-choices = [1]
+min = 1
+max = 1
 default = 1
 [params.in0_d1]
 type = "int"
@@ -70,13 +72,14 @@ max = 1024
 default = 128
 [params.out0_d0]
 type = "int"
-choices = [1]
+min = 1
+max = 1
 default = 1
 [params.out0_d1]
 type = "int"
 min = 1
 max = 1024
-default = 32
+default = 16
 [params.out0_d2]
 type = "int"
 min = 1
@@ -87,55 +90,43 @@ type = "int"
 min = 1
 max = 1056
 default = 128
-
 [derived]
-pair = "max(0, 1 - min(1, (kh - 3) * (kh - 3) + (kw - 3) * (kw - 3) + (padding - 1) * (padding - 1) + (stride - 2) * (stride - 2) + cin % 128 + cout % 128 + in0_d3 % 2 + out0_d3 % 2 + max(0, 4 - out0_d3)))"
-origin = "-padding * (in0_d3 + 1) * (1 + pair * (ceil(in0_d1 / 128) - 1))"
+chunks = "ceil(in0_d1 / 128)"
+blocks = "ceil(out0_d1 / 128)"
+dot = "min(1, max(0, cin - cout)) * min(1, max(0, 129 - cout))"
+panel = "dot * chunks * cout + (1 - dot) * ceil(cin / 16) * 16"
 yend = "out0_d2 * stride - padding"
 xend = "out0_d3 * stride - padding"
 row_delta = "stride * (in0_d3 - out0_d3)"
-chunks = "ceil(in0_d1 / 128)"
-blocks = "ceil(out0_d1 / 128)"
-dot = "min(1, max(0, cin - 95)) * min(1, max(0, 65 - cout))"
-panel = "(1 - pair) * ((1 - dot) * ceil(cin / 16) * 16 + dot * chunks * cout) + pair * 4 * cin"
-dot_end = "cout - 3"
-block_rows = "1 + kh * kw * panel + pair * (kh - kh * kw) * panel"
-cin_or_panel = "pair * cin + (1 - pair) * panel"
-input_pitch = "in0_d3 * (1 + pair * (chunks - 1))"
-delta_or_scratch = "(1 - pair) * row_delta + pair * base(temp)"
 tail = "ds(out0_d1 - (blocks - 1) * 128)"
-tail_or_block = "tail + pair * (block_rows - tail)"
 full = "ds(128)"
 
 [inputs.in0]
-shape = ["in0_d0", "in0_d2", "in0_d3", "chunks * 128"]
+shape = ["in0_d0 * in0_d2 * in0_d3 * chunks", 128]
 range = [-2, 2]
 [inputs.weights]
-shape = ["blocks", "block_rows", 128]
+shape = ["blocks", "1 + kh * kw * panel", 128]
 range = [-1, 1]
-[scratch.temp]
-shape = ["1 + pair * (1 + in0_d2 * in0_d3 * chunks)", 128]
 [outputs.out0]
-shape = ["out0_d0", "out0_d2", "out0_d3", "blocks * 128"]
+shape = ["out0_d0 * out0_d2 * out0_d3 * blocks", 128]
 
 [abi]
-origin = "LR1"
-dot_end = "LR10"
 in0 = "CR2"
 weights = "CR3"
 out0 = "CR4"
 qf_in0 = "CR5"
 qf_out0 = "CR6"
-delta_or_scratch = "CR7"
+row_delta = "CR7"
 blocks = "CR8"
 in0_d2 = "CR9"
-input_pitch = "CR10"
-cin_or_panel = "CR11"
+in0_d3 = "CR10"
+panel = "CR11"
 yend = "CR12"
 xend = "CR13"
-tail_or_block = "CR14"
+tail = "CR14"
 full = "CR15"
 
 [golden]
 tolerance = { e1 = "NX8_STEP", e2 = "NX8_STEP" }
+
 [cases.default]
