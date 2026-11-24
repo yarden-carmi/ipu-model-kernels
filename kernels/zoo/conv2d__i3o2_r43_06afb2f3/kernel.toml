@@ -1,96 +1,164 @@
 [kernel]
 op = "conv2d"
-formats = ["e2", "e3"]
+formats = ["e2"]
+
 [params.bias]
 type = "bool"
 default = true
+
 [params.cin]
 type = "int"
 min = 1
 max = 128
 default = 3
+
 [params.cout]
 type = "int"
 min = 128
-max = 1152
+max = 1024
 multiple_of = 128
-default = 128
+default = 384
+
 [params.groups]
 type = "int"
 min = 1
 max = 1
 default = 1
+
 [params.h]
 type = "int"
 min = 1
 max = 1024
-default = 4
+default = 512
+
 [params.w]
 type = "int"
 min = 1
 max = 1024
-default = 4
+default = 864
+
 [params.kh]
 type = "int"
 min = 1
 max = 32
-default = 2
+default = 16
+
 [params.kw]
 type = "int"
 min = 1
 max = 32
-default = 2
+default = 16
+
 [params.padding]
 type = "int"
 min = 0
-max = 0
+max = 16
 default = 0
+
 [params.stride]
 type = "int"
 min = 1
 max = 32
-default = 2
+default = 16
+
+[params.in0_d0]
+type = "int"
+min = 1
+max = 1
+default = 1
+
+[params.in0_d1]
+type = "int"
+min = 1
+max = 128
+default = 3
+
+[params.in0_d2]
+type = "int"
+min = 1
+max = 1024
+default = 512
+
+[params.in0_d3]
+type = "int"
+min = 1
+max = 1024
+default = 864
+
+[params.out0_d0]
+type = "int"
+min = 1
+max = 1
+default = 1
+
+[params.out0_d1]
+type = "int"
+min = 1
+max = 1115136
+default = 1829
+
+[params.out0_d2]
+type = "int"
+min = 128
+max = 1024
+multiple_of = 128
+default = 384
+
 [derived]
 ho = "(h + 2 * padding - kh) // stride + 1"
 wo = "(w + 2 * padding - kw) // stride + 1"
 blocks = "cout // 128"
-full = "ds(128)"
-xrows = "(w + 127) // 128"
+token_rows = "(out0_d1 - ho * wo) * blocks"
+y_end = "ho * stride - padding"
+x_end = "wo * stride - padding"
+xrows = "(in0_d3 + 127) // 128"
 rowstride = "cin * xrows"
-yadvance = "stride * rowstride"
-lanes = "128"
+y_base = "-padding * rowstride"
+y_advance = "stride * rowstride"
+full = "ds(128)"
+stream = "(1 - min(1, padding)) * (kw // 32)"
+weight_rows = "1 + kh * kw * cin + stream"
+width_limit = "128 * stream + in0_d2 * (1 - stream)"
+width_chunks = "wo * stream + in0_d3 * (1 - stream)"
+row_step = "rowstride * stream + y_end * (1 - stream)"
+patch_step = "y_advance * stream + x_end * (1 - stream)"
+height_limit = "kh * stream + y_advance * (1 - stream)"
+initial_y = "y_base * (1 - stream) - ho * stream"
+
 [inputs.in0]
-shape = ["h", "cin", "xrows", 128]
-range = [-2, 2]
-[inputs.weights]
-shape = ["blocks", "2 + kh * kw * cin", 128]
+shape = ["in0_d0", "in0_d2", "in0_d1", "xrows", 128]
 range = [-1, 1]
+
+[inputs.weights]
+shape = ["blocks", "weight_rows", 128]
+range = [-1, 1]
+
+[inputs.tokens]
+shape = ["max(1, token_rows)", 128]
+range = [-1, 1]
+
 [outputs.out0]
-shape = [1, "ho * wo + 1", "cout"]
-[inputs.cls]
-shape = ["blocks", 128]
+shape = ["out0_d0", "out0_d1", "out0_d2"]
+
 [abi]
 in0 = "CR2"
 weights = "CR3"
 out0 = "CR4"
-qf_in0 = "CR5"
-qf_out0 = "CR6"
-cls = "CR7"
-blocks = "CR8"
-wo = "CR9"
-lanes = "CR10"
-xrows = "CR11"
-rowstride = "CR12"
-yadvance = "CR13"
-kh = "CR14"
+tokens = "CR5"
+qf_in0 = "CR6"
+qf_weights = "CR7"
+qf_tokens = "CR8"
+qf_out0 = "CR9"
+width_limit = "CR10"
+width_chunks = "CR11"
+row_step = "CR12"
+patch_step = "CR13"
+height_limit = "CR14"
 full = "CR15"
+initial_y = "LR1"
+token_rows = "LR12"
+
 [cases.default]
-[cases.patch16]
-h = 16
-w = 32
-kh = 16
-kw = 16
-stride = 16
-cout = 384
+
 [golden]
-tolerance = { e3 = "NX8_STEP" }
+tolerance = { e2 = "NX8_STEP" }

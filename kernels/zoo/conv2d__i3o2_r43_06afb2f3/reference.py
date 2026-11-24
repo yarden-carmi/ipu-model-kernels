@@ -57,18 +57,19 @@ def reference(module, *ins, _round=None, **params):
 # ---- end of the frozen reference ----
 
 
-import torch
-
 def fold(module, **params):
     w = module.op0_weight.to(torch.float64)
     co, ci, kh, kw = w.shape
-    # Stream width taps for one input channel at a time. The trailing
-    # zero keeps the final software-pipelined weight read in bounds.
-    rows = torch.zeros(co // 128, 2 + kh * kw * ci, 128, dtype=torch.float64)
-    rows[:, 1:-1] = w.reshape(co // 128, 128, ci, kh, kw).permute(0, 3, 2, 4, 1).reshape(co // 128, -1, 128)
-    if params.get('bias'):
-        b = getattr(module, 'bias_vec', None)
-        if b is None:
-            b = module.bias
-        rows[:, 0] = b.reshape(-1, 128)
-    return {'weights': rows, 'cls': module.op1_class_embedding.reshape(-1, 128)}
+    blocks = co // 128
+    stream = params['padding'] == 0 and kw == 32
+    # The streaming loop prefetches one row beyond its last tap.
+    weights = w.new_zeros((blocks, 1 + kh * kw * ci + stream, 128))
+    weights[:, 1:1 + kh * kw * ci] = w.reshape(blocks, 128, ci, kh, kw).permute(0, 3, 2, 4, 1).reshape(blocks, -1, 128)
+    if params['bias']:
+        weights[:, 0] = module.op0_bias.reshape(blocks, 128)
+    cls = getattr(module, 'op1_cls_token', None)
+    if cls is None:
+        cls = getattr(module, 'op1_class_embedding', None)
+    tokens = [cls, getattr(module, 'op1_detection_tokens', None)]
+    rows = [t.to(torch.float64).reshape(-1, 128) for t in tokens if t is not None]
+    return {'weights': weights, 'tokens': torch.cat(rows) if rows else w.new_zeros((1, 128))}
