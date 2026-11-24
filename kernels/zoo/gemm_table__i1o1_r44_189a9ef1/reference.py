@@ -53,18 +53,18 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 16, 128, 128], [262144, 16384, 128, 1], 0), module.op0_weight)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 32, 128, 128], [524288, 16384, 128, 1], 0), module.op0_weight)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 64, 128, 128], [1048576, 16384, 128, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 128, 128, 128], [2097152, 16384, 128, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.silu_.default(_v(op1, [1, 64, 128, 128], [1048576, 16384, 128, 1], 0))
+    r0 = aten.silu_.default(_v(op1, [1, 128, 128, 128], [2097152, 16384, 128, 1], 0))
     op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 64, 128, 128])}
+    return {"out0": _out(op2, [1, 128, 128, 128])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Fold inference batch norm, then split each row into coarse and residual."""
+    """Fold inference batch norm and pack output-channel vectors by k."""
     n, k = params["n"], params["k"]
     if hasattr(module, "op0_weight"):
         scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
@@ -76,33 +76,12 @@ def fold(module, **params):
     if bias is None or not params["bias"]:
         bias = weight.new_zeros(n)
 
-    spatial = (params["m"] != params["in0_d0"] * params["in0_d1"]
-               or k != params["in0_d2"] or n != params["out0_d2"])
-    if spatial:
-        blocks = (n + 127) // 128
-        rows = weight.new_zeros((blocks, k + 1, 128))
-        for b in range(blocks):
-            lo, hi = b * 128, min(n, (b + 1) * 128)
-            rows[b, 0, :hi - lo] = bias[lo:hi]
-            rows[b, 1:, :hi - lo] = weight[lo:hi].T
-    else:
-        chunks = (k + 127) // 128
-        rows = weight.new_zeros((n, chunks + 1, 128))
-        rows[:, 0, 0] = bias
-        rows[:, 1:, :].reshape(n, -1)[:, :k] = weight
-
-    rows = rows.reshape(-1, 128)
+    padded = ((n + 127) // 128) * 128
+    rows = weight.new_zeros((k + 1, padded))
+    rows[0, :n] = bias
+    rows[1:, :n] = weight.T
+    rows = rows.reshape(k + 1, -1, 128).transpose(0, 1).reshape(-1, 128)
     _, exp = torch.frexp(rows.abs().amax(dim=1, keepdim=True))
     step = torch.ldexp(torch.ones_like(exp, dtype=rows.dtype), exp - 4)
     coarse = torch.round(rows / step) * step
-    pairs = torch.stack((coarse, rows - coarse), dim=1)
-    if spatial:
-        # Keep the bias split and encode the last tap of each group directly.
-        period = 6 if 32 < k <= 64 else (5 if 64 < k < 128 else 4)
-        single = torch.arange(k + 1, device=rows.device) % period == 0
-        single[0] = False
-        single = single.repeat(blocks)
-        pairs[single, 0] = rows[single]
-        keep = torch.stack((torch.ones_like(single), ~single), dim=1)
-        return {"coeff": pairs[keep]}
-    return {"coeff": pairs.reshape(-1, 128)}
+    return {"coeff": torch.stack((coarse, rows - coarse), dim=1).reshape(-1, 128)}
