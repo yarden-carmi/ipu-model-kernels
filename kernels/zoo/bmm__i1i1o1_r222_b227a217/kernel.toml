@@ -26,6 +26,7 @@ shape = ["out0_d0", "ceil(out0_d1/128)*128"]
 [derived]
 chunks = "ceil(k/128)"
 rhs_batch = "n*chunks"
+out_prev = "-1"
 ds = "ds(128) + ds((n-1)%128+1)*65536"
 
 [abi]
@@ -37,6 +38,7 @@ m = "CR6"
 n = "CR7"
 chunks = "CR8"
 rhs_batch = "CR9"
+out_prev = "CR10"
 ds = "CR11"
 qf_in0 = "CR12"
 qf_in1 = "CR13"
