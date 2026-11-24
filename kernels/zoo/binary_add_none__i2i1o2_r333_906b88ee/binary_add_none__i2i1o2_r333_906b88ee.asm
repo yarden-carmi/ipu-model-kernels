@@ -12,8 +12,17 @@
     ACC.STRIDE 64 {{ parity }} off {{ dest }}
 {% endmacro %}
 
+{% macro exchange_pair(stage, step, base, preload) %}
+    {{ step }} ; INC LR5 1 ; INC LR10 1 ; {{ stride('LR0', 'on', 'LR0', stage == 0) }} ; LD.MULT.CYCLIC LR2 {{ base }} LR6 ;;
+    {{ stride('LR6', 'on', 'LR1', stage == 0) }} ; ACTIVATE.QUANTIZE identity CR15.L {{ iq }} {{ cr.tiles }} LR5 ;;
+    {{ stride('LR0', 'on_inv', 'LR0', stage == 0) }} ;;
+    {{ stride('LR6', 'on_inv', 'LR1', stage == 0) }} ; ACTIVATE.QUANTIZE identity CR15.L {{ iq }} {{ cr.tiles }} LR10 {% if preload %}; {{ step }} ; LD.MULT.CYCLIC LR2 {{ base }} LR0 ; BLT.S LR5 LR9 exchange_{{ stage }} {% endif %};;
+{% endmacro %}
+
 {# Exchange the low row and lane bits and rotate both indices right.
-   Seven exchanges transpose a 128x128 tile. Each input pair feeds both outputs. #}
+   Seven exchanges transpose a 128x128 tile. Each input pair feeds both outputs.
+   Prefetch the next pair's first row in the last multiply word; peel the
+   final pair to avoid reading beyond the tile. #}
 {% macro exchange(stage) %}
 {% set step = 'ADD LR2 LR2 ' ~ blocks if stage == 0 else 'INC LR2 1' %}
 {% set base = cr.in1 if stage == 0 else cr.tiles %}
@@ -24,14 +33,11 @@
 {% else %}
     SUB LR2 LR6 CR1 ; SET LR5 CR0 ; SET LR9 CR0 ;;
 {% endif %}
-    SET LR10 LR5 ; DEC LR5 1 ; INC LR9 63 ;;
-    INC LR10 63 ;;
+    SET LR10 LR5 ; DEC LR5 1 ; INC LR9 62 ;;
+    INC LR10 63 ; {{ step }} ; LD.MULT.CYCLIC LR2 {{ base }} LR0 ;;
 exchange_{{ stage }}:
-    {{ step }} ; INC LR5 1 ; INC LR10 1 ; LD.MULT.CYCLIC LR2 {{ base }} LR0 ;;
-    {{ step }} ; {{ stride('LR0', 'on', 'LR0', stage == 0) }} ; LD.MULT.CYCLIC LR2 {{ base }} LR6 ;;
-    {{ stride('LR6', 'on', 'LR1', stage == 0) }} ; ACTIVATE.QUANTIZE identity CR15.L {{ iq }} {{ cr.tiles }} LR5 ;;
-    {{ stride('LR0', 'on_inv', 'LR0', stage == 0) }} ;;
-    {{ stride('LR6', 'on_inv', 'LR1', stage == 0) }} ; ACTIVATE.QUANTIZE identity CR15.L {{ iq }} {{ cr.tiles }} LR10 ; BLT.S LR5 LR9 exchange_{{ stage }} ;;
+    {{ exchange_pair(stage, step, base, true) }}
+    {{ exchange_pair(stage, step, base, false) }}
 {% if stage == 0 %}
     ADD LR3 LR2 {{ blocks }} ;;
 {% endif %}
