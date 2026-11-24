@@ -1,5 +1,5 @@
-{% macro store(ds) %}
-    MULT.RC.VE LR10 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_out0 }}.L ; ACC.SUB ; ACTIVATE.QUANTIZE identity {{ ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;;
+{% macro store(ds,advance='') %}
+    MULT.RC.VE LR10 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_out0 }}.L ; ACC.SUB ; ACTIVATE.QUANTIZE identity {{ ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 {{ advance }} ;;
 {% endmacro %}
 {% macro clip(a,b,dst,neg,reverse=false,prefetch='') %}
 {% if reverse %}
@@ -28,10 +28,9 @@
     ACTIVATE.QUANTIZE relu {{ cr.full }}.H {{ cr.qf_in0 }}.L {{ cr.s0 }} {{ neg }} ;;
     MULT.EE LR0 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE relu {{ cr.full }}.H {{ cr.qf_in0 }}.L {{ cr.s0 }} {{ pos }} {{ next }} ;;
 {% endmacro %}
-{% macro merge(boost,base,prefetch='') %}
-    LD.MULT.CYCLIC {{ base }} {{ cr.s0 }} LR10 ;;
+{% macro merge(boost,next_base='',prefetch='') %}
     MULT.RC.VE LR10 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_out0 }}.L ; ACC.SUB.FIRST ; LD.MULT.CYCLIC {{ boost }} {{ cr.s0 }} LR0 ;;
-    MULT.RC.VE LR0 {{ cr.neg_inv }} 0 LR0 {{ cr.full }}.L {{ cr.qf_out0 }}.L ; ACC.MAX ;;
+    MULT.RC.VE LR0 {{ cr.neg_inv }} 0 LR0 {{ cr.full }}.L {{ cr.qf_out0 }}.L ; ACC.MAX {{ next_base }} ;;
     MULT.RC.VE LR0 CR0 0 LR0 {{ cr.full }}.L {{ cr.qf_out0 }}.L ; ACC.MAX ; ACTIVATE.QUANTIZE identity {{ cr.full }}.L {{ cr.qf_out0 }}.L {{ cr.s0 }} {{ boost }} {{ prefetch }} ;;
 {% endmacro %}
     SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR1 ;;
@@ -51,21 +50,36 @@
     ACTIVATE.QUANTIZE exp2 {{ cr.full }}.H {{ cr.qf_in0 }}.L {{ cr.s0 }} LR9 ;;
     {{ reciprocal('CR1','LR11','LR12', '; LD.MULT R0 LR0 ' ~ cr.in1) }}
     {{ reciprocal(cr.factor,'LR0','LR4') }}
-    SET LR6 {{ cr.loop }}.L ;;
-row:
-    LD.MULT.CYCLIC LR1 {{ cr.in0 }} LR15 ;;
-    MULT.RC.VE LR15 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE relu {{ cr.full }}.L {{ cr.qf_in0 }}.L {{ cr.s0 }} LR7 ; LD.MULT R0 LR11 {{ cr.s0 }} ;;
+{% macro compute_row(advance='') %}
+    MULT.RC.VE LR15 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE relu {{ cr.full }}.L {{ cr.qf_in0 }}.L {{ cr.s0 }} LR7 ; LD.MULT R0 LR11 {{ cr.s0 }} {{ advance }} ;;
     MULT.RC.VE LR15 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.SUB.FIRST ; ACTIVATE.QUANTIZE relu {{ cr.full }}.L {{ cr.qf_in0 }}.L {{ cr.s0 }} LR8 ; LD.MULT R1 LR12 {{ cr.s0 }} ;;
     {{ clip('LR15','LR15','LR13','LR12',false,'; LD.MULT.CYCLIC LR7 ' ~ cr.s0 ~ ' LR0') }}
     {{ clip('LR15','LR15','LR14','LR4',true,'; LD.MULT R0 LR0 ' ~ cr.s0) }}
     LD.MULT.CYCLIC LR8 {{ cr.s0 }} LR10 ;;
     {{ clip('LR0','LR10','LR7','LR4') }}
-    {{ clip('LR10','LR0','LR8','LR4') }}
-    {{ merge('LR7','LR13') }}
-    {{ merge('LR8','LR14','; LD.MULT.CYCLIC LR7 ' ~ cr.s0 ~ ' LR15') }}
+    {{ clip('LR10','LR0','LR8','LR4',false,'; LD.MULT.CYCLIC LR13 ' ~ cr.s0 ~ ' LR10') }}
+    {{ merge('LR7','; LD.MULT.CYCLIC LR14 ' ~ cr.s0 ~ ' LR10') }}
+    {{ merge('LR8','','; LD.MULT.CYCLIC LR7 ' ~ cr.s0 ~ ' LR15') }}
     MULT.RC.VE LR15 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_out0 }}.L ; ACC.ADD.FIRST ; LD.MULT.CYCLIC LR8 {{ cr.s0 }} LR10 ;;
     MULT.RC.VE LR15 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_out0 }}.L ; ACC.ADD ;;
     MULT.RC.VE LR10 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_out0 }}.L ; ACC.SUB ;;
+{% endmacro %}
+{% set chunks = (out0_d1 + 127) // 128 %}
+{% set rows = out0_d0 * chunks %}
+{# For short shapes, overlap each store with the next input load. LR1
+   tracks the output row; LR2 stays one row ahead for the prefetch. #}
+{% if rows <= 8 %}
+    LD.MULT.CYCLIC LR1 {{ cr.in0 }} LR15 ;;
+{% for i in range(rows) %}
+    {{ compute_row('; INC LR1 1 ; INC LR2 1' if i else '') }}
+    {% set ds = cr.tail if out0_d1 % 128 and (i + 1) % chunks == 0 else cr.full %}
+    {{ store(ds, '; LD.MULT.CYCLIC LR2 ' ~ cr.in0 ~ ' LR15' if i + 1 < rows else '') }}
+{% endfor %}
+{% else %}
+    SET LR6 {{ cr.loop }}.L ;;
+row:
+    LD.MULT.CYCLIC LR1 {{ cr.in0 }} LR15 ;;
+    {{ compute_row() }}
 {% if out0_d1 % 128 == 0 %}
     {{ store(cr.full) }}
     INC LR1 1 ;;
@@ -81,5 +95,6 @@ tail:
     INC LR1 1 ; SET LR2 CR1 ;;
     SET LR6 {{ cr.loop }}.L ;;
     BLT.S LR1 LR6 row ;;
+{% endif %}
 {% endif %}
     HALT ;;
