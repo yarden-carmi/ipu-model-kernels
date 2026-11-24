@@ -27,28 +27,26 @@
  {% endfor %}
 {% endmacro %}
 {% macro split(reg, count) %}
- {% for p in range(count) %}
  ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} {{ reg }} ;;
- {% if not loop.last %}
+ {% for p in range(count-1) %}
  LD.MULT R0 {{ reg }} {{ cr.tmp }} ;;
- MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB ; INC {{ reg }} 1 ;;
- {% endif %}
+ MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB ; INC {{ reg }} 1 ; ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} {{ reg }} ;;
  {% endfor %}
 {% endmacro %}
 {% macro save(n, count=2) %}{{ init('LR1',n) }}{{ split('LR1',count) }}{% endmacro %}
-{% macro average(label) %}
+{# Keep the reduction residuals scalar until multiplying by 1/channels. #}
+{% macro average() %}
  {{ save(0,3) }}
  {% for j in range(3) %}
- {{ load(j) }}
- MULT.EE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %} ;;
+ {% if loop.first %}SET LR10 CR0 ; LD.MULT.CYCLIC LR10 {{ cr.crow }} LR0 ;;
+ {% endif %}
+ SET LR1 CR0 ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
+ {% for p in range(3) %}
+ MULT.RC.VE LR0 LR0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if j == 0 and loop.first %}.FIRST{% endif %}
+ {%- if not loop.last %} ; INC LR1 1 ; LD.MULT R0 LR1 {{ cr.tmp }}
+ {%- elif j < 2 %} ; INC LR10 1 ; LD.MULT.CYCLIC LR10 {{ cr.crow }} LR0{% endif %} ;;
  {% endfor %}
- {{ save(3,3) }}
- {{ init('LR10') }}{{ init('LR7',3) }}{{ clear() }}
-{{ label }}:
- LD.MULT.CYCLIC LR10 {{ cr.crow }} LR0 ;;
- {{ products(3,3) }}
- INC LR10 1 ;;
- BLT.S LR10 LR7 {{ label }} ;;
+ {% endfor %}
 {% endmacro %}
 {% macro square_sum(ds) %}
  {% for a,b in [(0,0),(0,1),(1,1)] %}
@@ -69,17 +67,22 @@ sum_loop:
  LD.MULT R0 LR5 {{ cr.in0 }} ;;
  MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ full }} ; INC LR5 1 ;;
  BLT.S LR5 LR6 sum_loop ;;
- {{ average('mean_scale') }}{{ save(6,3) }}
+ {{ average() }}{{ save(6,3) }}
 
  SET LR5 LR2 ;;
  {{ init('LR9',32) }}
+ {{ init('LR7',6) }}
 center_loop:
- LD.MULT R0 LR5 {{ cr.in0 }} ;;
- {{ vec(first=true) }}
- {% for n in range(6,9) %}{{ load(n) }}{{ vec('SUB') }}{% endfor %}
- {{ split('LR9',2) }}
- INC LR9 1 ; INC LR5 1 ;;
- BLT.S LR5 LR6 center_loop ;;
+ LD.MULT R0 LR5 {{ cr.in0 }} ; SET LR1 LR7 ;;
+ MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
+ {% for p in range(3) %}
+ MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB
+ {%- if not loop.last %} ; INC LR1 1 ; LD.MULT R0 LR1 {{ cr.tmp }}
+ {%- else %} ; ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR9 ; INC LR5 1{% endif %} ;;
+ {% endfor %}
+ LD.MULT R0 LR9 {{ cr.tmp }} ;;
+ MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB ; INC LR9 1 ; ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR9 ;;
+ INC LR9 1 ; BLT.S LR5 LR6 center_loop ;;
 
  {{ clear() }}
  {{ init('LR9',32) }}
@@ -91,7 +94,7 @@ variance_loop:
  BLT.S LR5 LR6 variance_loop ;;
 variance_tail:
  {{ square_sum(tail) }}
- {{ average('variance_scale') }}
+ {{ average() }}
  LD.MULT R0 LR0 {{ cr.epsilon }} ;;
  {{ vec() }}
  {{ init('LR1',12) }}
@@ -99,8 +102,6 @@ variance_tail:
  {{ save(9,3) }}
  {{ init('LR1',13) }}{{ clear() }}
  ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
- {{ init('LR4',2) }}
-refine:
  {# Newton step: y <- 1.5*y - 0.5*v*y^3. #}
  {% for i in range(2) %}
  {{ load(12+i,true) }}
@@ -124,8 +125,6 @@ refine:
  {% endfor %}
  {% for n in [18,19] %}{{ load(n) }}{{ vec('SUB',imm=cr.half) }}{% endfor %}
  {{ save(12) }}
- DEC LR4 1 ;;
- BLT.S CR0 LR4 refine ;;
 
  SET LR5 LR2 ;;
  {{ init('LR9',32) }}{{ init('LR11') }}
@@ -147,13 +146,10 @@ normalize:
  {% if loop.first %}LD.MULT R0 LR10 {{ cr.beta }} ;;{% endif %}
  MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if not loop.last %} ; ADD LR10 LR10 {{ cr.K }} ; LD.MULT R0 LR10 {{ cr.beta }}{% endif %} ;;
  {% endfor %}
- SET LR8 LR5 ;;
- {% for p in range(3) %}
- ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.normalized }} LR8 ;;
- {% if not loop.last %}
+ SET LR8 LR5 ; ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.normalized }} LR8 ;;
+ {% for p in range(2) %}
  LD.MULT R0 LR8 {{ cr.normalized }} ;;
- MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB ; ADD LR8 LR8 LR13 ;;
- {% endif %}
+ MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB ; ADD LR8 LR8 LR13 ; ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.normalized }} LR8 ;;
  {% endfor %}
  INC LR5 1 ; INC LR11 1 ;;
  BLT.S LR5 LR6 normalize ;;
