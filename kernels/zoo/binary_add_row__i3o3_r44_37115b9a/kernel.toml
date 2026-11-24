@@ -73,9 +73,9 @@ width = "in0_d3 * pack"
 rows = "numel // width"
 period = "inner // width"
 last_row = "period - 1"
-penultimate_row = "period - 2"
+last_plane = "rows - period"
+penultimate_plane = "last_plane - period"
 tail = "ds(width)"
-operand_slot = "128"
 
 [inputs.in0]
 shape = ["rows", 128]
@@ -93,10 +93,10 @@ out0 = "CR4"
 qf_in0 = "CR5"
 qf_operand = "CR6"
 qf_out0 = "CR7"
-rows = "CR8"
-last_row = "CR9"
+period = "CR8"
+last_plane = "CR9"
 tail = "CR10"
-penultimate_row = "CR11"
-operand_slot = "LR2"
+penultimate_plane = "CR11"
+last_row = "CR12"
 
 [cases.default]
