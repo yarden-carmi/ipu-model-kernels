@@ -77,7 +77,7 @@ groups = "in0_d0 * in0_d1 * in0_d2"
 chunks = "ceil(in0_d3 / 128)"
 total_rows = "groups * chunks"
 ds_pair = "ds((out0_d3 - 1) % 128 + 1) + ds(128) * 65536"
-# FP32 uses the difference; NX8 uses the third coefficient.
+# FP32 sees the difference of the first two coefficients; NX8 sees the third.
 fp_hi = "0x43012d41"
 fp_lo = "0x43010000"
 nx_scale = "0x00017c35"
