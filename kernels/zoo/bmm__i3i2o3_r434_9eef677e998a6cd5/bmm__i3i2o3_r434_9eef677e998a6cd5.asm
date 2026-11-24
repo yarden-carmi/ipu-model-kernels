@@ -1,5 +1,5 @@
-{# A head starts at (LR2, LR3) in B's stored row and lane coordinates.
-   Stream B along K, broadcasting one scalar from A per vector update. #}
+{# Stream B along K, broadcasting one scalar from A per vector update.
+   LR2 and LR3 are the stored row and lane of the current B head. #}
     SET LR15 CR0 ; SET LR0 CR0 ; SET LR1 CR0 ;;
     INC LR15 128 ; SET LR13 CR0 ; SET LR14 CR0 ;;
 group:
@@ -32,8 +32,6 @@ width_ready:
     DEC LR9 1 ;;
     MULT.RC.VE LR3 LR11 0 LR14 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ; DEC LR12 1 ; ADD LR9 LR9 {{ cr.stride }}.L ; BGT.S LR12 CR1 {{ tag }}_inner ;;
 {% else %}
-{# Prime B, then load the next row in the word that consumes the current
-   one. Drain the final product without reading beyond the chunk. #}
     LD.MULT.CYCLIC LR9 {{ cr.in1 }} LR14 ; DEC LR12 1 ; BEQ LR12 CR1 {{ tag }}_last ;;
 {{ tag }}_inner:
     MULT.RC.VE LR3 LR11 0 LR14 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ; LD.MULT.CYCLIC LR9 {{ cr.in1 }} LR14 ; INC LR11 1 ; ADD LR9 LR9 {{ cr.stride }}.L ; DEC LR12 1 ; BGT.S LR12 CR1 {{ tag }}_inner ;;
