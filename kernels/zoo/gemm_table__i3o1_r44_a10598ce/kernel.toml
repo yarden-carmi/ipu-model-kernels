@@ -1,0 +1,107 @@
+[kernel]
+op = "gemm_table"
+formats = ["e2"]
+
+[params.act_out0]
+type = "str"
+choices = ["silu"]
+default = "silu"
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 4096
+default = 64
+[params.n]
+type = "int"
+min = 1
+max = 4096
+default = 256
+[params.m]
+type = "int"
+min = 1
+max = 65535
+default = 4096
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 64
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65535
+default = 64
+[params.in0_d3]
+type = "int"
+min = 1
+max = 128
+default = 64
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 256
+[params.out0_d2]
+type = "int"
+min = 1
+max = 65535
+default = 64
+[params.out0_d3]
+type = "int"
+min = 1
+max = 65535
+default = 64
+
+[derived]
+pack = "128 // in0_d3"
+plane = "ceil(in0_d2 / pack)"
+lanes = "pack * in0_d3"
+pixels = "in0_d2 * in0_d3"
+batch_stride = "in0_d1 * plane"
+blocks = "ceil(out0_d1 / 128)"
+full = "ds(128)"
+tail = "ds(out0_d1 - (blocks - 1) * 128)"
+
+[inputs.in0]
+shape = ["in0_d0 * batch_stride", 128]
+range = [-2, 2]
+[inputs.coeff]
+shape = ["blocks * 2 * (k + 1)", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[outputs.out0]
+shape = ["out0_d0 * out0_d2 * out0_d3 * blocks", 128]
+
+[abi]
+in0 = "CR2"
+coeff = "CR3"
+out0 = "CR4"
+lut = "CR5"
+qf_in0 = "CR6"
+qf_out0 = "CR7"
+k = "CR8"
+plane = "CR9"
+lanes = "CR10"
+blocks = "CR11"
+full = "CR12"
+tail = "CR13"
+pixels = "CR14"
+batch_stride = "CR15"
+in0_d0 = "LR15"
+
+[cases.default]
