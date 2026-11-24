@@ -1,0 +1,168 @@
+[kernel]
+op = "gemm"
+formats = ["e1"]
+
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 65536
+default = 3
+[params.m]
+type = "int"
+min = 1
+max = 65536
+default = 1024
+[params.n]
+type = "int"
+min = 1
+max = 65536
+default = 32
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 2
+[params.in0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 512
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 3
+[params.in1_d0]
+type = "int"
+min = 1
+max = 65536
+default = 2
+[params.in1_d1]
+type = "int"
+min = 1
+max = 65536
+default = 512
+[params.in1_d2]
+type = "int"
+min = 1
+max = 65536
+default = 3
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 2
+[params.out0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 512
+[params.out0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 32
+
+[derived]
+tiles = "ceil(n / 128)"
+chunks = "ceil(k / 128)"
+jbt = "k - (chunks - 1) * 128 - 2"
+full = "ds(128)"
+tailds = "ds((n - 1) % 128 + 1)"
+rows = "in1_d0 * in1_d1"
+lastt = "tiles - 1"
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d1 * ceil(in0_d2 / 128)", 128]
+range = [-2, 2]
+[inputs.in1]
+shape = ["in1_d0 * in1_d1 * chunks", 128]
+range = [-2, 2]
+[inputs.w]
+shape = ["tiles * k + 1", 128]
+range = [-1, 1]
+[inputs.b]
+shape = ["tiles", 128]
+range = [-1, 1]
+when = "bias"
+[outputs.out0]
+shape = ["rows * tiles", 128]
+
+[abi]
+in0 = "CR15"
+in1 = "CR2"
+w = "CR3"
+b = "CR4"
+out0 = "CR5"
+qf_in1 = "CR6"
+qf_out0 = "CR7"
+tiles = "CR8"
+chunks = "CR9"
+jbt = "CR10"
+full = "CR11"
+tailds = "CR12"
+rows = "CR13"
+lastt = "CR14"
+
+[cases.default]
+bias = true
+k = 3
+m = 4
+n = 32
+in0_d0 = 1
+in0_d1 = 4
+in0_d2 = 3
+in1_d0 = 1
+in1_d1 = 4
+in1_d2 = 3
+out0_d0 = 1
+out0_d1 = 4
+out0_d2 = 32
+
+[cases.wide]
+bias = true
+k = 130
+m = 2
+n = 135
+in0_d0 = 1
+in0_d1 = 2
+in0_d2 = 130
+in1_d0 = 1
+in1_d1 = 2
+in1_d2 = 130
+out0_d0 = 1
+out0_d1 = 2
+out0_d2 = 135
+
+[cases.wide_e4]
+bias = true
+k = 130
+m = 2
+n = 135
+in0_d0 = 1
+in0_d1 = 2
+in0_d2 = 130
+in1_d0 = 1
+in1_d1 = 2
+in1_d2 = 130
+out0_d0 = 1
+out0_d1 = 2
+out0_d2 = 135
+
+[cases.nobias]
+bias = false
+k = 3
+m = 4
+n = 32
+in0_d0 = 1
+in0_d1 = 4
+in0_d2 = 3
+in1_d0 = 1
+in1_d1 = 4
+in1_d2 = 3
+out0_d0 = 1
+out0_d1 = 4
+out0_d2 = 32
