@@ -6,45 +6,46 @@ formats = ["e1", "e2"]
 type = "int"
 min = 1
 max = 4096
-default = 256
+default = 257
 [params.rows]
 type = "int"
 min = 1
 max = 32768
-default = 3072
+default = 1542
 [params.in0_d0]
 type = "int"
 default = 1
 [params.in0_d1]
 type = "int"
-default = 12
+default = 6
 [params.in0_d2]
 type = "int"
-default = 256
+default = 257
 [params.in0_d3]
 type = "int"
-default = 256
+default = 257
 [params.out0_d0]
 type = "int"
 default = 1
 [params.out0_d1]
 type = "int"
-default = 12
+default = 6
 [params.out0_d2]
 type = "int"
-default = 256
+default = 257
 [params.out0_d3]
 type = "int"
-default = 256
+default = 257
 
 [derived]
 K = "ceil(n / 128)"
 active = "ds(128)"
 part = "ds(n - (K - 1) * 128)"
 tail = "n - (K - 1) * 128"
-rootq = "312 * 65536 + 56"
+rootq = "qf(1, 2, 8, 0) * 65536 + qf(0, 2, 8, 0)"
 groups = "ceil(in0_d2 / 128)"
 pitch = "groups * in0_d1"
+head_groups = "in0_d1 * 65536 + groups"
 
 [inputs.in0]
 shape = ["in0_d0", "in0_d3", "in0_d1", "groups", 128]
@@ -56,7 +57,7 @@ shape = [12, 128]
 [scratch.roots]
 shape = ["K", 128]
 [scratch.transposed]
-shape = ["rows", "K", 128]
+shape = ["rows", "2 * K + 1", 128]
 
 [abi]
 in0 = "CR2"
@@ -65,8 +66,8 @@ rootq = "CR4"
 tmp = "CR5"
 qf_in0 = "CR6"
 K = "CR7"
-in0_d1 = "CR8"
-groups = "CR9"
+head_groups = "CR8"
+n = "CR9"
 qf_out0 = "CR10"
 roots = "CR11"
 pitch = "CR12"
