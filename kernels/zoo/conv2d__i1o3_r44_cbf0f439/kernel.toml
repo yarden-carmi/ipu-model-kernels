@@ -57,23 +57,29 @@ candidate = "max(1, 128 // wo)"
 pack = "1 + (candidate - 1) * (1 - min(1, ho % candidate))"
 segments = "ceil(wo / 128)"
 chunks = "ceil(cin / 128)"
-span = "1 + kh * kw * chunks"
-weight_end = "cout * span"
+blocks = "ceil(cout / 128)"
+panel = "ceil(cin / 16) * 16"
+span = "1 + kh * kw * panel"
+narrow = "max(0, 1 - max(cin - 128, cout - 32, kh - 3, 3 - kh, kw - 3, 3 - kw, stride - 1, padding - 1, 1 - padding, w - 128))"
+weight_rows = "narrow * cout * 10 + (1 - narrow) * blocks * span"
+origin = "-padding * (w + 1) * chunks"
+row_delta = "stride * (w - wo) * chunks"
 input_step = "stride * chunks"
-packed = "ds(min(128, wo * pack))"
-tail = "ds((wo - 1) % 128 + 1)"
+packed = "ds(((wo - 1) % 128 + 1) * pack)"
 full = "ds(128)"
 ystop = "ho * stride - padding"
 xstop = "wo * stride - padding"
 ytap_step = "w * chunks"
-yout_step = "stride * w * chunks"
+one = "ds(1)"
 
 [inputs.in0]
 shape = ["h", "w", "chunks", 128]
 range = [-2, 2]
 [inputs.weights]
-shape = ["cout", "span", 128]
+shape = ["weight_rows", 128]
 range = [-1, 1]
+[scratch.temp]
+shape = ["max(ho * wo * blocks * 2, (h + 2) * (w + 2))", 128]
 [outputs.out0]
 shape = ["cout", "ho // pack", "segments", 128]
 
@@ -84,15 +90,14 @@ out0 = "CR4"
 qf_in0 = "CR5"
 qf_out0 = "CR6"
 packed = "CR7"
-tail = "CR8"
+temp = "CR8"
 full = "CR9"
 h = "CR10"
-w = "CR11"
+one = "CR11"
 ystop = "CR12"
 xstop = "CR13"
 ytap_step = "CR14"
-yout_step = "CR15"
-weight_end = "LR15"
+panel = "CR15"
 
 [golden]
 tolerance = { e1 = "NX8_STEP", e2 = "NX8_STEP" }

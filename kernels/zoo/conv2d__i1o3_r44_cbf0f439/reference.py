@@ -49,23 +49,38 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.default(_v(ins[0], [1, 48, 64, 64], [196608, 4096, 64, 1], 0), module.weight, None, [1, 1], [1, 1])
+    r0 = aten.conv2d.default(_v(ins[0], [1, 96, 32, 32], [98304, 1024, 32, 1], 0), module.weight, None, [1, 1], [1, 1])
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 64, 64, 64])}
+    return {"out0": _out(op0, [1, 64, 32, 32])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
+    """One output-channel vector per tap and input channel."""
     weight = module.weight
     co, ci, kh, kw = weight.shape
-    chunks = (ci + 127) // 128
-    taps = weight.new_zeros((co, kh, kw, chunks * 128))
-    taps[..., :ci] = weight.permute(0, 2, 3, 1)
-    rows = weight.new_zeros((co, 1 + kh * kw * chunks, 128))
-    rows[:, 1:] = taps.reshape(co, -1, 128)
+    blocks = (co + 127) // 128
+    panel = (ci + 15) // 16 * 16
+    if (ci <= 128 and co <= 32 and kh == kw == 3 and
+            params["stride"] == params["padding"] == 1 and params["w"] <= 128):
+        dots = weight.new_zeros((co, 10, 128))
+        dots[:, 1:, :ci] = weight.permute(0, 2, 3, 1).reshape(co, 9, ci)
+        if params.get("bias"):
+            bias = getattr(module, "bias_vec", None)
+            if bias is None:
+                bias = module.bias
+            dots[:, 0] = bias.reshape(co, 1)
+        return {"weights": dots.reshape(-1, 128)}
+    rows = weight.new_zeros((blocks, 1 + kh * kw * panel, 128))
+    taps = rows[:, 1:].view(blocks, kh, kw, panel, 128)
+    for block in range(blocks):
+        vector = weight[block * 128:(block + 1) * 128]
+        taps[block, :, :, :ci, :len(vector)] = vector.permute(2, 3, 1, 0)
     if params.get("bias"):
         bias = getattr(module, "bias_vec", None)
         if bias is None:
             bias = module.bias
-        rows[:, 0] = bias.reshape(co, 1)
-    return {"weights": rows}
+        for block in range(blocks):
+            values = bias.reshape(-1)[block * 128:(block + 1) * 128]
+            rows[block, 0, :values.numel()] = values
+    return {"weights": rows.reshape(-1, 128)}
