@@ -66,7 +66,7 @@ max = 16777216
 default = 768
 [derived]
 width = "ceil(in0_d2 / 128)"
-rows = "in0_d0 * in0_d1 * width"
+last = "in0_d0 * in0_d1 * width - 1"
 tail = "ds(in0_d2 - (width - 1) * 128) + ds(128) * 65536"
 [inputs.in0]
 shape = ["in0_d0", "in0_d1", "width * 128"]
@@ -83,7 +83,7 @@ out0 = "CR4"
 qf_in0 = "CR5"
 qf_in1 = "CR6"
 qf_out0 = "CR7"
-rows = "CR8"
+last = "CR8"
 tail = "CR10"
 width = "LR14"
 [golden]
