@@ -19,12 +19,15 @@ pixel:
 block:
     SET LR2 LR5 ; SET LR7 {{ cr.k }} ; {{ coeff_load() }} ;;
     {{ mac('CR1', 'ACC.ADD.FIRST') }} ; {{ coeff_load() }} ;;
-    {{ mac('CR1') }} ;;
+    {{ mac('CR1') }} ; {{ coeff_load() }} ;;
+{# Pipeline coefficients through the MAC words; the intervening load brings
+   in the activation row shared by both coefficient components. #}
 channel:
     LD.MULT R0 LR2 {{ cr.in0 }} ;;
-    {{ coeff_load() }} ;;
-    {{ mac('LR9') }} ; {{ coeff_load() }} ; INC LR2 1 ; DEC LR7 1 ;;
-    {{ mac('LR9') }} ; BNE LR7 CR0 channel ;;
+    {{ mac('LR9') }} ; {{ coeff_load() }} ; INC LR2 1 ; DEC LR7 1 ; BEQ LR7 CR1 last_channel ;;
+    {{ mac('LR9') }} ; {{ coeff_load() }} ; B channel ;;
+last_channel:
+    {{ mac('LR9') }} ;;
     BLT.S LR6 {{ cr.last }} store_full ;;
     {{ store(cr.tail_ds, 'INC LR9 1') }}
     BLT.S LR9 {{ cr.in0_d3 }} pixel ;;
