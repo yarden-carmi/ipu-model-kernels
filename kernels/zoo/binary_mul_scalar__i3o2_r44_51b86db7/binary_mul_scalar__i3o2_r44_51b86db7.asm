@@ -16,7 +16,7 @@
 
     SET LR14 CR0 ; SET LR0 CR0 ; SET LR1 CR0 ;;
     SET LR3 CR0 ;;
-    {# Synthesize a resident coefficient row in the input format. #}
+    {# Construct the 0.125 coefficient in the input QF. #}
     {{ product('CR0', 'ADD.FIRST') }}
     ACTIVATE.QUANTIZE exp2 {{ full }} {{ qi }} {{ cr.scalar }} LR14 ;;
     LD.MULT R0 LR14 {{ cr.scalar }} ;;
@@ -38,7 +38,7 @@ tile:
     SET LR8 LR15 ;;
 gather:
     LD.MULT R0 LR4 {{ cr.in0 }} ; BEQ LR8 CR1 singleton ;;
-    {# Each input row contributes one lane to the transposed output row. #}
+    {# Pick the column lane from each source row and scatter into the output row. #}
     {{ scatter(prefetch=true) }} ; INC LR6 2 ;;
     BLT.S LR8 LR6 finish_gather ;;
 gather_next:
