@@ -1,37 +1,36 @@
-{% macro start_sum() %}
-    MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST
-    ; LD.MULT R1 LR3 {{ cr.operand }} ; ADD LR4 LR1 CR0 ; INC LR1 1 ;;
+{% macro load_sum() %}
+    LD.MULT R0 LR1 {{ cr.in0 }} ;;
+    MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; LD.MULT R1 LR3 {{ cr.operand }} ;;
 {% endmacro %}
-{% macro finish_sum(ds, prefetch=false) %}
-    MULT.VE LR2 CR1 0 LR0 CR15.L {{ cr.qf_operand }}.L ; ACC.ADD
-    ; ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR4
-    ; INC LR3 1
-    {% if prefetch %}; LD.MULT R0 LR1 {{ cr.in0 }}{% endif %}
+{% macro store_sum(ds) %}
+    MULT.VE LR2 CR1 0 LR0 CR15.L {{ cr.qf_operand }}.L ; ACC.ADD ; ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1
 {% endmacro %}
 
     SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
-    INC LR2 128 ; BNE {{ cr.mixed_width }} CR0 partial_plane ;;
-
-    {# All physical rows have the same valid width. Stream within each plane. #}
+    INC LR2 128 ; SET LR5 CR0 ;;
+    INC LR5 1 ;;
+    BEQ {{ cr.ic }} LR5 single_plane ;;
 plane:
-    SET LR3 CR0 ; LD.MULT R0 LR1 {{ cr.in0 }} ; BEQ {{ cr.last_row }} CR0 plane_tail ;;
+    SET LR3 CR0 ;;
 row:
-    {{ start_sum() }}
-    {{ finish_sum(cr.tail ~ '.L', true) }} ; BLT.S LR3 {{ cr.penultimate_row }} row ;;
-plane_tail:
-    {{ start_sum() }}
-    {{ finish_sum(cr.tail ~ '.L') }} ; BLT.S LR4 {{ cr.last_output }} plane ;;
+    SET LR4 {{ cr.ic }} ;;
+chunk:
+    {{ load_sum() }}
+    {{ store_sum('CR15.L') }} ; INC LR3 1 ; DEC LR4 1 ;;
+    INC LR1 1 ; BNE LR4 LR5 chunk ;;
+tail:
+    {{ load_sum() }}
+    {{ store_sum(cr.tail ~ '.L') }} ; INC LR3 1 ;;
+    INC LR1 1 ; BLT.S LR3 {{ cr.plane_rows }} row ;;
+    BLT.S LR1 {{ cr.rows }} plane ;;
     HALT ;;
 
-    {# A logical row consists of full chunks and a narrower final chunk. #}
-partial_plane:
+# A one-chunk row always uses the tail mask; no chunk dispatch is needed.
+single_plane:
     SET LR3 CR0 ;;
-partial_row:
-    SET LR5 CR1 ; LD.MULT R0 LR1 {{ cr.in0 }} ;;
-chunk:
-    {{ start_sum() }}
-    {{ finish_sum('CR15.L', true) }} ; INC LR5 1 ; BLT.S LR5 {{ cr.last_chunk }} chunk ;;
-    {{ start_sum() }}
-    {{ finish_sum(cr.tail ~ '.L') }} ; BLT.S LR3 {{ cr.last_row }} partial_row ;;
-    BLT.S LR4 {{ cr.last_output }} partial_plane ;;
+single_row:
+    {{ load_sum() }}
+    {{ store_sum(cr.tail ~ '.L') }} ; INC LR3 1 ;;
+    INC LR1 1 ; BLT.S LR3 {{ cr.plane_rows }} single_row ;;
+    BLT.S LR1 {{ cr.rows }} single_plane ;;
     HALT ;;
