@@ -67,12 +67,10 @@ max = 65536
 default = 64
 
 [derived]
-ra_row = "128"
 ic = "ceil(in0_d3 / 128)"
 capacity = "max(1, 128 // in0_d3)"
 pack = "1 + (capacity - 1) * (1 - min(1, in0_d2 % capacity))"
 plane_rows = "in0_d2 // pack * ic"
-plane_penultimate = "max(0, plane_rows - 2)"
 rows = "in0_d0 * in0_d1 * plane_rows"
 tail = "ds((out0_d3 * pack - 1) % 128 + 1)"
 
@@ -95,8 +93,6 @@ qf_out0 = "CR7"
 ic = "CR8"
 rows = "CR9"
 plane_rows = "CR10"
-plane_penultimate = "CR11"
-ra_row = "CR12"
 tail = "CR13"
 
 [cases.default]
