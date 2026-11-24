@@ -11,7 +11,7 @@
     INC LR7 128 ;;
 group:
     SET LR11 LR14 ; SET LR10 LR13 ; SET LR9 {{ cr.offset }} ;;
-    SET LR8 {{ heads }} ;;
+    SET LR8 {{ cr.nh }}.H ;;
 normalize:
     BLT.S LR9 LR7 head ;;
     DEC LR9 128 ; INC LR10 1 ; B normalize ;;
@@ -22,7 +22,6 @@ column:
     INC LR5 1 ;;
 column_load:
     LD.MULT.CYCLIC LR5 {{ cr.in1 }} LR7 ;;
-column_setup:
     SET LR4 LR11 ; SET LR5 {{ m }} ;;
 tile:
     SET LR2 CR0 ; SET LR6 LR5 ; LD.MULT R0 LR4 {{ cr.in0 }} ;;
