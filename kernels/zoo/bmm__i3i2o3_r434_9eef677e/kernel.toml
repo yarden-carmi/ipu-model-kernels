@@ -28,6 +28,9 @@ range = [-1, 1]
 [outputs.out0]
 shape = ["out0_d0", "out0_d1", "out0_d2", "ceil(out0_d3/128)*128"]
 
+[scratch.panel]
+shape = ["k", 128]
+
 [derived]
 arows = "ceil(in0_d3/128)"
 brows = "ceil(in1_d2/128)"
@@ -35,7 +38,11 @@ stride = "brows + arows*65536"
 ds = "ds(128) + ds((n-1)%128+1)*65536"
 mh = "m + in0_d1*65536"
 group_rows = "in1_d1*brows"
-all_group_rows = "in1_d0*group_rows"
+key_offset = "in1_d2-in0_d1*n"
+key_row = "key_offset//128"
+key_lane = "key_offset%128"
+n_lane = "n+key_lane*65536"
+all_group_rows = "in1_d0*group_rows+key_row"
 
 [abi]
 in0 = "CR2"
@@ -43,7 +50,7 @@ in1 = "CR3"
 out0 = "CR4"
 all_group_rows = "CR5"
 k = "CR6"
-n = "CR7"
+n_lane = "CR7"
 mh = "CR8"
 stride = "CR9"
 ds = "CR10"
@@ -51,6 +58,8 @@ qf_in0 = "CR11"
 qf_in1 = "CR12"
 qf_out0 = "CR13"
 group_rows = "CR14"
+panel = "CR15"
+key_row = "LR1"
 
 [cases.default]
 b = 4
