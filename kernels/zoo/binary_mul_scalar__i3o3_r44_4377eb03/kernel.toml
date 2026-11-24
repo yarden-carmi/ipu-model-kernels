@@ -71,12 +71,15 @@ shape = ["rows", 128]
 range = [-2.0, 2.0]
 [outputs.out0]
 shape = ["out0_d0 * out0_d1 * out0_d2 * ceil(out0_d3 / 128)", 128]
+[scratch.scalar]
+shape = [1, 128]
 
 [derived]
 groups = "in0_d0 * in0_d1 * in0_d2"
 chunks = "ceil(in0_d3 / 128)"
 rows = "groups * chunks"
 last_row = "rows - 1"
+penultimate_row = "max(0, last_row - 1)"
 last = "(in0_d3 - 1) % 128 + 1"
 full_lanes = "128"
 ds_pair = "ds(last) + ds(128) * 65536"
@@ -100,5 +103,7 @@ nx_scale = "CR11"
 last = "CR12"
 full_lanes = "CR13"
 last_row = "CR14"
+scalar = "CR15"
+penultimate_row = "LR5"
 
 [cases.default]

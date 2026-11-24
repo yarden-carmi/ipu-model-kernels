@@ -9,6 +9,15 @@
     ; ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR4
     ; INC LR4 1 ; INC LR1 1 {{ control }} ;;
 {% endmacro %}
+{% set full = cr.ds_pair ~ '.H' %}
+{% set qi = cr.qf_in0 ~ '.L' %}
+{% macro stream(prefetch=false, control='') %}
+    MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ qi }} ; ACC.ADD.FIRST
+    ; ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ full }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR4
+    ; INC LR4 1
+    {% if prefetch %}; INC LR1 1 ; LD.MULT R0 LR1 {{ cr.in0 }}{% endif %}
+    {{ control }} ;;
+{% endmacro %}
 
     SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
     {# The store sees the incremented address; the branch sees the old row index. #}
@@ -27,5 +36,17 @@ tail:
     BLT.S LR2 {{ cr.groups }} group ;;
     HALT ;;
 dense:
-    {{ row(cr.ds_pair ~ '.H', '; BLT.S LR1 ' ~ cr.last_row ~ ' dense') }}
-    HALT ;;
+    {# Build a vector of ones, then synthesize the exact scale in either mode. #}
+    {{ product('CR0', 'ADD.FIRST', full) }}
+    ACTIVATE.QUANTIZE exp2 {{ full }} {{ qi }} {{ cr.scalar }} LR0 ;;
+    LD.MULT R0 LR0 {{ cr.scalar }} ;;
+    {{ product(cr.fp_top, 'ADD.FIRST', full) }}
+    {{ product(cr.fp_base, 'SUB', full) }}
+    {{ product(cr.nx_scale, 'ADD', full) }}
+    ACTIVATE.QUANTIZE identity {{ full }} {{ qi }} {{ cr.scalar }} LR0 ;;
+    LD.MULT.CYCLIC LR0 {{ cr.scalar }} LR0 ;;
+    LD.MULT R0 LR1 {{ cr.in0 }} ; BEQ LR1 {{ cr.last_row }} final_row ;;
+dense_loop:
+    {{ stream(true, '; BLT.S LR1 LR5 dense_loop') }}
+final_row:
+    {{ stream(false, '; HALT') }}
