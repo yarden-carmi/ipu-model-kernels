@@ -1,55 +1,51 @@
-{% macro next_key(packed) %}
-    {% if packed %}INC LR10 1{% else %}ADD LR10 LR10 {{ cr.stride }}{% endif %}
+{# R0 holds the query throughout its output row. Rotate the full input
+   row when needed so the row quantizer sees the same set of values. #}
+{% macro write(ds) %}
+    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR0 ; INC LR0 1 ;;
 {% endmacro %}
-{% macro dot(prefetch, packed, tag) %}
-    INC LR11 1 ; MULT.RC.VV LR5 R0 0 LR0 {{ cr.head }}.H {{ cr.qf_in0 }}.L ; AGG.SUM.FIRST LR11 {{ cr.head }}.H ; {% if prefetch %}{{ next_key(packed) }} ; LD.MULT R0 LR10 {{ cr.work if packed else cr.in0 }} ; DEC LR14 1 ; BNE LR14 CR1 {{ tag }}_reduce ; {% endif %};;
+{% macro dot(prefetch) %}
+    MULT.RC.VV LR5 R0 0 LR14 {{ cr.ds_full }}.L {{ cr.qf_in0 }}.L ; AGG.SUM.FIRST LR9 {{ cr.ds_full }}.H ; INC LR9 1 {% if prefetch %}; ADD LR8 LR8 {{ cr.stride }} ; LD.MULT.CYCLIC LR8 {{ cr.in0 }} LR14 ; DEC LR7 1 ; BNE LR7 CR1 dot{% endif %} ;;
 {% endmacro %}
-{% macro store(half) %}
-    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.ds_out }}.{{ half }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;;
-    INC LR1 1 ;;
-{% endmacro %}
-
+    SET LR0 CR0 ; SET LR1 CR0 ; SET LR14 CR0 ;;
+    DEC LR0 1 ; SET LR15 CR0 ;;
+    INC LR15 128 ;;
 group:
-    SET LR3 {{ cr.out0_d1 }} ; SET LR4 LR2 ; ADD LR6 LR2 {{ cr.key_start }}.L ;;
-    SET LR5 CR0 ; SET LR7 {{ cr.key_start }}.H ;;
+    SET LR2 LR1 ; SET LR3 CR0 ; ADD LR4 LR1 {{ cr.key_rows }} ;;
+    SET LR5 {{ cr.head_info }}.H ; SET LR12 {{ cr.head_info }}.L ;;
 head:
-    SET LR8 LR4 ; SET LR9 {{ cr.m }} ; BEQ LR7 CR0 direct_query ;;
-    SET LR10 LR6 ; SET LR12 {{ cr.tiles }}.H ; SET LR13 CR0 ;;
-pack_key:
-    LD.MULT.CYCLIC LR10 {{ cr.in0 }} LR0 ;;
-    MULT.RC.VE LR7 CR1 0 LR0 {{ cr.head }}.H {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ cr.head }}.H {{ cr.qf_in0 }}.L {{ cr.work }} LR13 ; DEC LR12 1 ; ADD LR10 LR10 {{ cr.stride }} ;;
-    INC LR13 1 ; BNE LR12 CR0 pack_key ;;
-
-{% macro queries(tag, packed) %}
-{{ tag }}_query:
-    LD.MULT.CYCLIC LR8 {{ cr.in0 }} LR0 ; SET LR10 {{ 'CR0' if packed else 'LR6' }} ; SET LR12 {{ cr.tiles }}.L ;;
-{{ tag }}_tile:
-    SET LR11 CR0 ; SET LR14 {{ cr.tile_count }}.H ; BNE LR12 CR1 {{ tag }}_ready ;;
-    SET LR14 {{ cr.tile_count }}.L ;;
-{{ tag }}_ready:
-    DEC LR11 1 ; LD.MULT R0 LR10 {{ cr.work if packed else cr.in0 }} ; BEQ LR14 CR0 {{ tag }}_last ;;
-{{ tag }}_reduce:
-    {{ dot(true, packed, tag) }}
-{{ tag }}_last:
-    {{ dot(false, packed, tag) }}
-    BEQ LR12 CR1 {{ tag }}_tail ;;
-    {{ store('L') }}
-    {{ next_key(packed) }} ; DEC LR12 1 ; B {{ tag }}_tile ;;
-{{ tag }}_tail:
-    {{ store('H') }}
-    ADD LR8 LR8 {{ cr.stride }} ; DEC LR9 1 ; BNE LR9 CR1 {{ tag }}_query ;;
-    B head_done ;;
-{% endmacro %}
-    {{ queries('packed', true) }}
-    {{ queries('direct', false) }}
-head_done:
-    DEC LR3 1 ; BEQ LR3 CR1 next_group ;;
-    INC.MODP2 LR5 {{ cr.head }}.L 7 ; INC.MODP2 LR7 {{ cr.head }}.L 7 ;;
-    BNE LR5 CR0 key_advance ;;
-    INC LR4 1 ;;
-key_advance:
-    BNE LR7 CR0 head ;;
-    INC LR6 1 ; B head ;;
+    SET LR6 LR2 ; SET LR11 {{ cr.sizes }}.L ;;
+query:
+    BEQ LR3 CR0 aligned ;;
+    LD.MULT.CYCLIC LR6 {{ cr.in0 }} LR14 ;;
+    LD.MULT.CYCLIC LR6 {{ cr.in0 }} LR15 ;;
+    MULT.RC.VE LR3 CR1 0 LR14 {{ cr.ds_full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ cr.ds_full }}.L {{ cr.qf_in0 }}.L {{ cr.rotated }} LR14 ;;
+    LD.MULT R0 LR14 {{ cr.rotated }} ; B start_row ;;
+aligned:
+    LD.MULT R0 LR6 {{ cr.in0 }} ;;
+start_row:
+    SET LR8 LR4 ; SET LR10 {{ cr.sizes }}.H ;;
+tile:
+    SET LR9 CR0 ; SET LR7 LR10 ; BLE.S LR10 LR15 load_key ;;
+    SET LR7 LR15 ;;
+load_key:
+    LD.MULT.CYCLIC LR8 {{ cr.in0 }} LR14 ; DEC LR9 1 ; DEC LR7 1 ; BEQ LR7 CR1 last_dot ;;
+dot:
+    {{ dot(true) }}
+last_dot:
+    {{ dot(false) }}
+store:
+    BLE.S LR10 LR15 tail ;;
+    {{ write(cr.ds_full ~ '.L') }}
+    DEC LR10 128 ; ADD LR8 LR8 {{ cr.stride }} ; B tile ;;
+tail:
+    {{ write(cr.ds_tail ~ '.L') }}
+    ADD LR6 LR6 {{ cr.stride }} ; DEC LR11 1 ; BNE LR11 CR1 query ;;
+    ADD LR3 LR3 {{ cr.k }} ; ADD LR5 LR5 {{ cr.k }} ; DEC LR12 1 ; BEQ LR12 CR1 next_group ;;
+    BLT.S LR3 LR15 key_wrap ;;
+    DEC LR3 128 ; INC LR2 1 ;;
+key_wrap:
+    BLT.S LR5 LR15 head ;;
+    DEC LR5 128 ; INC LR4 1 ; B head ;;
 next_group:
-    ADD LR2 LR2 {{ cr.group_rows }} ; DEC LR15 1 ; BNE LR15 CR1 group ;;
+    ADD LR1 LR1 {{ cr.group_rows }} ; DEC LR13 1 ; BNE LR13 CR1 group ;;
     HALT ;;

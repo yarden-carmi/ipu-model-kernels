@@ -1,19 +1,20 @@
 [kernel]
 op = "bmm"
-formats = ["e1", "e2"]
+formats = ["e2"]
 
 [params]
-b = {type="int", min=1, max=65536, default=12}
+b = {type="int", min=1, max=32767, default=12}
+# Whole, aligned heads per XMEM row: neither operand crosses a row.
 k = {type="int", choices=[16,32,64,128], default=64}
-m = {type="int", min=1, max=65536, default=256}
-n = {type="int", min=1, max=65535, default=256}
-in0_d0 = {type="int", min=1, max=65536, default=1}
-in0_d1 = {type="int", min=1, max=65536, default=256}
-in0_d2 = {type="int", min=1, max=65536, default=2304}
-out0_d0 = {type="int", min=1, max=65536, default=1}
-out0_d1 = {type="int", min=1, max=65536, default=12}
-out0_d2 = {type="int", min=1, max=65536, default=256}
-out0_d3 = {type="int", min=1, max=65536, default=256}
+m = {type="int", min=1, max=32767, default=256}
+n = {type="int", min=1, max=32767, default=256}
+in0_d0 = {type="int", min=1, max=32767, default=1}
+in0_d1 = {type="int", min=1, max=32767, default=256}
+in0_d2 = {type="int", min=1, max=65535, default=2304}
+out0_d0 = {type="int", min=1, max=32767, default=1}
+out0_d1 = {type="int", min=1, max=32767, default=12}
+out0_d2 = {type="int", min=1, max=32767, default=256}
+out0_d3 = {type="int", min=1, max=32767, default=256}
 
 [inputs.in0]
 shape = ["in0_d0", "in0_d1", "stride*128"]
@@ -22,33 +23,33 @@ range = [-1, 1]
 [outputs.out0]
 shape = ["out0_d0", "out0_d1", "out0_d2", "ceil(out0_d3/128)*128"]
 
-[scratch.work]
-shape = ["n",128]
+[scratch.rotated]
+shape = [128]
 
 [derived]
 stride = "ceil(in0_d2/128)"
 group_rows = "in0_d1*stride"
-key_start = "(out0_d1*k)//128+65536*((out0_d1*k)%128)"
-tiles = "ceil(n/128)+65536*n"
-ds_out = "ds(128)+65536*ds((n-1)%128+1)"
-head = "k+65536*ds(k)"
-tile_count = "(n-1)%128+65536*127"
+key_rows = "(out0_d1*k)//128"
+key_lane = "(out0_d1*k)%128"
+head_info = "out0_d1+65536*key_lane"
+ds_full = "ds(128)+65536*ds(k)"
+ds_tail = "ds((n-1)%128+1)"
+sizes = "m+65536*n"
 
 [abi]
 in0 = "CR2"
 out0 = "CR3"
 qf_in0 = "CR4"
 qf_out0 = "CR5"
-ds_out = "CR6"
-stride = "CR7"
-head = "CR8"
-m = "CR9"
-tiles = "CR10"
-out0_d1 = "CR11"
-key_start = "CR12"
-group_rows = "CR13"
-tile_count = "CR14"
-work = "CR15"
-out0_d0 = "LR15"
+stride = "CR6"
+group_rows = "CR7"
+key_rows = "CR8"
+head_info = "CR9"
+ds_full = "CR10"
+ds_tail = "CR11"
+rotated = "CR12"
+k = "CR13"
+sizes = "CR14"
+out0_d0 = "LR13"
 
 [cases.default]
