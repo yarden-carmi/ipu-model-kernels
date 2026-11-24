@@ -73,7 +73,7 @@ tail_ds = "ds(n - 128 * last)"
 chunks = "ceil(in0_d1 / 128)"
 in_rows = "in0_d0 * in0_d2 * in0_d3 * chunks"
 dot = "min(1, max(0, 2 - m)) * min(1, max(0, 2 - in0_d0 * in0_d2 * in0_d3)) * max(0, 1 - max(k - in0_d1, in0_d1 - k))"
-split = "min(k, 12) * max(0, 1 - max(0, k - 16)) * max(0, 1 - max(0, n - 128)) * max(0, 1 - max(0, in0_d1 - 128)) * (1 - dot)"
+split = "min(k, 10) * max(0, 1 - max(0, k - 16)) * max(0, 1 - max(0, n - 128)) * max(0, 1 - max(0, in0_d1 - 128)) * (1 - dot)"
 coeff_rows = "(1 - dot) * blocks * (k + 1 + split) + dot * (blocks + n * chunks)"
 
 [inputs.in0]

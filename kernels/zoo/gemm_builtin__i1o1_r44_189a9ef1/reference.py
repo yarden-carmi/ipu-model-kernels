@@ -53,11 +53,11 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 144, 1, 1], [144, 1, 1, 1], 0), module.weight, module.bias)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 16, 1, 1], [16, 1, 1, 1], 0), module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.relu_.default(_v(op0, [1, 40, 1, 1], [40, 1, 1, 1], 0))
+    r0 = aten.relu_.default(_v(op0, [1, 8, 1, 1], [8, 1, 1, 1], 0))
     op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 40, 1, 1])}
+    return {"out0": _out(op1, [1, 8, 1, 1])}
 # ---- end of the frozen reference ----
 
 
@@ -92,7 +92,7 @@ def fold(module, **params):
         rows[1:, :n] = weights.T
         rows = rows.reshape(k + 1, blocks, 128).transpose(0, 1)
         if k <= 16 and n <= 128 and params['in0_d1'] <= 128:
-            split = min(k, 12)
+            split = min(k, 10)
             panel = rows[:, 1:split + 1]
             _, exp = torch.frexp(panel.abs().amax(dim=-1, keepdim=True))
             step = torch.ldexp(torch.ones_like(panel[..., :1]), exp - 4)
