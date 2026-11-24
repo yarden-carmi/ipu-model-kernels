@@ -1,0 +1,132 @@
+[kernel]
+op = "conv2d_builtin"
+formats = ["e1", "e2"]
+
+[params.act_out0]
+type = "str"
+choices = ["relu"]
+default = "relu"
+[params.bias]
+type = "bool"
+default = true
+[params.cin]
+type = "int"
+min = 1
+max = 512
+default = 88
+[params.cout]
+type = "int"
+min = 1
+max = 512
+default = 88
+[params.groups]
+type = "int"
+min = 1
+max = 512
+default = 88
+[params.h]
+type = "int"
+min = 4
+max = 224
+default = 28
+[params.w]
+type = "int"
+min = 2
+max = 128
+default = 28
+[params.kh]
+type = "int"
+choices = [3]
+default = 3
+[params.kw]
+type = "int"
+choices = [3]
+default = 3
+[params.padding]
+type = "int"
+choices = [1]
+default = 1
+[params.stride]
+type = "int"
+min = 1
+max = 2
+default = 1
+[params.in0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 512
+default = 88
+[params.in0_d2]
+type = "int"
+min = 4
+max = 224
+default = 28
+[params.in0_d3]
+type = "int"
+min = 2
+max = 128
+default = 28
+[params.out0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 512
+default = 88
+[params.out0_d2]
+type = "int"
+min = 2
+max = 224
+default = 28
+[params.out0_d3]
+type = "int"
+min = 1
+max = 128
+default = 28
+
+[derived]
+pack = "1 + (128 // in0_d3 - 1) * (1 - min(1, in0_d2 % (128 // in0_d3)))"
+input_rows = "in0_d1 * (in0_d2 // pack)"
+plane = "in0_d2 * stride"
+icpg = "cin // groups"
+ocpg = "cout // groups"
+group_pitch = "icpg * plane"
+output_rows = "out0_d1 * out0_d2"
+tail = "ds(out0_d3)"
+
+[inputs.in0]
+shape = ["input_rows", 128]
+range = [-2, 2]
+[inputs.weights]
+shape = ["out0_d1", "3 + 27 * icpg", 128]
+range = [-1, 1]
+[outputs.out0]
+shape = ["output_rows", 128]
+[scratch.spatial]
+shape = ["in0_d1 * plane", 128]
+
+[abi]
+in0 = "CR2"
+weights = "CR3"
+out0 = "CR4"
+spatial = "CR5"
+qf_in0 = "CR6"
+qf_out0 = "CR7"
+tail = "CR8"
+input_rows = "CR9"
+plane = "CR10"
+out0_d2 = "CR11"
+ocpg = "CR12"
+output_rows = "CR13"
+icpg = "CR14"
+group_pitch = "CR15"
+
+[cases.default]
+[golden]
+tolerance = { e1 = "NX8_STEP", e2 = "NX8_STEP" }
