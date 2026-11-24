@@ -17,11 +17,22 @@ default = 64
 [params.cout]
 type = "int"
 min = 1
+max = 128
 default = 64
 [params.groups]
 type = "int"
 min = 1
+max = 128
 default = 1
+[params.h]
+type = "int"
+min = 1
+default = 8
+[params.w]
+type = "int"
+min = 1
+max = 256
+default = 8
 [params.kh]
 type = "int"
 choices = [3]
@@ -38,15 +49,6 @@ default = 1
 type = "int"
 choices = [1]
 default = 1
-[params.h]
-type = "int"
-min = 1
-default = 32
-[params.w]
-type = "int"
-min = 1
-max = 256
-default = 32
 [params.in0_d0]
 type = "int"
 min = 1
@@ -59,12 +61,12 @@ default = 64
 [params.in0_d2]
 type = "int"
 min = 1
-default = 32
+default = 8
 [params.in0_d3]
 type = "int"
 min = 1
 max = 256
-default = 32
+default = 8
 [params.out0_d0]
 type = "int"
 min = 1
@@ -72,37 +74,37 @@ default = 1
 [params.out0_d1]
 type = "int"
 min = 1
+max = 128
 default = 64
 [params.out0_d2]
 type = "int"
 min = 1
-default = 32
+default = 8
 [params.out0_d3]
 type = "int"
 min = 1
 max = 256
-default = 32
+default = 8
 
 [derived]
-chunks = "(in0_d3 + 127) // 128"
-pitch = "in0_d1 * chunks"
-panel_rows = "2 * ((in0_d1 + 31) // 32)"
-filter_rows = "2 + 3 * panel_rows"
-panel_end = "95 + 65536 * (3 * ((in0_d1 - 1) % 32 + 1) - 1)"
-input_rows = "in0_d0 * in0_d2 * pitch"
+chunks = "ceil(in0_d3 / 128)"
+out_chunks = "ceil(out0_d3 / 128)"
+row_stride = "in0_d1 * chunks"
+out_rows = "out0_d0 * out0_d2 * out0_d1 * out_chunks"
+tap_rows = "9 * in0_d1"
+tile_rows = "3 + 3 * tap_rows"
+channel_rows = "chunks * tile_rows"
 full = "ds(128)"
-tail = "ds((out0_d3 - 1) % 128 + 1)"
+tail = "ds(out0_d3 - 128 * (out_chunks - 1))"
 
 [inputs.in0]
 shape = ["in0_d0", "in0_d2", "in0_d1", "chunks", 128]
-range = [-2, 2]
+range = [-1, 1]
 [inputs.weights]
-shape = ["1 + out0_d1 * filter_rows", 128]
+shape = ["1 + out0_d1 * channel_rows", 128]
 range = [-1, 1]
 [outputs.out0]
-shape = ["out0_d0", "out0_d2", "out0_d1", "chunks", 128]
-[scratch.clean]
-shape = ["input_rows", 128]
+shape = ["out_rows", 128]
 
 [abi]
 in0 = "CR2"
@@ -113,15 +115,11 @@ qf_out0 = "CR6"
 full = "CR7"
 tail = "CR8"
 in0_d2 = "CR9"
-out0_d1 = "CR10"
-pitch = "CR11"
-panel_rows = "CR12"
-filter_rows = "CR13"
-panel_end = "CR14"
-clean = "CR15"
-in0_d0 = "LR15"
+in0_d1 = "CR10"
+out0_d1 = "CR11"
+row_stride = "CR12"
+tap_rows = "CR13"
+channel_rows = "CR14"
+out_rows = "CR15"
 
 [cases.default]
-
-[golden]
-tolerance = { e1 = "NX8_STEP", e2 = "NX8_STEP" }
