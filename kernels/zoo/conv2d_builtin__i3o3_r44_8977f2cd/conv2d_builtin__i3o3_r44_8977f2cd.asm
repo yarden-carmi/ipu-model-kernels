@@ -1,131 +1,86 @@
+{% set w = in0_d3 %}
+{% set p = [1, 128 // w]|max %}
+{% set pack = p if in0_d2 % p == 0 else 1 %}
+{% set chunks = (w + 127) // 128 %}
 {% set qi = cr.qf_in0 ~ '.L' %}
 {% set full = cr.full ~ '.L' %}
-{% set chunks = (in0_d3 + 127) // 128 %}
-{% set candidate = [1, 128 // in0_d3]|max %}
-{% set pack = candidate if in0_d2 % candidate == 0 else 1 %}
-{% set ntaps = (15 if pack > 1 or chunks == 2 else 9) * cin %}
 
-{# The cyclic window is [previous, current, next]. Missing rows are zero. #}
-{% macro neighbors(tag) %}
- LD.MULT.CYCLIC LR0 {{ cr.masks }} LR0 ; SET LR6 LR9 ; SET LR7 LR9 ; SET LR8 LR5 ;;
- LD.MULT.CYCLIC LR0 {{ cr.masks }} LR12 ; DEC LR6 1 ; INC LR7 1 ;;
- {% if pack == 1 %}
- {% if tag == 'top' %}DEC LR8 {{ chunks }} ;;{% elif tag == 'bottom' %}INC LR8 {{ chunks }} ;;{% endif %}
- {% endif %}
- LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR11 ; BEQ LR8 CR0 no_prev_{{ tag }} ;;
- LD.MULT.CYCLIC LR6 {{ cr.in0 }} LR0 ;;
- no_prev_{{ tag }}:
- INC LR8 1 ;;
- BGE.S LR8 {{ cr.tiles }} no_next_{{ tag }} ;;
- LD.MULT.CYCLIC LR7 {{ cr.in0 }} LR12 ;;
- no_next_{{ tag }}:
+{% macro offset(reg, n) %}
+{% if n > 0 %}INC {{ reg }} {{ n }} ;;{% elif n < 0 %}DEC {{ reg }} {{ -n }} ;;{% endif %}
 {% endmacro %}
 
-{% macro sample(delta) %}
- SET LR15 LR11 ; LD.MULT R0 LR10 {{ cr.masks }} ;;
- {% if delta < 0 %}DEC LR15 {{ -delta }} ;;{% elif delta > 0 %}INC LR15 {{ delta }} ;;{% endif %}
- MULT.RC.VV LR15 R0 0 LR0 {{ full }} {{ qi }} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ full }} {{ qi }} {{ cr.patches }} LR1 ; INC LR10 1 ;;
- INC LR1 1 ;;
+{# The cyclic window contains previous/current/next physical rows.
+   Off-image loads fall back to the current row; folded weights mask them. #}
+{% macro window(tag, dy) %}
+{% for dx in [-1, 0, 1] %}
+{% set d = dy + dx %}
+ SET LR13 LR9 ;;
+ {{ offset('LR13', d) }}
+ {% if d < 0 %}BGE.S LR13 CR0 {{ tag }}_{{ loop.index }} ;;
+ SET LR13 LR9 ;;
+ {{ tag }}_{{ loop.index }}:
+ {% elif d > 0 %}BLT.S LR13 {{ cr.plane }} {{ tag }}_{{ loop.index }} ;;
+ SET LR13 LR9 ;;
+ {{ tag }}_{{ loop.index }}:
+ {% endif %}
+ ADD LR10 LR12 LR13 ; LD.MULT.CYCLIC LR10 {{ cr.in0 }} {{ ['LR0', 'LR1', 'LR2'][loop.index0] }} ;;
+{% endfor %}
 {% endmacro %}
 
-{% macro patches(ky) %}
- {% if pack == 1 %}
- SET LR9 LR4 ; SET LR8 LR5 ;;
- {% if ky == -1 %}DEC LR9 {{ chunks }} ; DEC LR8 {{ chunks }} ;;{% elif ky == 1 %}INC LR9 {{ chunks }} ; INC LR8 {{ chunks }} ;;{% endif %}
- BLT.S LR8 CR0 zero_{{ ky+1 }} ;;
- BGE.S LR8 {{ cr.tiles }} zero_{{ ky+1 }} ;;
- {{ neighbors(['top','middle','bottom'][ky+1]) }}
- B patch_{{ ky+1 }} ;;
- zero_{{ ky+1 }}:
- LD.MULT.CYCLIC LR0 {{ cr.masks }} LR11 ;;
- LD.MULT.CYCLIC LR0 {{ cr.masks }} LR0 ;;
- LD.MULT.CYCLIC LR0 {{ cr.masks }} LR12 ;;
- patch_{{ ky+1 }}:
- {% endif %}
- {% for kx in [-1,0,1] %}
- {% set delta = kx + (ky * in0_d3 if pack > 1 else 0) %}
- {{ sample(delta) }}
- {% if (pack > 1 and ky != 0) or (chunks == 2 and kx != 0) %}
- {{ sample(delta + (ky * (128 - pack * in0_d3) if pack > 1 else 0)) }}
- {% endif %}
+{% macro fetch() %}INC LR7 1 ; LD.MULT R0 LR7 {{ cr.weights }}{% endmacro %}
+
+{% macro reduce(index, first=false, bias=false) %}
+ {% for part in range(3) %}
+ {% if bias %}MULT.VE LR0 CR1 0 LR0 {{ full }} {{ qi }}
+ {% else %}MULT.RC.VV {{ index }} R0 0 LR0 {{ full }} {{ qi }}{% endif %}
+ ; {{ 'ACC.ADD.FIRST' if first and part == 0 else 'ACC.ADD' }}{% if part < 2 %} ; {{ fetch() }}{% endif %} ;;
  {% endfor %}
 {% endmacro %}
 
-{# Each panel is stored as three residual components. Rewind the patch
-   pointer between components, never rounding the accumulated output. #}
-{% macro panel(n, tag) %}
- SET LR10 LR4 ; SET LR14 CR0 ;;
- part_{{ tag }}:
- SET LR4 LR10 ; SET LR7 CR0 ;;
- LD.MULT R0 LR5 {{ cr.weights }} ;;
- LD.MULT.CYCLIC LR4 {{ cr.patches }} LR11 ; INC LR5 1 ; DEC LR7 1 ;;
- {% if n > 1 %}
- mac_{{ tag }}:
- MULT.RC.VE LR11 LR7 0 LR0 {{ full }} {{ qi }} ; ACC.ADD ; INC LR7 1 ; INC LR4 1 ; LD.MULT.CYCLIC LR4 {{ cr.patches }} LR11 ; BLT.S LR7 {{ 'LR8' if n == 128 else 'LR9' }} mac_{{ tag }} ;;
- {% endif %}
- MULT.RC.VE LR11 LR7 0 LR0 {{ full }} {{ qi }} ; ACC.ADD ; INC LR7 1 ; INC LR4 1 ;;
- INC LR14 1 ;;
- BLT.S LR14 {{ cr.parts }} part_{{ tag }} ;;
+{% macro chunk(c) %}
+ {% set tag = 'c' ~ c %}
+ SET LR3 CR0 ; SET LR8 CR0 ;;
+ {{ offset('LR8', c) }}
+{{ tag }}_channel:
+ SET LR9 CR0 ;;
+ {{ offset('LR9', c) }}
+{{ tag }}_tile:
+ SET LR7 LR6 ; SET LR12 CR0 ;;
+ DEC LR7 1 ;;
+ {{ fetch() }} ;;
+ {{ reduce('LR0', true, true) }}
+{{ tag }}_input_channel:
+ {% if pack > 1 %}{{ window(tag ~ '_packed', 0) }}{% endif %}
+ {% for y in [-1,0,1] %}
+ {% if pack == 1 %}{{ window(tag ~ '_y' ~ loop.index, y * chunks) }}{% endif %}
+ {% for x in [-1,0,1] %}
+ SET LR11 LR1 ;;
+ {{ offset('LR11', (y * w if pack > 1 else 0) + x) }}
+ {{ fetch() }} ;;
+ {{ reduce('LR11') }}
+ {% endfor %}
+ {% endfor %}
+ ADD LR12 LR12 {{ cr.plane }} ;;
+ BLT.S LR12 {{ cr.input_end }} {{ tag }}_input_channel ;;
+ ACTIVATE.QUANTIZE {{ act_out0 }} {{ (cr.head if c == 0 else cr.tail) }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR8 ;;
+ INC LR8 {{ chunks }} ; INC LR9 {{ chunks }} ;;
+ BGE.S LR9 {{ cr.plane }} {{ tag }}_next_channel ;;
+ BEQ LR9 LR15 {{ tag }}_next_variant ;;
+ BEQ LR9 LR14 {{ tag }}_next_variant ;;
+ BEQ LR0 CR0 {{ tag }}_tile ;;
+{{ tag }}_next_variant:
+ ADD LR6 LR7 CR1 ; BEQ LR0 CR0 {{ tag }}_tile ;;
+{{ tag }}_next_channel:
+ ADD LR6 LR7 CR1 ; INC LR3 1 ;;
+ BLT.S LR3 {{ cr.out0_d1 }} {{ tag }}_channel ;;
 {% endmacro %}
 
- SET LR0 CR0 ; SET LR3 CR0 ; SET LR5 CR0 ;;
- SET LR11 CR0 ; SET LR12 CR0 ; SET LR13 CR0 ;;
- INC LR11 128 ; INC LR12 255 ;;
- INC LR12 1 ;;
- tile:
- SET LR1 CR0 ; SET LR4 LR5 ; ADD LR14 LR5 {{ cr.input_rows }} ;;
- gather:
- SET LR10 CR0 ;;
- INC LR10 1 ;;
- {% if chunks == 2 %}
- BEQ LR13 CR0 mask_start ;;
- INC LR10 15 ;;
- mask_start:
- {% endif %}
- {% if pack > 1 %}SET LR9 LR4 ;;{{ neighbors('narrow') }}{% endif %}
- {% for ky in [-1,0,1] %}{{ patches(ky) }}{% endfor %}
- ADD LR4 LR4 {{ cr.tiles }} ;;
- BLT.S LR4 LR14 gather ;;
-
- SET LR2 LR5 ; SET LR5 CR0 ; SET LR6 LR3 ;;
- SET LR8 CR0 ; SET LR9 CR0 ;;
- INC LR8 125 ;;
- {% set tail = ntaps % 128 %}
- {% if tail > 3 %}INC LR9 {{ tail - 3 }} ;;{% elif tail == 2 %}DEC LR9 1 ;;{% endif %}
- channel:
- SET LR4 CR0 ; SET LR1 CR0 ;;
- {% for p in range(3) %}
- LD.MULT.CYCLIC LR5 {{ cr.weights }} LR0 ;;
- MULT.RC.VE LR0 CR1 0 LR0 {{ full }} {{ qi }} ; {{ 'ACC.ADD.FIRST' if p == 0 else 'ACC.ADD' }} ; INC LR5 1 ;;
+ SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
+ INC LR1 128 ; INC LR2 255 ; SET LR6 CR0 ;;
+ INC LR2 1 ; SET LR14 {{ cr.plane }} ; SET LR15 CR0 ;;
+ DEC LR14 {{ chunks }} ; INC LR15 {{ chunks }} ;;
+ {% for c in range(chunks) %}
+ {% if c %}INC LR14 1 ; INC LR15 1 ;;{% endif %}
+ {{ chunk(c) }}
  {% endfor %}
- {% if ntaps >= 128 %}
- panels:
- {{ panel(128, 'full') }}
- INC LR1 1 ;;
- BLT.S LR1 {{ cr.panels }} panels ;;
- {% endif %}
- {% if tail %}{{ panel(tail, 'tail') }}{% endif %}
- {% if chunks == 2 %}
- BEQ LR13 CR0 store_full ;;
- {% endif %}
- ACTIVATE.QUANTIZE {{ act_out0 }} {{ cr.tail }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR6 ;;
- {% if chunks == 2 %}
- B stored ;;
- store_full:
- ACTIVATE.QUANTIZE {{ act_out0 }} {{ full }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR6 ;;
- stored:
- {% endif %}
- ADD LR6 LR6 {{ cr.tiles }} ;;
- BLT.S LR5 {{ cr.weight_rows }} channel ;;
- SET LR5 LR2 ;;
- INC LR5 1 ; INC LR3 1 ;;
- {% if chunks == 2 %}
- BEQ LR13 CR0 first_chunk ;;
- SET LR13 CR0 ;;
- B next_tile ;;
- first_chunk:
- INC LR13 1 ;;
- next_tile:
- {% endif %}
- BLT.S LR5 {{ cr.tiles }} tile ;;
  HALT ;;

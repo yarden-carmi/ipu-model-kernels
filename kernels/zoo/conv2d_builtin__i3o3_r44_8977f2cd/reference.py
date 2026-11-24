@@ -49,58 +49,49 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 64, 64], [262144, 4096, 64, 1], 0), module.weight, module.bias, [1, 1], [1, 1])
+    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 16, 16], [16384, 256, 16, 1], 0), module.weight, module.bias, [1, 1], [1, 1])
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.relu.default(_v(op0, [1, 32, 64, 64], [131072, 4096, 64, 1], 0))
+    r0 = aten.relu.default(_v(op0, [1, 16, 16, 16], [4096, 256, 16, 1], 0))
     op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 32, 64, 64])}
+    return {"out0": _out(op1, [1, 16, 16, 16])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Build scalar coefficient panels and masks for the packed spatial taps."""
-    width, height = params['in0_d3'], params['in0_d2']
-    pack = max(1, 128 // width)
-    if height % pack:
+    """Fold border masks into the spatial vectors, with two residual parts."""
+    weight = module.weight.detach().double()
+    cout, cin = weight.shape[:2]
+    h, w = params['in0_d2'], params['in0_d3']
+    pack = max(1, 128 // w)
+    if h % pack:
         pack = 1
-    chunks = (width + 127) // 128
-    w = module.weight.detach().double()
-    indices = []
-    masks = [w.new_zeros(128)]
-    lanes = torch.arange(128)
-    for chunk in range(chunks):
-        x = lanes % width if chunks == 1 else lanes + 128 * chunk
-        active = lanes < pack * width if chunks == 1 else x < width
-        for ky in (-1, 0, 1):
-            for kx in (-1, 0, 1):
-                horizontal = active & (x + kx >= 0) & (x + kx < width)
-                if pack > 1:
-                    local = (lanes // width + ky >= 0) & (lanes // width + ky < pack)
-                else:
-                    local = (lanes + kx >= 0) & (lanes + kx < 128)
-                spill = (pack > 1 and ky != 0) or (chunks == 2 and kx != 0)
-                keep = horizontal & local
-                masks.append(keep.to(w.dtype))
-                if chunk == 0:
-                    indices.append(3 * (ky + 1) + kx + 1)
-                if spill:
-                    masks.append((horizontal & ~local).to(w.dtype))
-                    if chunk == 0:
-                        indices.append(indices[-1])
-    taps = w.flatten(2)[:, :, indices].flatten(1)
-    panels = torch.nn.functional.pad(taps, (0, -taps.shape[1] % 128))
-    panels = panels.reshape(w.shape[0], -1, 128)
-    bias = module.bias.double()[:, None, None].expand(-1, 1, 128)
+    blocks, chunks = h // pack, (w + 127) // 128
+    variants = [0] if blocks == 1 else ([0, 1] if blocks == 2 else [0, 1, blocks - 1])
+    coeff = weight.new_zeros((cout, 1 + 9 * cin))
+    if params['bias']:
+        coeff[:, 0] = module.bias
+    coeff[:, 1:] = weight.reshape(cout, -1)
 
-    def split(rows):
-        parts = []
-        for _ in range(2):
-            _, e = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
-            step = torch.exp2(e.double() - 5)
-            part = (rows / step).round().clamp(-32, 32) * step
-            parts.append(part)
-            rows = rows - part
-        return torch.stack((*parts, rows), dim=2).flatten(1, 2)
+    _, exponent = torch.frexp(coeff.abs())
+    parts = []
+    for i in range(2):
+        step = torch.exp2(exponent.double() - 5 * (i + 1))
+        part = (coeff / step).round().clamp(-31, 31) * step
+        parts.append(part)
+        coeff = coeff - part
+    parts.append(coeff)
+    coeff = torch.stack(parts, dim=-1)
 
-    weights = torch.cat((split(bias), split(panels)), dim=1)
-    return {'weights': weights.reshape(-1, 128), 'masks': torch.stack(masks)}
+    lane = torch.arange(128, device=weight.device)
+    taps = torch.arange(9, device=weight.device)
+    masks = []
+    for c in range(chunks):
+        x = lane % w if pack > 1 else c * 128 + lane
+        for block in variants:
+            y = block * pack + (lane // w if pack > 1 else torch.zeros_like(lane))
+            valid = (x < w) & (y < (block + 1) * pack)
+            xx, yy = x + taps[:, None] % 3 - 1, y + taps[:, None] // 3 - 1
+            mask = valid & (xx >= 0) & (xx < w) & (yy >= 0) & (yy < h)
+            masks.append(torch.cat((valid[None], mask.repeat(cin, 1))))
+    mask = torch.stack(masks).reshape(chunks, 1, len(variants), 1 + 9 * cin, 1, 128)
+    return {'weights': coeff[None, :, None, :, :, None] * mask}
