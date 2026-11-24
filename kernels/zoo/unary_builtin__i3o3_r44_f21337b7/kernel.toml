@@ -1,0 +1,84 @@
+[kernel]
+op = "unary_builtin"
+formats = ["e1", "e2"]
+
+[params.act_out0]
+type = "str"
+choices = ["relu"]
+default = "relu"
+
+[params.numel]
+type = "int"
+min = 1
+default = 262144
+
+[params.in0_d0]
+type = "int"
+min = 1
+default = 1
+
+[params.in0_d1]
+type = "int"
+min = 1
+default = 64
+
+[params.in0_d2]
+type = "int"
+min = 1
+default = 64
+
+[params.in0_d3]
+type = "int"
+min = 1
+max = 128
+default = 64
+
+[params.out0_d0]
+type = "int"
+min = 1
+default = 1
+
+[params.out0_d1]
+type = "int"
+min = 1
+default = 64
+
+[params.out0_d2]
+type = "int"
+min = 1
+default = 64
+
+[params.out0_d3]
+type = "int"
+min = 1
+max = 128
+default = 64
+
+[derived]
+capacity = "128 // in0_d3"
+pack = "1 + (capacity - 1) * (1 - min(1, in0_d2 % capacity))"
+out_capacity = "128 // out0_d3"
+out_pack = "1 + (out_capacity - 1) * (1 - min(1, out0_d2 % out_capacity))"
+rows = "in0_d1 * in0_d0 * (in0_d2 // pack)"
+out_rows = "out0_d1 * out0_d0 * (out0_d2 // out_pack)"
+last_row = "rows - 1"
+penultimate = "rows - 2"
+active = "ds(pack * in0_d3)"
+
+[inputs.in0]
+shape = ["rows", 128]
+range = [-1.0, 1.0]
+
+[outputs.out0]
+shape = ["out_rows", 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+last_row = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+active = "CR7"
+penultimate = "CR8"
+
+[cases.default]
