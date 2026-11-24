@@ -1,4 +1,3 @@
-{# Normalize in channel-major vectors, then gather into the output's row lanes. #}
 {% set q = cr.qf_in0 ~ '.L' %}
 {% set oq = cr.qf_out0 ~ '.L' %}
 {% set full = 'CR15.L' %}
@@ -18,12 +17,12 @@
  {% if cyclic %}LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
  {% else %}LD.MULT R0 LR1 {{ cr.tmp }} ;;{% endif %}
 {% endmacro %}
-{% macro split(reg, count, dst=cr.tmp, step=none) %}
+{% macro split(reg, count, dst=cr.tmp, step=none, base='LR0') %}
  {% for p in range(count) %}
  ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ dst }} {{ reg }} ;;
  {% if not loop.last %}
  LD.MULT R0 {{ reg }} {{ dst }} ;;
- {{ vec('SUB') }}
+ {{ vec('SUB',base=base) }}
  {% if step %}ADD {{ reg }} {{ reg }} {{ step }} ;;
  {% else %}INC {{ reg }} 1 ;;{% endif %}
  {% endif %}
@@ -95,7 +94,7 @@ variance_tail:
  ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
  {{ init('LR4',2) }}
 refine:
- {# y <- 1.5*y - 0.5*v*y^3 #}
+ {# Newton step: y <- 1.5*y - 0.5*v*y^3. #}
  {% for left,right,lcount,rcount,dst in [(12,12,2,2,14),(9,14,3,2,16),(12,16,2,2,18)] %}
  {% for i in range(lcount) %}
  {{ load(left+i,true) }}
@@ -142,7 +141,7 @@ weight_loop:
  SET LR2 LR6 ;;
  BLT.S LR2 LR13 row_loop ;;
 
-{# Gather output lanes by channel, recombining the residuals before rounding. #}
+{# Transpose residual planes and combine them before the output conversion. #}
 {% macro gather(p) %}
  SET LR6 LR2 ; SET LR8 CR0 ; SET LR11 CR0 ;;
  {% for i in range(p) %}ADD LR6 LR6 LR13 ;;{% endfor %}
@@ -188,15 +187,21 @@ tile_ready:
  {% endif %}
  {% endif %}
  {% endfor %}
- {# Flush sub-floor residue before the destination row chooses its scale. #}
- {{ init('LR8',4) }}
- LD.MULT R0 LR8 {{ cr.crow }} ;;
- {{ vec(base='LR15') }}
- {{ vec('SUB',base='LR15') }}
+ {{ init('LR8',24) }}
+ {{ split('LR8',3,base='LR15') }}
+ SET LR8 LR9 ;;
+ INC LR8 4 ;;
+ LD.MULT.CYCLIC LR8 {{ cr.crow }} LR3 ;;
+ {% for i in [24,25,26] %}
+ {{ init('LR8',i) }}
+ LD.MULT R0 LR8 {{ cr.tmp }} ;;
+ MULT.RC.VV LR3 R0 0 LR15 {{ full }} {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %} ;;
+ {% endfor %}
+ {% macro store(ds) %}ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ oq }} {{ cr.out0 }} LR0{% endmacro %}
  BGE.S LR7 LR3 store_full ;;
- ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.output_tail }}.L {{ oq }} {{ cr.out0 }} LR0 ; BEQ CR0 CR0 stored ;;
+ {{ store(cr.output_tail ~ '.L') }} ; BEQ CR0 CR0 stored ;;
 store_full:
- ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ full }} {{ oq }} {{ cr.out0 }} LR0 ;;
+ {{ store(full) }} ;;
 stored:
  INC LR0 1 ; SUB LR5 LR5 LR7 ;;
  SET LR2 LR6 ;;

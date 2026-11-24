@@ -10,17 +10,17 @@ default = "layernorm"
 type = "int"
 min = 1
 max = 4096
-default = 384
+default = 512
 [params.rows]
 type = "int"
 min = 1
 max = 4096
-default = 257
+default = 64
 [params.eps]
 type = "float"
 min = 0.0
 max = 1.0
-default = 1e-6
+default = 1e-5
 [params.in0_d0]
 type = "int"
 min = 1
@@ -30,12 +30,12 @@ default = 1
 type = "int"
 min = 1
 max = 4096
-default = 257
+default = 64
 [params.in0_d2]
 type = "int"
 min = 1
 max = 4096
-default = 384
+default = 512
 [params.out0_d0]
 type = "int"
 min = 1
@@ -45,12 +45,12 @@ default = 1
 type = "int"
 min = 1
 max = 4096
-default = 257
+default = 64
 [params.out0_d2]
 type = "int"
 min = 1
 max = 4096
-default = 384
+default = 512
 
 [derived]
 K = "ceil(channels / 128)"
@@ -67,7 +67,7 @@ shape = ["3 * K", 128]
 [inputs.beta]
 shape = ["3 * K", 128]
 [inputs.crow]
-shape = [5, 128]
+shape = ["4 + channels", 128]
 [scratch.tmp]
 shape = ["32 + 2 * K", 128]
 [scratch.normalized]
@@ -85,12 +85,12 @@ crow = "CR7"
 tmp = "CR8"
 qf_in0 = "CR9"
 K = "CR10"
-M = "LR13"
-out0_d1 = "LR12"
-out0_d2 = "LR14"
+normalized = "CR11"
 output_tail = "CR12"
 half = "CR13"
 tail = "CR14"
-normalized = "CR11"
+M = "LR13"
+out0_d1 = "LR12"
+out0_d2 = "LR14"
 
 [cases.default]

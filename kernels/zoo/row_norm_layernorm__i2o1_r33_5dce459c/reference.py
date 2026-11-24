@@ -20,6 +20,16 @@ def _l(res, k, shape, stride, offset):
     return _v(t, shape, stride, offset)
 
 
+def _p(t, shape):
+    """A parameter read at the shape its record read it (a view of it: reshaped, or expanded)."""
+    if list(t.shape) == list(shape):
+        return t
+    n = 1
+    for d in shape:
+        n *= int(d)
+    return t.reshape(tuple(shape)) if t.numel() == n else t.expand(tuple(shape))
+
+
 def _pick(res, k):
     """Result k of a record (one tensor, or a tuple of them)."""
     return res[k] if isinstance(res, (tuple, list)) else res
@@ -39,9 +49,9 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.layer_norm.default(_v(ins[0], [1, 257, 384], [98688, 384, 1], 0), [384], module.weight, module.bias, 1e-06)
+    r0 = aten.layer_norm.default(_v(ins[0], [1, 64, 512], [32768, 512, 1], 0), [512], module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 257, 384])}
+    return {"out0": _out(op0, [1, 64, 512])}
 # ---- end of the frozen reference ----
 
 
@@ -58,10 +68,13 @@ def fold(module, **params):
             residual = residual - part
         return torch.cat([*parts, residual])
 
+    peak = torch.maximum(module.weight.abs(), module.bias.abs())
+    scale = torch.exp2(torch.floor(torch.log2(peak.clamp_min(2.0 ** -126))))
+    weight = torch.where(peak == 0, torch.copysign(torch.ones_like(peak) * 2.0 ** -5, module.weight), module.weight / scale)
     return {
-        "gamma": split(module.weight),
-        "beta": split(module.bias),
+        "gamma": split(weight),
+        "beta": split(torch.where(peak == 0, torch.full_like(peak, -2.0 ** -19), module.bias / scale)),
         "crow": torch.cat((split(torch.full((128,), 1 / params["channels"])),
                            torch.full((1, 128), params["eps"]),
-                           torch.full((1, 128), 2.0 ** -80))),
+                           scale.reshape(-1, 1).expand(-1, 128))),
     }
