@@ -1,7 +1,6 @@
 {% macro product(coefficient, acc, ds) %}
     MULT.VE LR0 {{ coefficient }} 0 LR0 {{ ds }} {{ cr.qf_in0 }}.L ; ACC.{{ acc }}
 {% endmacro %}
-
 {% macro row(ds) %}
     LD.MULT R0 LR1 {{ cr.in0 }} ;;
     {{ product(cr.fp_hi, 'ADD.FIRST', ds) }} ;;
@@ -12,6 +11,7 @@
 {% endmacro %}
 
     SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
+    BEQ {{ cr.ds_pair }}.L {{ cr.ds_pair }}.H full ;;
 group:
     SET LR3 CR1 ;;
     BEQ LR3 {{ cr.chunks }} tail ;;
@@ -23,4 +23,8 @@ tail:
     {{ row(cr.ds_pair ~ '.L') }}
     INC LR2 1 ;;
     BLT.S LR2 {{ cr.groups }} group ;;
+    HALT ;;
+full:
+    {{ row(cr.ds_pair ~ '.H') }}
+    BLT.S LR1 {{ cr.total_rows }} full ;;
     HALT ;;
