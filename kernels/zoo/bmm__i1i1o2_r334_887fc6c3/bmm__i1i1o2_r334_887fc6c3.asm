@@ -1,5 +1,5 @@
-{# Both inputs place tokens in lanes and flattened head/K in rows.
-   For each output column, broadcast its RHS lane across an M tile. #}
+{# Each stored row is one head/reduction coordinate, with tokens in lanes.
+   Broadcast one RHS token and accumulate a vector of LHS tokens. #}
 {% macro mac(first) %}
     LD.MULT R0 LR12 {{ cr.in1 }} ;;
     LD.MULT.CYCLIC LR11 {{ cr.in0 }} LR14 ; DEC LR13 1 ;;
