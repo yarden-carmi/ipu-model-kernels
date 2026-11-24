@@ -59,7 +59,7 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    """Encode affine vectors as six signed radix-4 planes per output tile."""
+    """Encode bias and weights as six signed radix-4 planes per output tile."""
     weight = module.weight.detach().double()
     n, k = weight.shape
     bias = module.bias.detach().double() if params['s0_bias'] else weight.new_zeros(n)

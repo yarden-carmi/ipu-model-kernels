@@ -1,5 +1,5 @@
-{# Replay the flat merged-input cursor for each output tile. Residual rows
-   have positions in lanes; scatter one selected element per output lane. #}
+{# Replay the merged input's flat cursor for each output tile. Gather the
+   residual from rows whose lanes run along the output-position dimension. #}
 {% macro weight(slot) -%}
 LD.MULT.CYCLIC LR4 {{ cr.w }} {{ slot }} ; INC LR4 1
 {%- endmacro %}
