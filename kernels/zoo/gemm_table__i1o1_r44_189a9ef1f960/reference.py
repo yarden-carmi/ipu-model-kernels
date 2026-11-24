@@ -53,18 +53,18 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 40, 14, 14], [7840, 196, 14, 1], 0), module.op0_weight)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 24, 28, 28], [18816, 784, 28, 1], 0), module.op0_weight)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 240, 14, 14], [47040, 196, 14, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 96, 28, 28], [75264, 784, 28, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.hardswish_.default(_v(op1, [1, 240, 14, 14], [47040, 196, 14, 1], 0))
+    r0 = aten.hardswish_.default(_v(op1, [1, 96, 28, 28], [75264, 784, 28, 1], 0))
     op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 240, 14, 14])}
+    return {"out0": _out(op2, [1, 96, 28, 28])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Fold batch norm and pack coefficients in 128-output tiles."""
+    """Fold batch norm and pack coefficients into 128-channel tiles."""
     n, k = params["n"], params["k"]
     if hasattr(module, "op0_weight"):
         scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
@@ -76,15 +76,14 @@ def fold(module, **params):
     if bias is None or not params["bias"]:
         bias = weight.new_zeros(n)
 
-    padded = ((n + 127) // 128) * 128
-    rows = weight.new_zeros((k + 1, padded))
+    rows = weight.new_zeros((k + 1, ((n + 127) // 128) * 128))
     rows[0, :n] = bias
     rows[1:, :n] = weight.T
     rows = rows.reshape(k + 1, -1, 128).transpose(0, 1)
     if params["m"] == 1:
         return {"coeff": rows.reshape(-1, 128)}
 
-    # Keep a residual plane for the bias and three weights per group of four.
+    # Interleave a residual for the bias and three of every four weights.
     _, exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
     step = torch.ldexp(torch.ones_like(exp, dtype=rows.dtype), exp - 6)
     coarse = torch.round(rows / step).clamp(-63, 63) * step

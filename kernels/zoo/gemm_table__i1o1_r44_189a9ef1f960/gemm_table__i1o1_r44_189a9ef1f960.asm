@@ -1,4 +1,4 @@
-{# Broadcast input channels across tiles of output channels. #}
+{# Broadcast one input channel across the output tile. #}
 {% macro next_coeff() -%}
     INC LR4 1 ; LD.MULT.CYCLIC LR4 {{ cr.coeff }} LR0
 {%- endmacro %}
@@ -12,6 +12,12 @@
     {% if split %}{{ mac('LR5') }} ; {{ next_coeff() }} ;;{% endif %}
     {% if advance %}{{ mac('LR7') }} ; SET LR7 LR5 ; INC LR5 1{% else %}{{ mac('LR5') }}{% endif %}
     {% if prefetch %}; {{ next_coeff() }}{% endif %}
+{%- endmacro %}
+{% macro group(period, limit, label) -%}
+{{ label }}:
+{% for i in range(period) %}
+    {{ channel(i != 0) }} {% if loop.last %}; BNE LR5 {{ limit }} {{ label }}{% endif %} ;;
+{% endfor %}
 {%- endmacro %}
 {% set period = 4 if m > 1 else 1 %}
 {% set tail = 1 + (k - 1) % 128 %}
@@ -37,27 +43,21 @@ block:
 {% if k > 128 %}
 full_chunk:
     LD.MULT R0 LR6 {{ cr.in0 }} ; DEC LR8 1 ; SET LR5 CR0 ;;
-full_scalar:
-{% for i in range(period) %}
-    {{ channel(period > 1 and i != 0) }} {% if loop.last %}; BNE LR5 LR10 full_scalar{% endif %} ;;
-{% endfor %}
+{{ group(period, 'LR10', 'full_scalar') }}
     INC LR6 1 ; BNE LR8 CR0 full_chunk ;;
 {% endif %}
     LD.MULT R0 LR6 {{ cr.in0 }} ; SET LR5 CR0 ;;
 {% if tail > period %}
-tail_scalar:
-{% for i in range(period) %}
-    {{ channel(period > 1 and i != 0) }} {% if loop.last %}; BNE LR5 {{ cr.before_last }} tail_scalar{% endif %} ;;
-{% endfor %}
+{{ group(period, cr.before_last, 'tail_scalar') }}
 {% endif %}
 {% for i in range(remainder - 1) %}
-    {{ channel(period > 1 and i != 0) }} ;;
+    {{ channel(i != 0) }} ;;
 {% endfor %}
 {% if n > 128 and n % 128 %}
-    {{ channel(period > 1 and remainder != 1, false, false) }} ; BNE LR9 CR0 full_store ;;
+    {{ channel(remainder != 1, false, false) }} ; BNE LR9 CR0 full_store ;;
     {{ store(cr.tail_ds) }} ;;
 {% else %}
-    {{ channel(period > 1 and remainder != 1, false, false) }} ; {{ store(cr.tail_ds) }} ; BNE LR9 CR0 block ;;
+    {{ channel(remainder != 1, false, false) }} ; {{ store(cr.tail_ds) }} ; BNE LR9 CR0 block ;;
 {% endif %}
     ADD LR3 LR3 {{ cr.chunks }} ;;
     BNE LR3 {{ cr.input_rows }} pixel ;;
