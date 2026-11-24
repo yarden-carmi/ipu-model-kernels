@@ -1,0 +1,124 @@
+[kernel]
+op = "conv2d"
+formats = ["e1", "e2"]
+
+[params.bias]
+type = "bool"
+default = true
+[params.cin]
+type = "int"
+min = 1
+max = 1024
+default = 64
+[params.cout]
+type = "int"
+min = 1
+max = 1024
+default = 64
+[params.groups]
+type = "int"
+choices = [1]
+default = 1
+[params.h]
+type = "int"
+min = 3
+max = 1024
+default = 64
+[params.w]
+type = "int"
+min = 3
+max = 128
+default = 64
+[params.kh]
+type = "int"
+choices = [3]
+default = 3
+[params.kw]
+type = "int"
+choices = [3]
+default = 3
+[params.padding]
+type = "int"
+choices = [1]
+default = 1
+[params.stride]
+type = "int"
+choices = [1, 2]
+default = 1
+[params.in0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 1024
+default = 64
+[params.in0_d2]
+type = "int"
+min = 3
+max = 1024
+default = 64
+[params.in0_d3]
+type = "int"
+min = 3
+max = 128
+default = 64
+[params.out0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 1024
+default = 64
+[params.out0_d2]
+type = "int"
+min = 2
+max = 1024
+default = 64
+[params.out0_d3]
+type = "int"
+min = 2
+max = 128
+default = 64
+
+[derived]
+ky_rows = "2 * ceil(cin / 42)"
+weight_end = "1 + cout * (1 + 3 * ky_rows)"
+pitch = "stride * in0_d2"
+last_y = "in0_d2 - 1"
+input_rows = "in0_d1 * in0_d2"
+full = "ds(128)"
+store_ds = "ds(out0_d3)"
+input_ds = "ds(in0_d3) + 65536 * ds(in0_d3 // 2)"
+
+[inputs.in0]
+shape = ["in0_d1", "in0_d0", "in0_d2", 128]
+range = [-2, 2]
+[inputs.weights]
+shape = ["weight_end", 128]
+range = [-1, 1]
+[scratch.parity]
+shape = ["stride * input_rows", 128]
+[outputs.out0]
+shape = ["out0_d1", "out0_d0", "out0_d2", 128]
+
+[abi]
+in0 = "CR2"
+weights = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+parity = "CR7"
+pitch = "CR8"
+ky_rows = "CR9"
+weight_end = "CR10"
+last_y = "CR11"
+input_rows = "CR12"
+input_ds = "CR13"
+store_ds = "CR14"
+full = "CR15"
+
+[cases.default]
