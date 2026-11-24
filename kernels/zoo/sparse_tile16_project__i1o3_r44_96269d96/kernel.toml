@@ -1,0 +1,86 @@
+[kernel]
+op = "sparse_tile16_project"
+formats = ["e2"]
+
+[params.cin]
+type = "int"
+min = 48
+max = 128
+multiple_of = 48
+default = 96
+[params.cout]
+type = "int"
+min = 4
+multiple_of = 4
+default = 96
+[params.kh]
+type = "int"
+choices = [2]
+default = 2
+[params.kw]
+type = "int"
+choices = [2]
+default = 2
+[params.in0_d0]
+type = "int"
+min = 1
+default = 1
+[params.in0_d1]
+type = "int"
+min = 48
+max = 128
+default = 96
+[params.in0_d2]
+type = "int"
+min = 1
+default = 16
+[params.in0_d3]
+type = "int"
+min = 1
+max = 64
+default = 16
+[params.out0_d0]
+type = "int"
+min = 1
+default = 1
+[params.out0_d1]
+type = "int"
+min = 4
+default = 96
+[params.out0_d2]
+type = "int"
+min = 2
+default = 32
+[params.out0_d3]
+type = "int"
+min = 2
+max = 128
+default = 32
+
+[inputs.in0]
+shape = ["sites", 128]
+range = [-1, 1]
+[inputs.weights]
+shape = ["cout * (kh * kw + 1)", 128]
+range = [-1, 1]
+[outputs.out0]
+shape = ["out0_d1 * out0_d0 * out0_d2", 128]
+[derived]
+sites = "in0_d0 * in0_d2 * in0_d3"
+dot = "ds(cin)"
+width = "ds(out0_d3)"
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+weights = "CR4"
+qf_in0 = "CR6"
+qf_out0 = "CR7"
+qf_weights = "CR8"
+dot = "CR9"
+width = "CR10"
+sites = "CR11"
+in0_d3 = "CR12"
+cout = "CR13"
+
+[cases.default]
