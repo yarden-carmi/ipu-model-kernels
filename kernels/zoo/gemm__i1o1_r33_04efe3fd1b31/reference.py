@@ -49,21 +49,36 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.linear.default(_v(ins[0], [1, 256, 1536], [393216, 1536, 1], 0), module.weight, module.bias)
-    op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 256, 384])}
+    r0 = aten.view.default(_v(ins[0], [1, 256, 768], [196608, 768, 1], 0), [-1, 768])
+    r1 = aten.addmm.default(module.bias, _l(r0, 0, [256, 768], [768, 1], 0), module.weight)
+    r2 = aten.view.default(_l(r1, 0, [256, 2304], [2304, 1], 0), [1, 256, 2304])
+    op0 = _pick(r2, 0)  # step 0
+    return {"out0": _out(op0, [1, 256, 2304])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Pack each channel's bias and 128-tap blocks into radix-64 planes."""
-    weight = module.weight.detach().double()
-    n, k = weight.shape
-    bias = module.bias.detach().double() if params['bias'] else weight.new_zeros(n)
-    taps = torch.nn.functional.pad(weight, (0, (-k) % 128)).reshape(n, -1, 128)
-    rows = torch.cat((bias[:, None, None].expand(n, 1, 128), taps), dim=1)
-    exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))[1]
-    digits = torch.ldexp(rows.abs(), 12 - exp).round().long().clamp(max=4095)
-    planes = [torch.ldexp(((digits >> shift) & 63) * rows.sign(), exp + shift - 12)
-              for shift in (6, 0)]
-    return {'w': torch.stack(planes, dim=2).reshape(-1, 128).float()}
+    """Fold the channel scale into both affine terms, then pack high and residual planes."""
+    k, n = int(params["k"]), int(params["n"])
+    if hasattr(module, "op1_lambda1"):
+        scale = module.op1_lambda1.detach().reshape(n).double()
+        w = module.op0_weight.detach().reshape(n, k).double() * scale[:, None]
+        b = module.op0_bias.detach().reshape(n).double() * scale if params["bias"] else w.new_zeros(n)
+    else:
+        source = getattr(module, "op0_weight", getattr(module, "weight", None))
+        w = source.detach().double()
+        if w.shape != (n, k):
+            w = w.reshape(k, n).T
+        bias = getattr(module, "op0_bias", getattr(module, "bias", None))
+        b = bias.detach().double().reshape(n) if params["bias"] and bias is not None else w.new_zeros(n)
+    def split(rows):
+        exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))[1]
+        hi = torch.ldexp(torch.ldexp(rows, 5 - exp).round(), exp - 5)
+        return hi, rows - hi
+
+    rows = torch.nn.functional.pad(w, (0, (-k) % 128)).reshape(n, -1, 128)
+    hi, lo = split(rows)
+    hi[..., ::4] = rows[..., ::4]
+    lo = torch.nn.functional.pad(lo.reshape(n, -1, 32, 4)[..., 1:].reshape(n, -1, 96), (0, 32))
+    bh, bl = split(b[:, None].expand(n, 128))
+    return {"w": torch.cat((bh[:, None], bl[:, None], torch.stack((hi, lo), dim=2).flatten(1, 2)), dim=1).reshape(-1, 128).float()}

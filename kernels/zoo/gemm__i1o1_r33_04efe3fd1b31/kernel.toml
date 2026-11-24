@@ -1,72 +1,75 @@
 [kernel]
 op = "gemm"
-formats = ["e2"]
+formats = ["e2", "e3"]
 
 [params.bias]
 type = "bool"
 default = true
+[params.m]
+type = "int"
+min = 1
+max = 65536
+default = 257
 [params.k]
 type = "int"
 min = 1
 max = 16384
-default = 128
-[params.m]
-type = "int"
-min = 1
-max = 16384
-default = 256
+default = 1536
 [params.n]
 type = "int"
 min = 1
 max = 16384
-default = 768
+default = 384
 [params.in0_d0]
 type = "int"
 min = 1
-max = 16384
+max = 65536
 default = 1
 [params.in0_d1]
 type = "int"
 min = 1
-max = 16384
-default = 256
+max = 65536
+default = 257
 [params.in0_d2]
 type = "int"
 min = 1
 max = 16384
-default = 128
+default = 1536
 [params.out0_d0]
 type = "int"
 min = 1
-max = 16384
+max = 65536
 default = 1
 [params.out0_d1]
 type = "int"
 min = 1
-max = 16384
-default = 256
+max = 65536
+default = 257
 [params.out0_d2]
 type = "int"
 min = 1
 max = 16384
-default = 768
+default = 384
 
 [derived]
-pitch = "ceil(in0_d1 / 128)"
-weight_blocks = "ceil(k / 128)"
+stride_in = "ceil(in0_d1 / 128)"
+stride_out = "ceil(out0_d1 / 128)"
+batch_out = "out0_d2 * stride_out"
+batches = "out0_d0"
+features_out = "out0_d2"
+chunks = "(k - k % 128) / 128"
 full = "ds(128)"
 tail = "ds((out0_d1 - 1) % 128 + 1)"
 width = "128"
-batch_stride = "in0_d2 * pitch"
+four = "4"
 
 [inputs.in0]
-shape = ["in0_d0 * in0_d2 * pitch", 128]
+shape = ["in0_d0 * in0_d2 * stride_in", 128]
 range = [-2, 2]
 [inputs.w]
-shape = ["n * (weight_blocks + 1) * 2", 128]
-range = [-1, 1]
+shape = ["2 * n * (ceil(k / 128) + 1)", 128]
 [outputs.out0]
-shape = ["out0_d0 * out0_d2 * ceil(out0_d1 / 128)", 128]
+shape = ["out0_d0 * batch_out", 128]
 
 [abi]
 in0 = "CR2"
@@ -74,13 +77,21 @@ w = "CR3"
 out0 = "CR4"
 qf_in0 = "CR5"
 qf_out0 = "CR6"
-n = "CR7"
+stride_in = "CR7"
 full = "CR8"
 tail = "CR9"
-pitch = "CR10"
-in0_d0 = "CR11"
-k = "CR13"
-width = "CR14"
-batch_stride = "CR15"
+chunks = "CR10"
+stride_out = "CR11"
+width = "CR12"
+features_out = "CR13"
+four = "CR14"
+batches = "CR15"
 
 [cases.default]
+m = 2
+k = 129
+n = 135
+in0_d1 = 2
+in0_d2 = 129
+out0_d1 = 2
+out0_d2 = 135
