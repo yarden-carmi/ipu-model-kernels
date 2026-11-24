@@ -9,16 +9,15 @@ MULT.RC.VE {{ slot }} {{ scalar }} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC
 {% macro dot(scalar, first=false) %}
     {# Each plane loads its successor into a different cache slot. The low
        plane primes the next scalar even across a physical input boundary. #}
-    {% set slots = ['LR0', 'LR1', 'LR12'] %}
-{% for p in range(3) %}
-    {{ mac(slots[p], scalar, first and p == 0) }} ; {{ load_weight(slots[(p + 1) % 3]) }}{% if not first and p == 0 %} ; INC LR3 1 ; DEC LR7 1{% elif not first and p == 2 %} ; BNE LR3 LR11 lane{% endif %} ;;
+    {% set slots = ['LR0', 'LR1'] %}
+{% for p in range(2) %}
+    {{ mac(slots[p], scalar, first and p == 0) }} ; {{ load_weight(slots[1 - p]) }}{% if not first and p == 0 %} ; INC LR3 1 ; DEC LR7 1{% elif not first %} ; BNE LR3 LR11 lane{% endif %} ;;
 {% endfor %}
 {% endmacro %}
 {% macro store(ds) %}
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR5 ;;
 {% endmacro %}
     SET LR0 CR0 ; SET LR1 {{ cr.slot }} ; SET LR5 CR0 ;;
-    ADD LR12 LR1 {{ cr.slot }} ;;
     SET LR8 CR0 ; SET LR9 CR0 ; SET LR10 {{ cr.rows }} ;;
     DEC LR9 1 ;;
 row:
