@@ -9,44 +9,51 @@ default = "relu"
 
 [params.numel]
 type = "int"
-default = 16384
+default = 65536
 
 [params.in0_d0]
 type = "int"
 default = 1
-
 [params.in0_d1]
 type = "int"
 default = 64
-
 [params.in0_d2]
 type = "int"
-default = 16
-
+default = 32
 [params.in0_d3]
 type = "int"
-default = 16
+default = 32
+[params.out0_d0]
+type = "int"
+default = 1
+[params.out0_d1]
+type = "int"
+default = 64
+[params.out0_d2]
+type = "int"
+default = 32
+[params.out0_d3]
+type = "int"
+default = 32
 
 [derived]
-rows = "numel // in0_d3"
-last_row = "rows - 1"
-penultimate = "max(0, rows - 2)"
-active = "ds(in0_d3)"
+in_rows = "in0_d0 * in0_d1 * in0_d2"
+out_rows = "out0_d0 * out0_d1 * out0_d2"
+active = "ds(out0_d3)"
 
 [inputs.in0]
-shape = ["rows", 128]
+shape = ["in_rows", 128]
 range = [-1.0, 1.0]
 
 [outputs.out0]
-shape = ["rows", 128]
+shape = ["out_rows", 128]
 
 [abi]
 in0 = "CR2"
 out0 = "CR3"
-last_row = "CR4"
-qf_in0 = "CR5"
-qf_out0 = "CR6"
-active = "CR7"
-penultimate = "CR8"
+qf_in0 = "CR4"
+qf_out0 = "CR5"
+active = "CR6"
+out_rows = "CR7"
 
 [cases.default]
