@@ -1,6 +1,7 @@
 [kernel]
 op = "binary_mul_scalar"
-formats = ["e2"]
+formats = ["e2", "e3"]
+
 [params.broadcast]
 type = "str"
 choices = ["scalar"]
@@ -15,85 +16,83 @@ type = "int"
 min = 0
 max = 0
 default = 0
-[params.numel]
-type = "int"
-min = 1
-max = 2147483647
-default = 8192
 [params.op]
 type = "str"
 choices = ["mul"]
 default = "mul"
+[params.numel]
+type = "int"
+min = 1
+max = 2147483647
+default = 49152
 [params.in0_d0]
 type = "int"
 min = 1
-max = 1024
-default = 2
+max = 65536
+default = 4
 [params.in0_d1]
 type = "int"
 min = 1
 max = 65536
-default = 8
+default = 64
 [params.in0_d2]
 type = "int"
 min = 1
-max = 1024
-default = 432
+max = 65536
+default = 576
 [params.out0_d0]
 type = "int"
 min = 1
-max = 1024
-default = 2
+max = 65536
+default = 4
 [params.out0_d1]
 type = "int"
 min = 1
-max = 64
+max = 65536
 default = 4
 [params.out0_d2]
 type = "int"
 min = 1
 max = 65536
-default = 8
+default = 64
 [params.out0_d3]
 type = "int"
 min = 1
 max = 128
-default = 36
-[inputs.in0]
-shape = ["in0_d0 * in0_d1", "ceil(in0_d2 / 128) * 128"]
-range = [-2.0, 2.0]
-[scratch.scalar]
-shape = [1, 128]
-[outputs.out0]
-shape = ["out0_d0 * out0_d1 * out0_d2", 128]
+default = 48
+
 [derived]
-ic = "ceil(in0_d2 / 128)"
-brows = "in0_d1 * ceil(in0_d2 / 128)"
-tail = "ds(out0_d3)"
-wrap_limit = "128 - out0_d3"
-# Four heads of up to 64 lanes fit in two adjacent input chunks.
-tile_miss = "max(out0_d1 - 4, 4 - out0_d1, out0_d3 - 64, 2 - ic)"
-# Unsigned e1 with scale 2^7: codes 129..255 give 1..127; code 0 gives 128.
-head_width = "0x18600 + out0_d3 + 128 * (1 - out0_d3 // 128) - 128 * (out0_d3 // 128)"
-# FP32 truth path: the mantissa increment is one unit per lane at this exponent.
+chunks = "ceil(in0_d2 / 128)"
+batch_stride = "in0_d1 * chunks"
+ds_pair = "ds(out0_d3) + 65536 * ds(128)"
+# Synthesize the head width in both FP32 and NX8 before taking rsqrt.
 fp_base = "0x4b010080"
 fp_top = "fp_base + out0_d3"
+head_width = "0x18600 + out0_d3 + 128 * (1 - out0_d3 // 128) - 128 * (out0_d3 // 128)"
+
+[inputs.in0]
+shape = ["in0_d0 * batch_stride", 128]
+range = [-2, 2]
+[outputs.out0]
+shape = ["out0_d0 * out0_d1 * out0_d2", 128]
+[scratch.scalar]
+shape = [1, 128]
+
 [abi]
 in0 = "CR2"
 out0 = "CR3"
 qf_in0 = "CR4"
 qf_out0 = "CR5"
-scalar = "CR6"
-head_width = "CR14"
-tail = "CR7"
-out0_d3 = "LR13"
-out0_d1 = "CR9"
-out0_d2 = "CR10"
-out0_d0 = "CR11"
-ic = "LR15"
-tile_miss = "LR9"
+ds_pair = "CR6"
+scalar = "CR7"
 fp_top = "CR8"
-fp_base = "CR12"
-brows = "CR13"
-wrap_limit = "CR15"
+fp_base = "CR9"
+head_width = "CR10"
+chunks = "CR11"
+out0_d1 = "CR12"
+out0_d2 = "CR13"
+out0_d3 = "CR14"
+batch_stride = "CR15"
+out0_d0 = "LR6"
+
 [cases.default]
