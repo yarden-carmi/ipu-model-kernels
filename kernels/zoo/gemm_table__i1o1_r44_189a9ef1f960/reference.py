@@ -49,16 +49,16 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.default(_v(ins[0], [1, 8, 1, 1], [8, 1, 1, 1], 0), module.weight, module.bias)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 40, 1, 1], [40, 1, 1, 1], 0), module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.hardsigmoid.default(_v(op0, [1, 16, 1, 1], [16, 1, 1, 1], 0))
+    r0 = aten.hardsigmoid.default(_v(op0, [1, 144, 1, 1], [144, 1, 1, 1], 0))
     op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 16, 1, 1])}
+    return {"out0": _out(op1, [1, 144, 1, 1])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Tile output channels and interleave coarse and residual coefficient rows."""
+    """Tile channels and retain residuals for most spatial GEMM rows."""
     n, k = params['n'], params['k']
     blocks = (n + 127) // 128
     if hasattr(module, 'op0_weight'):
@@ -75,7 +75,14 @@ def fold(module, **params):
     rows[:n, 0] = bias
     rows[:n, 1:] = weights
     rows = rows.reshape(blocks, 128, k + 1).transpose(1, 2)
+    if params['m'] == 1:
+        return {'coeff': rows.reshape(-1, 128)}
     _, exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
     step = torch.ldexp(torch.ones_like(rows[..., :1]), exp - 4)
     coarse = torch.round(rows / step) * step
-    return {'coeff': torch.stack((coarse, rows - coarse), dim=-2).reshape(-1, 128)}
+    split = torch.arange(k + 1, device=rows.device) % 4 != 0
+    split[0] = True
+    first = torch.where(split[None, :, None], coarse, rows)
+    interleaved = torch.stack((first, rows - coarse), dim=2).flatten(1, 2)
+    keep = torch.stack((torch.ones_like(split), split), dim=1).flatten()
+    return {'coeff': interleaved[:, keep].reshape(-1, 128)}
