@@ -28,14 +28,13 @@ tail:
     BLT.S LR1 {{ cr.rows }} plane ;;
     HALT ;;
 
-# A one-chunk physical row (possibly multiple logical rows) uses the tail mask. The store word loads the next
-# input into R0, while the input multiply word loads the current operand.
+# Packed rows and other single-chunk spans always use the tail mask.
+# Choose the loop path once, since every broadcast plane has the same size.
 single_plane:
-    SET LR6 {{ cr.plane_rows }} ;;
-    DEC LR6 2 ;;
+    SET LR6 {{ cr.plane_rows }} ; SET LR7 CR0 ;;
+    DEC LR6 2 ; DEC LR7 1 ; BEQ {{ cr.plane_rows }} LR5 singleton ;;
 single_plane_next:
-    SET LR3 CR0 ; LD.MULT R0 LR1 {{ cr.in0 }} ;;
-    DEC LR3 1 ; BEQ {{ cr.plane_rows }} LR5 single_last ;;
+    SET LR3 LR7 ; LD.MULT R0 LR1 {{ cr.in0 }} ;;
 single_row:
     {{ add_input(true) }} ; SET LR8 LR1 ; INC LR1 1 ;;
     {{ store_sum(cr.tail ~ '.L', 'LR8') }} ; LD.MULT R0 LR1 {{ cr.in0 }} ; BLT.S LR3 LR6 single_row ;;
@@ -44,4 +43,11 @@ single_last:
     {{ store_sum(cr.tail ~ '.L') }} ;;
     INC LR1 1 ;;
     BLT.S LR1 {{ cr.rows }} single_plane_next ;;
+    HALT ;;
+
+singleton:
+    SET LR3 CR0 ; LD.MULT R0 LR1 {{ cr.in0 }} ;;
+    {{ add_input() }} ;;
+    {{ store_sum(cr.tail ~ '.L') }} ; INC LR1 1 ;;
+    BLT.S LR1 {{ cr.rows }} singleton ;;
     HALT ;;
