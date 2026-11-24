@@ -29,7 +29,8 @@ tail:
     BLT.S LR1 {{ cr.rows }} plane ;;
     HALT ;;
 
-# A one-chunk row always uses the tail mask. Overlap the next input load
+# A one-chunk physical row (possibly a group of logical rows) uses the tail mask.
+# Overlap the next input load
 # with the current store. Peel each plane's last row to bound the prefetch.
 single_plane:
     SET LR6 {{ cr.plane_rows }} ; SET LR7 {{ cr.rows }} ; SET LR8 CR0 ;;

@@ -56,7 +56,7 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    # Match the physical row groups in the input and output layouts.
+    # Group adjacent rows without crossing the repeated plane boundary.
     operand = module.op0_const0
     height, width = operand.shape[-2:]
     capacity = max(1, 128 // width)
