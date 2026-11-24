@@ -1,0 +1,71 @@
+[kernel]
+op = "half_grid_box_cascade"
+formats = ["e2"]
+
+[params.channels]
+type = "int"
+default = 64
+[params.oh]
+type = "int"
+default = 64
+[params.ow]
+type = "int"
+default = 64
+[params.in0_d0]
+type = "int"
+default = 1
+[params.in0_d1]
+type = "int"
+default = 64
+[params.in0_d2]
+type = "int"
+default = 32
+[params.in0_d3]
+type = "int"
+default = 32
+[params.out0_d0]
+type = "int"
+default = 1
+[params.out0_d1]
+type = "int"
+default = 64
+[params.out0_d2]
+type = "int"
+default = 64
+[params.out0_d3]
+type = "int"
+default = 64
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d2 * in0_d1", 128]
+[outputs.out0]
+shape = ["out0_d0 * out0_d2 * out0_d1", 128]
+[scratch.route]
+shape = ["2 * in0_d0 * in0_d2 * in0_d1", 128]
+
+[derived]
+valid = "ds(ow) + 65536 * ds(in0_d3)"
+gain = "19 * 65536 + 135 * 256"
+w9 = "19 * 65536 + 118 * 256 + 2"
+w3 = "19 * 65536 + 116 * 256 + 8"
+w1 = "19 * 65536 + 115 * 256"
+f9 = "126 * 8388608 + 1048576"
+f3 = "124 * 8388608 + 4194304"
+f1 = "123 * 8388608"
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+route = "CR5"
+qf_in0 = "CR6"
+qf_out0 = "CR7"
+valid = "CR8"
+w9 = "CR9"
+w3 = "CR10"
+w1 = "CR11"
+f9 = "CR12"
+f3 = "CR13"
+f1 = "CR14"
+gain = "CR15"
+
+[cases.default]
