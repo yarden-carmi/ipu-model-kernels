@@ -6,7 +6,51 @@
     ACTIVATE.QUANTIZE identity {{ part_ds }} {{ q }} {{ tile }} LR1 ;
 {% endmacro %}
 {% macro tile_product(first=false) %}
-    MULT.RC.VV LR14 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if first %}.FIRST{% endif %} ;
+    MULT.RC.VV LR12 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if first %}.FIRST{% endif %} ;
+{% endmacro %}
+{% macro step(reg, delta) %}
+    {% if delta > 0 %} INC {{ reg }} {{ delta }} ;
+    {% elif delta < 0 %} DEC {{ reg }} {{ -delta }} ;{% endif %}
+{% endmacro %}
+{% macro load_plane(group, plane, state) %}
+    {% set slot = (group % 2) * 256 + plane * 128 %}
+    {% set addr = 8 + 2 * group + plane %}
+    {% if slot == 0 and state.slot != 0 %}SET LR14 CR0 ;
+    {% else %}{{ step('LR14', slot - state.slot) }}{% endif %} {{ step('LR1', addr - state.addr) }}
+    LD.MULT.CYCLIC LR1 {{ tile }} LR14 ;
+    {% set state.slot = slot %}{% set state.addr = addr %}
+{% endmacro %}
+{% macro load_selector(group, state) %}
+    {{ step('LR13', group - state.mask) }} LD.MULT R0 LR13 {{ tile }} ;
+    {% set state.mask = group %}
+{% endmacro %}
+{% macro advance_rc(index, state) %}
+    {{ step('LR12', (index - state.rc + 256) % 512 - 256) }} {% set state.rc = index %}
+{% endmacro %}
+{% macro emit_row(row, state) %}
+    {% set groups = range(8) if row % 2 == 0 else range(7, -1, -1) %}
+    {% for group in groups %}
+    {% set i = loop.index0 %}
+    {% set start = 256 * (group % 2) + 16 * (row - group) %}
+    {{ tile_product(loop.first) }} {{ advance_rc(start, state) }}
+    {% if row and i < 2 %}{{ load_plane(groups[2], i, state) }}
+    {% elif not row or i != 2 %}{{ load_plane(group, 1, state) }}{% endif %} ;;
+    {{ tile_product() }} {{ advance_rc(start + 128, state) }}
+    {% if not loop.last %}
+        {% set next = groups[i + 1] %}
+        {% if row and i < 2 %}
+            {{ load_selector(next, state) }}
+            {% if loop.first %}ADD LR11 LR11 LR15 ;{% endif %} ;;
+        {% else %}
+            {{ load_plane(next, 0, state) }} ;;
+            {{ load_selector(next, state) }} ;;
+        {% endif %}
+    {% else %}
+        LD.MULT R0 LR11 {{ cr.in1 }} ;;
+    {% endif %}
+    {% endfor %}
+    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ cr.qf_in1 }}.L ; ACC.ADD ; ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ full }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR11 ;
+    {% if row < 7 %}{{ load_selector(groups[7], state) }}{% endif %} ;;
 {% endmacro %}
     SET LR0 CR0 ; SET LR8 CR0 ; SET LR9 CR0 ;;
     SET LR15 LR14 ;;
@@ -48,18 +92,12 @@ pack:
     MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB ; INC LR1 1 ; {{ save(full) }} ;;
     INC LR1 1 ; BLT.S LR1 LR13 pack ;;
 
-    SET LR11 LR10 ; SET LR12 CR0 ;;
-emit:
-    SET LR1 CR0 ; SET LR13 CR0 ; SET LR14 LR12 ;;
-    LD.MULT R0 LR13 {{ tile }} ; INC LR1 8 ; INC LR14 16 ;;
-    {% for group in range(8) %}
-    // Align one slice of this tile to its output lanes; select only that slice.
-    LD.MULT.CYCLIC LR1 {{ tile }} LR0 ; DEC LR14 16 ;;
-    {{ tile_product(loop.first) }} LD.MULT.CYCLIC LR1 {{ tile }} LR0 ; INC LR1 1 ;;
-    {{ tile_product() }} INC LR1 1 ; {% if not loop.last %}LD.MULT R0 LR13 {{ tile }} ; INC LR13 1 ;{% else %}LD.MULT R0 LR11 {{ cr.in1 }} ; SET LR13 CR0 ;{% endif %} ;;
-    {% endfor %}
-    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ cr.qf_in1 }}.L ; ACC.ADD ; ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ full }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR11 ; INC LR13 112 ;;
-    ADD LR11 LR11 LR15 ; INC LR12 16 ; BLT.S LR12 LR13 emit ;;
+    // Alternate group order so the next output starts with both resident pairs.
+    SET LR11 LR10 ; SET LR12 CR0 ; SET LR13 CR0 ;;
+    SET LR1 CR0 ; SET LR14 CR0 ; LD.MULT R0 LR13 {{ tile }} ;;
+    INC LR1 8 ; LD.MULT.CYCLIC LR1 {{ tile }} LR14 ;;
+    {% set state = namespace(slot=0, addr=8, rc=0, mask=0) %}
+    {% for row in range(8) %}{{ emit_row(row, state) }}{% endfor %}
     INC LR10 1 ; DEC LR7 1 ; BNE LR7 CR1 tile_chunk ;;
     // Restart at column zero for the next tile of eight logical rows.
     {% for delta in range(7) %}
