@@ -56,6 +56,7 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
+    """Lay out one broadcast plane with the same row padding as the input."""
     height, width = params["in0_d2"], params["in0_d3"]
     operand = module.op0_const0.reshape(-1)
     rows = operand.repeat(height * width // operand.numel()).reshape(height, width)
