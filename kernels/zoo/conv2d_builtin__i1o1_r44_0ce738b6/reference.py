@@ -49,32 +49,31 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 64, 64], [262144, 4096, 64, 1], 0), module.weight, module.bias, [1, 1], [1, 1])
+    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 16, 16], [16384, 256, 16, 1], 0), module.weight, module.bias, [1, 1], [1, 1])
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.relu.default(_v(op0, [1, 32, 64, 64], [131072, 4096, 64, 1], 0))
+    r0 = aten.relu.default(_v(op0, [1, 16, 16, 16], [4096, 256, 16, 1], 0))
     op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 32, 64, 64])}
+    return {"out0": _out(op1, [1, 16, 16, 16])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Lay out split-precision horizontal filter spans for cyclic loads."""
+    """Expand each grouped horizontal span and split it into two NX8 rows."""
     weight = module.weight.detach().to(torch.float64)
     cout, per_group, kh, kw = weight.shape
     groups = params['groups']
     cin = groups * per_group
     dense = weight.new_zeros((cout, cin, kh, kw))
-    out_per_group = cout // groups
     for group in range(groups):
-        outputs = slice(group * out_per_group, (group + 1) * out_per_group)
+        outputs = slice(group * (cout // groups), (group + 1) * (cout // groups))
         inputs = slice(group * per_group, (group + 1) * per_group)
         dense[outputs, inputs] = weight[outputs]
     segments = (kw * cin + 127) // 128
+    taps = weight.new_zeros((kh, cout, segments * 128))
+    taps[..., :kw * cin] = dense.permute(2, 0, 3, 1).reshape(kh, cout, kw * cin)
     bias_row = weight.new_zeros((1, 128))
     if params['bias']:
         bias_row[0, :cout] = module.bias
-    taps = weight.new_zeros((kh, cout, segments * 128))
-    taps[..., :kw * cin] = dense.permute(2, 0, 3, 1).reshape(kh, cout, kw * cin)
     rows = torch.cat((bias_row, taps.reshape(-1, 128)))
     _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
     step = torch.exp2(exponent.to(rows.dtype) - 6)

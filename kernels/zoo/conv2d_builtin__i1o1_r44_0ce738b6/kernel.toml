@@ -55,22 +55,41 @@ default = 1
 type = "int"
 min = 1
 default = 1
+[params.in0_d1]
+type = "int"
+choices = [16, 32, 64, 128]
+default = 64
+[params.in0_d2]
+type = "int"
+min = 1
+default = 16
+[params.in0_d3]
+type = "int"
+min = 8
+multiple_of = 8
+default = 16
+[params.out0_d1]
+type = "int"
+min = 1
+max = 128
+default = 64
 
 [derived]
 ho = "(h + 2 * padding - kh) // stride + 1"
 wo = "(w + 2 * padding - kw) // stride + 1"
-pack = "128 // cin"
-packed_width = "w // pack"
-segments = "(3 * cin + 127) // 128"
-oc_end = "((cout - 1) // 16) * 16 - 1"
-tap_rows = "2 * segments * cout"
-phase_end = "128 - cin"
+pack = "128 // in0_d1"
+packed_width = "in0_d3 // pack"
+segments = "(3 * in0_d1 + 127) // 128"
+oc_end = "((out0_d1 - 1) // 32) * 32 - 1"
+last_packed_column = "packed_width - 1"
+tap_rows = "2 * segments * out0_d1"
+phase_end = "128 - in0_d1"
 full = "ds(128)"
-last = "ds((3 * cin - 1) % 128 + 1)"
-tail = "ds(cout)"
+last = "ds((3 * in0_d1 - 1) % 128 + 1)"
+tail = "ds(out0_d1)"
 
 [inputs.in0]
-shape = ["in0_d0", "h", "packed_width", 128]
+shape = ["in0_d0", "in0_d2", "packed_width", 128]
 range = [-2, 2]
 [inputs.weights]
 shape = ["3 + kh * tap_rows", 128]
@@ -86,10 +105,10 @@ qf_in0 = "CR5"
 qf_out0 = "CR6"
 in0_d0 = "LR10"
 tail = "CR7"
-packed_width = "CR8"
-h = "CR9"
+last_packed_column = "CR8"
+in0_d2 = "CR9"
 phase_end = "CR10"
-w = "CR11"
+in0_d3 = "CR11"
 last = "CR12"
 oc_end = "CR13"
 tap_rows = "CR14"
