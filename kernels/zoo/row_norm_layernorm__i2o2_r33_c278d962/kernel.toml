@@ -1,6 +1,6 @@
 [kernel]
 op = "row_norm"
-formats = ["e3"]
+formats = ["e2"]
 
 [params.kind]
 type = "str"
@@ -51,14 +51,15 @@ type = "int"
 min = 1
 max = 4096
 default = 768
+
 [derived]
-K = "ceil(channels / 128)"
+K = "(channels + 127) // 128"
 M = "rows * K"
-tail = "ds((channels - 1) % 128 + 1)"
+tail = "ds(channels - (K - 1) * 128) + 65536 * ds(128)"
 half = "1277440"
 
 [inputs.in0]
-shape = ["in0_d0 * in0_d1 * ceil(in0_d2 / 128)", 128]
+shape = ["in0_d0 * in0_d1 * ((in0_d2 + 127) // 128)", 128]
 range = [-2.0, 2.0]
 [inputs.gamma]
 shape = ["3 * K", 128]
@@ -69,9 +70,9 @@ shape = [3, 128]
 [inputs.epsilon]
 shape = [128]
 [scratch.tmp]
-shape = ["32 + 2 * K", 128]
+shape = ["32 + 3 * K", 128]
 [outputs.out0]
-shape = ["out0_d0 * out0_d1 * ceil(out0_d2 / 128)", 128]
+shape = ["out0_d0 * out0_d1 * ((out0_d2 + 127) // 128)", 128]
 
 [abi]
 in0 = "CR2"
@@ -83,11 +84,12 @@ crow = "CR7"
 tmp = "CR8"
 qf_in0 = "CR9"
 K = "CR10"
-M = "LR13"
+M = "CR11"
 epsilon = "CR12"
 half = "CR13"
 tail = "CR14"
+qf_gamma = "CR15"
 
 [golden]
-tolerance = { e3 = "NX8_STEP" }
+tolerance = { e2 = "NX8_STEP" }
 [cases.default]
