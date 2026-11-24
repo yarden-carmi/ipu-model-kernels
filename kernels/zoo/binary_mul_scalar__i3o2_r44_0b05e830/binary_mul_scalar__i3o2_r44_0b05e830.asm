@@ -38,7 +38,7 @@ tile:
     SET LR8 LR15 ;;
 gather:
     LD.MULT R0 LR4 {{ cr.in0 }} ; BEQ LR8 CR1 singleton ;;
-    {# Each input row contributes one lane to the transposed output row. #}
+    {# Select one source column and scatter successive rows to output lanes. #}
     {{ scatter(prefetch=true) }} ; INC LR6 2 ;;
     BLT.S LR8 LR6 finish_gather ;;
 gather_next:
