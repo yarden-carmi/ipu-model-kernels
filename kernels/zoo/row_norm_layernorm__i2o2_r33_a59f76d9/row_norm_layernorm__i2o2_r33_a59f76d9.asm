@@ -141,8 +141,7 @@
  SET LR4 LR5 ; BLT.S LR6 LR15 pack_low ;;
  INC LR4 1 ;;
  pack_low:
- SET LR0 {{ cr.c128 }} ; SET LR1 {{ cr.cC }} ; LD.MULT R0 LR4 {{ cr.in0 }} ;;
- INC.MODP2 LR7 LR6 7 ;;
+ SET LR0 {{ cr.c128 }} ; SET LR1 {{ cr.cC }} ; INC.MODP2 LR7 LR6 7 ; LD.MULT R0 LR4 {{ cr.in0 }} ;;
  ADDB LRD0 LR7 ; SET LR7 CR0 ; DEC LR9 1 ;
  MULT.VE LR7 CR1 0 LR7 CR15.L {{ q }} ; ACC.RESHAPE LRD0 LRD2 0 ;;
  {% if rows % channels %}INC LR6 {{ rows % channels }} ; ADDBI LRD2 8 ;;{% endif %}
@@ -162,22 +161,21 @@
  {{ at('LR4',40 + 2 * rows) }}{{ at('LR11',rows) }}
  {{ at('LR9',40) }}{{ at('LR13',rows // 2) }}
  SET LR5 CR0 ; SET LR12 CR0 ;;
+ SET LR6 {{ cr.c128 }} ; SET LR7 {{ cr.cC }} ;;
+ {% for _ in range(3) %}ADD LR6 LR6 LR6 ; ADD LR7 LR7 LR7 ;;{% endfor %}
  unpack_row:
- SET LR10 LR4 ;;
+ SET LR10 LR4 ; SET LR0 LR6 ; SET LR1 LR7 ; LD.MULT R0 LR10 {{ cr.tmp }} ;;
  {% for h in range(2) %}
- SET LR0 {{ cr.c128 }} ; SET LR1 {{ cr.cC }} ; SET LR8 CR0 ;;
- {% for _ in range(3) %}ADD LR0 LR0 LR0 ; ADD LR1 LR1 LR1 ;;{% endfor %}
- ADDB LRD0 LR5 ; INC LR8 {{ 8 if h == 0 else channels // 16 - 8 }} ;;
- SET LR2 {{ cr.c128 }} ; SET LR3 {{ cr.cC }} ;;
- LD.MULT R0 LR10 {{ cr.tmp }} ;;
- B unpack_first{{ h }} ;;
- unpack_half{{ h }}:
- ADDBI LRD0 -64 ; ADDBI LRD2 8 ; LD.MULT R0 LR10 {{ cr.tmp }} ;;
- unpack_first{{ h }}:
- DEC LR8 1 ; MULT.VE LR12 CR1 0 LR12 CR15.L {{ q }} ; ACC.RESHAPE LRD0 LRD2 0 ;;
- ADDBI LRD0 64 ; ADDBI LRD2 8 ; INC LR10 1 ; MULT.VE LR12 CR1 0 LR12 CR15.L {{ q }} ; ACC.RESHAPE LRD0 LRD2 0 ; BNE LR8 CR0 unpack_half{{ h }} ;;
- ACTIVATE.QUANTIZE identity {{ 'CR15.L' if h == 0 else cr.dsl ~ '.L' }} {{ q }} {{ cr.tmp }} LR9 ;;
- {% if h == 0 %}INC LR9 1 ;;{% endif %}
+ ADDB LRD0 LR5 ; SET LR2 {{ cr.c128 }} ; SET LR3 {{ cr.cC }} ;;
+ {% for j in range(8 if h == 0 else channels // 16 - 8) %}
+ {% if j %}ADDBI LRD0 -64 ; ADDBI LRD2 8 ; {% endif %}
+ MULT.VE LR12 CR1 0 LR12 CR15.L {{ q }} ; ACC.RESHAPE LRD0 LRD2 0 ;;
+ ADDBI LRD0 64 ; ADDBI LRD2 8 ;
+ {% if not loop.last or h == 0 %}INC LR10 1 ; LD.MULT R0 LR10 {{ cr.tmp }} ;{% endif %}
+ MULT.VE LR12 CR1 0 LR12 CR15.L {{ q }} ; ACC.RESHAPE LRD0 LRD2 0 ;
+ {% if loop.last %}ACTIVATE.QUANTIZE identity {{ 'CR15.L' if h == 0 else cr.dsl ~ '.L' }} {{ q }} {{ cr.tmp }} LR9 ;{% endif %} ;;
+ {% endfor %}
+ {% if h == 0 %}INC LR9 1 ; SET LR0 LR6 ; SET LR1 LR7 ;;{% endif %}
  {% endfor %}
  DEC LR9 1 ; INC LR5 1 ; DEC LR11 1 ;;
  ADD LR9 LR9 LR13 ; SET LR15 CR0 ;;
@@ -297,9 +295,8 @@ row_loop:
  {% for n in [17,18] %}{{ load(n) }}{{ scalar('SUB',imm=cr.half) }}{% endfor %}
  {{ save(19,3) }}
 
- SET LR5 LR14 ; SET LR15 LR2 ; SET LR11 CR0 ;;
- SET LR6 LR14 ;;
- INC LR6 1 ;;
+ SET LR5 CR0 ; SET LR15 LR2 ; SET LR11 CR0 ;;
+ INC LR5 32 ;;
  output_loop:
  SET LR10 LR11 ; SET LR1 CR0 ;;
  INC LR1 19 ; LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
@@ -311,18 +308,17 @@ row_loop:
  {{ mul(slot='LR4',tail='; INC LR10 2 ; LD.MULT R0 LR10 ' ~ cr.gamma if not loop.last else '') }}
  {% endfor %}
  {{ save(9,3) }}
- LD.MULT.CYCLIC LR5 {{ cr.tmp }} LR0 ;;
- SET LR1 CR0 ;;
- {% for slot in ['LR3','LR4','LR12'] %}
- INC LR1 {{ 27 if loop.first else 1 }} ; LD.MULT.CYCLIC LR1 {{ cr.tmp }} {{ slot }} ;;
+ {# Reuse the centered expansion already constructed for the variance. #}
+ {% for slot in ['LR0','LR3','LR4'] %}
+ {% if not loop.first %}INC LR5 2 ; {% endif %}LD.MULT.CYCLIC LR5 {{ cr.tmp }} {{ slot }} ;;
  {% endfor %}
- DEC LR1 20 ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
+ DEC LR1 2 ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
  {% for i in range(3) %}
- {{ mul(first=loop.first) }}{{ mul(slot='LR3',op='SUB') }}{{ mul(slot='LR4',op='SUB') }}
- {{ mul(slot='LR12',op='SUB',tail='; INC LR1 1 ; LD.MULT R0 LR1 ' ~ cr.tmp if not loop.last else '; SET LR10 LR11 ; LD.MULT R0 LR10 ' ~ cr.beta) }}
+ {{ mul(first=loop.first) }}{{ mul(slot='LR3') }}
+ {{ mul(slot='LR4',tail='; INC LR1 1 ; LD.MULT R0 LR1 ' ~ cr.tmp if not loop.last else '; SET LR10 LR11 ; LD.MULT R0 LR10 ' ~ cr.beta) }}
  {% endfor %}
  {% for i in range(3) %}
- {{ scalar(tail='; INC LR10 2 ; LD.MULT R0 LR10 ' ~ cr.beta if not loop.last else '; INC LR11 1 ; INC LR15 1 ; INC LR5 1 ; ACTIVATE.QUANTIZE ' ~ (act_out0 | default('identity')) ~ ' CR15.L ' ~ cr.qf_out0 ~ '.L ' ~ cr.out0 ~ ' LR15 ; BLT.S LR5 LR6 output_loop') }}
+ {{ scalar(tail='; INC LR10 2 ; LD.MULT R0 LR10 ' ~ cr.beta if not loop.last else '; INC LR11 1 ; INC LR15 1 ; DEC LR5 3 ; ACTIVATE.QUANTIZE ' ~ (act_out0 | default('identity')) ~ ' CR15.L ' ~ cr.qf_out0 ~ '.L ' ~ cr.out0 ~ ' LR15 ; BEQ LR11 CR0 output_loop') }}
  {% endfor %}
  SET LR2 LR15 ; INC LR14 2 ; BNE LR13 CR0 row_loop ;;
  HALT ;;
