@@ -8,7 +8,7 @@
     SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
     INC LR2 128 ; SET LR5 CR0 ;;
     INC LR5 1 ;;
-plane:  # Restart the broadcast operand for each plane.
+plane:
     SET LR3 CR0 ;;
 row:
     SET LR4 {{ cr.chunks }} ;;
