@@ -64,20 +64,20 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    """Fold batch norm and pack coefficients into 128-channel tiles."""
+    """Fold batch norm and pack bias and transposed weights by output tile."""
     n, k = params["n"], params["k"]
     if hasattr(module, "op0_weight"):
         scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
         weight = module.op0_weight.double().reshape(n, k) * scale[:, None]
         bias = module.op1_bias.double() - module.op1_running_mean.double() * scale
+        if getattr(module, "op0_bias", None) is not None:
+            bias = bias + module.op0_bias.double() * scale
     else:
         weight = module.weight.double().reshape(n, k)
         bias = getattr(module, "bias", None)
-    if bias is None or not params["bias"]:
-        bias = weight.new_zeros(n)
-
     rows = weight.new_zeros((k + 1, ((n + 127) // 128) * 128))
-    rows[0, :n] = bias
+    if bias is not None and params["bias"]:
+        rows[0, :n] = bias
     rows[1:, :n] = weight.T
     rows = rows.reshape(k + 1, -1, 128).transpose(0, 1)
     if params["m"] == 1:
