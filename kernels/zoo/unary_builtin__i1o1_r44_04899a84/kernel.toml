@@ -9,20 +9,19 @@ default = "relu"
 
 [params.numel]
 type = "int"
-min = 2
-multiple_of = 2
+min = 1
 default = 262144
+
+[params.in0_d0]
+type = "int"
+min = 1
+default = 1
 
 [params.in0_d1]
 type = "int"
 min = 1
 max = 64
 default = 64
-
-[params.in0_d0]
-type = "int"
-min = 1
-default = 1
 
 [params.in0_d2]
 type = "int"
@@ -34,16 +33,16 @@ type = "int"
 min = 1
 default = 64
 
+[params.out0_d0]
+type = "int"
+min = 1
+default = 1
+
 [params.out0_d1]
 type = "int"
 min = 1
 max = 64
 default = 64
-
-[params.out0_d0]
-type = "int"
-min = 1
-default = 1
 
 [params.out0_d2]
 type = "int"
@@ -56,11 +55,11 @@ min = 1
 default = 64
 
 [derived]
-input_rows = "in0_d0 * in0_d2 * in0_d3 // 2"
-output_rows = "out0_d0 * out0_d2 * out0_d3 // 2"
-last_row = "numel // (2 * out0_d1) - 1"
+input_rows = "ceil(in0_d0 * in0_d2 * in0_d3 / 2)"
+output_rows = "ceil(out0_d0 * out0_d2 * out0_d3 / 2)"
+last_row = "output_rows - 1"
 input_active = "ds(2 * in0_d1)"
-active = "ds(2 * out0_d1)"
+output_active = "ds(2 * out0_d1)"
 
 [inputs.in0]
 shape = ["input_rows", 128]
@@ -75,7 +74,7 @@ out0 = "CR3"
 last_row = "CR4"
 qf_in0 = "CR5"
 qf_out0 = "CR6"
-active = "CR7"
-input_active = "CR8"
+input_active = "CR7"
+output_active = "CR8"
 
 [cases.default]
