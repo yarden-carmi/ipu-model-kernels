@@ -1,7 +1,6 @@
-{# Reduce one K-wide dot product into each output slot. The query
-   stays in R0 for all columns, with its head starting at lane zero. #}
-{% macro dot(ahead) %}
-    MULT.RC.VV LR3 R0 0 LR11 {{ cr.ds_main }}.H {{ cr.qf_in1 }}.L ; AGG.SUM.FIRST LR9 {{ cr.ds_main }}.H ; INC LR9 1 ; ADD LR7 LR7 {{ cr.strides }}.H {% if ahead %}; LD.MULT.CYCLIC LR7 {{ cr.in1 }} LR11 ; DEC LR10 1 ; BNE LR10 CR1 column{% endif %} ;;
+{# Keep the query in R0 and pipeline the streamed key rows. #}
+{% macro dot(prefetch) %}
+    MULT.RC.VV LR3 R0 0 LR11 {{ cr.ds_main }}.H {{ cr.qf_in1 }}.L ; AGG.SUM.FIRST LR9 {{ cr.ds_main }}.H ; INC LR9 1 ; ADD LR7 LR7 {{ cr.strides }}.H {% if prefetch %}; LD.MULT.CYCLIC LR7 {{ cr.in1 }} LR11 ; DEC LR10 1 ; BNE LR10 CR1 column{% endif %} ;;
 {% endmacro %}
 {% macro output(ds) %}
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR0 ; INC LR0 1 ;;
@@ -15,7 +14,7 @@ head:
     SET LR5 {{ cr.sizes }}.L ; SET LR6 LR1 ;;
 row:
     BEQ LR3 CR0 aligned ;;
-    {# Rotate a complete row so the temporary store sees the same values. #}
+    {# Rotate the entire row to preserve its quantization scale. #}
     LD.MULT.CYCLIC LR6 {{ cr.in0 }} LR11 ;;
     LD.MULT.CYCLIC LR6 {{ cr.in0 }} LR12 ;;
     MULT.RC.VE LR3 CR1 0 LR11 {{ cr.ds_main }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ cr.ds_main }}.L {{ cr.qf_in0 }}.L {{ cr.rotated }} LR11 ;;
