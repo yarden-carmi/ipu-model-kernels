@@ -1,29 +1,29 @@
 [kernel]
 op = "gemm_table"
-formats = ["e1", "e2"]
+formats = ["e1"]
 
 [params.m]
 type = "int"
 min = 1
 max = 65536
-default = 64
+default = 196
 [params.k]
 type = "int"
 min = 1
 max = 4096
-default = 160
+default = 40
 [params.n]
 type = "int"
 min = 1
 max = 4096
-default = 640
+default = 240
 [params.bias]
 type = "bool"
 default = true
 [params.act_out0]
 type = "str"
-choices = ["silu"]
-default = "silu"
+choices = ["hardswish"]
+default = "hardswish"
 [params.in0_d0]
 type = "int"
 min = 1
@@ -33,17 +33,17 @@ default = 1
 type = "int"
 min = 1
 max = 4096
-default = 160
+default = 40
 [params.in0_d2]
 type = "int"
 min = 1
 max = 512
-default = 8
+default = 14
 [params.in0_d3]
 type = "int"
 min = 1
 max = 128
-default = 8
+default = 14
 [params.out0_d0]
 type = "int"
 min = 1
@@ -53,22 +53,22 @@ default = 1
 type = "int"
 min = 1
 max = 4096
-default = 640
+default = 240
 [params.out0_d2]
 type = "int"
 min = 1
 max = 512
-default = 8
+default = 14
 [params.out0_d3]
 type = "int"
 min = 1
 max = 128
-default = 8
+default = 14
 
 [derived]
 pack = "128 // out0_d3"
 blocks = "ceil(n / pack)"
-stripes = "in0_d0 * in0_d2"
+stripes = "out0_d0 * out0_d2"
 chunks = "ceil(k / 128)"
 full = "ds(pack * out0_d3)"
 tail = "ds(((n - 1) % pack + 1) * out0_d3)"
@@ -76,7 +76,7 @@ dot_full = "ds(128)"
 dot_tail = "ds((k - 1) % 128 + 1)"
 
 [inputs.in0]
-shape = ["stripes", "in0_d3", "ceil(in0_d1 / 128)", 128]
+shape = ["in0_d0 * in0_d2 * in0_d3", "ceil(in0_d1 / 128)", 128]
 range = [-2, 2]
 [inputs.w]
 shape = ["blocks * pack", "chunks", 2, 128]
@@ -88,7 +88,7 @@ range = [-1, 1]
 shape = [5, 128]
 range = [0, 0]
 [outputs.out0]
-shape = ["out0_d0 * out0_d2", "blocks", 128]
+shape = ["stripes", "blocks", 128]
 
 [abi]
 in0 = "CR2"

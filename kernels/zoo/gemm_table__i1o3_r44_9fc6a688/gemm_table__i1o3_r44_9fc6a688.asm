@@ -1,5 +1,6 @@
-{% set act = 'generic' if act_out0 == 'silu' else act_out0 %}
+{% set act = 'generic' if act_out0 == 'hardswish' else act_out0 %}
 {% set chunks = (k + 127) // 128 %}
+{# Reuse the two weight rows across all points of the output stripe. #}
 {% macro mac_chunk(label, ds) %}
     LD.MULT R0 LR4 {{ cr.w }} ; INC LR4 1 ; SET LR7 LR8 ; SET LR9 LR6 ;;
     LD.MULT R1 LR4 {{ cr.w }} ; INC LR4 1 ; SET LR10 CR0 ;;

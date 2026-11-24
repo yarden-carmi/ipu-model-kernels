@@ -53,17 +53,18 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 64, 64], [262144, 4096, 64, 1], 0), module.op0_weight)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 40, 14, 14], [7840, 196, 14, 1], 0), module.op0_weight)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 256, 64, 64], [1048576, 4096, 64, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 240, 14, 14], [47040, 196, 14, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.silu_.default(_v(op1, [1, 256, 64, 64], [1048576, 4096, 64, 1], 0))
+    r0 = aten.hardswish_.default(_v(op1, [1, 240, 14, 14], [47040, 196, 14, 1], 0))
     op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 256, 64, 64])}
+    return {"out0": _out(op2, [1, 240, 14, 14])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
+    """Fold inference batch norm and pack bias into output stripe order."""
     def split(rows):
         _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
         step = torch.ldexp(torch.ones_like(rows[..., :1]), exponent - 4)
@@ -73,12 +74,16 @@ def fold(module, **params):
     n, k, width = params['n'], params['k'], params['out0_d3']
     pack = 128 // width
     padded = ((n + pack - 1) // pack) * pack
-    scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
-    w = module.op0_weight.double().reshape(n, k) * scale[:, None]
-    b = module.op1_bias.double() - module.op1_running_mean.double() * scale
-    if not params['bias']:
-        b = torch.zeros_like(b)
+    if hasattr(module, 'op0_weight'):
+        scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
+        w = module.op0_weight.double().reshape(n, k) * scale[:, None]
+        b = module.op1_bias.double() - module.op1_running_mean.double() * scale
+    else:
+        w = module.weight.double().reshape(n, k)
+        b = getattr(module, 'bias', None)
+    if b is None or not params['bias']:
+        b = w.new_zeros(n)
     w = torch.nn.functional.pad(w, (0, (-k) % 128, 0, padded - n))
-    b = torch.nn.functional.pad(b, (0, padded - n)).reshape(-1, pack)
+    b = torch.nn.functional.pad(b.double(), (0, padded - n)).reshape(-1, pack)
     b = torch.nn.functional.pad(b.repeat_interleave(width, dim=1), (0, 128 - pack * width))
     return {'w': split(w.reshape(padded, -1, 128)), 'b': split(b)}
