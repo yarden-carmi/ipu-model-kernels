@@ -1,0 +1,65 @@
+[kernel]
+op = "bmm"
+formats = ["e2", "e3"]
+
+[params]
+b = {type="int", min=1, max=32767, default=16}
+k = {type="int", min=1, max=32767, default=64}
+m = {type="int", min=1, max=32767, default=64}
+n = {type="int", min=1, max=64, default=48}
+in0_d0 = {type="int", min=1, max=32767, default=4}
+in0_d1 = {type="int", min=1, max=32767, default=4}
+in0_d2 = {type="int", min=1, max=32767, default=64}
+in0_d3 = {type="int", min=1, max=32767, default=64}
+in1_d0 = {type="int", min=1, max=32767, default=4}
+in1_d1 = {type="int", min=1, max=32767, default=64}
+in1_d2 = {type="int", min=1, max=4194176, default=576}
+out0_d0 = {type="int", min=1, max=32767, default=4}
+out0_d1 = {type="int", min=1, max=32767, default=4}
+out0_d2 = {type="int", min=1, max=32767, default=64}
+out0_d3 = {type="int", min=1, max=64, default=48}
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d1", "in0_d3", "ac*128"]
+range = [0, 1]
+
+[inputs.in1]
+shape = ["in1_d0", "in1_d1", "bc*128"]
+range = [-1, 1]
+
+[outputs.out0]
+shape = ["ceil(out0_d0*out0_d1*out0_d2/2)", 128]
+
+[scratch.panel]
+shape = ["k+1", 128]
+
+[derived]
+ac = "ceil(in0_d2/128)"
+bc = "ceil(in1_d2/128)"
+strides = "ac+bc*65536"
+sizes = "k+m*65536"
+heads = "out0_d1+n*65536"
+widths = "ds(n)+65536*ds(2*n)"
+bgroup = "in1_d1*bc"
+bstart = "2*in1_d2//3"
+ahead = "in0_d3*ac"
+groups = "b//out0_d1"
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+panel = "CR5"
+qf_in0 = "CR6"
+qf_in1 = "CR7"
+qf_out0 = "CR8"
+widths = "CR9"
+sizes = "CR10"
+strides = "CR11"
+heads = "CR12"
+bgroup = "CR13"
+bstart = "CR14"
+ahead = "CR15"
+groups = "LR15"
+
+[cases.default]
