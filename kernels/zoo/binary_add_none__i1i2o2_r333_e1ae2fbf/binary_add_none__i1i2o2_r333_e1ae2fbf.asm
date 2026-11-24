@@ -33,7 +33,7 @@ tile_rows:
     SET LR6 LR8 ; SET LR7 LR15 ;;
 tile_chunk:
     SET LR1 CR0 ; SET LR13 CR0 ;;
-    INC LR1 8 ; INC LR13 31 ;;
+    INC LR1 8 ; INC LR13 23 ;;
 pack:
     // Sixteen columns fill all 128 lanes of an 8x16 transposed tile.
     LD.MULT R0 LR6 {{ cr.in0 }} ;;
@@ -42,11 +42,9 @@ pack:
     ADD LR6 LR6 {{ cr.blocks }} ; {% if col %}ADDBI LRD4 1 ;{% endif %}
     {% if not loop.last %}LD.MULT R0 LR6 {{ cr.in0 }} ;{% else %}{{ save(cr.tail ~ '.H') }}{% endif %} ;;
     {% endfor %}
-    // Store successive residuals so repacking does not round the operand
-    // to a new shared row scale before the addition.
+    // Keep one residual alongside the rounded tile to recover precision
+    // lost when the transposed lanes take on a shared row scale.
     LD.MULT R0 LR1 {{ tile }} ; ADDBI LRD4 -15 ;;
-    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB ; INC LR1 1 ; {{ save(full) }} ;;
-    LD.MULT R0 LR1 {{ tile }} ;;
     MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB ; INC LR1 1 ; {{ save(full) }} ;;
     INC LR1 1 ; BLT.S LR1 LR13 pack ;;
 
@@ -58,7 +56,6 @@ emit:
     // Align one slice of this tile to its output lanes; select only that slice.
     LD.MULT.CYCLIC LR1 {{ tile }} LR0 ; DEC LR14 16 ;;
     {{ tile_product(loop.first) }} LD.MULT.CYCLIC LR1 {{ tile }} LR0 ; INC LR1 1 ;;
-    {{ tile_product() }} LD.MULT.CYCLIC LR1 {{ tile }} LR0 ; INC LR1 1 ;;
     {{ tile_product() }} INC LR1 1 ; {% if not loop.last %}LD.MULT R0 LR13 {{ tile }} ; INC LR13 1 ;{% else %}LD.MULT R0 LR11 {{ cr.in1 }} ; SET LR13 CR0 ;{% endif %} ;;
     {% endfor %}
     MULT.VE LR0 CR1 0 LR0 {{ full }} {{ cr.qf_in1 }}.L ; ACC.ADD ; ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ full }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR11 ; INC LR13 112 ;;
