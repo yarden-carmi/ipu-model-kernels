@@ -84,7 +84,7 @@ def fold(module, **params):
     if params["m"] == 1:
         return {"coeff": rows.reshape(-1, 128)}
 
-    # Preserve extra precision for the bias and three weights per group of four.
+    # Keep a residual plane for the bias and three weights per group of four.
     _, exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
     step = torch.ldexp(torch.ones_like(exp, dtype=rows.dtype), exp - 6)
     coarse = torch.round(rows / step).clamp(-63, 63) * step
