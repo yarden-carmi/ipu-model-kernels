@@ -62,12 +62,11 @@ full = "ds(128)"
 tail = "ds((n - 1) % 128 + 1)"
 rows = "out0_d0 * out0_d1"
 last_lane = "in0_d3 - 1"
-slot = "128"
 
 [inputs.in0]
 shape = ["in0_d0 * in0_d1 * in0_d2", 128]
 [inputs.w]
-shape = ["tiles * (k + 1) * 2 + 1", 128]
+shape = ["tiles * (k + 1) + 1", 128]
 [outputs.out0]
 shape = ["rows * ceil(out0_d2 / 128)", 128]
 
@@ -83,7 +82,6 @@ tail = "CR9"
 last_lane = "CR10"
 rows = "CR11"
 k = "CR12"
-slot = "CR13"
 
 [golden]
 tolerance = {e2 = "NX8_STEP", e3 = "NX8_STEP"}

@@ -7,17 +7,13 @@ LD.MULT.CYCLIC LR4 {{ cr.w }} {{ slot }} ; INC LR4 1
 MULT.RC.VE {{ slot }} {{ scalar }} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{% if first %}.FIRST{% endif %}
 {%- endmacro %}
 {% macro dot(scalar, first=false) %}
-    {# Each plane loads its successor into a different cache slot. The low
-       plane primes the next scalar even across a physical input boundary. #}
-    {% set slots = ['LR0', 'LR1'] %}
-{% for p in range(2) %}
-    {{ mac(slots[p], scalar, first and p == 0) }} ; {{ load_weight(slots[1 - p]) }}{% if not first and p == 0 %} ; INC LR3 1 ; DEC LR7 1{% elif not first %} ; BNE LR3 LR11 lane{% endif %} ;;
-{% endfor %}
+    {# MULT reads the previous word's weight; prime the next in the same slot. #}
+    {{ mac('LR0', scalar, first) }} ; {{ load_weight('LR0') }}{% if not first %} ; INC LR3 1 ; DEC LR7 1 ; BLT.S LR3 LR11 lane{% endif %} ;;
 {% endmacro %}
 {% macro store(ds) %}
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR5 ;;
 {% endmacro %}
-    SET LR0 CR0 ; SET LR1 {{ cr.slot }} ; SET LR5 CR0 ;;
+    SET LR0 CR0 ; SET LR5 CR0 ;;
     SET LR8 CR0 ; SET LR9 CR0 ; SET LR10 {{ cr.rows }} ;;
     DEC LR9 1 ;;
 row:
@@ -29,8 +25,11 @@ tile:
     {{ dot('CR1', true) }}
 load_input:
     LD.MULT R0 LR2 {{ cr.in0 }} ; ADD LR11 LR3 LR7 ;;
-    BLT.S LR11 {{ cr.last_lane }} lane ;;
+    BLT.S LR11 {{ cr.last_lane }} lane_ready ;;
     SET LR11 {{ cr.last_lane }} ;;
+lane_ready:
+    {# The branch in dot sees the scalar cursor before its increment. #}
+    DEC LR11 1 ;;
 lane:
     {{ dot('LR3') }}
     BEQ LR3 {{ cr.last_lane }} next_input ;;
