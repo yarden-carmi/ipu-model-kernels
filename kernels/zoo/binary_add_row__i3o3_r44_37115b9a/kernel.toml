@@ -1,6 +1,6 @@
 [kernel]
 op = "binary_add_row"
-formats = ["e3"]
+formats = ["e1", "e2"]
 
 [params.broadcast]
 type = "str"
@@ -43,7 +43,7 @@ default = 64
 [params.in0_d3]
 type = "int"
 min = 1
-max = 128
+max = 65536
 default = 64
 [params.out0_d0]
 type = "int"
@@ -63,25 +63,27 @@ default = 64
 [params.out0_d3]
 type = "int"
 min = 1
-max = 128
+max = 65536
 default = 64
 
 [derived]
-capacity = "128 // in0_d3"
+ic = "ceil(in0_d3 / 128)"
+capacity = "max(1, 128 // in0_d3)"
 pack = "1 + (capacity - 1) * (1 - min(1, in0_d2 % capacity))"
-width = "in0_d3 * pack"
-rows = "numel // width"
-period = "inner // width"
-last_row = "period - 1"
-last_plane = "rows - period"
-penultimate_plane = "last_plane - period"
-tail = "ds(width)"
+plane_rows = "in0_d2 // pack * ic"
+rows = "in0_d0 * in0_d1 * plane_rows"
+tail = "ds((out0_d3 * pack - 1) % 128 + 1)"
+mixed_width = "min(1, ic - 1) * (out0_d3 % 128)"
+last_chunk = "ic - 1"
+last_row = "plane_rows - 1"
+penultimate_row = "plane_rows - 2"
+last_output = "rows - 1"
 
 [inputs.in0]
 shape = ["rows", 128]
 range = [-2, 2]
 [inputs.operand]
-shape = ["period", 128]
+shape = ["plane_rows", 128]
 range = [-2, 2]
 [outputs.out0]
 shape = ["rows", 128]
@@ -93,10 +95,11 @@ out0 = "CR4"
 qf_in0 = "CR5"
 qf_operand = "CR6"
 qf_out0 = "CR7"
-period = "CR8"
-last_plane = "CR9"
-tail = "CR10"
-penultimate_plane = "CR11"
-last_row = "CR12"
+last_chunk = "CR8"
+last_output = "CR9"
+last_row = "CR10"
+penultimate_row = "CR11"
+mixed_width = "CR12"
+tail = "CR13"
 
 [cases.default]
