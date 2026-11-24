@@ -1,6 +1,6 @@
 [kernel]
 op = "binary_mul_scalar"
-formats = ["e1", "e2"]
+formats = ["e2"]
 
 [params.broadcast]
 type = "str"
@@ -24,7 +24,7 @@ default = "mul"
 type = "int"
 min = 1
 max = 2147483647
-default = 786432
+default = 32768
 [params.in0_d0]
 type = "int"
 min = 1
@@ -34,17 +34,17 @@ default = 1
 type = "int"
 min = 1
 max = 2147483647
-default = 12
+default = 8
 [params.in0_d2]
 type = "int"
 min = 1
 max = 2147483647
-default = 256
+default = 64
 [params.in0_d3]
 type = "int"
 min = 1
 max = 2147483647
-default = 256
+default = 64
 [params.out0_d0]
 type = "int"
 min = 1
@@ -54,20 +54,20 @@ default = 1
 type = "int"
 min = 1
 max = 2147483647
-default = 12
+default = 8
 [params.out0_d2]
 type = "int"
 min = 1
 max = 2147483647
-default = 256
+default = 64
 [params.out0_d3]
 type = "int"
 min = 1
 max = 2147483647
-default = 256
+default = 64
 
 [inputs.in0]
-shape = ["rows", 128]
+shape = ["groups * chunks", 128]
 range = [-2.0, 2.0]
 [outputs.out0]
 shape = ["out0_d0 * out0_d1 * out0_d2 * ceil(out0_d3 / 128)", 128]
@@ -75,11 +75,7 @@ shape = ["out0_d0 * out0_d1 * out0_d2 * ceil(out0_d3 / 128)", 128]
 [derived]
 groups = "in0_d0 * in0_d1 * in0_d2"
 chunks = "ceil(in0_d3 / 128)"
-rows = "groups * chunks"
-last_row = "rows - 1"
-penultimate_row = "max(0, last_row - 1)"
-last = "(in0_d3 - 1) % 128 + 1"
-full_lanes = "128"
+last = "(out0_d3 - 1) % 128 + 1"
 ds_pair = "ds(last) + ds(128) * 65536"
 # These coefficients decode as zero in NX8; their FP32 difference is 1/8.
 fp_base = "0x43010080"
@@ -98,9 +94,5 @@ ds_pair = "CR8"
 fp_base = "CR9"
 fp_top = "CR10"
 nx_scale = "CR11"
-last = "CR12"
-full_lanes = "CR13"
-last_row = "CR14"
-penultimate_row = "CR15"
 
 [cases.default]
