@@ -56,7 +56,7 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    # Pack adjacent rows only when the group fits within every broadcast plane.
+    # Match physical rows without packing across a broadcast plane boundary.
     operand = module.op0_const0
     height, width = operand.shape[-2:]
     capacity = max(1, 128 // width)

@@ -1,12 +1,9 @@
-{% macro start_sum() %}
-    MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; LD.MULT R1 LR3 {{ cr.operand }}
-{% endmacro %}
 {% macro load_sum() %}
     LD.MULT R0 LR1 {{ cr.in0 }} ;;
-    {{ start_sum() }} ;;
+    MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; LD.MULT R1 LR3 {{ cr.operand }} ;;
 {% endmacro %}
 {% macro pipelined_row(prefetch) %}
-    {{ start_sum() }} ; INC LR8 1 ; INC LR1 1 ;;
+    MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; LD.MULT R1 LR3 {{ cr.operand }} ; INC LR8 1 ; INC LR1 1 ;;
     {{ store_sum(cr.tail ~ '.L') }}{% if prefetch %} ; LD.MULT R0 LR8 {{ cr.in0 }} ; INC LR3 1 ; BLT.S LR3 LR9 single_row{% endif %} ;;
 {% endmacro %}
 {% macro store_sum(ds) %}
@@ -32,7 +29,7 @@ tail:
     BLT.S LR1 {{ cr.rows }} plane ;;
     HALT ;;
 
-# One physical row can hold several logical rows. Use the packed tail mask and overlap the next input load
+# A one-chunk physical row can contain multiple logical rows. Overlap the next input load
 # with the current store. Peel each plane's last row to bound the prefetch.
 single_plane:
     SET LR6 {{ cr.plane_rows }} ; SET LR7 {{ cr.rows }} ; SET LR8 CR0 ;;
