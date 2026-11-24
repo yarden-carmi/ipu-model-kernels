@@ -49,35 +49,26 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 64, 64], [262144, 4096, 64, 1], 0), module.weight, module.bias, [1, 1], [1, 1])
+    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 16, 16], [16384, 256, 16, 1], 0), module.weight, module.bias, [1, 1], [1, 1])
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 64, 64, 64])}
+    return {"out0": _out(op0, [1, 64, 16, 16])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Pack vertical taps into 42-channel panels with a residual row each."""
-    weight = module.weight.double()
+    weight = module.weight
     co, ci, _, _ = weight.shape
-    blocks = (ci + 41) // 42
-    padded = weight.new_zeros((co, 3, blocks * 42, 3))
-    padded[:, :, :ci] = weight.transpose(1, 2)
-    panels = weight.new_zeros((co, 3, blocks, 128))
-    panels[..., :126] = padded.reshape(co, 3, blocks, 126)
-
-    def split(values):
-        _, exponent = torch.frexp(values.abs().amax(dim=-1, keepdim=True))
-        step = torch.exp2(exponent.double() - 6)
-        high = (values / step).round().clamp(-63, 63) * step
-        return high, values - high
-
-    high, low = split(panels)
-    rows = weight.new_zeros((1 + co * (1 + 6 * blocks), 128))
-    payload = rows[1:].view(co, 1 + 6 * blocks, 128)
-    bias = getattr(module, 'bias', None) if params['bias'] else None
+    bias = getattr(module, "bias", None) if params["bias"] else None
+    blocks = (ci + 13) // 14
+    panels = weight.new_zeros((co, blocks, 128))
+    taps = weight.new_zeros((co, blocks * 14, 3, 3))
+    taps[:, :ci] = weight
+    panels[:, :, :126] = taps.reshape(co, blocks, 126)
     if bias is not None:
-        high_bias, low_bias = split(bias.double().reshape(co, 1))
-        payload[:, 0, 0] = high_bias[:, 0]
-        payload[:, 0, 1] = low_bias[:, 0]
-    payload[:, 1:] = torch.stack((high, low), dim=3).reshape(co, 6 * blocks, 128)
-    return {'weights': rows}
+        panels[:, 0, 126] = bias.reshape(co)
+    rows = panels.reshape(-1, 128).double()
+    _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
+    step = torch.exp2(exponent.double() - 6)
+    hi = (rows / step).round().clamp(-63, 63) * step
+    packed = torch.stack((hi, rows - hi), dim=1).reshape(-1, 128)
+    return {"weights": torch.cat((packed.new_zeros((1, 128)), packed))}
