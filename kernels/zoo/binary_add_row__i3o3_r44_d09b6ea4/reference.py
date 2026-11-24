@@ -59,7 +59,7 @@ def fold(module, **params):
     operand = module.op0_const0
     width = operand.shape[-1]
     capacity = 128 // width
-    if params["in0_d2"] % capacity == 0:
-        width *= capacity
-    rows = operand.reshape(-1, width)
-    return {"operand": torch.nn.functional.pad(rows, (0, (-width) % 128)).contiguous()}
+    pack = capacity if operand.shape[-2] % capacity == 0 else 1
+    active = width * pack
+    rows = operand.reshape(-1, active)
+    return {"operand": torch.nn.functional.pad(rows, (0, 128 - active)).contiguous()}

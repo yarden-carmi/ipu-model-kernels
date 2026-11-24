@@ -67,14 +67,12 @@ max = 128
 default = 64
 
 [derived]
-capacity = "128 // in0_d3"
-pack = "1 + (capacity - 1) * (1 - min(1, in0_d2 % capacity))"
-width = "in0_d3 * pack"
-rows = "numel // width"
-period = "inner // width"
+pack = "1 + (128 // in0_d3 - 1) * (1 - min(1, in0_d2 % (128 // in0_d3)))"
+rows = "numel // (in0_d3 * pack)"
+period = "inner // (in0_d3 * pack)"
 last_row = "period - 1"
 penultimate_row = "period - 2"
-tail = "ds(width)"
+tail = "ds(out0_d3 * pack)"
 
 [inputs.in0]
 shape = ["rows", 128]
@@ -83,7 +81,7 @@ range = [-2, 2]
 shape = ["period", 128]
 range = [-2, 2]
 [outputs.out0]
-shape = ["rows", 128]
+shape = ["out0_d0 * out0_d1 * out0_d2 // pack", 128]
 
 [abi]
 in0 = "CR2"

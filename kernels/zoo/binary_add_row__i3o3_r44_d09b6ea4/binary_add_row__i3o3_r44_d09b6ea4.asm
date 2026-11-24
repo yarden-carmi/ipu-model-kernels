@@ -1,5 +1,5 @@
-{# Each physical row holds a group of adjacent logical rows. Advance LR1
-   for the prefetch, keeping the current packed store offset in LR4. #}
+{# A physical row holds a group of adjacent logical rows in both operands.
+   Advance LR1 for the prefetch, keeping the packed store offset in LR4. #}
 {% macro add_input() %}
     MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; LD.MULT R1 LR3 {{ cr.operand }} ; ADD LR4 LR1 CR0 ; INC LR1 1 ;;
 {% endmacro %}
