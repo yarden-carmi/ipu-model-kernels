@@ -24,8 +24,7 @@
     ADD LR15 LR10 LR3 ;;
 
 {% macro row(ds) %}
-    {# Use the half-scale product normally. The boosted products recover
-       large quotients when the reciprocal store runs out of range. #}
+    {# The boosted products recover quotients beyond the primary reciprocal's range. #}
     LD.MULT.CYCLIC LR1 {{ cr.in0 }} LR15 ;;
     LD.MULT R0 LR4 {{ cr.s0 }} ;;
     {{ product('LR0', 'ADD.FIRST') }} {{ save('identity', 'LR7') }} ; LD.MULT R0 LR0 {{ cr.s0 }} ;;
