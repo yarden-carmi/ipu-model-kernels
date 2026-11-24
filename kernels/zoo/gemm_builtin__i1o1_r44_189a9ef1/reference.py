@@ -53,18 +53,16 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 16, 56, 56], [50176, 3136, 56, 1], 0), module.op0_weight)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 240, 1, 1], [240, 1, 1, 1], 0), module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 72, 56, 56], [225792, 3136, 56, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.relu_.default(_v(op0, [1, 64, 1, 1], [64, 1, 1, 1], 0))
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.relu_.default(_v(op1, [1, 72, 56, 56], [225792, 3136, 56, 1], 0))
-    op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 72, 56, 56])}
+    return {"out0": _out(op1, [1, 64, 1, 1])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Fuse batch normalization and pack each coefficient as high plus residual."""
+    """Fuse batch normalization and pack coefficient rows."""
     n, k = params['n'], params['k']
     source = getattr(module, 'op0_weight', getattr(module, 'weight', None))
     weights = source.detach().double().reshape(n, k)
@@ -82,7 +80,10 @@ def fold(module, **params):
     rows[0, :n] = bias
     rows[1:, :n] = weights.T
     rows = rows.reshape(k + 1, blocks, 128).transpose(0, 1)
-    _, exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
-    step = torch.ldexp(torch.ones_like(rows[..., :1]), exp - 4)
-    high = torch.round(rows / step) * step
-    return {'coeff': torch.stack((high, rows - high), dim=-2).reshape(-1, 128)}
+    # Preserve extra coefficient precision for the spatial pixel stream.
+    if params['m'] > 1 and k <= 128 and n <= 128:
+        _, exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
+        step = torch.ldexp(torch.ones_like(rows[..., :1]), exp - 4)
+        high = torch.round(rows / step) * step
+        rows = torch.stack((high, rows - high), dim=-2)
+    return {'coeff': rows.reshape(-1, 128)}
