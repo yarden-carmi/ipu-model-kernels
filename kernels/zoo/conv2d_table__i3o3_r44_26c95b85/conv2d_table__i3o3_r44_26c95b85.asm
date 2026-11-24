@@ -1,9 +1,9 @@
 {% set ix = (in0_d3 + 127) // 128 %}
 {% set ox = (out0_d3 + 127) // 128 %}
 {% set width = out0_d3 %}
-{% set full = [1, 128 // width]|max %}
-{% set pack = full if out0_d2 % full == 0 or (out0_d2 * width == 64 and 128 % width == 0) else 1 %}
-{% set tiles = (out0_d2 + pack - 1) // pack %}
+{% set full = [8, [1, 128 // width]|max]|min %}
+{% set pack = full if out0_d2 % full == 0 else 1 %}
+{% set tiles = out0_d2 // pack %}
 {% set row = kw * ox %}
 {% set extra = stride * (pack - 1) %}
 {% set taps = kh * kw %}
@@ -17,9 +17,9 @@
 {% set staged = cr.packed if pack > 1 else cr.shifted %}
 
 {% macro adjust(reg, n) %}
-{% for off in range(0, n|abs, 255) %}
+ {% for off in range(0, n|abs, 255) %}
  {{ 'INC' if n > 0 else 'DEC' }} {{ reg }} {{ [255, n|abs - off]|min }} ;;
-{% endfor %}
+ {% endfor %}
 {% endmacro %}
 {% macro bound(reg, n) %}
  SET {{ reg }} CR0 ;;
@@ -50,7 +50,7 @@
  ACTIVATE.QUANTIZE identity {{ ds if x + 1 < ox or pack > 1 else do }} {{ qi }} {{ cr.shifted }} LR5 ; INC LR5 1 ;;
 {% endmacro %}
 
-{# First stage: width shifts and horizontal decimation, with explicit zero guards. #}
+{# Stage each horizontal tap at output stride, with vertical zero guards. #}
  SET LR0 CR0 ; SET LR4 CR0 ; SET LR5 CR0 ;;
  DEC LR4 1 ; DEC LR5 1 ; SET LR6 CR0 ;;
  {{ bound('LR1', 128) }}
@@ -90,7 +90,7 @@ shift_y:
  INC LR6 1 ; BLT.S LR6 LR11 shift_channel ;;
 
 {% if pack > 1 %}
-{# Second stage: collect vertically strided scanlines into each tap vector. #}
+{# Combine strided scanlines into disjoint lane ranges using the folded masks. #}
  SET LR5 CR0 ; SET LR6 CR1 ; SET LR7 CR0 ;;
  {{ bound('LR10', (in0_d2 + 2 * padding) * row - 1) }}
  {{ bound('LR14', pack - 1) }}
@@ -111,7 +111,6 @@ pack_lane:
  INC LR7 1 ; BLT.S LR7 LR11 pack_channel ;;
 {% endif %}
 
-{# Each convolution vector now has exactly the output's spatial lane order. #}
 {% macro convolve(x) %}
  SET LR11 LR10 ; SET LR12 CR0 ; SET LR13 LR4 ;;
  {{ adjust('LR13', x) }}
@@ -154,7 +153,7 @@ output_y:
 {% endfor %}
  {{ adjust('LR4', stride * pack * row) }}
  BLT.S LR4 LR3 output_y ;;
- SET LR10 LR11 ;;
+ SET LR10 LR11 ;
  {{ bound('LR12', cout // groups - 1) }}
  INC LR2 1 ; BLT.S LR2 LR12 output_channel ;;
  ADD LR6 LR6 LR15 ; BLT.S LR10 {{ cr.weights_end }} output_group ;;
