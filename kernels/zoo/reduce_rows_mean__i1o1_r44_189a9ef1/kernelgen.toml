@@ -1,12 +1,14 @@
 chain = ["reduce_rows"]
 chain_in = ["in0"]
 chain_out = ["out0"]
-notes = "Mean over the n rows of a channel-lane tensor: each row is multiplied by 1/n (a hi row and an exact lo row from fold) and accumulated in ACC per block of 128 channels, then stored once."
+
 [layout.in0]
 lanes = 1
 rows = [0, 2, 3]
+
 [view.in0]
 kind = "whole"
+
 [layout.out0]
 lanes = 1
 rows = [0, 2, 3]

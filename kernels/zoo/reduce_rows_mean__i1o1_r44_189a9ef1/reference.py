@@ -49,23 +49,11 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.adaptive_avg_pool2d.default(_v(ins[0], [1, 640, 8, 8], [40960, 64, 8, 1], 0), [1, 1])
+    r0 = aten.mean.dim(_v(ins[0], [1, 96, 14, 14], [18816, 196, 14, 1], 0), [2, 3], True)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 640, 1, 1])}
+    return {"out0": _out(op0, [1, 96, 1, 1])}
 # ---- end of the frozen reference ----
 
 
-import numpy as np
-import torch
-
-
 def fold(module, **params):
-    """Two rows of 128 equal values: 1/n rounded down to 5 fractional bits at its own exponent (hi), and what that left
-    over (lo, exact, never negative: the input's format may be unsigned)."""
-    n = int(params["n"])
-    v = 1.0 / n
-    e = int(np.frexp(v)[1]) - 1
-    step = 2.0 ** (e - 5)
-    hi = np.floor(v / step) * step
-    lo = v - hi
-    return {"rinv": torch.tensor([[hi] * 128, [lo] * 128], dtype=torch.float64)}
+    return {}
