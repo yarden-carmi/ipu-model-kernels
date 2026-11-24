@@ -6,9 +6,9 @@ formats = ["e2"]
 b = {type="int", min=1, max=65536, default=16}
 k = {type="int", min=1, max=65536, default=48}
 m = {type="int", min=1, max=65536, default=64}
-n = {type="int", min=1, max=65536, default=64}
+n = {type="int", min=1, max=32767, default=64}
 in0_d0 = {type="int", min=1, max=65536, default=4}
-in0_d1 = {type="int", min=1, max=65536, default=4}
+in0_d1 = {type="int", min=1, max=32767, default=4}
 in0_d2 = {type="int", min=1, max=65536, default=64}
 in0_d3 = {type="int", min=1, max=65536, default=48}
 in1_d0 = {type="int", min=1, max=65536, default=4}
@@ -28,7 +28,7 @@ range = [-1, 1]
 [outputs.out0]
 shape = ["out0_d0", "out0_d1", "out0_d2", "ceil(out0_d3/128)*128"]
 [scratch.panel]
-shape = ["ceil(n/128)*k", 128]
+shape = ["max(n,ceil(n/128)*k) + n//8", 128]
 
 [derived]
 arows = "ceil(in0_d3/128)"
@@ -37,6 +37,8 @@ bconfig = "brows + ds(min(k,128))*65536"
 astride = "in0_d1*arows"
 outer = "b//in0_d1"
 ds = "ds(128) + ds((n-1)%128+1)*65536"
+ncfg = "n + ((ceil(n/128)*k + n//8)%65536)*65536"
+heads = "in0_d1 + (ceil(n/128)*k%65536)*65536"
 
 [abi]
 in0 = "CR2"
@@ -45,13 +47,13 @@ out0 = "CR4"
 panel = "CR5"
 k = "CR6"
 m = "CR7"
-n = "CR8"
+ncfg = "CR8"
 bconfig = "CR9"
 ds = "CR10"
 qf_in0 = "CR11"
 qf_in1 = "CR12"
 qf_out0 = "CR13"
-in0_d1 = "CR14"
+heads = "CR14"
 astride = "CR15"
 outer = "LR15"
 
