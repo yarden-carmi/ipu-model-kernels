@@ -154,30 +154,38 @@ weight_loop:
  SET LR2 LR6 ;;
  BLT.S LR2 LR13 row_loop ;;
 
-{# Gather residual planes first, so only the final store rounds to the output format. #}
 {% macro scatter() -%}
  MULT.EE LR4 CR1 0 LR15 {{ full }} {{ q }} ; ACC.RESHAPE LRD14 LRD10 7
 {%- endmacro %}
 {% macro gather(p) %}
  SET LR6 LR2 ; SET LR8 CR1 ; SET LR11 CR0 ;;
- {% for i in range(p) %}ADD LR6 LR6 LR13 ;;{% endfor %}
+ {% for i in range(p) %}
+ ADD LR6 LR6 LR13 ;;
+ {% endfor %}
  {% if p == 2 %}
  BGE.S LR7 LR3 prefetch{{ p }} ;;
  MULT.VE LR15 CR0 0 LR15 {{ full }} {{ q }} ; ACC.ADD.FIRST ;;
  {% endif %}
- {# Prefetch the next row in the destination-counter word.
-    Drain separately so the last tile never loads beyond the plane. #}
 prefetch{{ p }}:
  LD.MULT R0 LR6 {{ cr.normalized }} ;;
+ BGE.S LR8 LR7 single{{ p }} ;;
+ {# Emit lane 0 before starting the fused loop, which bumps the destination
+    before RESHAPE. Bias the counter so the last prefetched row drains
+    without loading past the tile; BLT sees the old counter value. #}
+ {{ scatter() }} ; ADD LR6 LR6 {{ cr.K }} ; INC LR8 1 ; LD.MULT R0 LR6 {{ cr.normalized }} ;;
  BGE.S LR8 LR7 drain{{ p }} ;;
+ INC LR8 1 ;;
 gather{{ p }}:
- {{ scatter() }} ; ADD LR6 LR6 {{ cr.K }} ; INC LR8 1 ;;
- ADDBI LRD10 1 ; LD.MULT R0 LR6 {{ cr.normalized }} ; BLT.S LR8 LR7 gather{{ p }} ;;
+ {{ scatter() }} ; ADD LR6 LR6 {{ cr.K }} ; INC LR8 1 ; ADDBI LRD10 1 ; LD.MULT R0 LR6 {{ cr.normalized }} ; BLT.S LR8 LR7 gather{{ p }} ;;
 drain{{ p }}:
+ {{ scatter() }} ; ADD LR6 LR6 {{ cr.K }} ; ADDBI LRD10 1 ;;
+ B end{{ p }} ;;
+single{{ p }}:
  {{ scatter() }} ; ADD LR6 LR6 {{ cr.K }} ;;
+end{{ p }}:
 {% endmacro %}
 
- {{ init('LR2') }}{{ init('LR11') }}{{ init('LR15') }}
+ {{ init('LR2') }}{{ init('LR15') }}
 batch:
  SET LR4 CR0 ; SET LR1 LR2 ; SET LR9 CR0 ;;
 channel:
