@@ -56,13 +56,12 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    # Pack consecutive spatial rows without crossing a broadcast-plane boundary.
+    # Pack adjacent rows only when the group fits within every broadcast plane.
     operand = module.op0_const0
     height, width = operand.shape[-2:]
-    pack = max(1, 128 // width)
-    if height % pack:
-        pack = 1
-    span = width * pack
-    rows = operand.reshape(height // pack, span)
-    padded = torch.nn.functional.pad(rows, (0, (-span) % 128))
+    capacity = max(1, 128 // width)
+    pack = capacity if height % capacity == 0 else 1
+    packed_width = width * pack
+    rows = operand.reshape(height // pack, packed_width)
+    padded = torch.nn.functional.pad(rows, (0, (-packed_width) % 128))
     return {"operand": padded.reshape(-1, 128).contiguous()}
