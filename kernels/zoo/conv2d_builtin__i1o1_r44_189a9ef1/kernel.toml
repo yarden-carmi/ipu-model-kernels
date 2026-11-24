@@ -1,13 +1,13 @@
 [kernel]
 op = "conv2d_builtin"
-formats = ["e2"]
+formats = ["e1", "e2"]
+
 [params.act_out0]
 type = "str"
-choices = ["relu", "relu6"]
+choices = ["relu"]
 default = "relu"
 [params.bias]
 type = "bool"
-choices = [true]
 default = true
 [params.cin]
 type = "int"
@@ -27,13 +27,13 @@ default = 16
 [params.h]
 type = "int"
 min = 3
-max = 250
-default = 8
+max = 224
+default = 16
 [params.w]
 type = "int"
 min = 3
-max = 250
-default = 8
+max = 224
+default = 16
 [params.kh]
 type = "int"
 choices = [3]
@@ -48,40 +48,80 @@ choices = [1]
 default = 1
 [params.stride]
 type = "int"
-min = 1
-max = 2
+choices = [1, 2]
 default = 2
 [params.in0_d0]
 type = "int"
 min = 1
 default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 128
+default = 16
+[params.in0_d2]
+type = "int"
+min = 3
+max = 224
+default = 16
+[params.in0_d3]
+type = "int"
+min = 3
+max = 224
+default = 16
+[params.out0_d0]
+type = "int"
+min = 1
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 128
+default = 16
+[params.out0_d2]
+type = "int"
+min = 2
+max = 224
+default = 8
+[params.out0_d3]
+type = "int"
+min = 2
+max = 224
+default = 8
+
 [derived]
-ho = "(h + 2 * padding - kh) // stride + 1"
-wo = "(w + 2 * padding - kw) // stride + 1"
-active = "ds(cout)"
-width = "w"
-width_plus_one = "w + 1"
+tail = "ds(out0_d1)"
+depthwise = "min(1, groups // max(cin, cout))"
+tap_rows = "2 * (depthwise + (1 - depthwise) * cin)"
+weight_rows = "2 + 9 * tap_rows"
+output_rows = "out0_d0 * out0_d2 * out0_d3"
+line_step = "stride * in0_d3"
+batch_step = "in0_d2 * in0_d3"
+last_x = "out0_d3 - 1"
+last_y = "out0_d2 - 1"
+
 [inputs.in0]
-shape = ["in0_d0 * h", "w", 128]
+shape = ["in0_d0", "in0_d2", "in0_d3", 128]
 range = [-2, 2]
 [inputs.weights]
-shape = [20, 128]
+shape = ["weight_rows", 128]
 range = [-1, 1]
 [outputs.out0]
-shape = ["in0_d0 * ho", "wo", 128]
+shape = ["out0_d0", "out0_d2", "out0_d3", 128]
+
 [abi]
 in0 = "CR2"
 out0 = "CR3"
 weights = "CR4"
-width = "CR5"
-qf_in0 = "CR6"
-qf_weights = "CR7"
-qf_out0 = "CR8"
-active = "CR10"
-width_plus_one = "CR11"
-in0_d0 = "CR12"
-[golden]
-tolerance = { e2 = "NX8_STEP" }
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+tail = "CR7"
+output_rows = "CR8"
+line_step = "CR9"
+batch_step = "CR10"
+last_x = "CR11"
+last_y = "CR12"
+cin = "CR13"
+tap_rows = "CR14"
+
 [cases.default]
-h = 8
-w = 8

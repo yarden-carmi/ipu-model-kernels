@@ -53,25 +53,39 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 88, 28, 28], [68992, 784, 28, 1], 0), module.op0_weight, None, [1, 1], [1, 1], [1, 1], 88)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 72, 56, 56], [225792, 3136, 56, 1], 0), module.op0_weight, None, [2, 2], [1, 1], [1, 1], 72)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 88, 28, 28], [68992, 784, 28, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 72, 28, 28], [56448, 784, 28, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.relu_.default(_v(op1, [1, 88, 28, 28], [68992, 784, 28, 1], 0))
+    r0 = aten.relu_.default(_v(op1, [1, 72, 28, 28], [56448, 784, 28, 1], 0))
     op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 88, 28, 28])}
+    return {"out0": _out(op2, [1, 72, 28, 28])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Fold BN and split each channel-vector coefficient into hi and residual rows."""
-    weight = module.op0_weight.double()
+    """Fold inference BN and store each coefficient as two NX8 digits."""
+    weight = module.op0_weight.detach().double()
     scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
     bias = module.op1_bias.double() - module.op1_running_mean.double() * scale
-    vec = weight.new_zeros((10, 128))
-    vec[:9, :weight.shape[0]] = (weight.flatten(1) * scale[:, None]).T
-    vec[9, :weight.shape[0]] = bias
-    _, exponent = torch.frexp(vec.abs().amax(dim=1, keepdim=True))
+    conv_bias = getattr(module, "op0_bias", None)
+    if params["bias"] and conv_bias is not None:
+        bias = bias + conv_bias.double() * scale
+
+    cin, cout, groups = (params[k] for k in ("cin", "cout", "groups"))
+    weight = (weight * scale[:, None, None, None]).flatten(2)
+    if cin == cout == groups:
+        taps = weight[:, 0, :].T
+    else:
+        # Each row multiplies one broadcast input by its connected outputs.
+        taps = weight.new_zeros((9, cin, cout))
+        inputs, outputs = cin // groups, cout // groups
+        for oc in range(cout):
+            start = (oc // outputs) * inputs
+            taps[:, start:start + inputs, oc] = weight[oc].T
+        taps = taps.flatten(0, 1)
+    rows = torch.nn.functional.pad(torch.cat((bias[None, :], taps)), (0, 128 - cout))
+    _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
     step = torch.exp2(exponent.double() - 6)
-    hi = vec.sign() * (vec.abs() / step + 0.5).floor().clamp(max=63) * step
-    return {'weights': torch.stack((hi, vec - hi), dim=1).reshape(20, 128)}
+    high = (rows / step).round().clamp(-63, 63) * step
+    return {"weights": torch.stack((high, rows - high), dim=1).flatten(0, 1)}
