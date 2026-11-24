@@ -18,9 +18,9 @@
 {% macro mac(slot,first=false) %}
  MULT.RC.VV {{ slot }} R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if first %}.FIRST{% endif %}
 {% endmacro %}
-{% macro load_parts(n,count=3) %}
+{% macro load_parts(n) %}
  {{ at('LR1',n) }}
- {% for slot in slots[:count] %}
+ {% for slot in slots %}
  LD.MULT.CYCLIC LR1 {{ cr.tmp }} {{ slot }}{% if not loop.first %} ; INC LR1 1{% endif %} ;;
  {% endfor %}
 {% endmacro %}
@@ -101,6 +101,15 @@
 {{ name }}_tail:
  {{ body(tail) }}
 {% endmacro %}
+{% macro correct(parts) %}
+ {% for n in parts %}
+ {{ load(n,true) }}
+ MULT.RC.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %} ;;
+ MULT.RC.VE LR0 {{ cr.half }} 0 LR0 {{ full }} {{ q }} ; ACC.ADD ;;
+ {% endfor %}
+ {% for n in [17,18] %}{{ load(n) }}{{ scalar('SUB',imm=cr.half) }} ;;{% endfor %}
+ {{ save(19) }}
+{% endmacro %}
 
  SET LR0 CR0 ; SET LR2 CR0 ; SET LR14 CR0 ;;
  {{ at('LR3',128) }}
@@ -125,20 +134,11 @@ row_loop:
  LD.MULT R0 LR1 {{ cr.tmp }} ;;
  {{ scalar('SUB') }} ;;{{ save(22,1) }}
 
- {# Refine the rsqrt estimate with residual Newton products. #}
+ {# Two Newton refinements retain residuals across quantization. #}
  {{ load(8,true) }}{{ load(8) }}{{ mac('LR0',true) }} ;;{{ save(13) }}
  {{ product(11,13,15) }}
  {{ load(8,true) }}{{ load(15) }}{{ mac('LR0',true) }} ; INC LR1 1 ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
  {{ mac('LR0') }} ;;{{ save(17) }}
-{% macro correct(parts) %}
- {% for n in parts %}
- {{ load(n,true) }}
- MULT.RC.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %} ;;
- MULT.RC.VE LR0 {{ cr.half }} 0 LR0 {{ full }} {{ q }} ; ACC.ADD ;;
- {% endfor %}
- {% for n in [17,18] %}{{ load(n) }}{{ scalar('SUB',imm=cr.half) }} ;;{% endfor %}
- {{ save(19) }}
-{% endmacro %}
  {{ correct([8]) }}
  {{ product(19,19,13) }}{{ product(11,13,15) }}{{ product(19,15,17) }}
  {{ correct([19,20]) }}
@@ -168,12 +168,11 @@ affine_loop:
  {{ scalar() }}{% if not loop.last %} ; ADD LR10 LR10 {{ cr.K }} ; LD.MULT R0 LR10 {{ cr.beta }}{% endif %} ;;
  {% endfor %}
  ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ full }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR2 ;;
- INC LR2 1 ; INC LR11 1 ;
- INC LR9 3 ;;
+ INC LR2 1 ; INC LR11 1 ; INC LR9 3 ;;
  INC LR5 1 ;;
  BGE.S LR6 LR5 affine_loop ;;
 
- {# The patches view interleaves groups in input, but stores groups in order. #}
+ {# Input patch groups are interleaved, while output groups are contiguous. #}
  BGE.S LR2 {{ cr.M }} finish ;;
  ADD LR14 LR14 LR13 ;;
  BLT.S LR14 {{ cr.M }} row_loop ;;

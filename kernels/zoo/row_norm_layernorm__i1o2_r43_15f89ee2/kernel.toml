@@ -10,12 +10,12 @@ default = "layernorm"
 type = "int"
 min = 1
 max = 4096
-default = 240
+default = 144
 [params.rows]
 type = "int"
 min = 1
 max = 4096
-default = 64
+default = 1024
 [params.eps]
 type = "float"
 min = 0.0
@@ -30,17 +30,17 @@ default = 1
 type = "int"
 min = 1
 max = 4096
-default = 240
+default = 144
 [params.in0_d2]
 type = "int"
 min = 1
 max = 4096
-default = 8
+default = 32
 [params.in0_d3]
 type = "int"
 min = 1
 max = 4096
-default = 8
+default = 32
 [params.out0_d0]
 type = "int"
 min = 1
@@ -50,12 +50,12 @@ default = 4
 type = "int"
 min = 1
 max = 4096
-default = 16
+default = 256
 [params.out0_d2]
 type = "int"
 min = 1
 max = 4096
-default = 240
+default = 144
 
 [derived]
 K = "(channels + 127) // 128"
@@ -65,7 +65,7 @@ tail = "ds(channels - (K - 1) * 128) + 65536 * ds(128)"
 half = "1277440"
 
 [inputs.in0]
-shape = ["in0_d0 * in0_d2 * in0_d3 * K", 128]
+shape = ["in0_d0 * in0_d2 * in0_d3 * ((in0_d1 + 127) // 128)", 128]
 [inputs.gamma]
 shape = ["3 * K", 128]
 [inputs.beta]
@@ -77,7 +77,7 @@ shape = [128]
 [scratch.tmp]
 shape = ["32 + 3 * K", 128]
 [outputs.out0]
-shape = ["M", 128]
+shape = ["out0_d0 * out0_d1 * ((out0_d2 + 127) // 128)", 128]
 
 [abi]
 in0 = "CR2"
