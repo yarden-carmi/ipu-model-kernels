@@ -3,6 +3,50 @@
     INC LR5 1 ;;
 {% endmacro %}
 
+{% macro transpose_tile(tile) %}
+{% for col in range(8) %}
+{% if col %}
+    ADDBI LRD10 1 ;
+{% elif tile %}
+    ADDBI LRD10 -7 ; INC LR1 1 ;
+{% endif %}
+    MULT.RC.VE LR5 LR0 0 LR0 CR15.L {{ cr.qf_in1 }}.L ; ACC.RESHAPE LRD8 LRD10 0 ; ADD LR2 LR2 {{ cr.blocks }} ;
+{% if col == 7 %}
+    ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf_in1 }}.L {{ cr.tiles }} LR1 ;
+{% endif %}
+{% if tile == 15 and col == 7 %}
+    LD.MULT.CYCLIC LR0 {{ cr.tiles }} LR0 ;;
+{% else %}
+    LD.MULT.CYCLIC LR2 {{ cr.in1 }} LR0 ;;
+{% endif %}
+{% endfor %}
+{% endmacro %}
+
+{% macro gather_tile_row(row) %}
+{% for t in range(16) %}
+{% if t %}
+    ADDBI LRD8 8 ; DEC LR6 8 ;
+{% elif row == 0 %}
+    ADDBI LRD10 -7 ;
+{% endif %}
+    MULT.RC.VE LR6 LR0 0 LR0 CR15.L {{ cr.qf_in1 }}.L ; ACC.RESHAPE LRD8 LRD8 0 ;
+{% if t == 15 %}
+    LD.MULT R1 LR4 {{ cr.in0 }} ; INC LR1 113 ;;
+{% else %}
+    {% if t == 0 %} SET LR1 CR1 ; {% else %} INC LR1 1 ; {% endif %}
+    LD.MULT.CYCLIC LR1 {{ cr.tiles }} LR0 ;;
+{% endif %}
+{% endfor %}
+    MULT.VE LR1 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD ; ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} CR15.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR4 ; ADDBI LRD8 -120
+{% if row < 7 %}
+    ; LD.MULT.CYCLIC LR0 {{ cr.tiles }} LR0 ;;
+    ADD LR4 LR4 LR14 ; INC LR6 128 ;;
+{% else %}
+    ;;
+    ADD LR4 LR4 LR14 ;;
+{% endif %}
+{% endmacro %}
+
 {% macro gather_element() %}
     MULT.EE LR6 CR1 0 LR0 {{ cr.tail_and_one }}.H {{ cr.qf_in1 }}.L ; AGG.SUM.FIRST LR2 {{ cr.tail_and_one }}.H
 {% endmacro %}
@@ -77,58 +121,16 @@ chunk_tiles:
 group_tiles:
     SET LR2 LR3 ; SET LR1 CR0 ; SET LR6 CR0 ;;
     LD.MULT R0 LR0 {{ cr.tile_up }} ;;
-    INC LR6 15 ; MULT.VE LR0 CR0 0 LR0 CR15.L {{ cr.qf_in1 }}.L ; ACC.ADD.FIRST ; LD.MULT.CYCLIC LR2 {{ cr.in1 }} LR0 ;;
-tile_loop:
-    // Scatter eight consecutive lanes from each source column into an 8x8 tile.
-{% for col in range(8) %}
-{% if col %}
-    ADDBI LRD10 1 ;
-{% endif %}
-    MULT.RC.VE LR5 LR0 0 LR0 CR15.L {{ cr.qf_in1 }}.L ; ACC.RESHAPE LRD8 LRD10 0 ; ADD LR2 LR2 {{ cr.blocks }} ;
-{% if col < 7 %}
-    LD.MULT.CYCLIC LR2 {{ cr.in1 }} LR0 ;;
-{% else %}
-    ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf_in1 }}.L {{ cr.tiles }} LR1 ;;
-{% endif %}
+    MULT.VE LR0 CR0 0 LR0 CR15.L {{ cr.qf_in1 }}.L ; ACC.ADD.FIRST ; LD.MULT.CYCLIC LR2 {{ cr.in1 }} LR0 ;;
+    // Keep the next column in flight across scratch stores.
+{% for tile in range(16) %}
+    {{ transpose_tile(tile) }}
 {% endfor %}
-    INC LR1 1 ; ADDBI LRD10 -7 ; BLT.S LR1 LR6 tile_load ;;
-    LD.MULT R0 LR0 {{ cr.tile_down }} ; B gather_start ;;
-tile_load:
-    LD.MULT.CYCLIC LR2 {{ cr.in1 }} LR0 ; B tile_loop ;;
-gather_start:
-    SET LR6 CR0 ; LD.MULT.CYCLIC LR0 {{ cr.tiles }} LR0 ;;
-    // Keep the downscale in R0 for the whole strip. Load in0 into R1 so
-    // the output store can also prefetch the first tile for the next row.
-{% for row_lane in range(8) %}
-    // Assemble one output row, advancing the scatter indices by eight and
-    // shifting the cyclic read origin back so the source lane stays fixed.
-{% for t in range(16) %}
-{% if t %}
-    ADDBI LRD8 8 ; DEC LR6 8 ;
-{% elif row_lane %}
-    ADD LR4 LR4 LR14 ;
-{% endif %}
-    MULT.RC.VE LR6 LR0 0 LR0 CR15.L {{ cr.qf_in1 }}.L ; ACC.RESHAPE LRD8 LRD8 0 ;
-{% if t < 15 %}
-{% if t == 0 %}
-    SET LR1 CR1 ;
-{% else %}
-    INC LR1 1 ;
-{% endif %}
-    LD.MULT.CYCLIC LR1 {{ cr.tiles }} LR0 ;;
-{% else %}
-    {# LR1 was the last tile index (15); 128 selects R1 for the add. #}
-    INC LR1 113 ; LD.MULT R1 LR4 {{ cr.in0 }} ;;
-{% endif %}
+    LD.MULT R0 LR0 {{ cr.tile_down }} ;;
+{% for row in range(8) %}
+    {{ gather_tile_row(row) }}
 {% endfor %}
-    MULT.VE LR1 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.ADD ; ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} CR15.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR4 ; ADDBI LRD8 -120 ;
-{% if row_lane < 7 %}
-    INC LR6 128 ; LD.MULT.CYCLIC LR0 {{ cr.tiles }} LR0 ;;
-{% else %}
-    ;;
-{% endif %}
-{% endfor %}
-    ADD LR4 LR4 LR14 ; DEC LR12 8 ;;
+    DEC LR12 8 ;;
     BEQ LR12 CR0 chunk_tiles_end ;;
     INC LR5 8 ;;
     INC.MODP2 LR5 CR0 7 ;;
