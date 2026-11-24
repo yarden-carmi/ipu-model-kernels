@@ -49,9 +49,9 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.mul.Tensor(_v(ins[0], [1, 1, 224, 224], [50176, 50176, 224, 1], 0), 1)
+    r0 = aten.mul.Tensor(_v(ins[0], [1, 12, 256, 256], [786432, 65536, 256, 1], 0), 0.125)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 1, 224, 224])}
+    return {"out0": _out(op0, [1, 12, 256, 256])}
 # ---- end of the frozen reference ----
 
 
