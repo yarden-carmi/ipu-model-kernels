@@ -46,24 +46,24 @@ type = "int"
 default = 512
 
 [derived]
-chunks = "ceil(in0_d1 / 128)"
-rows = "in0_d0 * chunks"
-loop = "0x40118000 + min(1, max(0, rows - 8)) * (rows + chunks * 65536 - 0x40118000)"
+chunks = "ceil(out0_d1 / 128)"
+rows = "out0_d0 * chunks"
 full = "ds(128) + ds(s0_numel) * 65536"
-tail = "ds((out0_d1 - 1) % 128 + 1)"
+tail = "ds((out0_d1 - 1) % 128 + 1) + rows * 65536"
+two = "0x40118000"
 factor = "0x43118700"
 neg_cap = "0xfb11f6bf"
 neg_inv = "0xc2118680"
 base_cap = "0x6211c500"
 
 [inputs.in0]
-shape = ["rows", 128]
+shape = ["in0_d0", "ceil(in0_d1 / 128)", 128]
 [inputs.in1]
 shape = ["in1_d0", "ceil(in1_d1 / 128)", 128]
 [outputs.out0]
-shape = ["out0_d0", "ceil(out0_d1 / 128)", 128]
+shape = ["out0_d0", "chunks", 128]
 [scratch.s0]
-shape = [9, 128]
+shape = [6, 128]
 
 [abi]
 in0 = "CR2"
@@ -75,10 +75,10 @@ qf_in1 = "CR7"
 qf_out0 = "CR8"
 full = "CR9"
 tail = "CR10"
-neg_inv = "CR11"
-loop = "CR12"
-base_cap = "CR13"
-factor = "CR14"
-neg_cap = "CR15"
+two = "CR11"
+factor = "CR12"
+neg_cap = "CR13"
+neg_inv = "CR14"
+base_cap = "CR15"
 
 [cases.default]
