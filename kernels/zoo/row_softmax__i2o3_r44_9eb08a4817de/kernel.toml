@@ -47,6 +47,13 @@ rootq = "qf(0, 2, 8, 0)"
 pitch = "ceil(in0_d2 / 128)"
 batchstride = "in0_d3 * pitch"
 batches = "in0_d0 * in0_d1"
+batch_jump = "batchstride - pitch + 1"
+input_end = "batchstride * batches"
+transpose_rows = "M + batches * ceil(in0_d2 / 8) * ceil(n / 8)"
+seq_lo = "50462976"
+seq_hi = "117835012"
+stripe_lo = "555745536"
+stripe_hi = "1633698112"
 
 [inputs.in0]
 shape = ["in0_d0", "in0_d1", "in0_d3", "pitch", 128]
@@ -60,7 +67,7 @@ shape = ["K", 128]
 [scratch.exps]
 shape = ["K", 128]
 [scratch.transposed]
-shape = ["rows", "K", 128]
+shape = ["transpose_rows", 128]
 
 [abi]
 in0 = "CR2"
@@ -77,9 +84,13 @@ pitch = "CR12"
 transposed = "CR13"
 part = "CR14"
 active = "CR15"
-batches = "LR15"
+input_end = "LR15"
 in0_d2 = "LR14"
-batchstride = "LR13"
-tail = "LR12"
+batch_jump = "LR13"
+n = "LR1"
+seq_lo = "LR6"
+seq_hi = "LR7"
+stripe_lo = "LR2"
+stripe_hi = "LR3"
 
 [cases.default]
