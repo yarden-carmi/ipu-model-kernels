@@ -38,20 +38,15 @@
  {{ at('LR1',n) }}{{ encode('LR1',pieces) }}
 {% endmacro %}
 {% macro average() %}
- {# Broadcast the already encoded scalar components directly. #}
  {{ save(0,3) }}
- SET LR1 CR0 ; SET LR7 CR0 ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
- INC LR7 3 ;;
- {% for j in range(3) %}
- MULT.EE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR7{% if not loop.last %} ; INC LR1 1 ; LD.MULT R0 LR1 {{ cr.tmp }}{% endif %} ;;
- {% if not loop.last %}INC LR7 1 ;;{% endif %}
- {% endfor %}
- {{ load_parts(3) }}
  SET LR10 CR0 ;;
- LD.MULT R0 LR10 {{ cr.crow }} ;;
+ {% for slot in slots %}
+ LD.MULT.CYCLIC LR10 {{ cr.crow }} {{ slot }}{% if not loop.first %} ; INC LR10 1{% endif %} ;;
+ {% endfor %}
+ SET LR1 CR0 ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
  {% for i in range(3) %}
  {% for slot in slots %}
- {{ mac(slot,i == 0 and loop.first) }}{% if loop.last and i < 2 %} ; LD.MULT R0 LR10 {{ cr.crow }} ; INC LR10 1{% endif %} ;;
+ MULT.RC.VE {{ slot }} LR0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if i == 0 and loop.first %}.FIRST{% endif %}{% if loop.last and i < 2 %} ; INC LR1 1 ; LD.MULT R0 LR1 {{ cr.tmp }}{% endif %} ;;
  {% endfor %}
  {% endfor %}
 {% endmacro %}
@@ -71,8 +66,7 @@
  {{ save(dest) }}
 {% endmacro %}
 {% macro reset_chunks() %}
- SET LR5 LR2 ; SET LR9 CR0 ;;
- INC LR9 32 ;;
+ SET LR5 LR2 ; SET LR9 LR15 ;;
 {% endmacro %}
 {% macro store(ds) %}
  ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR5 ;;
@@ -85,22 +79,34 @@
  SET LR8 LR4 ;;
  INC LR8 128 ;;
  SET LR13 {{ cr.K }} ;;
- DEC LR13 1 ;;
+ DEC LR13 1 ; SET LR15 CR0 ; SET LR14 CR0 ;;
+ INC LR15 32 ; INC LR14 9 ;;
 row_loop:
- ADD LR6 LR2 LR13 ;;
- {{ reset_chunks() }}{{ scalar(first=true,imm='CR0') }} ;;
+ ADD LR6 LR2 LR13 ; SET LR5 LR2 ; LD.MULT R0 LR5 {{ cr.in0 }} ;;
  {% if channels % 128 %}
- BEQ LR5 LR6 sum_tail ;;
+ BEQ LR5 LR6 sum_first_tail ;;
  {% endif %}
+ MULT.VE LR0 CR1 0 LR0 {{ full }} {{ iq }} ; AGG.SUM.FIRST LR0 {{ full }}{% if channels > 128 %} ; INC LR5 1 ; LD.MULT R0 LR5 {{ cr.in0 }}{% endif %} ;;
+ {% if channels % 128 and channels > 128 %}BEQ LR5 LR6 sum_tail ;;{% endif %}
+ {% if channels > 128 + (channels % 128) %}
 sum_loop:
- LD.MULT R0 LR5 {{ cr.in0 }} ;;
- MULT.VE LR0 CR1 0 LR0 {{ full }} {{ iq }} ; AGG.SUM LR0 {{ full }} ; INC LR5 1 ;
- {% if channels % 128 %} ;;
+ {% if channels % 128 %}
+ MULT.VE LR0 CR1 0 LR0 {{ full }} {{ iq }} ; AGG.SUM LR0 {{ full }} ; INC LR5 1 ; LD.MULT R0 LR5 {{ cr.in0 }} ;;
  BLT.S LR5 LR6 sum_loop ;;
+ {% else %}
+ MULT.VE LR0 CR1 0 LR0 {{ full }} {{ iq }} ; AGG.SUM LR0 {{ full }} ; BEQ LR5 LR6 sum_done ;;
+ INC LR5 1 ; LD.MULT R0 LR5 {{ cr.in0 }} ; B sum_loop ;;
+ {% endif %}
+ {% endif %}
+ {% if channels % 128 %}
+ {% if channels > 128 %}
  sum_tail:
- LD.MULT R0 LR5 {{ cr.in0 }} ;;
- MULT.VE LR0 CR1 0 LR0 {{ tail }} {{ iq }} ; AGG.SUM LR0 {{ tail }} ;;
- {% else %}BLT.S LR5 LR6 sum_loop ;;{% endif %}
+ MULT.VE LR0 CR1 0 LR0 {{ tail }} {{ iq }} ; AGG.SUM LR0 {{ tail }} ; B sum_done ;;
+ {% endif %}
+ sum_first_tail:
+ MULT.VE LR0 CR1 0 LR0 {{ tail }} {{ iq }} ; AGG.SUM.FIRST LR0 {{ tail }} ;;
+ {% endif %}
+sum_done:
  {{ average() }}{{ save(27,3) }}
 
  {{ reset_chunks() }}
@@ -114,24 +120,20 @@ center_loop:
  {% if channels % 128 %}
  BNE LR5 LR6 center_full ;;
  {{ encode('LR9',2,tail) }}
- BEQ LR0 CR0 variance_start ;;
+ B variance_start ;;
  center_full:
  {% endif %}
  {{ encode('LR9',2) }}
  INC LR9 1 ; INC LR5 1 ; BLT.S LR5 LR6 center_loop ;;
 
 variance_start:
- {{ reset_chunks() }}{{ scalar(first=true,imm='CR0') }} ;;
-variance_loop:
- SET LR1 LR9 ; LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
- {% for i in range(2) %}
- SET LR10 LR9 ; LD.MULT R0 LR10 {{ cr.tmp }} ;;
- {% for j in range(2) %}
- MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ full }}
- {% if not loop.last %} ; INC LR10 1 ; LD.MULT R0 LR10 {{ cr.tmp }}
- {% elif i < 1 %} ; INC LR1 1 ; LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0
- {% else %} ; INC LR9 2 ; INC LR5 1 ; BLT.S LR5 LR6 variance_loop{% endif %} ;;
- {% endfor %}
+ SET LR5 LR2 ; SET LR9 LR15 ; {{ scalar(first=true,imm='CR0') }} ;;
+ variance_loop:
+ LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;
+ LD.MULT R0 LR9 {{ cr.tmp }} ;;
+ MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ full }} ; INC LR9 1 ; LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR3 ;;
+ {% for slot in ['LR3','LR0','LR3'] %}
+ MULT.RC.VV {{ slot }} R0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ full }}{% if loop.first %} ; LD.MULT R0 LR9 {{ cr.tmp }}{% elif loop.last %} ; INC LR9 1 ; INC LR5 1 ; BLT.S LR5 LR6 variance_loop{% endif %} ;;
  {% endfor %}
  {{ average() }}
  LD.MULT R0 LR0 {{ cr.epsilon }} ;;
@@ -162,13 +164,13 @@ output_loop:
  SET LR10 LR11 ; LD.MULT R0 LR10 {{ cr.gamma }} ;;
  {% for i in range(3) %}
  {% for slot in slots %}
- {{ mac(slot,i == 0 and loop.first) }}{% if loop.last and i < 2 %} ; LD.MULT R0 LR10 {{ cr.gamma }} ; ADD LR10 LR10 {{ cr.K }}{% endif %} ;;
+  {{ mac(slot,i == 0 and loop.first) }}{% if loop.last and i < 2 %} ; LD.MULT R0 LR10 {{ cr.gamma }} ; ADD LR10 LR10 {{ cr.K }}{% elif loop.last %} ; SET LR1 LR14{% endif %} ;;
  {% endfor %}
  {% endfor %}
  {# Round the combined affine scale to two components before applying it. #}
- {{ save(9,2) }}
- LD.MULT R1 LR1 {{ cr.tmp }} ; DEC LR1 1 ;;
- INC LR1 1 ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
+ {{ encode('LR1',2) }}
+ LD.MULT R1 LR14 {{ cr.tmp }} ;;
+ LD.MULT R0 LR1 {{ cr.tmp }} ;;
  {# Keep the reciprocal resident in the first three cyclic slots. #}
  LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR8 ;;
  {% for i in range(2) %}
@@ -179,17 +181,18 @@ output_loop:
  {% endfor %}
  INC LR9 1 ; SET LR10 LR11 ; LD.MULT R0 LR10 {{ cr.beta }} ;;
  {% for i in range(3) %}
- {{ scalar() }}{% if not loop.last %} ; ADD LR10 LR10 {{ cr.K }} ; LD.MULT R0 LR10 {{ cr.beta }}{% endif %} ;;
+  {{ scalar() }}{% if not loop.last %} ; ADD LR10 LR10 {{ cr.K }} ; LD.MULT R0 LR10 {{ cr.beta }}{% elif channels % 128 == 0 %} ; ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ full }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR5{% endif %} ;;
  {% endfor %}
  {% if channels % 128 %}
  BNE LR5 LR6 output_full ;;
  {{ store(tail) }}
- BEQ LR0 CR0 row_next ;;
+ B row_next ;;
  output_full:
- {% endif %}
  {{ store(full) }}
+ INC LR5 1 ; INC LR11 1 ; B output_loop ;;
+ {% else %}
  INC LR5 1 ; INC LR11 1 ; BLT.S LR5 LR6 output_loop ;;
- {% if channels % 128 %} BEQ LR0 CR0 output_loop ;; {% endif %}
+ {% endif %}
 row_next:
  ADD LR2 LR6 CR1 ;;
  BLT.S LR2 {{ cr.M }} row_loop ;;
