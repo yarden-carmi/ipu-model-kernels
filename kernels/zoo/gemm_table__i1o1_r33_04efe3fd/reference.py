@@ -49,11 +49,11 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.linear.default(_v(ins[0], [1, 256, 384], [98304, 384, 1], 0), module.weight, module.bias)
+    r0 = aten.linear.default(_v(ins[0], [1, 256, 768], [196608, 768, 1], 0), module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.gelu.default(_v(op0, [1, 256, 1536], [393216, 1536, 1], 0))
+    r0 = aten.gelu.default(_v(op0, [1, 256, 3072], [786432, 3072, 1], 0))
     op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 256, 1536])}
+    return {"out0": _out(op1, [1, 256, 3072])}
 # ---- end of the frozen reference ----
 
 
