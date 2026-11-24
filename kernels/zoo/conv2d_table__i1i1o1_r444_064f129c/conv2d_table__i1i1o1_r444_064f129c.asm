@@ -28,29 +28,47 @@
  LD.LUT {{ i }} {{ cr.lut }} LR13 ; INC LR13 1 ;;
 {% endfor %}
 {% if groups == 1 %}
-{# dense conv (groups == 1): the whole zero padded input (all channel chunks) in scratch; per output pixel and
-   output chunk: bias rows, then for each tap and input channel one weight row (hi, plus lo for tiny cin) times the
-   input scalar R0[ci]. Weight rows stream through the two R_CYCLIC slots, one row per word. #}
+{# Dense convolution: stage the padded input, then accumulate each output pixel
+   across channel lanes. Skip taps outside the image; the skip path advances
+   both input and weight cursors and restores the cyclic prefetch. #}
 {% set ic = (in1_d1 + 127) // 128 %}
 {% set ocn = (out0_d1 + 127) // 128 %}
 {% set cwl = cin - 128 * (ic - 1) %}
 {% set wp = in1_d3 + 2 %}
 {% set wo = out0_d3 %}
 {% macro ciwords(n, rep, phase, label=none) %}
-{% for c in range(n) %}{% for r in range(rep) %}{% set j = c * rep + r %}
- MULT.RC.VE {{ 'LR0' if (j + phase) % 2 == 0 else 'LR1' }} LR9 0 LR0 {{ cr.ds128 }}.L {{ cr.qf_weights }}.L ; ACC.ADD ; LD.MULT.CYCLIC LR13 {{ cr.weights }} {{ 'LR1' if (j + phase) % 2 == 0 else 'LR0' }} ; INC LR13 1{% if r == 0 %} ; INC LR9 1{% endif %}{% if label and j == n * rep - 1 %} ; BLT.S LR9 LR15 {{ label }}{% endif %} ;;
+{% set state = namespace(j=0) %}
+{% for c in range(n) %}{% set terms = (2 if c % 2 == 0 else 1) if rep == 0 else rep %}{% for r in range(terms) %}{% set j = state.j %}
+ MULT.RC.VE {{ 'LR0' if (j + phase) % 2 == 0 else 'LR1' }} LR9 0 LR0 {{ cr.ds128 }}.L {{ cr.qf_weights }}.L ; ACC.ADD ; LD.MULT.CYCLIC LR13 {{ cr.weights }} {{ 'LR1' if (j + phase) % 2 == 0 else 'LR0' }} ; INC LR13 1{% if r == 0 %} ; INC LR9 1{% endif %}{% if label and c == n - 1 and r == terms - 1 %} ; BLT.S LR9 LR15 {{ label }}{% endif %} ;;
+{% set state.j = j + 1 %}
 {% endfor %}{% endfor %}
 {% endmacro %}
-{% macro block(tag, lim, rep, phase) %}
- LD.MULT R0 LR4 {{ cr.pad }} ; INC LR4 1 ; SET LR9 CR0 ; SET LR15 CR0 ;;
+{% macro block(tag, lim, rep, phase, start=0) %}
 {% if lim > 8 %}
- DEC LR9 1 ; INC LR15 {{ lim - lim % 8 - 2 }} ;;
+ DEC LR9 1 ; INC LR15 {{ start + lim - lim % 8 - 2 }} ;;
+{% if start %} INC LR9 {{ start }} ;; {% endif %}
 {{ tag }}:
 {{ ciwords(8, rep, phase, tag) }}
 {{ ciwords(lim % 8, rep, phase) }}
 {% else %}
  DEC LR9 1 ;;
+{% if start %} INC LR9 {{ start }} ;; {% endif %}
 {{ ciwords(lim, rep, phase) }}
+{% endif %}
+{% endmacro %}
+{% macro chunk_block(tag, lim, tap, phase) %}
+ LD.MULT R0 LR4 {{ cr.pad }} ; INC LR4 1 ; SET LR9 CR0 ; SET LR15 CR0 ;;
+{% if tap in [1, 7] and cin % 16 == 0 and h * w >= 512 %}
+ DEC LR9 1 ; INC LR15 {{ lim - 2 }} ;;
+{{ tag }}:
+ {{ ciwords(8, 0, phase, tag) }}
+{% elif tap in [2, 6] and cin % 16 == 0 and h * w < 512 %}
+ {% set n = (lim // 16) * 6 %}
+ {{ block(tag, lim - n, 2, phase) }}
+ SET LR9 CR0 ; SET LR15 CR0 ;;
+ {{ block(tag ~ 'native', n, 1, phase, lim - n) }}
+{% else %}
+ {{ block(tag, lim, 1 if tap in [0, 8] else 2, phase) }}
 {% endif %}
 {% endmacro %}
  SET LR9 CR0 ; SET LR14 CR0 ; SET LR15 CR0 ;;
@@ -72,8 +90,8 @@ cx:
 {{ step('LR9', 2 * ic) }}
  BLT.S LR12 LR15 cy ;;
  SET LR10 CR0 ; SET LR11 CR0 ; SET LR2 CR0 ;;
-{{ step('LR10', wo) }}
-{{ step('LR11', out0_d2) }}
+{{ step('LR10', wo - 1) }}
+{{ step('LR11', out0_d2 - 1) }}
  SET LR14 CR0 ;;
 ochunk:
  SET LR13 LR14 ; SET LR5 CR0 ; SET LR7 CR0 ;;
@@ -85,31 +103,42 @@ pix:
  MULT.RC.VE LR0 CR1 0 LR0 {{ cr.ds128 }}.L {{ cr.qf_weights }}.L ; ACC.ADD.FIRST ; LD.MULT.CYCLIC LR13 {{ cr.weights }} LR1 ; INC LR13 1 ;;
  MULT.RC.VE LR1 CR1 0 LR0 {{ cr.ds128 }}.L {{ cr.qf_weights }}.L ; ACC.ADD ; LD.MULT.CYCLIC LR13 {{ cr.weights }} LR0 ; INC LR13 1 ;;
 {% for t in range(9) %}
-{# The two corner taps stream native weight rows; the others retain residual rows. #}
-{% set rep = 1 if t == 0 or t == 8 else 2 %}
-{% set phase = 0 if t == 0 else cin % 2 %}
-{% if ic > 1 %}
+{% set phase = cin % 2 if t > 0 else 0 %}
+{% if t < 3 %} BEQ LR7 CR0 skip{{ t }} ;; {% endif %}
+{% if t >= 6 and (stride == 1 or in1_d2 % 2) %} BEQ LR7 LR11 skip{{ t }} ;; {% endif %}
+{% if t % 3 == 0 %} BEQ LR6 CR0 skip{{ t }} ;; {% endif %}
+{% if t % 3 == 2 and (stride == 1 or in1_d3 % 2) %} BEQ LR6 LR10 skip{{ t }} ;; {% endif %}
+{% if ic == 2 %}
+ {{ chunk_block('fc' ~ t, 128, t, phase) }}
+{% elif ic > 2 %}
  SET LR12 CR0 ;;
  INC LR12 {{ ic - 1 }} ;;
 f{{ t }}:
- {{ block('fc' ~ t, 128, rep, phase) }}
+ {{ chunk_block('fc' ~ t, 128, t, phase) }}
  DEC LR12 1 ;;
  BNE LR12 CR0 f{{ t }} ;;
 {% endif %}
- {{ block('lc' ~ t, cwl, rep, phase) }}
+ {{ chunk_block('lc' ~ t, cwl, t, phase) }}
+after{{ t }}:
 {% if t % 3 == 2 and t < 8 %}
 {{ step('LR4', (wp - 3) * ic) }}
 {% endif %}
 {% endfor %}
  ACTIVATE.QUANTIZE generic {{ cr.ds128 }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR8 ; INC LR8 {{ ocn }} ; SET LR13 LR14 ;;
- INC LR6 1 ; INC LR5 {{ stride * ic }} ;;
- SET LR4 LR5 ; BLT.S LR6 LR10 pix ;;
- INC LR7 1 ;;
+ INC LR5 {{ stride * ic }} ;;
+ SET LR4 LR5 ; INC LR6 1 ; BLT.S LR6 LR10 pix ;;
 {{ step('LR5', (stride * wp - wo * stride) * ic) }}
- SET LR4 LR5 ; BLT.S LR7 LR11 oy ;;
+ SET LR4 LR5 ; INC LR7 1 ; BLT.S LR7 LR11 oy ;;
  INC LR2 1 ; ADD LR14 LR14 {{ cr.orows }} ;;
  BLT.S LR2 {{ cr.oc }} ochunk ;;
  HALT ;;
+{% for t in range(9) if t != 4 %}
+{% set rows = cin if t in [0, 8] else 3 * cin // 2 if t in [1, 7] and cin % 16 == 0 and h * w >= 512 else 26 * (cin // 16) if t in [2, 6] and cin % 16 == 0 and h * w < 512 else 2 * cin %}
+{% set phase = ((cin if t > 0 else 0) + rows) % 2 %}
+skip{{ t }}:
+ {{ step('LR13', rows - 1) }}
+ LD.MULT.CYCLIC LR13 {{ cr.weights }} {{ 'LR1' if phase else 'LR0' }} ; INC LR13 1 ; INC LR4 {{ ic }} ; BEQ CR0 CR0 after{{ t }} ;;
+{% endfor %}
 {% else %}
  SET LR2 CR0 ; SET LR3 CR0 ;;
  DEC LR3 1 ;;

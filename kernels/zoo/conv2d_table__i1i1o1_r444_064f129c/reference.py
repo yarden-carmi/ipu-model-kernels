@@ -77,7 +77,8 @@ def fold(module, **params):
         weight = weight * scale[:, None, None, None]
     if groups == 1:
         # Per output chunk: split bias, tap-major weights, then a final
-        # prefetch row. Two corner taps use native weights without a residual.
+        # prefetch row. Retain residuals selectively: small planes gain more
+        # from skipping padding and can afford more residual rows.
         cin = weight.shape[1]
         chunks = (channels + 127) // 128
         w = np.zeros((9, cin, chunks * 128))
@@ -101,10 +102,22 @@ def fold(module, **params):
             out.append(bl[o][None])
             for t in range(9):
                 s = slice(t * cin, (t + 1) * cin)
-                if t in (0, 8):
+                if cin % 16 == 0 and params['h'] * params['w'] >= 512 and t in (1, 7):
+                    for c in range(cin):
+                        out.append(np.stack((wh[o, t * cin + c], wl[o, t * cin + c]))
+                                   if c % 2 == 0 else w[o, t, c:c+1])
+                elif t in (0, 8):
                     out.append(w[o, t])
                 else:
-                    out.append(np.stack((wh[o, s], wl[o, s]), axis=1).reshape(-1, 128))
+                    pair = np.stack((wh[o, s], wl[o, s]), axis=1)
+                    if t in (2, 6) and cin % 16 == 0 and params['h'] * params['w'] < 512:
+                        for c in range(0, cin, 128):
+                            end = min(c + 128, cin)
+                            n = (end - c) // 16 * 6
+                            out.append(pair[c:end-n].reshape(-1, 128))
+                            out.append(w[o, t, end-n:end])
+                    else:
+                        out.append(pair.reshape(-1, 128))
             out.append(bh[o][None])
         return {"weights": np.concatenate(out, 0)}
     if groups != params["cin"] or params["cin"] != channels:
