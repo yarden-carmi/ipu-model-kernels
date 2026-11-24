@@ -94,9 +94,10 @@ ix = "ceil(in0_d3 / 128)"
 ox = "ceil(out0_d3 / 128)"
 ds128 = "ds(128)"
 ds_tail = "ds(1 + (out0_d3 - 1) % 128)"
-plane = "(in0_d2 + 2 * padding) * kw * ox"
+pair = "1 + max(0, 1 - max(out0_d3 - 64, 64 - out0_d3, out0_d2 % 2, w - 128, 128 - w, 2 - stride))"
+plane = "(in0_d2 + 2 * padding) * kw * ox * pair"
 gcin = "cin // groups"
-rewind = "out0_d2 * stride * kw * ox"
+rewind = "out0_d2 * stride * kw * ox * pair"
 
 [inputs.in0]
 shape = ["in0_d0", "in0_d1", "in0_d2", "ix", 128]
@@ -110,7 +111,7 @@ range = [0, 0]
 [scratch.pad]
 shape = ["cin * plane", 128]
 [outputs.out0]
-shape = ["out0_d1", "out0_d0", "out0_d2", "ox", 128]
+shape = ["out0_d1", "out0_d0", "out0_d2 // pair", "ox", 128]
 
 [abi]
 in0 = "CR2"
