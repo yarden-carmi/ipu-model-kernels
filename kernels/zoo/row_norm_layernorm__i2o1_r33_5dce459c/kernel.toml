@@ -1,6 +1,6 @@
 [kernel]
 op = "row_norm"
-formats = ["e2"]
+formats = ["e3"]
 
 [params.kind]
 type = "str"
@@ -10,12 +10,12 @@ default = "layernorm"
 type = "int"
 min = 1
 max = 4096
-default = 384
+default = 768
 [params.rows]
 type = "int"
 min = 1
 max = 4096
-default = 1829
+default = 256
 [params.eps]
 type = "float"
 min = 0.0
@@ -30,12 +30,12 @@ default = 1
 type = "int"
 min = 1
 max = 4096
-default = 1829
+default = 256
 [params.in0_d2]
 type = "int"
 min = 1
 max = 4096
-default = 384
+default = 768
 [params.out0_d0]
 type = "int"
 min = 1
@@ -45,18 +45,16 @@ default = 1
 type = "int"
 min = 1
 max = 4096
-default = 1829
+default = 256
 [params.out0_d2]
 type = "int"
 min = 1
 max = 4096
-default = 384
-
+default = 768
 [derived]
 K = "ceil(channels / 128)"
 M = "rows * K"
 tail = "ds((channels - 1) % 128 + 1)"
-output_tail = "ds((out0_d1 - 1) % 128 + 1)"
 half = "1277440"
 
 [inputs.in0]
@@ -67,7 +65,9 @@ shape = ["3 * K", 128]
 [inputs.beta]
 shape = ["3 * K", 128]
 [inputs.crow]
-shape = [5, 128]
+shape = [3, 128]
+[inputs.epsilon]
+shape = [128]
 [scratch.tmp]
 shape = ["32 + 2 * K", 128]
 [scratch.normalized]
@@ -88,9 +88,11 @@ K = "CR10"
 M = "LR13"
 out0_d1 = "LR12"
 out0_d2 = "LR14"
-output_tail = "CR12"
+epsilon = "CR12"
 half = "CR13"
 tail = "CR14"
 normalized = "CR11"
 
+[golden]
+tolerance = { e3 = "NX8_STEP" }
 [cases.default]
