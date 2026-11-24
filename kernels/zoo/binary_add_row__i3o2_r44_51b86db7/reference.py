@@ -56,6 +56,7 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
+    """Pack the broadcast operand in the output's column order."""
     height, width = params["in0_d2"], params["in0_d3"]
     operand = module.op0_const0
     if operand.numel() == width:
