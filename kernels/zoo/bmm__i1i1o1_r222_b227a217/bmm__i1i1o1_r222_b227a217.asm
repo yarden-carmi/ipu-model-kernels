@@ -1,24 +1,22 @@
 {# Both operands run along K. Each dot writes one lane of the output tile. #}
     SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
-    SET LR3 {{ cr.b }} ; SET LR15 CR0 ;;
+    SET LR3 {{ cr.b }} ;;
 batch:
-    SET LR4 {{ cr.m }} ;;
+    SET LR4 {{ cr.m }} ; SET LR15 CR0 ;;
 row:
     SET LR5 LR2 ; SET LR6 {{ cr.n }} ;;
 tile:
     SET LR8 CR0 ;;
-column:
-    SET LR9 LR1 ; SET LR10 LR5 ; SET LR11 {{ cr.chunks }} ;;
-{% macro dot(first) %}
-    LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR15 ;;
-    LD.MULT R0 LR10 {{ cr.in1 }} ;;
-    MULT.RC.VV LR15 R0 0 LR15 {{ cr.ds }}.L {{ cr.qf_in0 }}.L ; AGG.SUM{{ '.FIRST' if first else '' }} LR8 {{ cr.ds }}.L ; INC LR9 1 ; INC LR10 1 ; DEC LR11 1 ;;
+{# Loads address the updated pointers; branches see the count at word entry. #}
+{% macro dot(first, a, b, init) %}
+    LD.MULT.CYCLIC {{ a }} {{ cr.in0 }} LR15{% if init %} ; {{ init }}{% endif %} ;;
+    LD.MULT R0 {{ b }} {{ cr.in1 }} ; DEC LR11 1 ;;
+    MULT.RC.VV LR15 R0 0 LR15 {{ cr.ds }}.L {{ cr.qf_in0 }}.L ; AGG.SUM{{ '.FIRST' if first else '' }} LR8 {{ cr.ds }}.L ; INC LR9 1 ; INC LR10 1 ; {{ 'BEQ LR11 CR0 column_done' if first else 'BNE LR11 CR0 reduce' }} ;;
 {% endmacro %}
-    {{ dot(true) }}
-    BEQ LR11 CR0 column_done ;;
+column:
+    {{ dot(true, 'LR1', 'LR5', 'SET LR9 LR1 ; SET LR10 LR5 ; SET LR11 ' ~ cr.chunks) }}
 reduce:
-    {{ dot(false) }}
-    BNE LR11 CR0 reduce ;;
+    {{ dot(false, 'LR9', 'LR10', '') }}
 column_done:
     SET LR5 LR10 ; DEC LR6 1 ; INC.MODP2 LR8 CR1 7 ;;
     BEQ LR6 CR0 tail ;;
