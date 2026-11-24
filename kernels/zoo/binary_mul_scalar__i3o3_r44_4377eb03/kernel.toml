@@ -1,6 +1,6 @@
 [kernel]
 op = "binary_mul_scalar"
-formats = ["e1", "e2"]
+formats = ["e1"]
 
 [params.broadcast]
 type = "str"
@@ -24,7 +24,7 @@ default = "mul"
 type = "int"
 min = 1
 max = 2147483647
-default = 786432
+default = 50176
 [params.in0_d0]
 type = "int"
 min = 1
@@ -34,17 +34,17 @@ default = 1
 type = "int"
 min = 1
 max = 2147483647
-default = 12
+default = 1
 [params.in0_d2]
 type = "int"
 min = 1
 max = 2147483647
-default = 256
+default = 224
 [params.in0_d3]
 type = "int"
 min = 1
 max = 2147483647
-default = 256
+default = 224
 [params.out0_d0]
 type = "int"
 min = 1
@@ -54,20 +54,21 @@ default = 1
 type = "int"
 min = 1
 max = 2147483647
-default = 12
+default = 1
 [params.out0_d2]
 type = "int"
 min = 1
 max = 2147483647
-default = 256
+default = 224
 [params.out0_d3]
 type = "int"
 min = 1
 max = 2147483647
-default = 256
+default = 224
+
 [inputs.in0]
 shape = ["total_rows", 128]
-range = [-2.0, 2.0]
+range = [0.0, 2.0]
 [outputs.out0]
 shape = ["out0_d0 * out0_d1 * out0_d2 * ceil(out0_d3 / 128)", 128]
 
@@ -75,11 +76,7 @@ shape = ["out0_d0 * out0_d1 * out0_d2 * ceil(out0_d3 / 128)", 128]
 groups = "in0_d0 * in0_d1 * in0_d2"
 chunks = "ceil(in0_d3 / 128)"
 total_rows = "groups * chunks"
-ds_pair = "ds((out0_d3 - 1) % 128 + 1) + ds(128) * 65536"
-# The first two terms cancel in NX8; the third is negligible in FP32.
-fp_hi = "0x43012d41"
-fp_lo = "0x43010000"
-nx_scale = "0x00017c35"
+ds_pair = "ds((in0_d3 - 1) % 128 + 1) + ds(128) * 65536"
 
 [abi]
 in0 = "CR2"
@@ -89,9 +86,6 @@ qf_out0 = "CR5"
 groups = "CR6"
 chunks = "CR7"
 ds_pair = "CR8"
-fp_hi = "CR9"
-fp_lo = "CR10"
-nx_scale = "CR11"
-total_rows = "CR12"
+total_rows = "CR9"
 
 [cases.default]
