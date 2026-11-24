@@ -19,8 +19,8 @@ pair:
     # Keep the packed row in R0 and start the second sum at its second lane group.
     {{ product('LR2', cr.qf_in1, 'ACC.ADD.FIRST') }} ; LD.MULT R1 LR5 {{ cr.in0 }} ;;
     {{ product('LR1', cr.qf_in0, 'ACC.ADD') }} ; {{ store() }} ;;
-    INC LR5 1 ; INC LR4 1 ;;
-    BLT.S LR4 {{ cr.pairs }} pair ;;
+    # The branch compares the pair index before the increment.
+    INC LR5 1 ; INC LR4 1 ; BLT.S LR4 {{ cr.last_pair }} pair ;;
 tail:
     BGE.S LR5 {{ cr.rows }} done ;;
     {{ first_item() }}
