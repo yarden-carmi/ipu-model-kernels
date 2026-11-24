@@ -77,11 +77,13 @@ unpack_group:
     ADD LR10 LR10 LR10 ; ADD LR11 LR11 LR11 ;;
 {% endfor %}
 {{ addr('LR13',8) }}
-{{ addr('LR15',248) }}
+{{ addr('LR15',128) }}
+    INC LR15 128 ;;
 unpack_row:
     SET LR4 LR2 ; SET LR12 LR1 ;;
-    LD.MULT R0 LR4 {{ cr.transposed }} ; DEC LR12 8 ; BNE LR12 LR15 unpack_general ;;
-{# Two full chunks: carry the lookahead load across the first store. #}
+    LD.MULT R0 LR4 {{ cr.transposed }} ; DEC LR12 8 ; BNE LR1 LR15 unpack_general ;;
+{# Branch on the original width: the branch cannot see this word's DEC.
+   For two full chunks, carry the lookahead load across the first store. #}
     SET LR8 LR6 ; SET LR9 LR7 ;;
 {% for chunk in range(2) %}
 {% for i in range(16) %}
@@ -89,7 +91,7 @@ unpack_row:
 {% endfor %}
 {% endfor %}
 unpack_general:
-    DEC LR15 128 ;;
+    DEC LR15 136 ;;
 unpack_chunk:
     SET LR8 LR6 ; SET LR9 LR7 ; BLT.S LR12 LR15 unpack_tile ;;
     DEC LR12 120 ;;
@@ -104,7 +106,7 @@ unpack_tile:
     MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.RESHAPE LRD10 LRD8 0 ; INC LR4 1 ; BLT.S LR12 CR1 unpack_general_tail ;;
     ADDBI LRD8 8 ; LD.MULT R0 LR4 {{ cr.transposed }} ; DEC LR12 8 ; B unpack_tile ;;
 unpack_general_tail:
-    INC LR15 128 ;;
+    INC LR15 136 ;;
 unpack_tail:
     ACTIVATE.QUANTIZE identity {{ part }} {{ q }} {{ cr.transposed }} LR3 ; INC LR3 1 ; DEC LR5 1 ; ADDBI LRD10 1 ;;
     BEQ LR5 CR0 unpack_next ;;
@@ -195,30 +197,21 @@ max_ready:
     LD.MULT.CYCLIC LR3 {{ cr.roots }} LR0 ;;
     MULT.RC.VS LR0 0 LR0 {{ ds }} {{ root }} ; AGG.SUM LR0 {{ ds }} ; INC LR3 1 ;;
 {% endcall %}
-{# Preserve the sum and reciprocal as high and residual pieces. #}
+{# Broadcast the sum before taking its reciprocal so unused lanes do not
+   produce infinities. Keep the two-piece numerator for normalization. #}
 {% macro inverse(finish='') %}
     LD.MULT R0 LR0 {{ cr.tmp }} ;;
-    MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB ; ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
-    MULT.EE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ; LD.MULT R1 LR1 {{ cr.tmp }} ; SET LR5 CR0 ;;
-    MULT.EE LR11 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; INC LR1 1 ; ACTIVATE.QUANTIZE reciprocal {{ full }} {{ q }} {{ cr.tmp }} LR1 ; INC LR5 7 ;;
-    LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR10 ;;
-    LD.MULT.CYCLIC LR5 {{ cr.tmp }} LR0 ; INC LR1 1 ;;
-    MULT.RC.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ;;
-    MULT.RC.VE LR10 LR0 0 LR0 {{ full }} {{ q }} ; ACC.SUB ;;
-    MULT.RC.VE LR10 LR11 0 LR0 {{ full }} {{ q }} ; ACC.SUB ; ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
-    LD.MULT R0 LR1 {{ cr.tmp }} ;;
-    MULT.RC.VV LR10 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ; SET LR3 CR0 ; SET LR4 LR2 {{ finish }} ;;
+    MULT.EE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE reciprocal {{ full }} {{ q }} {{ cr.tmp }} LR0 ;;
+    LD.MULT.CYCLIC LR0 {{ cr.tmp }} LR10 ; SET LR3 CR0 ; SET LR4 LR2 {{ finish }} ;;
 {% endmacro %}
 {% macro normalize(ds, finish='', out='LR4') %}
     MULT.RC.VE LR13 CR1 0 LR0 {{ ds }} {{ root }} ; ACC.ADD.FIRST ;;
     MULT.RC.VS LR0 0 LR0 {{ ds }} {{ root }} ; ACC.ADD ;;
     MULT.RC.VE LR13 CR1 0 LR0 {{ ds }} {{ root }} ; ACC.SUB ; ACTIVATE.QUANTIZE identity {{ ds }} {{ q }} {{ cr.exps }} LR3 ;;
     LD.MULT R0 LR3 {{ cr.exps }} ;;
-    MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ q }} ; ACC.SUB ; ACTIVATE.QUANTIZE identity {{ ds }} {{ q }} {{ cr.exps }} LR3 ; LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
+    MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ q }} ; ACC.SUB ; ACTIVATE.QUANTIZE identity {{ ds }} {{ q }} {{ cr.exps }} LR3 ;;
     MULT.RC.VV LR10 R0 0 LR0 {{ ds }} {{ q }} ; ACC.ADD.FIRST ; LD.MULT R1 LR3 {{ cr.exps }} ;;
-    MULT.RC.VV LR10 R1 0 LR0 {{ ds }} {{ q }} ; ACC.ADD ;;
-    MULT.RC.VV LR0 R0 0 LR0 {{ ds }} {{ q }} ; ACC.ADD ; INC LR3 1 ;;
-    MULT.RC.VV LR0 R1 0 LR0 {{ ds }} {{ q }} ; ACC.ADD ; ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} {{ out }} {{ finish }} ;;
+    MULT.RC.VV LR10 R1 0 LR0 {{ ds }} {{ q }} ; ACC.ADD ; ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} {{ out }} ; INC LR3 1 {{ finish }} ;;
 {% endmacro %}
     ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR0 ;;
     {{ inverse() }}
@@ -242,7 +235,8 @@ pair_row:
     {{ zero() }} ; SET LR3 CR0 ; LD.MULT.CYCLIC LR3 {{ cr.roots }} LR0 ;;
     MULT.RC.VS LR0 0 LR0 {{ full }} {{ root }} ; AGG.SUM LR0 {{ full }} ; INC LR3 1 ; LD.MULT.CYCLIC LR3 {{ cr.roots }} LR0 ;;
     MULT.RC.VS LR0 0 LR0 {{ part }} {{ root }} ; AGG.SUM LR0 {{ part }} ; ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR0 ;;
-    {{ inverse('; LD.MULT.CYCLIC LR3 ' ~ cr.roots ~ ' LR0') }}
+    {{ inverse() }}
+    LD.MULT.CYCLIC LR3 {{ cr.roots }} LR0 ;;
     {{ normalize(full, '; LD.MULT.CYCLIC LR3 ' ~ cr.roots ~ ' LR0 ; INC LR4 1', 'LR2') }}
     {{ normalize(part) }}
     ADD LR2 LR2 {{ cr.K }} ;;
