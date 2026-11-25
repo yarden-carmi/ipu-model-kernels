@@ -1,0 +1,75 @@
+[kernel]
+op = "gemm_table"
+formats = ["e2"]
+
+[params]
+act_out0 = { type = "str", choices = ["silu", "hardsigmoid", "hardswish"], default = "silu" }
+bias = { type = "bool", default = true }
+k = { type = "int", min = 1, max = 65535, default = 16 }
+m = { type = "int", min = 8, max = 1048576, multiple_of = 8, default = 64 }
+n = { type = "int", min = 1, max = 65535, default = 16 }
+in0_d0 = { type = "int", min = 1, max = 4, default = 4 }
+in0_d1 = { type = "int", min = 8, max = 1048576, multiple_of = 8, default = 16 }
+in0_d2 = { type = "int", min = 8, max = 65535, multiple_of = 8, default = 16 }
+in1_d0 = { type = "int", min = 1, max = 1, default = 1 }
+in1_d1 = { type = "int", min = 1, max = 65535, default = 16 }
+in1_d2 = { type = "int", min = 1, max = 65535, default = 8 }
+in1_d3 = { type = "int", choices = [8, 16, 32], default = 8 }
+out0_d0 = { type = "int", min = 1, max = 1, default = 1 }
+out0_d1 = { type = "int", min = 2, max = 131070, default = 32 }
+out0_d2 = { type = "int", min = 1, max = 65535, default = 8 }
+out0_d3 = { type = "int", choices = [8, 16, 32], default = 8 }
+
+[derived]
+active = "ds(out0_d3)"
+half_pack = "max(8, in1_d3 // 2)"
+fallback_pack = "8 + (half_pack - 8) * (1 - min(1, in0_d2 % half_pack))"
+pack = "in1_d3 - min(1, in0_d2 % in1_d3) * (in1_d3 - fallback_pack)"
+parts = "in1_d3 // pack"
+group_rows = "in0_d1 * (in0_d2 // pack)"
+scratch_rows = "k * in1_d2 * parts"
+copy_rows = "in1_d1 * in1_d2"
+full_blocks = "(k - 1) // 16"
+src_lo = "in0_d0 * 50462976"
+src_hi = "in0_d0 * 117835012"
+dst_lo = "50462976"
+dst_hi = "117835012"
+row_lanes = "128"
+
+[inputs.in0]
+shape = ["group_rows", 128]
+[inputs.in1]
+shape = ["copy_rows", 128]
+[inputs.coeff]
+shape = ["n * (4 + 4 * (full_blocks + 1))", 128]
+[inputs.lut]
+shape = [5, 128]
+[outputs.out0]
+shape = ["out0_d1 * out0_d2", 128]
+[scratch.stripes]
+shape = ["scratch_rows", 128]
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+coeff = "CR4"
+lut = "CR5"
+out0 = "CR6"
+stripes = "CR7"
+qf_in0 = "CR8"
+qf_in1 = "CR9"
+qf_out0 = "CR10"
+active = "CR11"
+group_rows = "CR12"
+scratch_rows = "CR13"
+copy_rows = "CR14"
+in1_d2 = "CR15"
+src_lo = "LR0"
+src_hi = "LR1"
+dst_lo = "LR14"
+dst_hi = "LR15"
+row_lanes = "LR10"
+full_blocks = "LR11"
+n = "LR12"
+
+[cases.default]
