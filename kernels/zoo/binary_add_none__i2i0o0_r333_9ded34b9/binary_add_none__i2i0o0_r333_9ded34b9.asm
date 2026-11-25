@@ -1,13 +1,13 @@
-// The view's (d2,d1,d0) traversal is contiguous in packed in0.
-// in1 and out0 use the same traversal, padded at each d2 plane.
+// Packed in0 follows the view's (d2,d1,d0) traversal. The other tensors
+// follow that same traversal but start each d2 plane on a row boundary.
 {% set plane = out0_d0 * out0_d1 %}
 {% set valid = (plane - 1) % 128 + 1 %}
-{% macro first(ds) %}
-    MULT.VE LR4 CR1 0 LR0 {{ ds }} {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; LD.MULT R0 LR1 {{ cr.in1 }} ;
+{% macro first(mask) %}
+    MULT.VE LR4 CR1 0 LR0 {{ mask }} {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; LD.MULT R0 LR1 {{ cr.in1 }} ;
 {% endmacro %}
-{% macro store(ds, row='LR1') %}
-    MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ cr.qf_in1 }}.L ; ACC.ADD ;
-    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} {{ row }} ;
+{% macro store(mask, row='LR1') %}
+    MULT.VE LR0 CR1 0 LR0 {{ mask }} {{ cr.qf_in1 }}.L ; ACC.ADD ;
+    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ mask }} {{ cr.qf_out0 }}.L {{ cr.out0 }} {{ row }} ;
 {% endmacro %}
 
 {% if plane % 128 == 0 %}
@@ -32,6 +32,7 @@ full_ready:
     INC LR1 1 ; INC LR3 1 ;;
     BLT.S LR3 {{ cr.full }} full_row ;;
 {% endif %}
+    // The tail straddles two input rows only if offset + length > 128.
     LD.MULT R0 LR2 {{ cr.in0 }} ; SET LR5 LR4 ;;
     INC LR5 {{ valid }} ;;
     BGE.S LR6 LR5 tail_ready ; ADD LR7 LR2 CR1 ;;
