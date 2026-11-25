@@ -53,13 +53,13 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[1], [1, 192, 32, 32], [196608, 1024, 32, 1], 0), module.op0_weight, None, [1, 1], [1, 1])
+    r0 = aten.conv2d.default(_v(ins[1], [1, 320, 8, 8], [20480, 64, 8, 1], 0), module.op0_weight, None, [1, 1], [1, 1])
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 96, 32, 32], [98304, 1024, 32, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 160, 8, 8], [10240, 64, 8, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.silu_.default(_v(op1, [1, 96, 32, 32], [98304, 1024, 32, 1], 0))
+    r0 = aten.silu_.default(_v(op1, [1, 160, 8, 8], [10240, 64, 8, 1], 0))
     op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 96, 32, 32])}
+    return {"out0": _out(op2, [1, 160, 8, 8])}
 # ---- end of the frozen reference ----
 
 
@@ -106,25 +106,15 @@ def fold(module, **params):
                     v = w[o:o+2, c, t]
                     hi = leading(v)
                     rows.extend(np.repeat(a, 64) * masks[t] for a in
-                                ((v,) if t == 4 else (hi, v - hi)))
+                                 ((hi, v - hi) if t not in (0, 4, 8) else (v,)))
             rows.extend(np.full(128, v) for v in norm[o:o+2])
         rows.append(np.zeros(128))
         return {'weights': np.asarray(rows)}
 
-    rows = [lanes % width != 0, lanes % width != width - 1]
-    for bv, taps in zip(b, w):
-        hi = leading(bv)
-        for v in (hi, bv - hi):
-            row = np.zeros(128)
-            row[0] = v
-            rows.append(row)
-        block = 7 if area >= 512 else 14
-        for c in range(0, cin, block):
-            v = taps[c:c+block].flatten()
-            k, t = np.divmod(np.arange(len(v)), 9)
-            keep = ((area >= 512) | (t % 2 != 0) | (t == 4)
-                    | ((k != 12) & (t == 6)))
-            hi = np.where(keep, leading(v), v)
-            lo = (v - hi)[keep]
-            rows.extend((np.pad(hi, (0, 128-len(v))), np.pad(lo, (0, 128-len(lo)))))
-    return {'weights': np.asarray(rows)}
+    x = lanes % width
+    masks = np.asarray([(0 <= x + dx) & (x + dx < width)
+                        for dx in (-1, 0, 1)] * 3)
+    rows = np.empty((cout, 1 + 9 * cin, 128))
+    rows[:, 0] = b[:, None]
+    rows[:, 1:] = (w[..., None] * masks).reshape(cout, 9 * cin, 128)
+    return {'weights': rows.reshape(-1, 128)}
