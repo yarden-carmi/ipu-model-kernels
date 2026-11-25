@@ -1,0 +1,19 @@
+chain = ["conv2d"]
+chain_in = ["in0"]
+chain_out = ["out0"]
+
+[layout.in0]
+lanes = 3
+rows = [0, 1, 2]
+
+[view.in0]
+kind = "whole"
+
+[layout.out0]
+lanes = 3
+rows = [0, 1, 2]
+pack = "1 + (min(d2, max(1, 128 // d3)) - 1) * (1 - min(1, d2 % min(d2, max(1, 128 // d3))))"
+
+[lut.out0]
+range_mode = 2
+range_exp = 40
