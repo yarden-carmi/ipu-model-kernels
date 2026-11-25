@@ -1,0 +1,106 @@
+[kernel]
+op = "binary_add"
+formats = ["e1", "e2", "e3"]
+
+[params.broadcast]
+type = "str"
+choices = ["none"]
+default = "none"
+[params.inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.op]
+type = "str"
+choices = ["add"]
+default = "add"
+[params.numel]
+type = "int"
+min = 1
+max = 16777216
+default = 196608
+[params.in0_d0]
+type = "int"
+min = 1
+max = 1024
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 16384
+default = 256
+[params.in0_d2]
+type = "int"
+min = 1
+max = 16384
+default = 768
+[params.in1_d0]
+type = "int"
+min = 1
+max = 1024
+default = 1
+[params.in1_d1]
+type = "int"
+min = 1
+max = 16384
+default = 256
+[params.in1_d2]
+type = "int"
+min = 1
+max = 16384
+default = 768
+[params.out0_d0]
+type = "int"
+min = 1
+max = 1024
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 16384
+default = 256
+[params.out0_d2]
+type = "int"
+min = 1
+max = 16384
+default = 768
+[derived]
+stride0 = "ceil(in0_d2 / 128)"
+stride1 = "ceil(in1_d2 / 128)"
+block0 = "128 * stride0"
+tail0 = "((in0_d1 - 1) % 128 + 1) * stride0"
+rows = "out0_d0 * ceil(out0_d1 / 128) * out0_d2"
+out_stride = "ceil(out0_d1 / 128)"
+scalar_ds = "ds(1)"
+tail_ds = "ds((out0_d1 - 1) % 128 + 1)"
+full_ds = "ds(128)"
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d1 * stride0", 128]
+range = [-2, 2]
+[inputs.in1]
+shape = ["in1_d0 * in1_d1 * stride1", 128]
+range = [-2, 2]
+[outputs.out0]
+shape = ["rows", 128]
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_in1 = "CR6"
+qf_out0 = "CR7"
+stride0 = "CR8"
+full_ds = "CR9"
+block0 = "CR10"
+out0_d1 = "CR12"
+out0_d2 = "CR13"
+scalar_ds = "CR14"
+tail_ds = "CR15"
+tail0 = "LR13"
+out_stride = "LR14"
+rows = "LR15"
+
+[cases.default]
