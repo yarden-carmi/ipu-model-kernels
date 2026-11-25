@@ -6,7 +6,7 @@
 {% set scalar = cr.single ~ '.H' %}
 {% set act = act_out0 | default('identity') %}
 
-{# Generate the two dyadic terms of log2(e)/2 in the input format. #}
+{# Generate log2(e)/2 as 39/64 + 7/64, using two input-format terms. #}
 {% macro power(delta,slot) %}
 {% for i in range(delta) %}
     MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB{% if loop.last %} ; ACTIVATE.QUANTIZE exp2 {{ full }} {{ q }} {{ cr.tmp }} {{ slot }}{% endif %} ;;
@@ -35,14 +35,17 @@
     INC LR11 128 ;;
     LD.MULT.CYCLIC LR6 {{ cr.tmp }} LR0 ; SET LR10 LR11 ;;
     LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR13 ;;
+    SET LR12 LR11 ;;
+    INC LR12 128 ;;
+    LD.MULT.CYCLIC LR0 {{ cr.tmp }} LR12 ;;
 
-{# Slot 256 holds the physical input row. LR10 selects its logical row. #}
+{# Cache slot 256 holds the physical input row; LR10 selects a packed item. #}
 {% macro input_load() %}
     LD.MULT.CYCLIC LR3 {{ cr.in0 }} LR11 ;;
     INC LR3 1 ;;
 {% endmacro %}
-{% macro maximum(ds, first=false, extra='') %}
-    MULT.RC.VE LR10 CR1 0 LR0 {{ ds }} {{ q }} ; AGG.MAX{% if first %}.FIRST{% endif %} LR0 {{ ds }} {{ extra }} ;;
+{% macro maximum(ds, first=false) %}
+    MULT.RC.VE LR10 CR1 0 LR0 {{ ds }} {{ q }} ; AGG.MAX{% if first %}.FIRST{% endif %} LR0 {{ ds }} ;;
 {% endmacro %}
 row_start:
     SET LR3 LR2 ; ADD LR8 LR2 {{ cr.before_tail }} ;;
@@ -70,7 +73,9 @@ save_max:
     MULT.RC.VV LR10 R0 0 LR0 {{ ds }} {{ q }} ; ACC.ADD.FIRST ;;
     MULT.RC.VE LR0 LR13 0 LR0 {{ ds }} {{ q }} ; ACC.SUB ; LD.MULT R0 LR9 {{ cr.tmp }} ;;
     MULT.RC.VV LR10 R0 0 LR0 {{ ds }} {{ q }} ; ACC.ADD ;;
-    MULT.RC.VE LR13 LR13 0 LR0 {{ ds }} {{ q }} ; ACC.SUB ; ACTIVATE.QUANTIZE exp2 {{ ds }} {{ root }} {{ cr.roots }} LR5 ;;
+    MULT.RC.VE LR13 LR13 0 LR0 {{ ds }} {{ q }} ; ACC.SUB ;;
+    {# A common shift cancels in normalization and keeps exp2's input nonpositive. #}
+    MULT.RC.VE LR12 CR1 0 LR0 {{ ds }} {{ q }} ; ACC.SUB ; ACTIVATE.QUANTIZE exp2 {{ ds }} {{ root }} {{ cr.roots }} LR5 ;;
     INC LR5 1 ;;
 {% endmacro %}
     BEQ LR3 LR8 exp_tail ;;
