@@ -56,12 +56,12 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    """Full tile in outer-product order; tail weights in packed dot-product order."""
+    """Stream the full tile by reduction lane and the tail by output channel."""
     n, k = module.weight.shape
     weight = module.weight.detach()
     bias = module.bias.detach() if params["bias"] else weight.new_zeros(n)
     full = torch.cat((bias[None, :128], weight[:128].T))
     tail_bias = torch.nn.functional.pad(bias[None, 128:], (0, 256 - n))
-    tail = weight[128:].reshape(-1, k // 2)
-    tail = torch.nn.functional.pad(tail, (0, 128 - k // 2))
+    halves = weight[128:].reshape(2 * (n - 128), k // 2)
+    tail = torch.nn.functional.pad(halves, (0, 128 - k // 2))
     return {"w": torch.cat((full, tail_bias, tail))}

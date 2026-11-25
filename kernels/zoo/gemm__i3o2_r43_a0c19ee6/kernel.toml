@@ -32,7 +32,7 @@ choices = [4]
 default = 4
 [params.in0_d2]
 type = "int"
-min = 1
+min = 2
 max = 65536
 multiple_of = 2
 default = 256
@@ -53,8 +53,8 @@ max = 65536
 default = 256
 [params.out0_d2]
 type = "int"
-min = 1
-max = 16384
+min = 129
+max = 256
 default = 192
 
 [derived]
@@ -74,7 +74,7 @@ range = [-2, 2]
 shape = ["k + 2 + 2 * (n - 128)", 128]
 range = [-1, 1]
 [outputs.out0]
-shape = ["m * 2", 128]
+shape = ["rows * 2", 128]
 
 [abi]
 in0 = "CR2"
