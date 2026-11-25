@@ -8,8 +8,7 @@
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ mask }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;
 {% endmacro %}
 
-// At fixed k the strided view reads a + d0*j + d0*d1*k in dense
-// storage order. Pack a then j on the other operand's and output's lanes.
+// Lane order within each k plane is a + d0*j, matching in0's view.
 {% if valid == 128 %}
     LD.MULT R0 LR2 {{ cr.in0 }} ; INC LR8 128 ;;
 stream:
@@ -18,8 +17,7 @@ stream:
 final:
     {{ second('LR8', 'CR15.L') }} HALT ;;
 {% else %}
-// LR2:LR4 is the dense in0 cursor; LR3 counts remaining rows in
-// the current k plane, whose final row is padded only in in1/out0.
+// LR2:LR4 tracks the dense input across padded output plane boundaries.
     INC LR6 128 ; SET LR3 {{ cr.width }} ;;
 row:
     LD.MULT R0 LR2 {{ cr.in0 }} ; ADD LR7 LR2 CR1 ; BEQ LR3 CR1 tail ;;
