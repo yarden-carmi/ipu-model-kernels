@@ -1,0 +1,54 @@
+{# Replay the merged input cursor for each output tile. LR1 is its row,
+   LR2 its lane, LR3 and LR4 count down d3 and d2 respectively. #}
+{% macro load(slot) %}LD.MULT.CYCLIC LR6 {{ cr.w }} {{ slot }} ; INC LR6 1{% endmacro %}
+{% macro mac(slot, scalar, first=false) %}
+    MULT.RC.VE {{ slot }} {{ scalar }} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{% if first %}.FIRST{% endif %}
+{%- endmacro %}
+{% macro init_bias(scalar) %}
+    {{ load('LR0') }} ;;
+    {{ mac('LR0', scalar, true) }} ; {{ load('LR15') }} ;;
+    {{ mac('LR15', scalar) }} ;;
+{% endmacro %}
+{% macro store(ds) %}
+    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR7 ;;
+    INC LR7 1 ;;
+{% endmacro %}
+    SET LR0 CR0 ; SET LR15 CR0 ; SET LR7 CR0 ;;
+    SET LR1 CR0 ; SET LR2 CR0 ; SET LR3 {{ cr.in0_d3 }} ;;
+    INC LR15 128 ; SET LR4 {{ cr.in0_d2 }} ; SET LR14 {{ cr.rows }} ;;
+row:
+    SET LR10 LR1 ; SET LR11 LR2 ; SET LR12 LR3 ;;
+    SET LR6 CR0 ; SET LR9 {{ cr.tiles }} ; SET LR13 LR4 ;;
+    DEC LR6 1 ;;
+tile:
+    SET LR1 LR10 ; SET LR2 LR11 ; SET LR3 LR12 ;;
+    SET LR8 {{ cr.k }} ; SET LR4 LR13 ;;
+{{ init_bias('CR1' if bias else 'CR0') }}
+scalar:
+    LD.MULT R0 LR1 {{ cr.in0 }} ;;
+scalar_ready:
+{# Prefetch the next activation on the last weight plane, except at a
+   d3 boundary where the merged input cursor must be adjusted first. #}
+    {{ load('LR0') }} ; DEC LR3 1 ; DEC LR8 1 ;;
+    {{ mac('LR0', 'LR2') }} ; {{ load('LR15') }} ; ADD LR1 LR1 {{ cr.chunks }} ; BEQ LR3 CR0 end_group ;;
+    {{ mac('LR15', 'LR2') }} ; LD.MULT R0 LR1 {{ cr.in0 }} ; B scalar_ready ;;
+end_group:
+    {{ mac('LR15', 'LR2') }} ; SET LR3 {{ cr.in0_d3 }} ; DEC LR4 1 ;;
+    INC LR2 1 ; BEQ LR4 CR0 next_head ;;
+    SUB LR1 LR1 {{ cr.head_stride }} ;;
+    BNE LR2 LR15 next_scalar ;;
+    INC LR1 1 ; SET LR2 CR0 ; B next_scalar ;;
+next_head:
+    SUB LR1 LR1 {{ cr.chunks }} ; SET LR4 {{ cr.in0_d2 }} ;;
+    INC LR1 1 ; SET LR2 CR0 ;;
+next_scalar:
+    BNE LR8 CR0 scalar ;;
+    DEC LR9 1 ;;
+    BEQ LR9 CR0 last_tile ;;
+{{ store(cr.full) }}
+    B tile ;;
+last_tile:
+{{ store(cr.tail) }}
+    DEC LR14 1 ;;
+    BNE LR14 CR0 row ;;
+    HALT ;;
