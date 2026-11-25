@@ -1,0 +1,103 @@
+[kernel]
+op = "row_norm"
+formats = ["e2"]
+
+[params.kind]
+type = "str"
+choices = ["layernorm"]
+default = "layernorm"
+[params.channels]
+type = "int"
+min = 1
+max = 4096
+default = 192
+[params.rows]
+type = "int"
+min = 1
+max = 16384
+default = 256
+[params.eps]
+type = "float"
+min = 0.0
+max = 1.0
+default = 0.00001
+[params.in0_d0]
+type = "int"
+min = 1
+max = 128
+default = 4
+[params.in0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 64
+[params.in0_d2]
+type = "int"
+min = 1
+max = 4096
+default = 192
+[params.out0_d0]
+type = "int"
+min = 1
+max = 4096
+default = 4
+[params.out0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 64
+[params.out0_d2]
+type = "int"
+min = 1
+max = 4096
+default = 192
+
+[derived]
+plane = "in0_d0 * in0_d1"
+source_tiles = "ceil(plane / 128)"
+candidate = "min(in0_d1, max(1, 128 // in0_d0))"
+pack = "1 + (candidate - 1) * (1 - min(1, in0_d1 % candidate))"
+width = "pack * in0_d0"
+tiles = "in0_d1 // pack"
+last_tile = "tiles - 1"
+packed_end = "channels * tiles * 4"
+tail = "ds(width)"
+ds_pair = "tail + 65536 * ds(128)"
+
+[inputs.in0]
+shape = ["in0_d2 * source_tiles", 128]
+range = [-2.0, 2.0]
+[inputs.gamma]
+shape = ["5 * channels", 128]
+[inputs.beta]
+shape = ["5 * channels", 128]
+[inputs.crow]
+shape = [11, 128]
+[scratch.packed]
+shape = ["packed_end", 128]
+[scratch.tmp]
+shape = [40, 128]
+[scratch.centered]
+shape = ["4 * channels", 128]
+[outputs.out0]
+shape = ["out0_d2 * tiles", 128]
+
+[abi]
+in0 = "CR2"
+gamma = "CR3"
+beta = "CR4"
+out0 = "CR5"
+qf_out0 = "CR6"
+crow = "CR7"
+tmp = "CR8"
+qf_in0 = "CR9"
+channels = "CR10"
+tiles = "LR13"
+source_tiles = "CR13"
+packed_end = "LR3"
+packed = "CR12"
+ds_pair = "CR14"
+qf_crow = "CR15"
+centered = "CR11"
+
+[cases.default]
