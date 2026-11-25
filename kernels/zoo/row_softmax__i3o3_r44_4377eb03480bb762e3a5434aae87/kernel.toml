@@ -1,6 +1,6 @@
 [kernel]
 op = "row_softmax"
-formats = ["e2"]
+formats = ["e1", "e2"]
 
 [params.n]
 type = "int"
@@ -42,7 +42,6 @@ M = "rows * K"
 full = "ds(128)"
 tail = "ds(n - (K - 1) * 128)"
 scratch_qf = "312 * 65536 + 56"
-single = "ds(1) * 65536"
 
 [inputs.in0]
 shape = ["in0_d0", "in0_d1", "in0_d2", "ceil(in0_d3 / 128)", 128]
@@ -50,7 +49,7 @@ range = [-2, 2]
 [outputs.out0]
 shape = ["out0_d0", "out0_d1", "out0_d2", "ceil(out0_d3 / 128)", 128]
 [scratch.tmp]
-shape = [12, 128]
+shape = [11, 128]
 [scratch.roots]
 shape = ["K", 128]
 [scratch.exps]
@@ -68,7 +67,6 @@ exps = "CR9"
 qf_out0 = "CR10"
 roots = "CR11"
 n = "CR12"
-single = "CR13"
 tail = "CR14"
 full = "CR15"
 
