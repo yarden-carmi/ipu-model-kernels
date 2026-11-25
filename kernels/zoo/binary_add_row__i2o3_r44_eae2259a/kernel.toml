@@ -1,0 +1,98 @@
+[kernel]
+op = "binary_add_row"
+formats = ["e1", "e2"]
+
+[params.broadcast]
+type = "str"
+choices = ["row"]
+default = "row"
+[params.const]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.op]
+type = "str"
+choices = ["add"]
+default = "add"
+[params.inner]
+type = "int"
+min = 1
+max = 2147483647
+default = 4096
+[params.numel]
+type = "int"
+min = 1
+max = 2147483647
+default = 32768
+[params.in0_d0]
+type = "int"
+min = 1
+max = 16777215
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 16777215
+default = 8
+[params.in0_d2]
+type = "int"
+min = 1
+max = 128
+default = 64
+[params.in0_d3]
+type = "int"
+min = 1
+max = 128
+default = 64
+[params.out0_d0]
+type = "int"
+min = 1
+max = 16777215
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 16777215
+default = 8
+[params.out0_d2]
+type = "int"
+min = 1
+max = 128
+default = 64
+[params.out0_d3]
+type = "int"
+min = 1
+max = 128
+default = 64
+[derived]
+rows = "out0_d0 * out0_d1 * out0_d2"
+operand_rows = "min(rows, inner // out0_d3 + inner * min(1, inner % out0_d3))"
+batch_stride = "in0_d3 * in0_d1"
+ds_out = "ds(out0_d3)"
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d3", "in0_d1", 128]
+range = [-2, 2]
+[inputs.operand]
+shape = ["operand_rows", 128]
+range = [-2, 2]
+[outputs.out0]
+shape = ["rows", 128]
+
+[abi]
+in0 = "CR2"
+operand = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_operand = "CR6"
+qf_out0 = "CR7"
+ds_out = "CR8"
+in0_d1 = "CR9"
+in0_d2 = "CR10"
+in0_d3 = "CR11"
+batch_stride = "CR12"
+operand_rows = "CR13"
+rows = "CR14"
+
+[cases.default]
