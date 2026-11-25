@@ -12,10 +12,10 @@ choices = ["mul"]
 default = "mul"
 [params.inner]
 type = "int"
-default = 120
+default = 144
 [params.numel]
 type = "int"
-default = 23520
+default = 28224
 [params.in0_d2]
 type = "int"
 default = 14
@@ -24,18 +24,17 @@ type = "int"
 default = 14
 
 [derived]
-plane = "in0_d2"
-last_prefetch = "plane - 1"
+last_prefetch = "in0_d2 - 1"
 valid = "ds(in0_d3)"
 
 [inputs.in0]
-shape = ["inner * plane", 128]
+shape = ["inner * in0_d2", 128]
 range = [-2, 2]
 [inputs.in1]
 shape = ["(inner + 127) // 128", 128]
 range = [-2, 2]
 [outputs.out0]
-shape = ["inner * plane", 128]
+shape = ["inner * in0_d2", 128]
 
 [abi]
 in0 = "CR2"
@@ -45,9 +44,9 @@ qf_in0 = "CR5"
 qf_in1 = "CR6"
 qf_out0 = "CR7"
 inner = "CR8"
-plane = "CR9"
+in0_d2 = "CR9"
 last_prefetch = "CR10"
 valid = "CR15"
 
 [cases.default]
-numel = 23520
+numel = 28224
