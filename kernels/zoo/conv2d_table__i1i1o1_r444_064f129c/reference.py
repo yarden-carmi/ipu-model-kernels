@@ -64,71 +64,26 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
+    """Fold inference batch norm and arrange tap-major, split weight rows."""
     import numpy as np
 
-    weight = getattr(module, "op0_weight", getattr(module, "weight", None)).double()
-    channels = weight.shape[0]
-    groups = params["groups"]
-    bias = getattr(module, "op0_bias", getattr(module, "bias", None))
-    bias = weight.new_zeros(channels) if bias is None else bias.double()
-    if hasattr(module, "op1_running_var"):
-        scale = module.op1_weight.double() / (module.op1_running_var.double() + 1e-5).sqrt()
-        bias = module.op1_bias.double() + (bias - module.op1_running_mean.double()) * scale
-        weight = weight * scale[:, None, None, None]
-    if groups == 1:
-        # Per output chunk: split bias, tap-major weights, then a final
-        # prefetch row. Retain residuals selectively: small planes gain more
-        # from skipping padding and can afford more residual rows.
-        cin = weight.shape[1]
-        chunks = (channels + 127) // 128
-        w = np.zeros((9, cin, chunks * 128))
-        w[:, :, :channels] = weight.permute(2, 3, 1, 0).reshape(9, cin, channels).numpy()
-        b = np.zeros(chunks * 128)
-        b[:channels] = bias.numpy()
-        w = w.reshape(9, cin, chunks, 128).transpose(2, 0, 1, 3)
-        b = b.reshape(chunks, 128)
+    weight = module.op0_weight.double()
+    cout, cin, kh, kw = weight.shape
+    scale = module.op1_weight.double() / (module.op1_running_var.double() + 1e-5).sqrt()
+    bias = -module.op1_running_mean.double()
+    if getattr(module, "op0_bias", None) is not None:
+        bias = bias + module.op0_bias.double()
+    bias = module.op1_bias.double() + bias * scale
+    weight = weight * scale[:, None, None, None]
 
-        def split(rows):
-            exponent = np.frexp(np.max(np.abs(rows), axis=-1, keepdims=True))[1] - 1
-            step = np.exp2(exponent.astype(float) - 5)
-            hi = np.sign(rows) * np.minimum(np.floor(np.abs(rows) / step + 0.5), 63) * step
-            return hi, rows - hi
-
-        bh, bl = split(b)
-        wh, wl = split(w.reshape(chunks, 9 * cin, 128))
-        out = []
-        for o in range(chunks):
-            out.append(bh[o][None])
-            out.append(bl[o][None])
-            for t in range(9):
-                s = slice(t * cin, (t + 1) * cin)
-                if cin % 16 == 0 and params['h'] * params['w'] >= 512 and t in (1, 7):
-                    for c in range(cin):
-                        out.append(np.stack((wh[o, t * cin + c], wl[o, t * cin + c]))
-                                   if c % 2 == 0 else w[o, t, c:c+1])
-                elif t in (0, 8):
-                    out.append(w[o, t])
-                else:
-                    pair = np.stack((wh[o, s], wl[o, s]), axis=1)
-                    if t in (2, 6) and cin % 16 == 0 and params['h'] * params['w'] < 512:
-                        for c in range(0, cin, 128):
-                            end = min(c + 128, cin)
-                            n = (end - c) // 16 * 6
-                            out.append(pair[c:end-n].reshape(-1, 128))
-                            out.append(w[o, t, end-n:end])
-                    else:
-                        out.append(pair.reshape(-1, 128))
-            out.append(bh[o][None])
-        return {"weights": np.concatenate(out, 0)}
-    if groups != params["cin"] or params["cin"] != channels:
-        raise ValueError("requires depthwise convolution with channel multiplier one")
-    rows = torch.cat((bias[None], weight[:, 0].reshape(channels, 9).T)).numpy()
-    chunks = (channels + 127) // 128
-    rows = np.pad(rows, ((0, 0), (0, 128 * chunks - channels)))
-    rows = rows.reshape(10, chunks, 128).transpose(1, 0, 2)
-    # Use two NX8 rows so folding does not discard the leading row's residual.
+    rows = np.concatenate((bias.numpy()[None],
+                           weight.permute(2, 3, 1, 0).reshape(kh * kw * cin, cout).numpy()))
+    chunks = (cout + 127) // 128
+    rows = np.pad(rows, ((0, 0), (0, chunks * 128 - cout)))
+    rows = rows.reshape(-1, chunks, 128).transpose(1, 0, 2)
     exponent = np.frexp(np.max(np.abs(rows), axis=-1, keepdims=True))[1] - 1
     step = np.exp2(exponent.astype(float) - 5)
     hi = np.sign(rows) * np.minimum(np.floor(np.abs(rows) / step + 0.5), 63) * step
-    frames = np.stack((hi, rows - hi), axis=2).reshape(-1, 128)
-    return {"weights": np.pad(frames, ((0, 1), (0, 0)))}
+    split = np.stack((hi, rows - hi), axis=2).reshape(chunks, -1, 128)
+    # The MAC pipeline prefetches one row beyond its final product.
+    return {"weights": np.pad(split, ((0, 0), (0, 1), (0, 0))).reshape(-1, 128)}
