@@ -1,0 +1,90 @@
+[kernel]
+op = "gemm"
+formats = ["e1", "e2"]
+
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+default = 64
+[params.m]
+type = "int"
+min = 1
+default = 16384
+[params.n]
+type = "int"
+min = 1
+default = 32
+[params.in0_d0]
+type = "int"
+min = 1
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+default = 64
+[params.in0_d2]
+type = "int"
+min = 1
+default = 128
+[params.in0_d3]
+type = "int"
+min = 1
+default = 128
+[params.out0_d0]
+type = "int"
+min = 1
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+default = 32
+[params.out0_d2]
+type = "int"
+min = 1
+default = 128
+[params.out0_d3]
+type = "int"
+min = 1
+default = 128
+
+[derived]
+pack = "1 + min(1, 64 // in0_d1)"
+chunks = "ceil(in0_d1 * pack / 128)"
+input_points = "in0_d0 * in0_d2 * in0_d3"
+points = "out0_d0 * out0_d2 * out0_d3"
+tiles = "ceil(out0_d3 / 128)"
+full = "ds(128)"
+tail_count = "(out0_d3 - 1) % 128 + 1"
+tail = "ds(tail_count)"
+slot = "128"
+width = "out0_d3"
+
+[inputs.in0]
+shape = ["ceil(input_points / pack) * chunks", 128]
+range = [-2, 2]
+[inputs.coeff]
+shape = ["n * 2 * (1 + pack * chunks)", 128]
+range = [-1, 1]
+[outputs.out0]
+shape = ["out0_d0 * out0_d1 * out0_d2 * tiles", 128]
+
+[abi]
+in0 = "CR2"
+coeff = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+full = "CR7"
+tail = "CR8"
+out0_d0 = "CR9"
+tiles = "CR10"
+chunks = "CR11"
+tail_count = "CR12"
+slot = "CR13"
+out0_d2 = "CR14"
+n = "CR15"
+
+[cases.default]
