@@ -5,7 +5,7 @@
     MULT.VE LR0 {{ coef }} 0 LR0 {{ full }} {{ qi }} ; ACC.{{ acc }}
 {%- endmacro %}
     SET LR0 CR0 ; SET LR1 CR0 ; SET LR5 CR0 ;;
-    # Synthesize 1, then use it to form the head width for rsqrt.
+    # Synthesize one, then form the unrounded head width and take rsqrt.
     {{ width_part('CR0', 'ADD.FIRST') }} ; ACTIVATE.QUANTIZE exp2 {{ full }} {{ qi }} {{ cr.scalar }} LR0 ; INC LR1 128 ;;
     LD.MULT R0 LR0 {{ cr.scalar }} ;;
     {{ width_part(cr.fp_top, 'ADD.FIRST') }} ;;
@@ -16,7 +16,7 @@
 batch:
     SET LR2 LR5 ; SET LR3 CR0 ; SET LR7 {{ cr.out0_d1 }} ;;
 head:
-    # LR2/LR3 locate the first source row and lane for this head.
+    # LR2/LR3 locate this head's starting physical row and lane.
     SET LR9 LR2 ; SET LR8 {{ cr.out0_d2 }} ; ADD LR4 LR3 {{ cr.out0_d3 }} ;;
 sequence:
     LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR0 ; SET LR11 LR9 ; BLT.S LR4 LR1 store ;;
