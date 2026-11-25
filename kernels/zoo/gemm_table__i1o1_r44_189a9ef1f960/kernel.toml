@@ -1,0 +1,107 @@
+[kernel]
+op = "gemm_table"
+formats = ["e1", "e2"]
+
+[params.act_out0]
+type = "str"
+choices = ["silu"]
+default = "silu"
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 4096
+default = 32
+[params.n]
+type = "int"
+min = 1
+max = 4096
+default = 128
+[params.m]
+type = "int"
+min = 1
+max = 65535
+default = 64
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 32
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65535
+default = 8
+[params.in0_d3]
+type = "int"
+min = 1
+max = 65535
+default = 8
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 128
+[params.out0_d2]
+type = "int"
+min = 1
+max = 65535
+default = 8
+[params.out0_d3]
+type = "int"
+min = 1
+max = 65535
+default = 8
+
+[derived]
+chunks = "ceil(k / 128)"
+blocks = "ceil(n / 128)"
+split = "18 + 6 * min(1, 16 // k) + 4 * (min(1, 32 // k) - min(1, 16 // k)) + min(1, 127 // k) - min(1, 32 // k)"
+fast = "min(1, 128 // k) * max(min(1, 128 // n), 1 - min(1, n % 128))"
+middle = "min(1, 127 // k) - min(1, 32 // k)"
+digits = "(k * split + 31) // 32 + fast * middle * ((5 * k) // 8 - (1 - min(1, 64 // k)) - (k * split + 31) // 32)"
+tile_coeff = "2 + k + digits"
+coeff_rows = "blocks * tile_coeff"
+input_rows = "m * chunks"
+active = "ds(128)"
+tail_ds = "ds(1 + (n - 1) % 128)"
+
+[inputs.in0]
+shape = ["input_rows", 128]
+range = [-2, 2]
+[inputs.coeff]
+shape = ["coeff_rows", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[outputs.out0]
+shape = ["m * blocks", 128]
+
+[abi]
+in0 = "CR2"
+coeff = "CR3"
+out0 = "CR4"
+lut = "CR5"
+qf_in0 = "CR6"
+qf_out0 = "CR7"
+blocks = "CR8"
+input_rows = "CR9"
+chunks = "CR10"
+active = "CR11"
+tile_coeff = "CR12"
+tail_ds = "CR15"
+
+[cases.default]
