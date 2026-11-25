@@ -52,151 +52,32 @@
  {{ save(dest) }}
 {% endmacro %}
 
-{# Gather the strided view in output row order by grouping fixed source lanes. #}
-{% set eu = namespace(a=rows, b=channels) %}
-{% for _ in range(24) %}{% if eu.b %}{% set t = eu.b %}{% set eu.b = eu.a % eu.b %}{% set eu.a = t %}{% endif %}{% endfor %}
-{% set M = eu.a %}
-{% set T = channels // M %}
-{% set step = 2 * (rows // M) %}
-{% set r = 127 % T %}
-{% macro group(label,ja,jb,n,mlo,mhi,h) %}
- {% set start = T * mlo - 128 * h %}
- {% set piped = step <= 255 and T <= 127 %}
- {{ at('LR14',jb + (start if piped else 0)) }}{{ at('LR11',ja + (start if piped else 0)) }}
-{{ label }}_group:
- SET LR10 LR7 ; SET LR6 LR8 ; SET LR3 CR0 ; BLT.S LR8 {{ cr.c128 }} {{ label }}_low ;;
- INC LR10 1 ; SUB LR6 LR8 {{ cr.c128 }} ;;
- {{ label }}_low:
- {% set offset = T * mhi - 128 * h %}
- {% set updates %}{% if rows % channels %}INC LR8 {{ rows % channels }} ; {% endif %}INC LR11 1 ; {% endset %}
- {% if piped %}
- {# Ascending source order starts directly at the first destination lane. #}
- ADDB LRD2 LR11 ; SET LR12 CR0 ; LD.MULT R0 LR10 {{ cr.in0 }} ;;
- {% if n > 1 %}INC LR10 {{ step }} ; INC LR12 {{ n - 2 }} ; LD.MULT R0 LR10 {{ cr.in0 }} ; MULT.EE LR6 CR1 0 LR0 CR15.L {{ q }} ; ACC.RESHAPE LRD0 LRD2 7 ;;{% endif %}
- {% if n > 2 %}
- {{ label }}_pipe:
- INC LR10 {{ step }} ; ADDBI LRD2 {{ T }} ; DEC LR12 1 ; LD.MULT R0 LR10 {{ cr.in0 }} ; MULT.EE LR6 CR1 0 LR0 CR15.L {{ q }} ; ACC.RESHAPE LRD0 LRD2 7 ; BLT.S CR1 LR12 {{ label }}_pipe ;;
- {% endif %}
- {% if n > 1 %}ADDBI LRD2 {{ T }} ; {% endif %}{{ updates }}MULT.EE LR6 CR1 0 LR0 CR15.L {{ q }} ; ACC.RESHAPE LRD0 LRD2 7 ;;
- {% else %}
- ADDB LRD2 LR11 ; SET LR12 CR0 ;;
- {% for k in range((offset + 126) // 127) %}ADDBI LRD2 {{ [127,offset - 127 * k]|min }} ;;{% endfor %}
- {{ adj('LR12',n) }}
-{{ label }}_elem:
- {% if step > 255 %}{{ adj('LR10',-step) }}{% endif %}
- {% if T > 128 %}ADDBI LRD2 -128 ;;{% endif %}
- {% if step <= 255 %}DEC LR10 {{ step }} ; {% endif %}ADDBI LRD2 -{{ T if T <= 128 else T - 128 }} ; DEC LR12 1 ; LD.MULT R0 LR10 {{ cr.in0 }} ;;
- MULT.EE LR6 CR1 0 LR0 CR15.L {{ q }} ; ACC.RESHAPE LRD0 LRD2 7 ; BNE LR12 CR0 {{ label }}_elem ;;
- {{ updates }};
- {% endif %}
- {% if 2 * (rows // channels) %}INC LR7 {{ 2 * (rows // channels) }} ; {% endif %}BLT.S LR8 {{ cr.cC }} {{ label }}_next ;;
- SUB LR8 LR8 {{ cr.cC }} ; INC LR7 2 ;;
-{{ label }}_next:
- BNE LR11 LR14 {{ label }}_group ;;
-{% endmacro %}
-
- {% if rows % 64 == 0 and channels % 16 == 0 %}
- {# The input is dense in storage order, so the strided view gives
-    contiguous positions within each channel plane. #}
+ {# With dense input, each channel plane of the strided view is contiguous.
+    Collect eight logical rows at once; each load supplies all eight. #}
  {{ at('LR10',40 + 2 * rows) }}{{ at('LR11',rows // 8) }}
  SET LR12 CR0 ; SET LR13 CR0 ; SET LR7 CR0 ;;
  pack_dense_tile:
  SET LR4 LR12 ; SET LR8 CR0 ;;
  INC LR8 {{ channels // 16 }} ;;
  pack_dense_block:
- {% if rows % 128 and rows > 64 %}BGE.S LR13 {{ cr.tile_lanes }}.H pack_dense_upper ;;{% endif %}
- {% macro dense_phase(phase) %}
  SET LR0 {{ cr.c128 }} ; SET LR1 {{ cr.cC }} ; DEC LR8 1 ;;
  SET LR2 {{ cr.c128 }} ; SET LR3 {{ cr.cC }} ; ADDB LRD0 LR13 ; LD.MULT R0 LR4 {{ cr.in0 }} ;;
  {% for i in range(16) %}
- {% if rows % 128 and i %}ADDBI LRD0 {{ -64 if (i + phase) % 2 == 0 else 64 }} ; {% endif %}
+ {% if rows % 128 and i %}ADDBI LRD0 {{ 64 if i % 2 else -64 }} ; {% endif %}
  {% if i %}ADDBI LRD2 8 ; {% endif %}
- {% set stride = rows // 128 + (1 if rows % 128 and (i + phase) % 2 else 0) %}
+ {% set stride = rows // 128 + (1 if rows % 128 and i % 2 else 0) %}
  {% if stride %}INC LR4 {{ stride }} ; {% endif %}
  {% if not loop.last and stride %}LD.MULT R0 LR4 {{ cr.in0 }} ; {% endif %}
  MULT.VE LR7 CR1 0 LR7 CR15.L {{ q }} ; ACC.RESHAPE LRD0 LRD2 0 ;;
  {% endfor %}
- {% endmacro %}
- {{ dense_phase(0) }}
- {% if rows % 128 and rows > 64 %}
- B pack_dense_store ;;
- pack_dense_upper:
- {{ dense_phase(1) }}
- pack_dense_store:
- {% endif %}
  ACTIVATE.QUANTIZE identity CR15.L {{ q }} {{ cr.tmp }} LR10 ;;
  INC LR10 1 ; BNE LR8 CR0 pack_dense_block ;;
  INC LR13 8 ; DEC LR11 1 ;;
- BLT.S LR13 {{ cr.tile_lanes }}.{{ 'L' if rows >= 128 else 'H' }} pack_dense_next ;;
+ BLT.S LR13 {{ cr.tile_lanes }} pack_dense_next ;;
  SET LR13 CR0 ; INC LR12 1 ;;
  pack_dense_next:
  BNE LR11 CR0 pack_dense_tile ;;
- {% elif rows % 8 == 0 and channels % 16 == 0 %}
- {# Transpose an 8-row tile through interleaved blocks of 16 channels. #}
- {{ at('LR10',40 + 2 * rows) }}{{ at('LR11',rows // 8) }}
- {{ at('LR14',channels) }}{{ at('LR15',128) }}
- SET LR12 CR0 ; SET LR13 CR0 ; SET LR7 CR0 ;;
- pack_tile:
- {% if channels == 192 and rows % channels == 64 %}
- {# The source lane rotates through three 64-lane bands. Pipeline
-    each block with statically known row increments and lane shifts. #}
- SET LR4 LR12 ; SET LR8 CR0 ; SET LR9 CR0 ;;
- INC LR8 {{ channels // 16 }} ; INC.MODP2 LR9 LR13 6 ; SET LR6 CR0 ;;
- INC LR6 64 ;;
- BLT.S LR13 LR6 pack_phase0 ;;
- BLT.S LR13 LR15 pack_phase1 ;;
- INC LR4 1 ; B pack_phase2 ;;
- {% macro pack_phase(p) %}
- pack_phase{{ p }}:
- SET LR0 {{ cr.c128 }} ; SET LR1 {{ cr.cC }} ; DEC LR8 1 ;;
- SET LR2 {{ cr.c128 }} ; SET LR3 {{ cr.cC }} ; ADDB LRD0 LR9 ; LD.MULT R0 LR4 {{ cr.in0 }} ;;
- {% for i in range(16) %}
- {% set phase = (p+i) % 3 %}
- {% set next = (phase+1) % 3 %}
- {% set advance = 2*(rows//channels) + [0,0,1][next] - [0,0,1][phase] + (2 if phase == 2 else 0) %}
- {% set shift = (64 if phase == 1 else 0) - (64 if (phase + 2) % 3 == 1 and i else 0) %}
- {% if shift %}ADDBI LRD0 {{ shift }} ; {% endif %}
- {% if i %}ADDBI LRD2 8 ; {% endif %}
- {% if advance %}INC LR4 {{ advance }} ; {% endif %}
- {% if not loop.last %}LD.MULT R0 LR4 {{ cr.in0 }} ; {% endif %}
- MULT.VE LR7 CR1 0 LR7 CR15.L {{ q }} ; ACC.RESHAPE LRD0 LRD2 0 ;;
- {% endfor %}
- ACTIVATE.QUANTIZE identity CR15.L {{ q }} {{ cr.tmp }} LR10 ;;
- INC LR10 1 ; BNE LR8 CR0 pack_phase{{ (p+16) % 3 }} ;;
- B pack_tile_finish ;;
- {% endmacro %}
- {% for p in range(3) %}{{ pack_phase(p) }}{% endfor %}
- pack_tile_finish:
- {% else %}
- SET LR5 LR12 ; SET LR6 LR13 ; SET LR8 CR0 ;;
- INC LR8 {{ channels // 16 }} ;;
- pack_block:
- SET LR2 {{ cr.c128 }} ; SET LR3 {{ cr.cC }} ; SET LR9 CR0 ;;
- INC LR9 16 ;;
- pack_channel:
-  SET LR4 LR5 ; SET LR0 {{ cr.c128 }} ; SET LR1 {{ cr.cC }} ; BLT.S LR6 LR15 pack_low ;;
-  INC LR4 1 ;;
- pack_low:
-  INC.MODP2 LR7 LR6 7 ; LD.MULT R0 LR4 {{ cr.in0 }} ;;
-  {# Advance the lane in the scatter word so the next branch sees the new lane. #}
-  ADDB LRD0 LR7 ; SET LR7 CR0 ; {% if rows % channels %}INC LR6 {{ rows % channels }}{% else %}DEC LR9 1{% endif %} ;
-  MULT.VE LR7 CR1 0 LR7 CR15.L {{ q }} ; ACC.RESHAPE LRD0 LRD2 0 ;;
-  {% if rows % channels %}DEC LR9 1 ; ADDBI LRD2 8 ; {% endif %}
-  {% if rows // channels %}INC LR5 {{ 2 * (rows // channels) }} ;{% endif %}BLT.S LR6 LR14 pack_nowrap ;;
- SUB LR6 LR6 LR14 ; INC LR5 2 ;;
- pack_nowrap:
- {% if not rows % channels %}ADDBI LRD2 8 ; {% endif %}BNE LR9 CR0 pack_channel ;;
- DEC LR8 1 ; ACTIVATE.QUANTIZE identity CR15.L {{ q }} {{ cr.tmp }} LR10 ;;
- INC LR10 1 ; BNE LR8 CR0 pack_block ;;
- {% endif %}
- INC LR13 8 ; DEC LR11 1 ;;
- BLT.S LR13 LR14 pack_tile_next ;;
- SUB LR13 LR13 LR14 ; INC LR12 2 ;;
- pack_tile_next:
- BNE LR11 CR0 pack_tile ;;
- {% endif %}
 
- {% if rows % 8 == 0 and channels % 16 == 0 %}
  {{ at('LR4',40 + 2 * rows) }}{{ at('LR11',rows) }}
  {{ at('LR9',40) }}{{ at('LR13',rows // 2) }}
  SET LR5 CR0 ; SET LR12 CR0 ;;
@@ -229,45 +110,6 @@
  SET LR5 CR0 ; INC LR4 {{ channels // 16 }} ;;
  unpack_continue:
  BNE LR11 CR0 unpack_row ;;
- {% else %}
- SET LR0 CR0 ; SET LR4 CR0 ; SET LR5 CR0 ;;
- {{ at('LR1',rows) }}{{ at('LR9',40) }}{{ at('LR13',rows // 2) }}
-gather:
- {% for h in range(2) %}
- SET LR7 LR4 ; SET LR8 LR5 ;;
- {% set ns = namespace(prev=0) %}
- {% for seg in range(2) %}
- {% set ja = 0 if seg == 0 else r + 1 %}
- {% set jb = r + 1 if seg == 0 else T %}
- {% set mid = 127 // T + (1 if seg == 0 else 0) %}
- {% set hi = mid if h == 0 else M %}
- {% set n = mid if h == 0 else M - mid %}
- {% if jb > ja and n > 0 %}
-  {% set base = step * ((0 if h == 0 else mid) if step <= 255 and T <= 127 else hi) %}
-  {{ adj('LR7',base - ns.prev) }}
-  {% set ns.prev = base %}
-  {{ group('g%d%d' % (h,seg),ja,jb,n,0 if h == 0 else mid,hi,h) }}
- {% endif %}
- {% endfor %}
- {% if h == 0 %}
- ACTIVATE.QUANTIZE identity CR15.L {{ q }} {{ cr.tmp }} LR9 ;;
- ADD LR15 LR9 CR1 ;;
- {% else %}
- ACTIVATE.QUANTIZE identity {{ cr.dsl }}.L {{ q }} {{ cr.tmp }} LR15 ;;
- {% endif %}
- {% endfor %}
- ADD LR9 LR9 LR13 ; INC LR5 1 ; DEC LR1 1 ;;
- BLT.S LR5 {{ cr.cC }} gather_no_wrap ;;
- SUB LR5 LR5 {{ cr.cC }} ; INC LR4 2 ;;
-gather_no_wrap:
- SET LR15 CR0 ;;
- INC.MODP2 LR15 LR1 2 ;;
- BNE LR15 CR0 gather_next ;;
- {% for _ in range(4) %}SUB LR9 LR9 LR13 ;;{% endfor %}
- INC LR9 2 ;;
-gather_next:
- BNE LR1 CR0 gather ;;
- {% endif %}
 
  SET LR0 CR0 ; SET LR2 CR0 ; SET LR3 CR0 ;;
  DEC LR2 1 ; INC LR3 128 ; SET LR14 CR0 ;;
@@ -290,7 +132,6 @@ row_loop:
   {{ save(27,3) }}
 
  SET LR5 LR14 ; SET LR9 CR0 ;;
- {# Retain two centered pieces; products keep terms through second residual order. #}
  INC LR9 32 ;;
  {% for ds in ['CR15.L',cr.dsl ~ '.L'] %}
  {% if not loop.first %}INC LR5 1 ; INC LR9 1 ; {% endif %}LD.MULT R0 LR5 {{ cr.tmp }} ;;

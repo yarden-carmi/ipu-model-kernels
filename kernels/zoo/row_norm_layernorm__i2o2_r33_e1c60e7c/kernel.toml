@@ -15,7 +15,7 @@ default = 240
 type = "int"
 min = 64
 max = 1024
-multiple_of = 64
+choices = [64, 128, 256, 384, 512, 640, 768, 896, 1024]
 default = 64
 [params.eps]
 type = "float"
@@ -54,12 +54,12 @@ max = 256
 default = 240
 
 [derived]
-tile_lanes = "4194432"
+tile_lanes = "min(rows, 128)"
 c128 = "128 + (1 - min(1, rows % 8 + channels % 16)) * (50462976 - 128)"
 cC = "channels + (1 - min(1, rows % 8 + channels % 16)) * (117835012 - channels)"
 dsl = "ds(channels - 128)"
 [inputs.in0]
-shape = ["(in0_d0 * in0_d1 * in0_d2 + 127) // 128", 128]
+shape = ["(in0_d1 * in0_d2 + 127) // 128 * in0_d0", 128]
 range = [-2.0, 2.0]
 [inputs.gamma]
 shape = [6, 128]
