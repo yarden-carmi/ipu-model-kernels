@@ -64,13 +64,12 @@
  {% endfor %}
  MULT.RC.VS LR3 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ full }} ; INC LR9 1
 {% endmacro %}
-{# Multiply two-piece factors using the fourth cyclic slot for the transient. #}
+{# Use the quantized rsqrt directly; split its product with gamma for the final multiply. #}
 {% macro affine(ds,advance,prefetch=false) %}
  {% if not prefetch %}SET LR10 LR11 ; LD.MULT R0 LR10 {{ cr.gamma }} ;;{% else %}SET LR10 LR11 ;;{% endif %}
- {# The hardware rsqrt is already in the operand format. Multiply that
-    single piece by each of the three weight pieces. #}
+  {# Reuse the same scale for all three weight pieces. #}
  {% for i in range(3) %}
- {{ mac('LR0','ADD.FIRST' if loop.first else 'ADD') }}{% if not loop.last %} ; ADD LR10 LR10 {{ cr.K }} ; LD.MULT R0 LR10 {{ cr.gamma }}{% else %} ; SET LR1 LR12 ; ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1{% endif %} ;;
+   {{ mac('LR0','ADD.FIRST' if i == 0 else 'ADD') }}{% if i < 2 %} ; ADD LR10 LR10 {{ cr.K }} ; LD.MULT R0 LR10 {{ cr.gamma }}{% else %} ; SET LR1 LR12 ; ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1{% endif %} ;;
  {% endfor %}
  LD.MULT R0 LR1 {{ cr.tmp }} ;;
  {{ scalar('SUB') }} ; INC LR1 1 ; ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ; LD.MULT.CYCLIC LR12 {{ cr.tmp }} LR15 ;;
@@ -136,7 +135,8 @@ variance_loop:
  LD.MULT R0 LR0 {{ cr.epsilon }} ; SET LR1 CR0 ;;
  {{ scalar() }} ; INC LR1 8 ; ACTIVATE.QUANTIZE rsqrt {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
  {# The hardware rsqrt is sufficient at output precision. #}
- LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ; SET LR11 CR0 ; SET LR9 LR7 ; SET LR5 LR2 ;;
+ LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ; SET LR11 CR0 ; SET LR9 LR7 ;;
+ SET LR5 LR2 ;;
  {% if k <= 2 %}
  {% for i in range(k) %}{{ affine(tail if loop.last else full,not loop.last,not loop.first) }}{% endfor %}
  {% else %}
