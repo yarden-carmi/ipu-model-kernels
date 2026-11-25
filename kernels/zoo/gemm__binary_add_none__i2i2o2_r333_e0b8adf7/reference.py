@@ -66,4 +66,11 @@ def fold(module, **params):
     affine = torch.cat((bias[:, None], weight), dim=1)
     rows = torch.nn.functional.pad(affine, (0, 0, 0, (-n) % 128))
     rows = rows.reshape(-1, 128, k + 1).transpose(1, 2).reshape(-1, 128).float()
+    chunks = (k + 127) // 128
+    tail = (n - 1) % 128 + 1
+    if n > 128 and chunks <= 4 and tail * (chunks + 2) < k:
+        # Narrow tails use one horizontal dot product per output channel.
+        base = ((n - 1) // 128) * (k + 1) + 1
+        dots = torch.nn.functional.pad(weight[-tail:], (0, chunks * 128 - k))
+        return {"w": torch.cat((rows[:base], dots.reshape(-1, 128).float()))}
     return {"w": torch.nn.functional.pad(rows, (0, 0, 0, 1))}
