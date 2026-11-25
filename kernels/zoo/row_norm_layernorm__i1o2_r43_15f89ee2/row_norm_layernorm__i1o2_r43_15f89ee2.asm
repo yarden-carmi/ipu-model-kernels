@@ -52,17 +52,21 @@
  {{ scalar('SUB') }} ; INC LR9 1 ; ACTIVATE.QUANTIZE identity {{ ds }} {{ q }} {{ cr.tmp }} LR9 ;;
 {% endmacro %}
 {% macro variance(first=false,next=false) %}
- {# Square in place; only the cross term needs both operand registers. #}
- {% if k > 2 %}LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;{% endif %}
+ {% if k > 2 %}
+ LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;
  MULT.RC.VS LR0 0 LR0 {{ full }} {{ q }} ; AGG.SUM{% if first %}.FIRST{% endif %} LR0 {{ full }} ; INC LR9 1 ; LD.MULT R0 LR9 {{ cr.tmp }} ;;
  {% for i in range(2) %}
  MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ full }}{% if loop.first %} ; LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR3{% endif %} ;;
  {% endfor %}
- MULT.RC.VS LR3 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ full }} ; INC LR9 1{% if next %} ; LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0{% endif %}
+ MULT.RC.VS LR3 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ full }} ; INC LR9 1
+ {% else %}
+ {# Use the leading centered piece for the variance, retaining both pieces for affine. #}
+ MULT.RC.VS LR0 0 LR0 {{ full }} {{ q }} ; AGG.SUM{% if first %}.FIRST{% endif %} LR0 {{ full }}{% if next %} ; INC LR9 2 ; LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0{% endif %}
+ {% endif %}
 {% endmacro %}
 {# Multiply two-piece factors using the fourth cyclic slot for the transient. #}
-{% macro affine(ds,advance,prefetch=false) %}
- {% if not prefetch %}SET LR10 LR11 ; LD.MULT R0 LR10 {{ cr.gamma }} ;;{% else %}SET LR10 LR11 ;;{% endif %}
+{% macro affine(ds,advance,prefetch=false,ready=false) %}
+ {% if not prefetch %}SET LR10 LR11 ; LD.MULT R0 LR10 {{ cr.gamma }} ;;{% elif not ready %}SET LR10 LR11 ;;{% endif %}
  {# Multiply the hardware rsqrt by both weight pieces. #}
  {% for i in range(2) %}
  {{ mac('LR0','ADD.FIRST' if loop.first else 'ADD') }}{% if not loop.last %} ; ADD LR10 LR10 {{ cr.K }} ; LD.MULT R0 LR10 {{ cr.gamma }}{% else %} ; SET LR1 LR12 ; ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1{% endif %} ;;
@@ -119,19 +123,19 @@ center_tail:
  {% endif %}
  SET LR9 LR7 ; SET LR5 LR2 ; {{ scalar('ADD.FIRST','CR0') }}{% if k <= 2 %} ; LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0{% endif %} ;;
  {% if k <= 2 %}
- {% for i in range(k) %}{{ variance(loop.first,not loop.last) }} ;;{% endfor %}
+  {% for i in range(k) %}{{ variance(loop.first,not loop.last) }}{% if loop.last %} ; ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR0{% endif %} ;;{% endfor %}
  {% else %}
  {{ variance(true) }} ; INC LR5 1 ;;
 variance_loop:
  {{ variance() }} ; INC LR5 1 ; BLT.S LR5 LR6 variance_loop ;;
  {% endif %}
- {{ average() }}
+  {{ average(k <= 2) }}
  LD.MULT R0 LR0 {{ cr.epsilon }} ; SET LR1 CR0 ;;
- {{ scalar() }} ; INC LR1 8 ; ACTIVATE.QUANTIZE rsqrt {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
+ {{ scalar() }} ; INC LR1 8 ; ACTIVATE.QUANTIZE rsqrt {{ full }} {{ q }} {{ cr.tmp }} LR1{% if k <= 2 %} ; LD.MULT R0 LR0 {{ cr.gamma }}{% endif %} ;;
  {# The hardware rsqrt is sufficient at output precision. #}
- LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ; SET LR11 CR0 ; SET LR9 LR7 ; SET LR5 LR2 ;;
+ LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ; SET LR11 CR0 ; SET LR9 LR7 ; {% if k <= 2 %}SET LR10 CR0{% else %}SET LR5 LR2{% endif %} ;;
  {% if k <= 2 %}
- {% for i in range(k) %}{{ affine(tail if loop.last else full,not loop.last,not loop.first) }}{% endfor %}
+ {% for i in range(k) %}{{ affine(tail if loop.last else full,not loop.last,true,loop.first) }}{% endfor %}
  {% else %}
 affine_loop:
  BEQ LR5 LR6 affine_tail ;;
