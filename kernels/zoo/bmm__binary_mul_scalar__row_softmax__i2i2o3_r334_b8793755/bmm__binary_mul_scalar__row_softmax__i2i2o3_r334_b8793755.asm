@@ -210,6 +210,7 @@ roots:
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR4 ;;
     INC LR4 1 ;;
 {% endcall %}
+    {{ imm('LR15',128) }}
     ADD LR7 LR7 {{ cr.astride }} ; DEC LR8 1 ;;
     BNE LR8 CR0 query ;;
     DEC LR14 1 ;;
