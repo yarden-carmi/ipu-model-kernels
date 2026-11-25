@@ -43,20 +43,22 @@ channel:
 {% if chunks == 2 %}
     ADD LR8 LR5 CR1 ; LD.MULT R1 LR8 {{ cr.in0 }} ;;
 {% endif %}
-    LD.MULT R0 LR5 {{ cr.in0 }} ; DEC LR10 1 ;;
-    {{ mac('LR6') }} ; {{ fetch() }} ; BEQ LR10 CR0 last_channel {% if m % in0_d2 %}; ADD LR12 LR6 CR0 {% endif %} ;;
+    LD.MULT R0 LR5 {{ cr.in0 }} ; DEC LR10 1 {% if m % in0_d2 %}; SET LR12 LR6{% endif %} ;;
 {% if m % in0_d2 %}
-    {{ mac('LR12') }} ; {{ fetch() }} ; ADD LR5 LR5 {{ cr.stride }} ; INC LR6 {{ m % in0_d2 }} ;;
-    BLT.S LR6 {{ cr.in0_d2 }} channel ;;
+    # Advance the lane while both coefficient parts still use the saved index.
+    {{ mac('LR12') }} ; {{ fetch() }} ; INC LR6 {{ m % in0_d2 }} ; BEQ LR10 CR0 last_channel ;;
+    {{ mac('LR12') }} ; {{ fetch() }} ; ADD LR5 LR5 {{ cr.stride }} ; BLT.S LR6 {{ cr.in0_d2 }} channel ;;
     SUB LR6 LR6 {{ cr.in0_d2 }} ; INC LR5 {{ chunks }} ; B channel ;;
 {% else %}
+    {{ mac('LR6') }} ; {{ fetch() }} ; BEQ LR10 CR0 last_channel ;;
     {{ mac('LR6') }} ; {{ fetch() }} ; ADD LR5 LR5 {{ cr.stride }} ; B channel ;;
 {% endif %}
 last_channel:
+{% set last_src = 'LR12' if m % in0_d2 else 'LR6' %}
 {% if shift %}
     BEQ LR11 CR1 merge_skip ;;
 {% endif %}
-    {{ mac('LR6') }} ; BEQ LR11 LR15 final_tile ;;
+    {{ mac(last_src) }} ; BEQ LR11 LR15 final_tile ;;
     {{ store(cr.out0, 'LR2', act, cr.full) }} ;;
     INC LR2 1 ; B gemm_tile ;;
 final_tile:
@@ -69,7 +71,7 @@ done:
     HALT ;;
 {% if shift %}
 merge_skip:
-    {{ mac('LR6') }} ; {{ store(cr.tmp, 'LR0', act, cr.full) }} ; LD.MULT R0 LR3 {{ cr.in1 }} ;;
+    {{ mac(last_src) }} ; {{ store(cr.tmp, 'LR0', act, cr.full) }} ; LD.MULT R0 LR3 {{ cr.in1 }} ;;
     {{ copy(cr.qf_in1) }} ; {{ store(cr.tmp, 'LR11', 'identity', cr.skip_tail) }} ; LD.MULT R0 LR0 {{ cr.tmp }} ;;
     {{ copy(cr.qf_out0) }} ; LD.MULT R0 LR11 {{ cr.tmp }} ;;
     {{ copy(cr.qf_out0, 'ADD') }} ; INC LR3 1 ;;
