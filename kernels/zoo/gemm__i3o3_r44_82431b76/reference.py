@@ -84,6 +84,8 @@ def fold(module, **params):
         dots = pad(weight, (0, chunks * 128 - k)).reshape(n, chunks, 128)
         rows = digits(dots).reshape(n, -1, 128)
         if not params['bias']:
+            # Use a full-precision FP8 row for complete dot blocks; retain the
+            # split representation in the last block.
             rows[:, 0:-2:2] = dots[:, :-1]
             rows[:, 1:-2:2] = 0
     else:

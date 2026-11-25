@@ -13,8 +13,8 @@
 {% endif %}
 {% endmacro %}
 {% if not tiny %}
-{# Spatial SIMD: stream one activation row, then use both coefficient digits
-   before advancing the input pointer. One coefficient pair covers 32 taps. #}
+{# Each input vector supplies 128 spatial MACs per digit. Keep the two
+   coefficient rows resident; fetch the next input on the residual MAC. #}
 {% macro block(taps, final=false) %}
     INC LR7 1 ; LD.MULT R0 LR7 {{ cr.coeff }} ; SET LR1 CR0 ; SET LR2 {{ cr.second }} ;;
     INC LR7 1 ; LD.MULT R1 LR7 {{ cr.coeff }} ; DEC LR1 1 ; DEC LR2 1 ;;
@@ -46,8 +46,8 @@ tap_block:
     HALT ;;
 {% else %}
 {% set chunks = (k+127)//128 %}
-{# Half-row images: interleave channel pairs into scratch, then gather
-   pixel-major dot rows once and reuse them for every output feature. #}
+{# With only 64 pixels, transpose channel pairs once into pixel-major
+   dot panels. Each output channel reuses the same panels. #}
 {% macro gather(chunk, pairs) %}
     SET LR2 CR0 ; SET LR3 LR14 ; SET LR10 CR0 ;;
     LD.MULT R0 LR8 {{ cr.panel }} {% if pairs > 2 %}; INC LR10 {{ pairs-2 }}{% endif %} ;;
