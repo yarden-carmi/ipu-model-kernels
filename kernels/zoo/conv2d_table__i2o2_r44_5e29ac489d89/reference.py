@@ -53,42 +53,38 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 240, 14, 14], [47040, 196, 14, 1], 0), module.op0_weight, None, [1, 1], [2, 2], [1, 1], 240)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 144, 14, 14], [28224, 196, 14, 1], 0), module.op0_weight, None, [1, 1], [2, 2], [1, 1], 144)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 240, 14, 14], [47040, 196, 14, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 144, 14, 14], [28224, 196, 14, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.hardswish_.default(_v(op1, [1, 240, 14, 14], [47040, 196, 14, 1], 0))
+    r0 = aten.hardswish_.default(_v(op1, [1, 144, 14, 14], [28224, 196, 14, 1], 0))
     op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 240, 14, 14])}
+    return {"out0": _out(op2, [1, 144, 14, 14])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Fuse inference BN, then split each tap row into high and residual parts."""
+    """Fuse batch norm, then store column-major taps and split coefficients."""
     import numpy as np
 
     weight = module.op0_weight.double()
     channels = weight.shape[0]
-    conv_bias = getattr(module, 'op0_bias', None)
+    conv_bias = getattr(module, "op0_bias", None)
     bias = weight.new_zeros(channels) if conv_bias is None else conv_bias.double()
-    if hasattr(module, 'op1_running_var'):
+    if hasattr(module, "op1_running_var"):
         scale = module.op1_weight.double() / (module.op1_running_var.double() + 1e-5).sqrt()
         bias = module.op1_bias.double() + (bias - module.op1_running_mean.double()) * scale
         weight = weight * scale[:, None, None, None]
 
-    # The outer tap coordinate is x, with y taps contiguous in the shifted input.
     taps = weight.transpose(2, 3).flatten(2).numpy()
-    taps = np.pad(taps, ((0, 0), (0, 0), (0, 128 - taps.shape[-1])))
-    def split(rows):
-        parts = []
-        for _ in range(3):
-            exponent = np.frexp(np.max(np.abs(rows), axis=-1, keepdims=True))[1] - 1
-            step = np.exp2(exponent.astype(float) - 5)
-            hi = np.sign(rows) * np.minimum(np.floor(np.abs(rows) / step + 0.5), 63) * step
-            parts.append(hi)
-            rows = rows - hi
-        return np.stack((*parts, rows), axis=2)
+    rows = np.concatenate((np.broadcast_to(bias.numpy()[:, None, None], (channels, 1, 128)),
+                           np.pad(taps, ((0, 0), (0, 0), (0, 128 - taps.shape[-1])))), axis=1)
 
-    bias_rows = split(np.broadcast_to(bias.numpy()[:, None, None], (channels, 1, 128)))
-    tap_rows = split(taps)
-    return {'weights': np.concatenate((bias_rows, tap_rows), axis=1).reshape(-1, 128)}
+    def leading(values):
+        exponent = np.frexp(np.max(np.abs(values), axis=-1, keepdims=True))[1] - 1
+        step = np.exp2(exponent.astype(float) - 5)
+        return np.sign(values) * np.minimum(np.floor(np.abs(values) / step + 0.5), 63) * step
+
+    hi = leading(rows)
+    mid = leading(rows - hi)
+    return {"weights": np.stack((hi, mid, rows - hi - mid), axis=2).reshape(-1, 128)}
