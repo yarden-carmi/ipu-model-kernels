@@ -1,0 +1,109 @@
+[kernel]
+op = "gemm"
+formats = ["e2", "e3"]
+
+[params.bias]
+type = "bool"
+default = true
+[params.m]
+type = "int"
+min = 1
+max = 65536
+default = 257
+[params.k]
+type = "int"
+min = 1
+max = 16384
+default = 1536
+[params.n]
+type = "int"
+min = 1
+max = 16384
+default = 384
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 257
+[params.in0_d2]
+type = "int"
+min = 1
+max = 16384
+default = 1536
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 257
+[params.out0_d2]
+type = "int"
+min = 1
+max = 16384
+default = 384
+
+[derived]
+tiles = "ceil(out0_d2 / 128)"
+rows = "out0_d0 * out0_d1"
+chunks = "ceil(in0_d2 / 128)"
+end = "(k - 1) % 128"
+full = "ds(128)"
+tail = "ds((out0_d2 - 1) % 128 + 1)"
+width = "128"
+full_end = "127"
+refined = "3 * (k // 128) // 4 - min(1, k // 384) * (1 - min(1, k // 512))"
+paired = "min(1, k // 1024)"
+stride = "1 + paired"
+fast_tail = "paired * (1 - min(1, k // 2048))"
+packed_rows = "tiles * (k + 2 + refined * 128 + paired * (k - refined * 128) + fast_tail * (k - refined * 128))"
+prefix_rows = "2 * (1 + refined * 128)"
+raw_rows = "fast_tail * (k - refined * 128)"
+pair_rows = "2 * raw_rows"
+e2_qf = "296"
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d1 * chunks", 128]
+range = [-2, 2]
+[inputs.w]
+shape = ["packed_rows", 128]
+[outputs.out0]
+shape = ["rows * tiles", 128]
+
+[abi]
+in0 = "CR2"
+w = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+tiles = "CR7"
+full = "CR8"
+tail = "CR9"
+chunks = "CR10"
+end = "CR11"
+width = "CR12"
+full_end = "CR13"
+rows = "CR14"
+refined = "CR15"
+e2_qf = "LR12"
+stride = "LR13"
+prefix_rows = "LR11"
+pair_rows = "LR15"
+raw_rows = "LR14"
+
+[cases.default]
+m = 2
+k = 129
+n = 135
+in0_d1 = 2
+in0_d2 = 129
+out0_d1 = 2
+out0_d2 = 135
