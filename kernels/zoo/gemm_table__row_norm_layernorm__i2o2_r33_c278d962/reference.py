@@ -68,9 +68,9 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    n, k = params["s0_n"], params["s0_k"]
+    n, k = params['s0_n'], params['s0_k']
     w = module.op0_weight.detach().reshape(n, k)
-    b = module.op0_bias.detach().reshape(n) if params["s0_bias"] else w.new_zeros(n)
+    b = module.op0_bias.detach().reshape(n) if params['s0_bias'] else w.new_zeros(n)
     pad = (-n) % 128
     coeff = torch.nn.functional.pad(torch.cat((b[:, None], w), dim=1), (0, 0, 0, pad))
     coeff = coeff.reshape(-1, 128, k + 1).transpose(1, 2).reshape(-1, 128).contiguous()
@@ -87,6 +87,6 @@ def fold(module, **params):
 
     gamma, beta = [split(torch.nn.functional.pad(t.detach().reshape(n), (0, pad)).reshape(-1, 128))
                    for t in (module.op2_weight, module.op2_bias)]
-    crow = split(w.new_full((1, 128), 1 / params["s1_channels"])).reshape(3, 128)
-    eps = w.new_full((1, 128), params["s1_eps"])
-    return {"coeff": coeff, "norm": torch.cat((crow, eps, torch.cat((gamma, beta), dim=1).reshape(-1, 128)))}
+    reciprocal = split(w.new_full((1, 128), 1 / params['s1_channels'])).reshape(3, 128)
+    eps = w.new_full((1, 128), params['s1_eps'])
+    return {'coeff': coeff, 'norm': torch.cat((reciprocal, eps, torch.cat((gamma, beta), dim=1).reshape(-1, 128)))}
