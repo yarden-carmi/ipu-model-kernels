@@ -20,89 +20,36 @@ type = "int"
 min = 1
 max = 16777216
 default = 192
-[params.in0_d0]
-type = "int"
-choices = [1]
-default = 1
-[params.in0_d1]
-type = "int"
-min = 1
-max = 16384
-default = 16
-[params.in0_d2]
-type = "int"
-min = 1
-max = 65535
-default = 3
-[params.in0_d3]
-type = "int"
-min = 1
-max = 65535
-default = 4
-[params.in1_d0]
-type = "int"
-choices = [1]
-default = 1
-[params.in1_d1]
-type = "int"
-min = 1
-max = 16384
-default = 16
-[params.in1_d2]
-type = "int"
-choices = [1]
-default = 1
-[params.in1_d3]
-type = "int"
-choices = [1]
-default = 1
-[params.out0_d0]
-type = "int"
-choices = [1]
-default = 1
-[params.out0_d1]
-type = "int"
-min = 1
-max = 16384
-default = 16
-[params.out0_d2]
-type = "int"
-min = 1
-max = 65535
-default = 3
-[params.out0_d3]
-type = "int"
-min = 1
-max = 65535
-default = 4
 
 [derived]
-m = "numel // inner"
-m1 = "m - 1"
-cb = "ceil(inner / 128)"
-cbm1 = "cb - 1"
-valid = "ds(128)"
-lastv = "ds(inner - 128 * cbm1)"
+spatial_rows = "numel // inner"
+rows_minus_one = "spatial_rows - 1"
+blocks = "ceil(inner / 128)"
+last_block = "blocks - 1"
+full_size = "ds(128)"
+tail_size = "ds(inner - 128 * last_block)"
+
 [inputs.in0]
-shape = ["m", "cb * 128"]
+shape = ["spatial_rows", "blocks * 128"]
 range = [-2, 2]
 [inputs.in1]
-shape = ["cb", 128]
+shape = ["blocks", 128]
 range = [-2, 2]
 [outputs.out0]
-shape = ["m", "cb * 128"]
+shape = ["spatial_rows", "blocks * 128"]
+
 [abi]
 in0 = "CR2"
 in1 = "CR3"
 out0 = "CR4"
 qf_in0 = "CR5"
 qf_out0 = "CR6"
-cb = "CR7"
-cbm1 = "CR8"
-m1 = "CR9"
+blocks = "CR7"
+last_block = "CR8"
+rows_minus_one = "CR9"
 qf_in1 = "CR10"
-valid = "CR15"
-lastv = "CR14"
+full_size = "CR15"
+tail_size = "CR14"
 
 [cases.default]
 numel = 192
