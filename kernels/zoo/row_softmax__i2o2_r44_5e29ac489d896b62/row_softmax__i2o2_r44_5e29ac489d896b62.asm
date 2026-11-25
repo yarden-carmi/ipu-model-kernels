@@ -4,14 +4,15 @@
 {% set work = cr.scratch_qf ~ '.H' %}
 {% set full = cr.full ~ '.L' %}
 {% set seed_q = cr.full ~ '.H' %}
+{% set tail = cr.tail ~ '.L' %}
+{% macro clear() %}
+    MULT.VE LR0 CR0 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ;;
+{% endmacro %}
 {% macro imm(reg,val) %}
     SET {{ reg }} CR0 ;;
     INC {{ reg }} {{ val }} ;;
 {% endmacro %}
-{% macro clear() %}
-    MULT.VE LR0 CR0 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ;;
-{% endmacro %}
-{# Build dyadic coefficients in scratch, with mixed products in input QF. #}
+{# Generate the dyadic coefficients without folded constants. #}
 {% macro coefficient(power,count,slot) %}
 {{ imm('LR1',7) }}
     LD.MULT R0 LR1 {{ cr.tmp }} ;;
@@ -47,8 +48,7 @@ count_{{ slot }}:
     SET LR8 {{ cr.K }} ; SET LR2 CR0 ;;
     DEC LR8 1 ;;
 
-{# Each scratch plane samples a different exponential scale. Summing the
-   four samples reduces FP8 rounding error, and their common scale cancels. #}
+{# Combine staggered exp2 quantizations in a wide accumulator. #}
 {% macro weights(ds,first=false) %}
     SET LR6 LR5 ;;
 {% for phase in range(4) %}
@@ -57,12 +57,11 @@ count_{{ slot }}:
 {% endfor %}
 {% endmacro %}
 
-{# Lane i owns logical row i of the tile. Advancing by K scans columns. #}
+{# One softmax per active lane; successive columns are K memory rows apart. #}
 {% macro tile(tag,ds) %}
 {{ imm('LR1',11) }}
-    LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR11 ;;
-    ADD LR9 LR2 LR3 ; SET LR5 CR0 ;;
-    SET LR4 LR9 ;;
+    LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR11 ; ADD LR9 LR2 LR3 ;;
+    SET LR4 LR9 ; SET LR5 CR0 ;;
     LD.MULT R0 LR4 {{ cr.in0 }} ; INC LR5 1 ;;
     MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ q }} ; ACC.MAX.FIRST ; ADD LR4 LR4 {{ cr.K }} ; BEQ LR5 LR15 {{ tag }}_max_done ;;
 {{ tag }}_max:
@@ -107,8 +106,6 @@ count_{{ slot }}:
 {{ weights(ds) }}
     INC LR5 1 ;;
     BLT.S LR5 LR15 {{ tag }}_sum ;;
-
-{# Refine the reciprocal against the high and residual parts of the sum. #}
     SET LR1 CR1 ;;
     ACTIVATE.QUANTIZE identity {{ ds }} {{ work }} {{ cr.tmp }} LR1 ;;
     ACTIVATE.QUANTIZE reciprocal {{ ds }} {{ work }} {{ cr.tmp }} LR0 ;;
@@ -128,7 +125,8 @@ count_{{ slot }}:
     MULT.RC.VV LR13 R1 0 LR0 {{ ds }} {{ work }} ; ACC.SUB ; ACTIVATE.QUANTIZE identity {{ ds }} {{ work }} {{ cr.tmp }} LR0 ;;
     LD.MULT R0 LR0 {{ cr.tmp }} ;;
     MULT.RC.VV LR13 R0 0 LR0 {{ ds }} {{ work }} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ ds }} {{ work }} {{ cr.tmp }} LR0 ;;
-    LD.MULT.CYCLIC LR0 {{ cr.tmp }} LR12 ; SET LR4 LR9 ; SET LR5 CR0 ;;
+    LD.MULT.CYCLIC LR0 {{ cr.tmp }} LR12 ;;
+    SET LR4 LR9 ; SET LR5 CR0 ;;
 {{ tag }}_out:
 {{ weights(ds,true) }}
     ACTIVATE.QUANTIZE identity {{ ds }} {{ work }} {{ cr.tmp }} LR0 ;;
@@ -143,7 +141,6 @@ count_{{ slot }}:
     ADD LR4 LR4 {{ cr.K }} ; INC LR5 1 ;;
     BLT.S LR5 LR15 {{ tag }}_out ;;
 {% endmacro %}
-
 batch:
     SET LR3 CR0 ; BEQ LR8 CR0 tail_tile ;;
 full_tile:
@@ -151,7 +148,7 @@ full_tile:
     INC LR3 1 ;;
     BLT.S LR3 LR8 full_tile ;;
 tail_tile:
-{{ tile('tail',cr.tail ~ '.L') }}
+{{ tile('tail',tail) }}
     ADD LR2 LR2 {{ cr.row_group }} ;;
     BLT.S LR2 {{ cr.M }} batch ;;
     HALT ;;
