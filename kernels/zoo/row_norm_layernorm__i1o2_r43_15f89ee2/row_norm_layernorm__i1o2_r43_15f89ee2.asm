@@ -2,7 +2,7 @@
 {% set iq = cr.qf_in0 ~ '.L' %}
 {% set full = cr.tail ~ '.H' %}
 {% set tail = cr.tail ~ '.L' %}
-{% set slots = ['LR0','LR3','LR4'] %}
+{% set slots = ['LR0','LR3'] %}
 {% set k = (channels + 127) // 128 %}
 {% macro scalar(op='ADD',imm='CR1',fmt=q) %}
  MULT.VE LR0 {{ imm }} 0 LR0 {{ full }} {{ fmt }} ; ACC.{{ op }}
@@ -21,16 +21,12 @@
  {% if not staged %}{{ encode('LR0',1) }}{% endif %}
  LD.MULT R0 LR0 {{ cr.tmp }} ; SET LR1 CR0 ;;
  {{ scalar('SUB') }} ; INC LR1 1 ; ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ; LD.MULT.CYCLIC LR0 {{ cr.crow }} LR0 ;;
- LD.MULT R0 LR1 {{ cr.tmp }} ; SET LR10 CR0 ;;
- {{ scalar('SUB') }} ; INC LR1 1 ; INC LR10 1 ; ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ; LD.MULT.CYCLIC LR10 {{ cr.crow }} LR3 ;;
- LD.MULT R0 LR0 {{ cr.tmp }} ; SET LR10 CR0 ;;
- {# Retain the leading product and both orders of the first- and
-    second-order corrections of the split reciprocal and aggregate. #}
- {% for i in range(3) %}
-  {% for slot in slots[:3-i] %}
+ LD.MULT R0 LR0 {{ cr.tmp }} ;;
+ {% for i in range(2) %}
+  {% for slot in slots %}
  MULT.RC.VE {{ slot }} LR0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if i == 0 and loop.first %}.FIRST{% endif %}
- {% if i == 0 and loop.index == 2 %} ; LD.MULT.CYCLIC LR1 {{ cr.crow }} LR4{% endif %}
- {% if loop.last and i < 2 %} ; INC LR10 1 ; LD.MULT R0 LR10 {{ cr.tmp }}{% endif %} ;;
+ {% if i == 0 and loop.first %} ; LD.MULT.CYCLIC LR1 {{ cr.crow }} LR3{% endif %}
+ {% if loop.last and i == 0 %} ; LD.MULT R0 LR1 {{ cr.tmp }}{% endif %} ;;
  {% endfor %}
  {% endfor %}
 {% endmacro %}
@@ -41,7 +37,7 @@
 {% macro center(ds,advance) %}
  LD.MULT R0 LR5 {{ cr.in0 }} ; SET LR1 LR8 ;;
  {{ scalar('ADD.FIRST',fmt=iq) }} ; LD.MULT R0 LR1 {{ cr.tmp }}{% if advance %} ; INC LR5 1{% endif %} ;;
- {% for i in range(3) %}
+ {% for i in range(2) %}
  {{ scalar('SUB') }}{% if not loop.last %} ; INC LR1 1 ; LD.MULT R0 LR1 {{ cr.tmp }}{% else %} ; ACTIVATE.QUANTIZE identity {{ ds }} {{ q }} {{ cr.tmp }} LR9{% endif %} ;;
  {% endfor %}
  LD.MULT R0 LR9 {{ cr.tmp }} ;;
@@ -64,12 +60,13 @@
  {% endfor %}
  MULT.RC.VS LR3 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ full }} ; INC LR9 1
 {% endmacro %}
-{# Use the quantized rsqrt directly; split its product with gamma for the final multiply. #}
+{# Multiply two-piece factors using the fourth cyclic slot for the transient. #}
 {% macro affine(ds,advance,prefetch=false) %}
  {% if not prefetch %}SET LR10 LR11 ; LD.MULT R0 LR10 {{ cr.gamma }} ;;{% else %}SET LR10 LR11 ;;{% endif %}
-  {# Reuse the same scale for all three weight pieces. #}
+ {# The hardware rsqrt is already in the operand format. Multiply that
+    single piece by each of the three weight pieces. #}
  {% for i in range(3) %}
-   {{ mac('LR0','ADD.FIRST' if i == 0 else 'ADD') }}{% if i < 2 %} ; ADD LR10 LR10 {{ cr.K }} ; LD.MULT R0 LR10 {{ cr.gamma }}{% else %} ; SET LR1 LR12 ; ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1{% endif %} ;;
+ {{ mac('LR0','ADD.FIRST' if loop.first else 'ADD') }}{% if not loop.last %} ; ADD LR10 LR10 {{ cr.K }} ; LD.MULT R0 LR10 {{ cr.gamma }}{% else %} ; SET LR1 LR12 ; ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1{% endif %} ;;
  {% endfor %}
  LD.MULT R0 LR1 {{ cr.tmp }} ;;
  {{ scalar('SUB') }} ; INC LR1 1 ; ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ; LD.MULT.CYCLIC LR12 {{ cr.tmp }} LR15 ;;
@@ -108,11 +105,10 @@ sum_tail:
  {% endif %}
  {{ average(true) }}
  SET LR1 LR8 ; SET LR5 LR2 ;;
- {{ encode('LR1',3) }}
+ {{ encode('LR1',2) }}
  {% if k <= 2 %}
- DEC LR1 2 ; LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
+ DEC LR1 1 ; LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
  INC LR1 1 ; LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR3 ;;
- INC LR1 1 ; LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR4 ;;
  LD.MULT R0 LR5 {{ cr.in0 }} ;;
  {% for i in range(k) %}{{ center_cached(tail if loop.last else full,not loop.last) }}{% if not loop.last %}INC LR9 1 ;;{% endif %}{% endfor %}
  {% else %}
@@ -135,8 +131,7 @@ variance_loop:
  LD.MULT R0 LR0 {{ cr.epsilon }} ; SET LR1 CR0 ;;
  {{ scalar() }} ; INC LR1 8 ; ACTIVATE.QUANTIZE rsqrt {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
  {# The hardware rsqrt is sufficient at output precision. #}
- LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ; SET LR11 CR0 ; SET LR9 LR7 ;;
- SET LR5 LR2 ;;
+ LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ; SET LR11 CR0 ; SET LR9 LR7 ; SET LR5 LR2 ;;
  {% if k <= 2 %}
  {% for i in range(k) %}{{ affine(tail if loop.last else full,not loop.last,not loop.first) }}{% endfor %}
  {% else %}
