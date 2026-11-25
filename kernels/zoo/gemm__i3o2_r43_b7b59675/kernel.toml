@@ -1,0 +1,104 @@
+[kernel]
+op = "gemm"
+formats = ["e2"]
+
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 65536
+default = 144
+[params.m]
+type = "int"
+min = 1
+max = 65536
+default = 1024
+[params.n]
+type = "int"
+min = 1
+max = 65536
+default = 144
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 4
+[params.in0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 4
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 256
+[params.in0_d3]
+type = "int"
+min = 1
+max = 128
+default = 36
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 4
+[params.out0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 256
+[params.out0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 144
+[derived]
+tiles = "ceil(out0_d1 * out0_d2 / 128)"
+width = "128"
+tail_count = "(out0_d1 * out0_d2 - 1) % 128 + 1"
+full = "ds(128)"
+tail = "ds(tail_count)"
+# gcd(n, 128): add the totient of each power of two that divides n.
+divisor = "128 - ceil(n % 2 / 2) - 2 * ceil(n % 4 / 4) - 4 * ceil(n % 8 / 8) - 8 * ceil(n % 16 / 16) - 16 * ceil(n % 32 / 32) - 32 * ceil(n % 64 / 64) - 64 * ceil(n % 128 / 128)"
+period_rows = "min(out0_d1, 128 // divisor)"
+segments = "period_rows + (period_rows * n - 1) // 128"
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d1 * in0_d2", 128]
+range = [-2, 2]
+[inputs.w]
+shape = ["segments * (k + 1) * 2 + 1", 128]
+range = [-1, 1]
+[outputs.out0]
+shape = ["out0_d0 * tiles", 128]
+
+[abi]
+in0 = "CR2"
+w = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+full = "CR7"
+tail = "CR8"
+n = "CR9"
+k = "CR10"
+in0_d3 = "CR11"
+tiles = "CR12"
+out0_d0 = "CR13"
+tail_count = "CR14"
+width = "CR15"
+
+[cases.default]
+k = 8
+m = 4
+n = 35
+in0_d0 = 1
+in0_d1 = 2
+in0_d2 = 4
+in0_d3 = 4
+out0_d0 = 1
+out0_d1 = 4
+out0_d2 = 35
