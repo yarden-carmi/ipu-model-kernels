@@ -69,13 +69,12 @@ default = 240
 [derived]
 plane = "out0_d0 * out0_d1"
 width = "ceil(plane / 128)"
-valid = "plane - (width - 1) * 128"
-tail = "ds(valid)"
-full = "plane // 128"
+tail = "ds(plane - (width - 1) * 128)"
+full = "max(0, plane // 128 - 1)"
 last_row = "out0_d2 * width - 1"
 
 [inputs.in0]
-shape = ["ceil(numel / 128)", 128]
+shape = ["ceil(in0_d0 * in0_d1 * in0_d2 / 128)", 128]
 range = [-2, 2]
 [inputs.in1]
 shape = ["in1_d2", "ceil(in1_d0 * in1_d1 / 128) * 128"]
