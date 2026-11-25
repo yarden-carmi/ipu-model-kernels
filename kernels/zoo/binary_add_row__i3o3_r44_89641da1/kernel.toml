@@ -1,6 +1,6 @@
 [kernel]
 op = "binary_add_row"
-formats = ["e3"]
+formats = ["e1", "e2"]
 
 [params.broadcast]
 type = "str"
@@ -23,8 +23,9 @@ multiple_of = 128
 default = 4096
 [params.numel]
 type = "int"
-min = 1
+min = 128
 max = 2147483647
+multiple_of = 128
 default = 32768
 [params.in0_d0]
 type = "int"
@@ -43,7 +44,7 @@ max = 65536
 default = 64
 [params.in0_d3]
 type = "int"
-choices = [64, 128, 256]
+choices = [64, 128, 256, 512]
 default = 64
 [params.out0_d0]
 type = "int"
@@ -62,14 +63,12 @@ max = 65536
 default = 64
 [params.out0_d3]
 type = "int"
-choices = [64, 128, 256]
+choices = [64, 128, 256, 512]
 default = 64
 
 [derived]
 rows = "numel // 128"
 period = "inner // 128"
-last_row = "period - 1"
-penultimate_row = "period - 2"
 
 [inputs.in0]
 shape = ["rows", 128]
@@ -88,7 +87,6 @@ qf_in0 = "CR5"
 qf_operand = "CR6"
 qf_out0 = "CR7"
 rows = "CR8"
-last_row = "CR9"
-penultimate_row = "CR11"
+period = "CR9"
 
 [cases.default]
