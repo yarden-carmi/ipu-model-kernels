@@ -53,163 +53,87 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[1], [1, 192, 32, 32], [196608, 1024, 32, 1], 0), module.op0_weight, None, [1, 1], [1, 1])
+    r0 = aten.conv2d.default(_v(ins[1], [1, 256, 16, 16], [65536, 256, 16, 1], 0), module.op0_weight, None, [1, 1], [1, 1])
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 96, 32, 32], [98304, 1024, 32, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 128, 16, 16], [32768, 256, 16, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.silu_.default(_v(op1, [1, 96, 32, 32], [98304, 1024, 32, 1], 0))
+    r0 = aten.silu_.default(_v(op1, [1, 128, 16, 16], [32768, 256, 16, 1], 0))
     op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 96, 32, 32])}
+    return {"out0": _out(op2, [1, 128, 16, 16])}
 # ---- end of the frozen reference ----
 
 
-def _old_fold(module, **params):
-    import numpy as np
-
-    weight = getattr(module, "op0_weight", getattr(module, "weight", None)).double()
-    channels = weight.shape[0]
-    groups = params["groups"]
-    bias = getattr(module, "op0_bias", getattr(module, "bias", None))
-    bias = weight.new_zeros(channels) if bias is None else bias.double()
-    if hasattr(module, "op1_running_var"):
-        scale = module.op1_weight.double() / (module.op1_running_var.double() + 1e-5).sqrt()
-        bias = module.op1_bias.double() + (bias - module.op1_running_mean.double()) * scale
-        weight = weight * scale[:, None, None, None]
-    if groups == 1:
-        # Per output chunk: split bias, tap-major weights, then a final
-        # prefetch row. Retain residuals selectively: small planes gain more
-        # from skipping padding and can afford more residual rows.
-        cin = weight.shape[1]
-        chunks = (channels + 127) // 128
-        w = np.zeros((9, cin, chunks * 128))
-        w[:, :, :channels] = weight.permute(2, 3, 1, 0).reshape(9, cin, channels).numpy()
-        b = np.zeros(chunks * 128)
-        b[:channels] = bias.numpy()
-        w = w.reshape(9, cin, chunks, 128).transpose(2, 0, 1, 3)
-        b = b.reshape(chunks, 128)
-
-        def split(rows):
-            exponent = np.frexp(np.max(np.abs(rows), axis=-1, keepdims=True))[1] - 1
-            step = np.exp2(exponent.astype(float) - 5)
-            hi = np.sign(rows) * np.minimum(np.floor(np.abs(rows) / step + 0.5), 63) * step
-            return hi, rows - hi
-
-        bh, bl = split(b)
-        wh, wl = split(w.reshape(chunks, 9 * cin, 128))
-        out = []
-        for o in range(chunks):
-            out.append(bh[o][None])
-            out.append(bl[o][None])
-            for t in range(9):
-                s = slice(t * cin, (t + 1) * cin)
-                if cin % 16 == 0 and params['h'] * params['w'] >= 512 and t in (1, 7):
-                    for c in range(cin):
-                        out.append(np.stack((wh[o, t * cin + c], wl[o, t * cin + c]))
-                                   if c % 2 == 0 else w[o, t, c:c+1])
-                elif t in (0, 8):
-                    out.append(w[o, t])
-                else:
-                    pair = np.stack((wh[o, s], wl[o, s]), axis=1)
-                    if t in (2, 6) and cin % 16 == 0 and params['h'] * params['w'] < 512:
-                        for c in range(0, cin, 128):
-                            end = min(c + 128, cin)
-                            n = (end - c) // 16 * 6
-                            out.append(pair[c:end-n].reshape(-1, 128))
-                            out.append(w[o, t, end-n:end])
-                    else:
-                        out.append(pair.reshape(-1, 128))
-            out.append(bh[o][None])
-        return {"weights": np.concatenate(out, 0)}
-    if groups != params["cin"] or params["cin"] != channels:
-        raise ValueError("requires depthwise convolution with channel multiplier one")
-    rows = torch.cat((bias[None], weight[:, 0].reshape(channels, 9).T)).numpy()
-    chunks = (channels + 127) // 128
-    rows = np.pad(rows, ((0, 0), (0, 128 * chunks - channels)))
-    rows = rows.reshape(10, chunks, 128).transpose(1, 0, 2)
-    # Use two NX8 rows so folding does not discard the leading row's residual.
-    exponent = np.frexp(np.max(np.abs(rows), axis=-1, keepdims=True))[1] - 1
-    step = np.exp2(exponent.astype(float) - 5)
-    hi = np.sign(rows) * np.minimum(np.floor(np.abs(rows) / step + 0.5), 63) * step
-    frames = np.stack((hi, rows - hi), axis=2).reshape(-1, 128)
-    return {"weights": np.pad(frames, ((0, 1), (0, 0)))}
-
-
 def fold(module, **params):
+    """Fold batch norm and pack coefficients for the spatial MAC paths."""
     import numpy as np
 
-    weight = getattr(module, "op0_weight", getattr(module, "weight", None)).double()
-    channels, gc = weight.shape[:2]
-    bias = getattr(module, "op0_bias", getattr(module, "bias", None))
-    bias = weight.new_zeros(channels) if bias is None else bias.double()
-    if hasattr(module, "op1_running_var"):
-        scale = module.op1_weight.double() / (module.op1_running_var.double() + 1e-5).sqrt()
-        bias = module.op1_bias.double() + (bias - module.op1_running_mean.double()) * scale
-        weight = weight * scale[:, None, None, None]
+    weight = module.op0_weight.double()
+    cout, cin = weight.shape[:2]
+    scale = module.op1_weight.double() / (module.op1_running_var.double() + 1e-5).sqrt()
+    bias = -module.op1_running_mean.double()
+    if getattr(module, "op0_bias", None) is not None:
+        bias = bias + module.op0_bias.double()
+    bias = module.op1_bias.double() + bias * scale
+    weight = weight * scale[:, None, None, None]
 
-    def leading(values):
-        exponent = np.frexp(np.max(np.abs(values)))[1] - 1
-        step = np.exp2(float(exponent) - 5)
-        return np.sign(values) * np.minimum(np.floor(np.abs(values) / step + 0.5), 63) * step
+    def leading(values, grid, bits):
+        exponent = np.frexp(np.max(np.abs(grid)))[1] - 1
+        step = np.exp2(float(exponent) - bits)
+        return np.sign(values) * np.minimum(np.floor(np.abs(values) / step + 0.5),
+                                            (2 << bits) - 1) * step
 
     area = params['h'] * params['w']
+    width, height = params['in1_d3'], params['in1_d2']
+    w, b = weight.reshape(cout, cin, 9).numpy(), bias.numpy()
+    lanes = np.arange(128)
     if area <= 64:
-        width, height = params['in1_d3'], params['in1_d2']
-        pos = np.arange(128) % 64
-        y, x = pos // width, pos % width
+        y, x = (lanes % 64) // width, lanes % width
         masks = [((y < height) & (y + dy >= 0) & (y + dy < height)
                   & (x + dx >= 0) & (x + dx < width))
                  for dy in (-1, 0, 1) for dx in (-1, 0, 1)]
-        rows = [np.arange(128) < 64, np.arange(128) >= 64]
-        ocg = channels // params['groups']
-        w = weight.reshape(channels, gc, 9).numpy()
-        b = bias.numpy()
-        norm = np.exp2(np.frexp(np.maximum(np.maximum(np.linalg.norm(w, axis=(1, 2)), np.abs(b)), 1e-30))[1] - 1)
-        w = w / norm[:, None, None]
-        b = b / norm
-        for g in range(params['groups']):
-            end = (g + 1) * ocg
-            for o in range(g * ocg, end, 2):
-                pair = slice(o, min(o + 2, end))
-                bv = np.pad(b[pair], (0, 2 - len(b[pair])))
-                hi = leading(bv)
-                rows.extend(np.repeat(v, 64) for v in (hi, bv - hi))
-                for c in range(gc):
-                    for t in range(9):
-                        v = w[pair, c, t]
-                        v = np.pad(v, (0, 2 - len(v)))
-                        hi = leading(v)
-                        coeff = (v,) if t == 4 else (hi, v - hi)
-                        rows.extend(np.repeat(a, 64) * masks[t] for a in coeff)
-                for j in range(2):
-                    rows.append(np.full(128, norm[o+j] if o+j < end else 1))
-        rows.append(np.zeros(128))
+        rows = [lanes < 64, lanes >= 64]
+        norm = np.exp2(np.frexp(np.maximum(np.maximum(np.linalg.norm(w, axis=(1, 2)),
+                                                      np.abs(b)), 1e-30))[1] - 1)
+        w, b = w / norm[:, None, None], b / norm
+        for o in range(0, cout, 2):
+            pair = slice(o, o + 2)
+            pad = 2 - len(b[pair])
+            bv = np.pad(b[pair], (0, pad))
+            hi = leading(bv, bv, 5)
+            rows.extend(np.repeat(v, 64) for v in (hi, bv - hi))
+            taps = np.pad(w[pair], ((0, pad), (0, 0), (0, 0)))
+            for c in range(cin):
+                for t in range(9):
+                    v = taps[:, c, t]
+                    hi = leading(v, v, 5)
+                    rows.extend(np.repeat(a, 64) * masks[t]
+                                for a in ((v,) if t == 4 else (hi, v - hi)))
+            rows.extend(np.full(128, n) for n in np.pad(norm[pair], (0, pad), constant_values=1))
+        rows.append(np.zeros(128))  # Last pair's speculative load.
         return {"weights": np.asarray(rows)}
+
     big = area >= 512
-    block = 13 if big else 3
-    rows = np.zeros((2 + channels * (2 + 2 * ((gc + block - 1) // block)), 128))
-    width = params['in1_d3']
-    columns = np.arange(128) % width
-    rows[0] = columns != 0
-    rows[1] = columns != width - 1
-    idx = 2
-    for b, taps in zip(bias.numpy(), weight.reshape(channels, gc, 9).numpy()):
-        hi = leading(b)
-        rows[idx:idx + 2, 0] = hi, b - hi
-        idx += 2
-        for start in range(0, gc, block):
-            values = taps[start:start + block]
-            E = np.frexp(np.max(np.abs(values)))[1] - 1
-            step = np.exp2(float(E) - 6)
-            hi = np.sign(values) * np.minimum(np.floor(np.abs(values) / step + 0.5), 127) * step
+    block = 12 if big else 3
+    rows = np.zeros((2 + cout * (2 + 2 * ((cin + block - 1) // block)), 128))
+    rows[0] = lanes % width != 0
+    rows[1] = lanes % width != width - 1
+    i = 2
+    for bias, taps in zip(b, w):
+        hi = leading(bias, bias, 5)
+        rows[i:i+2, 0] = hi, bias - hi
+        i += 2
+        for start in range(0, cin, block):
+            values = taps[start:start+block]
+            hi = leading(values, values, 6)
             coeff, low = [], []
             for c, vals in enumerate(values):
                 for t, v in enumerate(vals):
-                    if (big and t != 8) or (not big and (c + t + 1) % 3 == 0):
+                    if big or t in (1, 3, 4, 5, 7) or (c == 0 and t == 0):
                         coeff.append(hi[c, t])
                         low.append(v - hi[c, t])
                     else:
                         coeff.append(v)
-            rows[idx, :len(coeff)] = coeff
-            rows[idx + 1, :len(low)] = low
-            idx += 2
+            rows[i, :len(coeff)] = coeff
+            rows[i+1, :len(low)] = low
+            i += 2
     return {"weights": rows}

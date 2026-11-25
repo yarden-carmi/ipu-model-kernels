@@ -1,3 +1,4 @@
+formats = ["e2"]
 chain = ["conv2d"]
 chain_in = ["in0", "in1"]
 chain_out = ["out0"]
@@ -5,7 +6,6 @@ chain_out = ["out0"]
 [layout.in0]
 lanes = 1
 rows = [0, 2, 3]
-
 [view.in0]
 kind = "whole"
 
@@ -13,12 +13,10 @@ kind = "whole"
 lanes = 3
 rows = [0, 1, 2]
 pack = "128 // d3"
-
 [prefer.in1]
 lanes = 3
 rows = [0, 1, 2]
 pack = "128 // d3"
-
 [view.in1]
 kind = "whole"
 
@@ -33,6 +31,5 @@ range_exp = 40
 
 [format.in1]
 format = "e1"
-
 [format.weights]
 format = "e1"
