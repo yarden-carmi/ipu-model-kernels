@@ -11,7 +11,7 @@ default = "relu"
 type = "int"
 min = 1
 max = 2147483647
-default = 16384
+default = 262144
 
 [params.in0_d0]
 type = "int"
@@ -29,13 +29,13 @@ default = 64
 type = "int"
 min = 1
 max = 2147483647
-default = 16
+default = 64
 
 [params.in0_d3]
 type = "int"
 min = 1
-max = 2147483647
-default = 16
+max = 128
+default = 64
 
 [params.out0_d0]
 type = "int"
@@ -53,23 +53,23 @@ default = 64
 type = "int"
 min = 1
 max = 2147483647
-default = 16
+default = 64
 
 [params.out0_d3]
 type = "int"
 min = 1
-max = 2147483647
-default = 16
+max = 128
+default = 64
 
 [derived]
-in_candidate = "min(in0_d2, max(1, 128 // in0_d3))"
-out_candidate = "min(out0_d2, max(1, 128 // out0_d3))"
+in_candidate = "min(in0_d2, 128 // in0_d3)"
+out_candidate = "min(out0_d2, 128 // out0_d3)"
 in_pack = "1 + (in_candidate - 1) * (1 - min(1, in0_d2 % in_candidate))"
 out_pack = "1 + (out_candidate - 1) * (1 - min(1, out0_d2 % out_candidate))"
-in_rows = "in0_d0 * in0_d1 * (in0_d2 // in_pack) * ceil(in0_d3 * in_pack / 128)"
-out_rows = "out0_d0 * out0_d1 * (out0_d2 // out_pack) * ceil(out0_d3 * out_pack / 128)"
+in_rows = "in0_d0 * in0_d1 * (in0_d2 // in_pack)"
+out_rows = "out0_d0 * out0_d1 * (out0_d2 // out_pack)"
 penultimate = "out_rows - 2"
-active = "ds(min(128, out0_d3 * out_pack))"
+active = "ds(out0_d3 * out_pack)"
 
 [inputs.in0]
 shape = ["in_rows", 128]
