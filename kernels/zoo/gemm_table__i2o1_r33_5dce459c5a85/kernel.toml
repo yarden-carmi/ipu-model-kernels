@@ -1,0 +1,95 @@
+[kernel]
+op = "gemm_table"
+formats = ["e3"]
+
+[params.k]
+type = "int"
+min = 1
+max = 4096
+default = 384
+[params.n]
+type = "int"
+min = 1
+max = 4096
+default = 1536
+[params.m]
+type = "int"
+min = 1
+max = 65535
+default = 256
+[params.bias]
+type = "bool"
+default = true
+[params.act_out0]
+type = "str"
+choices = ["gelu"]
+default = "gelu"
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 65535
+default = 256
+[params.in0_d2]
+type = "int"
+min = 1
+max = 4096
+default = 384
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 65535
+default = 256
+[params.out0_d2]
+type = "int"
+min = 1
+max = 4096
+default = 1536
+
+[derived]
+pitch = "ceil(in0_d2 / 128)"
+blocks = "ceil(out0_d1 / 128)"
+chunks = "ceil(k / 128)"
+full = "ds(128)"
+tail = "ds((out0_d1 - 1) % 128 + 1)"
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d1 * pitch", 128]
+range = [-2, 2]
+[inputs.coeff]
+shape = ["n * (chunks + 1)", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[scratch.panel]
+shape = ["blocks * k", 128]
+[outputs.out0]
+shape = ["out0_d0 * out0_d2 * blocks", 128]
+
+[abi]
+in0 = "CR2"
+coeff = "CR3"
+lut = "CR4"
+out0 = "CR5"
+panel = "CR6"
+qf_in0 = "CR7"
+qf_out0 = "CR8"
+pitch = "CR9"
+blocks = "CR10"
+n = "CR11"
+full = "CR12"
+tail = "CR13"
+in0_d0 = "CR14"
+k = "CR15"
+
+[cases.default]
