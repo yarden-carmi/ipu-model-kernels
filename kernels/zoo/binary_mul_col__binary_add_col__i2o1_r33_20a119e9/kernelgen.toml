@@ -1,14 +1,7 @@
 chain = ["binary", "binary"]
 chain_in = ["in0"]
 chain_out = ["out0"]
-notes = """
-in0 is stored [d0, d1, inner] with dim 2 (inner) along the 128 lanes, rows [0, 1]:
-row (i0, k) holds view element (i0, j, k) at lane j (view [d0, inner, d1], stride [d1*inner, 1, inner]).
-out0 is stored [d0, inner, d2] with dim 1 (inner) along the 128 lanes, rows [0, 2]:
-row (i0, k) holds out0 (i0, j, k) at lane j. The broadcast-col vectors (inner values, one per
-lane) are then lane-aligned in every row, so both steps are plain lane-wise multiplies:
-row_r = in0_row_r * c0 + c1, with c0/c1 the same padded constant rows for every row.
-"""
+notes = "The output follows the input view's physical lane order, so the affine transform needs no transpose."
 
 [layout.in0]
 lanes = 2

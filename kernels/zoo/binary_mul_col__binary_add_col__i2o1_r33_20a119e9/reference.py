@@ -49,29 +49,21 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.batch_norm.default(_v(ins[0], [2, 32, 512], [16384, 1, 32], 0), module.weight, module.bias, module.running_mean, module.running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(ins[0], [2, 256, 512], [131072, 1, 256], 0), module.weight, module.bias, module.running_mean, module.running_var, False, 0.1, 1e-05, True)
     op0 = _pick(r0, 0)  # step 1
-    return {"out0": _out(op0, [2, 32, 512])}
+    return {"out0": _out(op0, [2, 256, 512])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Fold inference batch_norm into a per-channel mul vector and add vector:
-    y = x * (w / sqrt(var + eps)) + (b - mean * w / sqrt(var + eps)),
-    laid out lane-aligned in padded rows of 128 like the input."""
+    """Fold inference batch normalization into lane-aligned affine constants."""
     inner = int(params["in0_d2"])
-    eps = 1e-5
-    w = module.weight.reshape(-1).float()
-    b = module.bias.reshape(-1).float()
-    m = module.running_mean.reshape(-1).float()
-    v = module.running_var.reshape(-1).float()
-    c0 = w / torch.sqrt(v + eps)
-    c1 = b - m * c0
-    cb = (inner + 127) // 128
+    scale = module.weight.reshape(-1).float() * torch.rsqrt(
+        module.running_var.reshape(-1).float() + 1e-5
+    )
+    bias = module.bias.reshape(-1).float() - module.running_mean.reshape(-1).float() * scale
 
-    def pack(t):
-        out = torch.zeros(cb * 128, dtype=torch.float32)
-        out[:inner] = t[:inner]
-        return out.reshape(cb, 128).contiguous()
+    def pack(values):
+        return torch.nn.functional.pad(values[:inner], (0, (-inner) % 128)).reshape(-1, 128)
 
-    return {"c0": pack(c0), "c1": pack(c1)}
+    return {"c0": pack(scale), "c1": pack(bias)}
