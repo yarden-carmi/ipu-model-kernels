@@ -100,17 +100,16 @@ plane = "(in0_d2 + 2 * padding + extra) * kw * ox"
 gcin = "cin // groups"
  pipe = "(1 - min(1, groups - 1)) * min(1, gcin - 1)"
 group_plane = "plane * gcin"
-mask_rows = "pack * min(1, pack - 1)"
-weights_end = "mask_rows + cout * (2 + 2 * gcin) - 1"
+weights_end = "cout * (2 + 2 * gcin) - 1"
 ds128 = "ds(128)"
-ds_in = "ds(1 + (in0_d3 - 1) % 128)"
+ds_in = "ds(out0_d3 - 128 * (ox - 1))"
 ds_out = "ds(pack * out0_d3 - 128 * (ox - 1))"
 
 [inputs.in0]
 shape = ["in0_d0", "in0_d1", "in0_d2", "ix", 128]
 range = [-2, 2]
 [inputs.weights]
-shape = ["mask_rows + cout * (2 + 2 * gcin) + 2 * pipe", 128]
+shape = ["cout * (2 + 2 * gcin) + 2 * pipe", 128]
 range = [-1, 1]
 [inputs.lut]
 shape = [5, 128]

@@ -9,6 +9,8 @@
 {% set taps = kh * kw %}
 {% set gc = cin // groups %}
 {% set pipe = groups == 1 and gc > 1 and taps >= 3 %}
+{% set single = ([1, 2, 3] if stride == 2 else ([1, 2] if pack == 4 else [])) if pipe and taps >= 7 else [] %}
+{% set resident = groups == cin == cout and groups > 1 and pack == 1 %}
 {% set direct_shift = stride == 1 and ix == 1 and kw == 3 and padding == 1 %}
 {% set ds = cr.ds128 ~ '.L' %}
 {% set di = cr.ds_in ~ '.L' %}
@@ -53,7 +55,7 @@
  {% endif %}
  {% endif %}
  {% endif %}
- ACTIVATE.QUANTIZE identity {{ ds if x + 1 < ox or pack > 1 else do }} {{ qi }} {{ cr.shifted }} LR5 ; INC LR5 1 ;;
+ ACTIVATE.QUANTIZE identity {{ ds if x + 1 < ox else di }} {{ qi }} {{ cr.shifted }} LR5 ; INC LR5 1 ;;
 {% endmacro %}
 
 {# Stage each horizontal tap at output stride, with vertical zero guards. #}
@@ -83,7 +85,7 @@ shift_y:
 {% if ix == 2 %}
  LD.MULT.CYCLIC LR4 {{ cr.in0 }} LR2 ; INC LR4 1 ;;
 {% endif %}
-{% if in0_d3 % 128 %}
+{% if in0_d3 % 128 and stride == 1 and in0_d3 == out0_d3 %}
  {% set last_slot = 'LR1' if ix == 1 else 'LR2' %}
  MULT.RC.VE {{ last_slot }} CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ;
  ACTIVATE.QUANTIZE identity {{ di }} {{ qi }} {{ cr.shifted }} LR5 ; INC LR5 1 ;;
@@ -100,33 +102,59 @@ shift_y:
  INC LR6 1 ; BLT.S LR6 LR11 shift_channel ;;
 
 {% if pack > 1 %}
-{# Combine strided scanlines into disjoint lane ranges using the folded masks. #}
+{% set step = stride * pack * row %}
+{% set window = kh * row %}
+{% set sparse = step >= window and (tiles - 1) * step + window <= (in0_d2 + 2 * padding) * row %}
+{# Each cropped scanline has a zero tail. Slide it right from slot 1
+   into its lane segment, with slot 0 supplying the leading zeros. #}
  SET LR5 CR0 ; SET LR6 CR1 ; SET LR7 CR0 ;;
- {{ bound('LR10', (in0_d2 + 2 * padding) * row - 1) }}
- {{ bound('LR14', pack - 1) }}
+ {{ bound('LR10', (window if sparse else (in0_d2 + 2 * padding) * row) - 1) }}
+ {% if sparse %}{{ bound('LR14', tiles - 1) }}{% endif %}
+ LD.MULT.CYCLIC LR0 {{ cr.shifted }} LR0 ;;
 pack_channel:
+ {% if sparse %}
+ SET LR12 CR0 ;;
+ pack_tile:
+ {% endif %}
  SET LR4 CR0 ;;
 pack_row:
- SET LR8 LR6 ; SET LR9 CR0 ; SET LR13 CR0 ;;
- DEC LR8 {{ stride * row }} ;;
- LD.MULT.CYCLIC LR8 {{ cr.shifted }} LR0 ; INC LR8 {{ stride * row }} ;;
- LD.MULT R0 LR13 {{ cr.weights }} ;;
+ SET LR8 LR6 ; SET LR9 LR1 ;;
+ LD.MULT.CYCLIC LR8 {{ cr.shifted }} LR1 ; INC LR9 {{ width }} ; INC LR6 1 ;;
  {% for i in range(pack) %}
- MULT.RC.VV LR9 R0 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD{{ '.FIRST' if loop.first else '' }} ;
- {% if not loop.last %}
- LD.MULT.CYCLIC LR8 {{ cr.shifted }} LR0 ; INC LR8 {{ stride * row }} ;;
+ MULT.RC.VE LR9 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD{{ '.FIRST' if loop.first else '' }} ;
  DEC LR9 {{ width }} ;
- LD.MULT R0 LR13 {{ cr.weights }} ; INC LR13 1 ;;
+ {% if not loop.last %}
+ LD.MULT.CYCLIC LR8 {{ cr.shifted }} LR1 ; INC LR8 {{ stride * row }} ;;
  {% endif %}
  {% endfor %}
  ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.packed }} LR5 ; INC LR5 1 ;
- INC LR6 1 ; INC LR4 1 ; BLT.S LR4 LR10 pack_row ;;
- {{ adjust('LR5', extra * row) }}
- {{ adjust('LR6', extra * row) }}
+ INC LR4 1 ; BLT.S LR4 LR10 pack_row ;;
+ {% if sparse %}
+ {% if tiles > 1 %}
+ INC LR5 {{ step - window }} ; INC LR6 {{ step - window }} ; INC LR12 1 ; BLT.S LR12 LR14 pack_tile ;;
+ {% endif %}
+ {% set gap = (in0_d2 + 2 * padding + extra) * row - (tiles * step if tiles > 1 else window) %}
+ {% else %}
+ {% set gap = extra * row %}
+ {% endif %}
+ {% for off in range(0, gap, 255) %}
+ INC LR5 {{ [255, gap-off]|min }} ; INC LR6 {{ [255, gap-off]|min }} ;;
+ {% endfor %}
  INC LR7 1 ; BLT.S LR7 LR11 pack_channel ;;
 {% endif %}
 
 {% macro convolve(x) %}
+ {% if resident %}
+ SET LR14 LR4 ; SET LR8 CR0 ; SET LR9 LR1 ; MULT.RC.VE LR0 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD.FIRST ;;
+ MULT.RC.VE LR1 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; LD.MULT.CYCLIC LR14 {{ staged }} LR2 ; INC LR14 {{ x + 1 }} ;;
+ {% for tap in range(taps) %}
+ MULT.RC.VE LR2 LR8 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; {% if tap %}INC LR8 1 ;{% endif %} ;;
+ MULT.RC.VE LR2 LR9 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ;
+ {% if tap %}INC LR9 1 ;{% endif %}
+ {% if not loop.last %}LD.MULT.CYCLIC LR14 {{ staged }} LR2 ; INC LR14 {{ ox }} ;
+ {% else %}ACTIVATE.QUANTIZE generic {{ do if x + 1 == ox else ds }} {{ qo }} {{ cr.out0 }} LR5 ; INC LR5 1 ;{% endif %} ;;
+ {% endfor %}
+ {% else %}
  SET LR11 LR10 ; {% if pipe %}ADD LR12 LR4 LR15 ;{% else %}SET LR12 CR0 ;{% endif %} SET LR13 LR4 ;;
  {{ adjust('LR13', x) }}
  LD.MULT R0 LR11 {{ cr.weights }} ; INC LR11 1 ;;
@@ -144,6 +172,9 @@ pack_row:
  {% for tap in range(taps) %}
   {% set cur = ('LR2' if pipe and loop.last else ('LR1' if tap % 2 else 'LR0')) %}
   {% set next = ('LR2' if pipe and tap == taps - 2 else ('LR0' if tap % 2 else 'LR1')) %}
+  {% if tap in single %}
+  MULT.RC.VE {{ cur }} LR8 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; INC LR9 1 ; {% if tap - 1 in single %}INC LR8 1 ;{% endif %} LD.MULT.CYCLIC LR14 {{ staged }} {{ next }} ; INC LR14 {{ ox }} ;;
+  {% else %}
   MULT.RC.VE {{ cur }} LR8 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ;
   {% if pipe and loop.first %}
   SET LR9 LR1 ;
@@ -151,7 +182,7 @@ pack_row:
   LD.MULT.CYCLIC LR13 {{ staged }} LR0 ; INC LR9 1 ;
   {% elif pipe and loop.last %}
   LD.MULT R0 LR11 {{ cr.weights }} ; INC LR11 1 ; SET LR14 LR13 ; INC LR9 1 ;
-  {% elif pipe %} INC LR9 1 ;
+  {% elif pipe %} INC LR9 1 ; {% if tap - 1 in single %} INC LR8 1 ; {% endif %}
   {% else %} INC LR8 1 ; {% endif %} ;;
   MULT.RC.VE {{ cur }} LR9 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ;
   {% if not pipe %}INC LR9 1 ;{% endif %}
@@ -163,8 +194,10 @@ pack_row:
   {% elif gc > 1 %}
    ADD LR13 LR13 {{ cr.plane }} ; INC LR12 1 ; BLT.S LR12 LR7 input_channel_{{ x }} ;
   {% endif %} ;;
+  {% endif %}
  {% endfor %}
  ACTIVATE.QUANTIZE {{ 'generic' if act_out0 == 'silu' else act_out0 }} {{ do if x + 1 == ox else ds }} {{ qo }} {{ cr.out0 }} LR5 ; INC LR5 1 ; {% if pipe %} DEC LR11 2 ; {% if x + 1 == ox %} INC LR4 {{ stride * pack * row }} ; {% endif %}{% endif %} ;;
+ {% endif %}
 {% endmacro %}
 
  SET LR13 CR0 ; SET LR5 CR0 ; SET LR6 CR0 ;;
@@ -172,10 +205,17 @@ pack_row:
 {% for i in range(5) %}
  LD.LUT {{ i }} {{ cr.lut }} LR13 ; INC LR13 1 ;;
 {% endfor %}
- {{ bound('LR10', pack - 1 if pack > 1 else -1) }}
- {{ bound('LR7', gc - 1) }}
+{{ bound('LR10', -1) }}
+{{ bound('LR7', gc - 1) }}
+{% if resident %}{{ bound('LR2', 256) }}{% endif %}
 output_group:
- {% if pipe %}
+ {% if resident %}
+ SET LR3 LR6 ;;
+ LD.MULT.CYCLIC LR10 {{ cr.weights }} LR0 ; INC LR10 1 ;;
+ LD.MULT.CYCLIC LR10 {{ cr.weights }} LR1 ; INC LR10 1 ;;
+ LD.MULT R0 LR10 {{ cr.weights }} ; INC LR10 1 ;;
+ LD.MULT R1 LR10 {{ cr.weights }} ; INC LR10 1 ;;
+ {% elif pipe %}
  SET LR2 LR1 ; SET LR3 LR6 ;;
  INC LR2 128 ;;
  {% else %}
@@ -190,11 +230,14 @@ output_y:
 {% endfor %}
  {% if not pipe %}{{ adjust('LR4', stride * pack * row) }}{% endif %}
  BLT.S LR4 LR3 output_y ;;
+ {% if resident %}
+ ADD LR6 LR6 LR15 ; BLT.S LR10 {{ cr.weights_end }} output_group ;;
+ {% elif pipe %}
  SET LR10 LR11 ;
- {% if pipe %}
  ;;
  BLT.S LR10 {{ cr.weights_end }} output_channel ;;
  {% else %}
+ SET LR10 LR11 ;
  {{ bound('LR12', cout // groups - 1) }}
  INC LR2 1 ; BLT.S LR2 LR12 output_channel ;;
  ADD LR6 LR6 LR15 ; BLT.S LR10 {{ cr.weights_end }} output_group ;;

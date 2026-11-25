@@ -82,15 +82,13 @@ def fold(module, **params):
     exponent = np.frexp(np.max(np.abs(rows), axis=-1, keepdims=True))[1] - 1
     step = np.exp2(exponent.astype(float) - 5)
     hi = np.sign(rows) * np.minimum(np.floor(np.abs(rows) / step + 0.5), 63) * step
+    width = params['out0_d3']
+    pack = min(8, max(1, 128 // width))
+    if params['groups'] == 1 and taps.shape[1] > 1 and taps.shape[-1] >= 7:
+        end = 4 if params['stride'] == 2 else (3 if pack == 4 and params['out0_d2'] % pack == 0 else 1)
+        hi[:, 1:, 1:end] = rows[:, 1:, 1:end]
     coeff = np.stack((hi, rows - hi), axis=2).reshape(-1, 128)
 
-    width, height = params["out0_d3"], params["out0_d2"]
-    pack = min(8, max(1, 128 // width))
-    if pack > 1 and height % pack == 0:
-        masks = np.zeros((pack, 128))
-        for i in range(pack):
-            masks[i, i * width:(i + 1) * width] = 1
-        coeff = np.concatenate((masks, coeff))
     if params["groups"] == 1 and weight.shape[1] > 1:
         coeff = np.pad(coeff, ((0, 2), (0, 0)))
     return {"weights": coeff}
