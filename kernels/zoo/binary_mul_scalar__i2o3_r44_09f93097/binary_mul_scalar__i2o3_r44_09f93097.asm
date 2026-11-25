@@ -4,6 +4,7 @@
     MULT.VE LR0 {{ value }} 0 LR0 {{ full }} {{ qi }} ; ACC.{{ acc }} ;;
 {% endmacro %}
     SET LR0 CR0 ; SET LR1 CR0 ; SET LR3 CR0 ;;
+    {# Synthesize 1/8 in the input format and broadcast it. #}
     {{ coefficient('CR0', 'ADD.FIRST') }}
     ACTIVATE.QUANTIZE exp2 {{ full }} {{ qi }} {{ cr.scalar }} LR0 ;;
     LD.MULT R0 LR0 {{ cr.scalar }} ;;
