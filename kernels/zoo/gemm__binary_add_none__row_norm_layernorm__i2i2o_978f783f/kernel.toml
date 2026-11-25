@@ -113,8 +113,8 @@ default = 192
 
 [derived]
 tail = "ds(s2_channels - 128)"
-scalar = "ds(1)"
-pair_dst = "65536"
+scalar = "ds(1) + 65536 * 24"
+byte_seq = "50462976"
 
 [inputs.in0]
 shape = ["in0_d0 * in0_d1 * ceil(in0_d2 / 128)", 128]
@@ -125,9 +125,9 @@ shape = ["s0_k + 2 + min(s0_k, (s0_n - 128) * ceil(s0_k / 128) + s0_k * max(0, c
 [inputs.affine]
 shape = [8, 128]
 [inputs.crow]
-shape = [5, 128]
+shape = [3, 128]
 [scratch.tmp]
-shape = [40, 128]
+shape = ["40 + s0_n / 8", 128]
 [outputs.out0]
 shape = ["out0_d0 * out0_d1 * ceil(out0_d2 / 128)", 128]
 
@@ -144,6 +144,6 @@ qf_in1 = "CR11"
 qf_out0 = "CR12"
 tail = "CR13"
 scalar = "CR14"
-pair_dst = "CR7"
+byte_seq = "CR7"
 
 [cases.default]

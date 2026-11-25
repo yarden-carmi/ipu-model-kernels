@@ -3,75 +3,91 @@
 {% set full = 'CR15.L' %}
 {% set tail = cr.tail ~ '.L' %}
 {% set krows = (s0_k+127)//128 %}
-{% set stride = in1_d0*in1_d1 %}
+{% set m = in1_d0 * in1_d1 %}
+{% set packed = (m == 64 or m % 128 == 0) and in1_d0 in [1,2,4] %}
 {% set narrow = krows <= 4 and (s0_n-128)*krows < s0_k %}
 {% macro at(r,n) %}
  SET {{ r }} CR0 ;;
  {% for i in range(n//255) %}INC {{ r }} 255 ;;{% endfor %}
  {% if n%255 %}INC {{ r }} {{ n%255 }} ;;{% endif %}
 {% endmacro %}
-{% macro v(op='ADD',imm='CR1',extra='',ds=full) %}
- MULT.VE LR0 {{ imm }} 0 LR0 {{ ds }} {{ q }} ; ACC.{{ op }} {{ extra }} ;;
+{% macro v(op='ADD',imm='CR1',extra='',ds=full,fmt=q) %}
+ MULT.VE LR0 {{ imm }} 0 LR0 {{ ds }} {{ fmt }} ; ACC.{{ op }} {{ extra }} ;;
 {% endmacro %}
 {% macro st(r,ds=full,act='identity') %}ACTIVATE.QUANTIZE {{ act }} {{ ds }} {{ q }} {{ cr.tmp }} {{ r }}{% endmacro %}
-{% macro encode(r,ds=full) %}
- {{ st(r,ds) }} ;;
- LD.MULT R0 {{ r }} {{ cr.tmp }} ;;
- {{ v('SUB',extra='; INC ' ~ r ~ ' 1 ; ' ~ st(r,ds)) }}
-{% endmacro %}
-{% macro parts(r,op='ADD',ds=full,base=cr.tmp,extra='') %}
- LD.MULT R0 {{ r }} {{ base }} ;;
- {{ v(op,extra='; INC ' ~ r ~ ' 1 ; LD.MULT R0 ' ~ r ~ ' ' ~ base,ds=ds) }}
- {{ v(op.split('.')[0],extra=extra,ds=ds) }}
-{% endmacro %}
 {% macro rc(r='LR0',op='ADD',extra='',ds=full) %}
  MULT.RC.VV {{ r }} R0 0 LR0 {{ ds }} {{ q }} ; ACC.{{ op }} {{ extra }} ;;
 {% endmacro %}
-{% macro save(n,ds=full) %}{{ at('LR1',n) }}{{ encode('LR1',ds) }}{% endmacro %}
 
- SET LR8 CR0 ; SET LR9 CR0 ; SET LR12 CR0 ;;
+ {% macro bytes(lo,hi) %}
+ SET {{ lo }} {{ cr.byte_seq }} ; SET {{ hi }} {{ cr.byte_seq }} ;;
+ ADDBI LRD{{ lo[2:] }} 4 ;;
+ SET {{ lo }} {{ cr.byte_seq }} ;;
+ {% endmacro %}
+ {% macro move8(extra='') %}
+ MULT.VE LR7 CR1 0 LR7 {{ full }} {{ qr }} ; ACC.RESHAPE LRD0 LRD2 0 {{ extra }} ;;
+ {% endmacro %}
+ SET LR8 CR0 ; SET LR12 CR0 ; SET LR9 CR0 ;;
  {{ at('LR15',in0_d0) }}
- {% if stride == 64 %}
- SET LR14 {{ cr.pair_dst }} ;;
- {% for i in range(6) %}ADD LR14 LR14 LR14 ;;{% endfor %}
- {% else %}{{ at('LR14',128) }}{% endif %}
  batch:
  SET LR10 LR9 ; SET LR13 CR0 ;;
  {{ at('LR11',in0_d1) }}
+ group:
+ {% if packed %}
+ {# Transpose 8 tokens by 8 channels at a time from the strided residual view. #}
+ SET LR14 CR0 ; SET LR4 LR13 ; SET LR7 CR0 ;;
+ {{ at('LR5',40) }}
+ {{ at('LR6',s0_n//8-1) }}
+ {{ bytes('LR0','LR1') }}
+ {% for i in range(2 if in1_d0 == 4 else 1 if in1_d0 == 2 else 0) %}
+ ADD LR0 LR0 LR0 ; ADD LR1 LR1 LR1 ;;
+ {% endfor %}
+ ADDB LRD0 LR10 ;;
+ {{ bytes('LR2','LR3') }}
+ {% if m == 64 %}ADDBI LRD0 64 ;;{% endif %}
+ pack_residual:
+ LD.MULT R0 LR4 {{ cr.in1 }} ;;
+ {% for j in range(8) %}
+ {% set reload = j < 7 and (m != 64 or j % 2 == 1) %}
+ {{ move8(('; INC LR4 ' ~ (1 if m == 64 else m//128) if m != 64 or j%2 else '') ~
+          ('; LD.MULT R0 LR4 ' ~ cr.in1 if reload else '') ~
+          ('; ADDBI LRD0 ' ~ (-64 if j%2 == 0 else 64) if m == 64 else '') ~
+          ('; ADDBI LRD2 8' if j else '') ~
+          ('; ACTIVATE.QUANTIZE identity ' ~ full ~ ' ' ~ qr ~ ' ' ~ cr.tmp ~ ' LR5' if j == 7 else '')) }}
+ {% endfor %}
+ INC LR5 1 ; DEC LR6 1 ; ADDBI LRD2 -56 ; BLT.S CR0 LR6 pack_residual ;;
+ {% endif %}
  token:
- SET LR7 LR10 ; SET LR1 LR13 ; SET LR4 CR0 ;;
- {% macro gather(label,count) %}
- SET LR2 CR0 ; SET LR3 CR0 ;;
- {% if stride%128 == 0 or stride == 64 %}
- {% set paired = stride == 64 %}
- {% set step = 1 if paired else stride//128 %}
- {% set width = 2 if paired else 1 %}
- {% set ptr = 'LR5' if paired else 'LR1' %}
- {% if paired %}
- SET LR5 LR1 ; SET LR1 LR14 ; SET LR3 {{ cr.pair_dst }} ;;
+ {% macro residual(label,count,src) %}
+ {% if packed %}
+ SET LR7 CR0 ;;
+ {{ bytes('LR0','LR1') }}
+ {% for i in range(3) %}ADD LR0 LR0 LR0 ; ADD LR1 LR1 LR1 ;;{% endfor %}
+ ADDB LRD0 LR14 ;;
+ {{ bytes('LR2','LR3') }}
+ {{ at('LR5',src) }}
+ {{ at('LR6',count//8-2) }}
+ LD.MULT R0 LR5 {{ cr.tmp }} ;;
+ {{ move8('; INC LR5 1 ; LD.MULT R0 LR5 ' ~ cr.tmp) }}
+ {% if count > 16 %}
+ unpack_{{ label }}:
+ {{ move8('; ADDBI LRD2 8 ; INC LR5 1 ; LD.MULT R0 LR5 ' ~ cr.tmp ~ ' ; DEC LR6 1 ; BLT.S CR1 LR6 unpack_' ~ label) }}
  {% endif %}
- {{ at('LR6',count//width-2) }}
- LD.MULT R0 {{ ptr }} {{ cr.in1 }} ;;
- {% macro scatter(first=false,last=false) %}
- {% if paired %}MULT.VE LR7 CR1 0 LR0 {{ full }} {{ qr }}{% else %}MULT.EE LR7 CR1 0 LR0 {{ full }} {{ qr }}{% endif %} ; ACC.RESHAPE LRD0 LRD2 {{ 8-width }} ; INC {{ ptr }} {{ step }} {% if not first %}; ADDBI LRD2 {{ width }}{% endif %}{% if not last %}; LD.MULT R0 {{ ptr }} {{ cr.in1 }}{% if not first %}; DEC LR6 1 ; BLT.S CR1 LR6 gather_{{ label }}{% endif %}{% endif %} ;;
- {% endmacro %}
- {{ scatter(first=true) }}
- gather_{{ label }}:
- {{ scatter() }}
- {{ scatter(last=true) }}
- {% if stride == 64 %}
- SET LR1 LR5 ;;
- {% endif %}
+ {{ move8('; ADDBI LRD2 8') }}
+ SET LR0 CR0 ;;
  {% else %}
+ {% if src == 40 %}SET LR7 LR10 ; SET LR5 LR13 ;;{% endif %}
+ SET LR2 CR0 ; SET LR3 CR0 ;;
  {{ at('LR6',count) }}
+ {{ at('LR1',128) }}
  gather_{{ label }}:
- LD.MULT R0 LR1 {{ cr.in1 }} ;;
- MULT.EE LR7 CR1 0 LR0 {{ full }} {{ qr }} ; ACC.RESHAPE LRD0 LRD2 7 ; DEC LR6 1 {% if stride//128 %}; INC LR1 {{ stride//128 }}{% endif %} ;;
- {% if stride%128 %}
- INC LR7 {{ stride%128 }} ;;
- BLT.S LR7 LR14 gather_{{ label }}_nowrap ;;
- DEC LR7 128 ; INC LR1 1 ;;
- gather_{{ label }}_nowrap:
+ LD.MULT R0 LR5 {{ cr.in1 }} ;;
+ MULT.EE LR7 CR1 0 LR0 {{ full }} {{ qr }} ; ACC.RESHAPE LRD0 LRD2 7 ; DEC LR6 1 {% if m//128 %}; INC LR5 {{ m//128 }}{% endif %} ;;
+ {% if m%128 %}
+ INC LR7 {{ m%128 }} ;;
+ BLT.S LR7 LR1 nowrap_{{ label }} ;;
+ DEC LR7 128 ; INC LR5 1 ;;
+ nowrap_{{ label }}:
  {% endif %}
  ADDBI LRD2 1 ; BNE LR6 CR0 gather_{{ label }} ;;
  {% endif %}
@@ -89,7 +105,11 @@
  {% macro gemm(label) %}
  SET LR1 LR8 ; LD.MULT.CYCLIC LR4 {{ cr.w }} LR0 ;;
  MULT.RC.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD ;;
- {% if krows > 1 %}
+ {% if krows <= 4 %}
+ {% for chunk in range(krows-1) %}
+ {{ dot('gemm_full_' ~ label ~ '_' ~ chunk,128) }}
+ {% endfor %}
+ {% else %}
  {{ at('LR2',krows-1) }}
  gemm_chunk_{{ label }}:
  {{ dot('gemm_full_' ~ label,128) }}
@@ -99,12 +119,14 @@
  {{ dot('gemm_tail_' ~ label,(s0_k-1)%128+1) }}
  {% endmacro %}
  {# Keep the wide tile output-parallel; pack narrow-tail weights along K. #}
- {{ gather('head',128) }}
- SET LR5 LR1 ;;
+ {{ residual('head',128,40) }}
+ SET LR4 CR0 ;;
  {{ gemm('head') }}
- {{ save(32) }}
- INC LR4 1 ; SET LR1 LR5 ;;
- {{ gather('tail',s0_n-128) }}
+  SET LR1 CR0 ;;
+  INC LR1 32 ; {{ st('LR1') }} ;;
+  LD.MULT R0 LR1 {{ cr.tmp }} ; INC LR4 1 ;;
+  {{ v('SUB',extra='; INC LR1 1 ; ' ~ st('LR1')) }}
+ {{ residual('tail',s0_n-128,56) }}
  {% if narrow %}
  LD.MULT R0 LR4 {{ cr.w }} ;;
  {{ v(ds=tail) }}
@@ -126,120 +148,99 @@
  {{ narrow_dot() }}
  {{ narrow_dot(last=true) }}
  {% else %}{{ gemm('tail') }}{% endif %}
- {{ save(34,tail) }}
+ SET LR1 CR0 ;;
+ INC LR1 34 ; {{ st('LR1',tail) }} ;;
+ LD.MULT R0 LR1 {{ cr.tmp }} ;;
+ {{ v('SUB',ds=tail,extra='; INC LR1 1 ; ' ~ st('LR1',tail)) }}
 
  {# Reduce directly into scalar lane zero, then broadcast the compensated sum. #}
- {% macro reduce(src,ds,first=false) %}
- {{ at('LR1',src) }}
- LD.MULT R0 LR1 {{ cr.tmp }} ;;
+ {% macro reduce(ds,first=false) %}
+ INC LR1 1 ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
  MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ q }} ; AGG.SUM{% if first %}.FIRST{% endif %} LR0 {{ ds }} ; INC LR1 1 ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
  MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ q }} ; AGG.SUM LR0 {{ ds }} ;;
  {% endmacro %}
  {% macro avg() %}
  {# Only lane zero contains the sum; store with a one-lane DS. #}
- {{ save(0,cr.scalar ~ '.L') }}
- SET LR1 CR0 ; SET LR2 CR0 ;;
- LD.MULT.CYCLIC LR2 {{ cr.crow }} LR0 ;;
- LD.MULT R0 LR1 {{ cr.tmp }} ;;
- MULT.RC.VE LR0 LR0 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ; INC LR1 1 ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
+ SET LR1 CR0 ; SET LR2 CR0 ; LD.MULT.CYCLIC LR0 {{ cr.crow }} LR0 ; {{ st('LR0',cr.scalar ~ '.L') }} ;;
+ LD.MULT R0 LR0 {{ cr.tmp }} ;;
+ {{ v('SUB',extra='; INC LR1 1 ; ' ~ st('LR1',cr.scalar ~ '.L')) }}
+ MULT.RC.VE LR0 LR0 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
  MULT.RC.VE LR0 LR0 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; INC LR2 1 ; LD.MULT.CYCLIC LR2 {{ cr.crow }} LR0 ;;
  MULT.RC.VE LR0 LR0 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; SET LR1 CR0 ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
  MULT.RC.VE LR0 LR0 0 LR0 {{ full }} {{ q }} ; ACC.ADD ;;
  {% endmacro %}
- {{ reduce(32,full,true) }}
- {{ reduce(34,tail) }}
+ DEC LR1 4 ;;
+ {{ reduce(full,true) }}
+ {{ reduce(tail) }}
  {{ avg() }}
- {{ save(2) }}
-
- {{ at('LR5',128) }}
- {{ at('LR6',256) }}
- {{ at('LR1',2) }}
- LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR5 ;;
+ SET LR5 CR0 ;;
+ INC LR5 128 ; INC LR1 2 ; {{ st('LR1') }} ;;
+ ADD LR6 LR5 LR5 ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
+ {{ v('SUB',extra='; INC LR1 1 ; ' ~ st('LR1')) }}
+ DEC LR1 1 ; LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR5 ;;
  INC LR1 1 ; LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR6 ;;
  {% for ds in [full,tail] %}
- {{ at('LR1',32+2*loop.index0) }}
- {{ parts('LR1','ADD.FIRST',ds) }}
+ {{ 'INC LR1 29' if loop.first else 'DEC LR1 3' }} ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
+ {{ v('ADD.FIRST',extra='; INC LR1 1 ; LD.MULT R0 LR1 ' ~ cr.tmp,ds=ds) }}
+ {{ v(ds=ds) }}
  MULT.RC.VE LR5 CR1 0 LR0 {{ ds }} {{ q }} ; ACC.SUB ;;
  MULT.RC.VE LR6 CR1 0 LR0 {{ ds }} {{ q }} ; ACC.SUB ;;
- {{ save(36+2*loop.index0,ds) }}
+ INC LR1 3 ; {{ st('LR1',ds) }} ;;
+ LD.MULT R0 LR1 {{ cr.tmp }} ;;
+ {{ v('SUB',ds=ds,extra='; INC LR1 1 ; ' ~ st('LR1',ds)) }}
  {% endfor %}
 
  {% for ds in [full,tail] %}
- {{ at('LR1',36+2*loop.index0) }}
- LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
+ {{ 'DEC LR1 3' if loop.first else 'INC LR1 1' }} ; LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
  MULT.RC.VS LR0 0 LR0 {{ ds }} {{ q }} ; AGG.SUM{% if loop.first %}.FIRST{% endif %} LR0 {{ ds }} ; INC LR1 1 ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
  MULT.RC.VV LR0 R0 0 LR0 {{ ds }} {{ q }} ; AGG.SUM LR0 {{ ds }} ; LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR5 ;;
  MULT.RC.VV LR0 R0 0 LR0 {{ ds }} {{ q }} ; AGG.SUM LR0 {{ ds }} ;;
  MULT.RC.VS LR5 0 LR0 {{ ds }} {{ q }} ; AGG.SUM LR0 {{ ds }} ;;
  {% endfor %}
  {{ avg() }}
- {{ at('LR1',2) }}
- LD.MULT R0 LR1 {{ cr.crow }} ;;
- {{ v() }}
- {{ at('LR1',4) }}
- {{ st('LR1',act='rsqrt') }} ;;
- {{ save(6) }}
- {# Refine the stored reciprocal root with one Newton step. #}
- {{ at('LR1',4) }}
- LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
- LD.MULT R0 LR1 {{ cr.crow }} ;;
- {{ rc(op='ADD.FIRST',extra='; INC LR1 4 ; ' ~ st('LR1')) }}
+ INC LR1 2 ; LD.MULT R0 LR1 {{ cr.crow }} ;;
+ {# Positive reciprocal roots fit the unsigned format's seven-bit mantissa. #}
+ {{ v(extra='; INC LR1 2 ; ACTIVATE.QUANTIZE rsqrt ' ~ full ~ ' ' ~ cr.scalar ~ '.H ' ~ cr.tmp ~ ' LR1') }}
  LD.MULT R0 LR1 {{ cr.tmp }} ;;
- {{ rc(op='ADD.FIRST') }}
- {{ save(10) }}
- {{ at('LR1',3) }}
- LD.MULT R0 LR1 {{ cr.crow }} ;;
- {{ v('ADD.FIRST') }}
- {% for a in [10,11] %}
- {{ at('LR1',a) }}
- LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
- {{ at('LR1',6) }}
+ {{ v('ADD.FIRST',fmt=cr.scalar ~ '.H',extra='; INC LR1 1 ; ' ~ st('LR1')) }}
  LD.MULT R0 LR1 {{ cr.tmp }} ;;
- {{ rc(op='SUB',extra='; INC LR1 1 ; LD.MULT R0 LR1 ' ~ cr.tmp) }}
- {{ rc(op='SUB') }}
- {% endfor %}
- {{ save(12) }}
- {{ at('LR1',4) }}
- LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
- {{ at('LR1',12) }}
- LD.MULT R0 LR1 {{ cr.tmp }} ;;
- {{ rc(op='ADD.FIRST',extra='; INC LR1 1 ; LD.MULT R0 LR1 ' ~ cr.tmp) }}
- {{ rc() }}
- {{ save(14) }}
-
- {{ at('LR1',14) }}
- LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR5 ;;
- INC LR1 1 ; LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR6 ;;
+ {{ v('SUB',extra='; LD.MULT.CYCLIC LR1 ' ~ cr.tmp ~ ' LR5') }}
+ INC LR1 1 ; {{ st('LR1') }} ;;
+ LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR6 ; SET LR4 CR0 ;;
  {% for ds in [full,tail] %}
  {% set i = loop.index0 %}
- {{ at('LR4',2*i) }}
- {{ at('LR1',16) }}
- LD.MULT R0 LR4 {{ cr.affine }} ;;
- {{ rc('LR5','ADD.FIRST',ds=ds) }}
+ {% if i %}DEC LR4 3 ; {% endif %}LD.MULT R0 LR4 {{ cr.affine }} ;;
+ {{ rc('LR5','ADD.FIRST',ds=ds,extra='; INC LR1 10' if not i else '') }}
  {{ rc('LR6',extra='; INC LR4 1 ; LD.MULT R0 LR4 ' ~ cr.affine,ds=ds) }}
  {{ rc('LR5',ds=ds) }}
  {{ rc('LR6',extra='; ' ~ st('LR1',ds),ds=ds) }}
  LD.MULT R0 LR1 {{ cr.tmp }} ;;
  {{ v('SUB',extra='; INC LR1 1 ; ' ~ st('LR1',ds),ds=ds) }}
  DEC LR1 1 ; LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
- {{ at('LR4',36+2*i) }}
- LD.MULT R0 LR4 {{ cr.tmp }} ;;
+ INC LR4 35 ; LD.MULT R0 LR4 {{ cr.tmp }} ;;
  {{ rc(op='ADD.FIRST',extra='; INC LR1 1 ; LD.MULT.CYCLIC LR1 ' ~ cr.tmp ~ ' LR0',ds=ds) }}
  {{ rc(extra='; INC LR4 1 ; LD.MULT R0 LR4 ' ~ cr.tmp,ds=ds) }}
  {{ rc(extra='; DEC LR1 1 ; LD.MULT.CYCLIC LR1 ' ~ cr.tmp ~ ' LR0',ds=ds) }}
  {{ rc(ds=ds) }}
- {{ at('LR4',4+2*i) }}
- {{ parts('LR4',base=cr.affine,ds=ds,extra='; ACTIVATE.QUANTIZE ' ~ (act_out0 | default('identity')) ~ ' ' ~ ds ~ ' ' ~ cr.qf_out0 ~ '.L ' ~ cr.out0 ~ ' LR12') }}
+ DEC LR4 33 ; LD.MULT R0 LR4 {{ cr.affine }} ;;
+ {{ v(extra='; INC LR4 1 ; LD.MULT R0 LR4 ' ~ cr.affine,ds=ds) }}
+ {{ v(extra='; ACTIVATE.QUANTIZE ' ~ (act_out0 | default('identity')) ~ ' ' ~ ds ~ ' ' ~ cr.qf_out0 ~ '.L ' ~ cr.out0 ~ ' LR12',ds=ds) }}
  INC LR12 1 ;;
  {% endfor %}
 
- INC LR8 {{ krows }} ; INC LR10 {{ in1_d0 }} ; DEC LR11 1 ;;
- {% if stride != 64 %}
- BLT.S LR10 LR14 token_nowrap ;;
+ INC LR8 {{ krows }} ; DEC LR11 1 ;;
+ {% if packed %}
+ INC.MODP2 LR14 CR1 3 ;;
+ BNE LR14 CR0 token ;;
+ INC LR10 {{ 8*in1_d0 }} ;;
+ {% else %}
+ INC LR10 {{ in1_d0 }} ;;
+ {% endif %}
+ {{ at('LR7',128) }}
+ BLT.S LR10 LR7 token_nowrap ;;
  DEC LR10 128 ; INC LR13 1 ;;
  token_nowrap:
- {% endif %}
- BNE LR11 CR0 token ;;
+ BNE LR11 CR0 group ;;
  INC LR9 1 ; DEC LR15 1 ;;
  BNE LR15 CR0 batch ;;
  HALT ;;
