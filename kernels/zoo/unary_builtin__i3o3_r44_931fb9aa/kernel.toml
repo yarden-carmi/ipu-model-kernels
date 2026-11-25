@@ -10,7 +10,7 @@ default = "relu"
 [params.numel]
 type = "int"
 min = 1
-default = 16384
+default = 262144
 
 [params.in0_d0]
 type = "int"
@@ -26,13 +26,13 @@ default = 64
 type = "int"
 min = 2
 multiple_of = 2
-default = 16
+default = 64
 
 [params.in0_d3]
 type = "int"
 min = 1
 max = 64
-default = 16
+default = 64
 
 [params.out0_d0]
 type = "int"
@@ -48,18 +48,17 @@ default = 64
 type = "int"
 min = 2
 multiple_of = 2
-default = 16
+default = 64
 
 [params.out0_d3]
 type = "int"
 min = 1
 max = 64
-default = 16
+default = 64
 
 [derived]
 input_rows = "in0_d0 * in0_d1 * (in0_d2 // 2)"
 output_rows = "out0_d0 * out0_d1 * (out0_d2 // 2)"
-penultimate = "input_rows - 2"
 input_active = "ds(2 * in0_d3)"
 output_active = "ds(2 * out0_d3)"
 
@@ -75,7 +74,7 @@ in0 = "CR2"
 out0 = "CR3"
 qf_in0 = "CR4"
 qf_out0 = "CR5"
-penultimate = "CR6"
+output_rows = "CR6"
 input_active = "CR7"
 output_active = "CR8"
 
