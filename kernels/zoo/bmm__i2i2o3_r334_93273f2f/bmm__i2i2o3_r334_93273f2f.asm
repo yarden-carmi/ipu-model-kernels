@@ -1,4 +1,4 @@
-{# Align each key vector once per head and reuse it across query pairs. #}
+{# Align the key panel once per head and reuse it across query pairs. #}
 {% macro load_a(high) %}
     {% if high %} INC LR15 128 ; {% endif %} LD.MULT.CYCLIC LR10 {{ cr.in0 }} LR15 ;;
 {% endmacro %}

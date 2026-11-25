@@ -55,5 +55,5 @@ def reference(module, *ins, _round=None, **params):
 # ---- end of the frozen reference ----
 
 
-def fold(module=None, **params):
+def fold(module, **params):
     return {}
