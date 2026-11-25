@@ -71,24 +71,29 @@ height = "in0_d2 // pack"
 stripes = "in0_d0 * height"
 batch_skip = "(k - 1) * height"
 output_skip = "(n - 1) * height"
-groups = "min(k * 5 // 16, (k - 1) // 2)"
-paired = "k - 2 * groups"
+wide = "min(1, in0_d2 * in0_d3 // 129)"
+taps = "2 + wide * (2 + 6 * min(1, k // 48))"
+center = "wide * min(1, k // 48)"
+groups = "(1 - wide) * min(k * 5 // 16, (k - 1) // 2) + wide * (min(1, k // 8) * (1 - min(1, k // 17)) + k // 32 * min(1, k // 48))"
+paired = "k - taps * groups"
+seek = "paired - 1"
 full_blocks = "(paired - 1) // 32"
-tail_blocks = "max(0, groups - 1) // 32"
 active = "ds(out0_d3 * pack)"
-bias_rows = "2 * min(1, full_blocks)"
+bias_rows = "2 * min(1, max(0, k - 32))"
 
 [inputs.in0]
 shape = ["stripes * in0_d1", 128]
 range = [-2, 2]
 [inputs.coeff]
-shape = ["n * (2 * (1 + full_blocks) + groups + bias_rows) + 1", 128]
+shape = ["n * (2 * (1 + full_blocks) + groups + bias_rows + center) + 1", 128]
 range = [-1, 1]
 [inputs.lut]
 shape = [5, 128]
 range = [0, 0]
 [outputs.out0]
 shape = ["n * stripes", 128]
+[scratch.sums]
+shape = ["2 * stripes", 128]
 
 [abi]
 in0 = "CR2"
@@ -102,8 +107,9 @@ height = "CR9"
 output_skip = "CR10"
 stripes = "CR11"
 active = "CR12"
-tail_blocks = "CR13"
-full_blocks = "CR14"
+groups = "LR9"
+sums = "CR13"
+seek = "CR14"
 batch_skip = "CR15"
 
 [cases.default]
