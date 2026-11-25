@@ -53,20 +53,20 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 32, 128, 128], [524288, 16384, 128, 1], 0), module.op0_weight)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 64, 64], [262144, 4096, 64, 1], 0), module.op0_weight)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 128, 128, 128], [2097152, 16384, 128, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 256, 64, 64], [1048576, 4096, 64, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.silu_.default(_v(op1, [1, 128, 128, 128], [2097152, 16384, 128, 1], 0))
+    r0 = aten.silu_.default(_v(op1, [1, 256, 64, 64], [1048576, 4096, 64, 1], 0))
     op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 128, 128, 128])}
+    return {"out0": _out(op2, [1, 256, 64, 64])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Fold inference batch norm and stream bias and weight digits by output block."""
+    """Fold batch norm and tile the bias and weights across output lanes."""
     n, k = params["n"], params["k"]
-    if hasattr(module, "op1_running_var"):
+    if hasattr(module, "op0_weight"):
         scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
         weight = module.op0_weight.double().reshape(n, k) * scale[:, None]
         bias = module.op1_bias.double() - module.op1_running_mean.double() * scale
@@ -75,13 +75,43 @@ def fold(module, **params):
     else:
         weight = module.weight.double().reshape(n, k)
         bias = getattr(module, "bias", None)
-
     rows = weight.new_zeros((k + 1, ((n + 127) // 128) * 128))
     if bias is not None and params["bias"]:
         rows[0, :n] = bias
     rows[1:, :n] = weight.T
     rows = rows.reshape(k + 1, -1, 128).transpose(0, 1)
+    if params["m"] == 1:
+        return {"coeff": rows.reshape(-1, 128)}
+
+    # Preserve more coefficient precision with a residual for the bias
+    # and a periodic subset of reduction weights.
     _, exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
     step = torch.ldexp(torch.ones_like(exp, dtype=rows.dtype), exp - 6)
     coarse = torch.round(rows / step).clamp(-63, 63) * step
-    return {"coeff": torch.stack((coarse, rows - coarse), dim=2).reshape(-1, 128)}
+    taps = torch.arange(k + 1, device=rows.device) - 1
+    split = (taps < 0) | (taps % 16 >= (7 if k > 32 else 2 if n < 128 else 0))
+    if 32 < k < 128 and k % 32 == 0 and n > 128 and n % 128 == 0 and params["m"] % 2 == 0:
+        # A common offset s in two adjacent weights contributes s * (x0 + x1).
+        # Anchor it to the coarser coefficient grid, then center the rounding
+        # errors of the two adjusted weights. The decomposition is exact in FP32
+        # up to arithmetic rounding; the grid only guides the choice of offset.
+        tiles = [coarse[:, :1], (rows - coarse)[:, :1]]
+        scale_exp = exp - 1
+        _, elem_exp = torch.frexp(rows.abs())
+        grid = torch.ldexp(torch.ones_like(rows), torch.maximum(elem_exp - 1, scale_exp - 2) - 5)
+        for start in range(1, k + 1, 32):
+            tiles.extend((coarse[:, start:start + 4], rows[:, start:start + 4] - coarse[:, start:start + 4]))
+            tiles[-2:] = [torch.stack(tiles[-2:], dim=2).flatten(1, 2)]
+            for j in range(start + 4, start + 32, 2):
+                w = rows[:, j:j + 2]
+                g = grid[:, j:j + 2]
+                r = w - (w / g).round() * g
+                anchor = torch.where(g[:, :1] >= g[:, 1:], r[:, :1], r[:, 1:])
+                q = ((w - anchor) / g).round() * g
+                shared = (w - q).mean(dim=1, keepdim=True)
+                tiles.extend((shared, w - shared))
+        return {"coeff": torch.cat(tiles, dim=1).reshape(-1, 128)}
+    first = torch.where(split[None, :, None], coarse, rows)
+    interleaved = torch.stack((first, rows - coarse), dim=2).flatten(1, 2)
+    keep = torch.stack((torch.ones_like(split), split), dim=1).flatten()
+    return {"coeff": interleaved[:, keep].reshape(-1, 128)}
