@@ -1,0 +1,182 @@
+[kernel]
+op = "binary_mul_col__binary_add_col"
+formats = ["e1"]
+
+[params.s0_broadcast]
+type = "str"
+choices = ["col"]
+default = "col"
+[params.s0_const]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s0_inner]
+type = "int"
+min = 1
+max = 65535
+default = 32
+[params.s0_numel]
+type = "int"
+min = 1
+max = 2147483647
+default = 16384
+[params.s0_op]
+type = "str"
+choices = ["mul"]
+default = "mul"
+[params.s1_broadcast]
+type = "str"
+choices = ["col"]
+default = "col"
+[params.s1_const]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s1_inner]
+type = "int"
+min = 1
+max = 65535
+default = 32
+[params.s1_numel]
+type = "int"
+min = 1
+max = 2147483647
+default = 16384
+[params.s1_op]
+type = "str"
+choices = ["add"]
+default = "add"
+[params.in0_d0]
+type = "int"
+min = 1
+max = 4096
+default = 2
+[params.in0_d1]
+type = "int"
+min = 1
+max = 65535
+default = 512
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65535
+default = 32
+[params.out0_d0]
+type = "int"
+min = 1
+max = 4096
+default = 2
+[params.out0_d1]
+type = "int"
+min = 1
+max = 65535
+default = 32
+[params.out0_d2]
+type = "int"
+min = 1
+max = 65535
+default = 512
+
+[derived]
+cb = "ceil(in0_d2 / 128)"
+ds_pair = "ds(in0_d2 - 128 * (cb - 1)) + ds(128) * 65536"
+ds_tail = "ds(in0_d2 - 128 * (cb - 1))"
+rows = "in0_d0 * in0_d1 * cb"
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d1 * ceil(in0_d2 / 128)", 128]
+range = [-2.0, 2.0]
+[inputs.c0]
+shape = ["ceil(in0_d2 / 128)", 128]
+range = [-2.0, 2.0]
+[inputs.c1]
+shape = ["ceil(in0_d2 / 128)", 128]
+range = [-2.0, 2.0]
+[outputs.out0]
+shape = ["out0_d0 * out0_d2 * ceil(out0_d1 / 128)", 128]
+
+[abi]
+in0 = "CR2"
+c0 = "CR3"
+c1 = "CR4"
+out0 = "CR5"
+qf_in0 = "CR6"
+qf_c0 = "CR7"
+qf_c1 = "CR8"
+qf_out0 = "CR9"
+cb = "CR10"
+ds_pair = "CR11"
+in0_d0 = "CR12"
+in0_d1 = "CR13"
+ds_tail = "CR14"
+rows = "CR15"
+
+[cases.default]
+formats = ["e1"]
+
+[cases.tiny]
+formats = ["e1"]
+in0_d0 = 1
+in0_d1 = 1
+in0_d2 = 32
+s0_inner = 32
+s0_numel = 32
+s1_inner = 32
+s1_numel = 32
+out0_d0 = 1
+out0_d1 = 32
+out0_d2 = 1
+
+[cases.three_rows]
+formats = ["e1"]
+in0_d0 = 1
+in0_d1 = 3
+in0_d2 = 32
+s0_inner = 32
+s0_numel = 96
+s1_inner = 32
+s1_numel = 96
+out0_d0 = 1
+out0_d1 = 32
+out0_d2 = 3
+
+[cases.two_chunks]
+formats = ["e1"]
+in0_d0 = 1
+in0_d1 = 1
+in0_d2 = 200
+s0_inner = 200
+s0_numel = 200
+s1_inner = 200
+s1_numel = 200
+out0_d0 = 1
+out0_d1 = 200
+out0_d2 = 1
+
+[cases.wide]
+formats = ["e1"]
+in0_d0 = 2
+in0_d1 = 3
+in0_d2 = 512
+s0_inner = 512
+s0_numel = 3072
+s1_inner = 512
+s1_numel = 3072
+out0_d0 = 2
+out0_d1 = 512
+out0_d2 = 3
+
+[cases.small]
+formats = ["e1"]
+in0_d0 = 1
+in0_d1 = 2
+in0_d2 = 32
+s0_inner = 32
+s0_numel = 64
+s1_inner = 32
+s1_numel = 64
+out0_d0 = 1
+out0_d1 = 32
+out0_d2 = 2
