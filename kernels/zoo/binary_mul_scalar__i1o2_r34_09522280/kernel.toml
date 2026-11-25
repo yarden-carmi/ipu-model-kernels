@@ -7,24 +7,27 @@ broadcast = { type = "str", choices = ["scalar"], default = "scalar" }
 const = { type = "int", min = 1, max = 1, default = 1 }
 inner = { type = "int", min = 0, max = 0, default = 0 }
 op = { type = "str", choices = ["mul"], default = "mul" }
-numel = { type = "int", min = 1, max = 2147483647, default = 49152 }
-in0_d0 = { type = "int", min = 1, max = 65536, default = 4 }
-in0_d1 = { type = "int", min = 1, max = 65536, default = 64 }
-in0_d2 = { type = "int", min = 1, max = 65536, default = 576 }
-out0_d0 = { type = "int", min = 1, max = 65536, default = 4 }
-out0_d1 = { type = "int", min = 1, max = 65536, default = 4 }
-out0_d2 = { type = "int", min = 1, max = 65536, default = 64 }
-out0_d3 = { type = "int", min = 2, max = 126, multiple_of = 2, default = 48 }
+numel = { type = "int", min = 1, max = 2147483647, default = 15360 }
+in0_d0 = { type = "int", min = 1, max = 2147483647, default = 4 }
+in0_d1 = { type = "int", min = 1, max = 2147483647, default = 16 }
+in0_d2 = { type = "int", min = 1, max = 2147483647, default = 720 }
+out0_d0 = { type = "int", min = 1, max = 2147483647, default = 4 }
+out0_d1 = { type = "int", min = 1, max = 2147483647, default = 4 }
+out0_d2 = { type = "int", min = 1, max = 2147483647, default = 16 }
+out0_d3 = { type = "int", min = 2, max = 128, multiple_of = 2, default = 60 }
 
 [derived]
 chunks = "ceil(2 * in0_d1 / 128)"
 input_batch = "ceil(in0_d2 / 2) * chunks"
-output_pairs = "out0_d1 * out0_d3 // 2"
-output_batch = "output_pairs * chunks"
-ds_pair = "ds(2 * out0_d2 - 128 * (chunks - 1)) + 65536 * ds(128)"
+output_batch = "out0_d1 * out0_d3 // 2 * chunks"
+single_chunk = "1 // chunks"
+run_limit = "single_chunk * output_batch + (1 - single_chunk) * chunks - 2"
+active_tail = "2 * out0_d2 - 128 * (chunks - 1)"
+ds_pair = "ds(active_tail) + 65536 * ds(single_chunk * active_tail + (1 - single_chunk) * 128)"
+full_ds = "ds(128)"
 fp_base = "0x4b010080"
 fp_top = "fp_base + out0_d3"
-head_width = "0x18600 + out0_d3 + 128"
+head_width = "0x18600 + out0_d3 + 128 * (1 - out0_d3 // 128) - 128 * (out0_d3 // 128)"
 
 [inputs.in0]
 shape = ["in0_d0 * input_batch", 128]
@@ -46,9 +49,10 @@ scalar = "CR7"
 fp_top = "CR8"
 fp_base = "CR9"
 head_width = "CR10"
-chunks = "CR11"
+run_limit = "CR11"
 input_batch = "CR12"
 output_batch = "CR13"
+full_ds = "CR14"
 out0_d0 = "LR6"
 
 [cases.default]
