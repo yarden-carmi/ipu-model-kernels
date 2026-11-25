@@ -1,0 +1,61 @@
+[kernel]
+op = "bmm"
+formats = ["e2"]
+
+[params]
+b = {type="int", min=1, max=32767, default=16}
+k = {type="int", min=1, max=32767, default=256}
+m = {type="int", min=2, max=32766, multiple_of=2, default=256}
+n = {type="int", min=1, max=64, default=36}
+in0_d0 = {type="int", min=1, max=32767, default=4}
+in0_d1 = {type="int", min=1, max=32767, default=4}
+in0_d2 = {type="int", min=2, max=32766, multiple_of=2, default=256}
+in0_d3 = {type="int", min=1, max=32767, default=256}
+in1_d0 = {type="int", min=1, max=32767, default=4}
+in1_d1 = {type="int", min=1, max=32767, default=256}
+in1_d2 = {type="int", min=1, max=65535, default=432}
+out0_d0 = {type="int", min=1, max=32767, default=4}
+out0_d1 = {type="int", min=1, max=32767, default=4}
+out0_d2 = {type="int", min=2, max=32766, multiple_of=2, default=256}
+out0_d3 = {type="int", min=1, max=64, default=36}
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d1", "in0_d2", "ac*128"]
+range = [0, 1]
+[inputs.in1]
+shape = ["in1_d0", "in1_d2", "bc*128"]
+range = [-1, 1]
+[outputs.out0]
+shape = ["out0_d0", "out0_d1", "out0_d2//2", 128]
+
+[derived]
+ac = "ceil(in0_d3/128)"
+bc = "ceil(in1_d1/128)"
+config = "ac + bc*65536"
+width = "ds(128) + ds(2*out0_d3)*65536"
+heads = "in0_d1"
+pairs = "m//2"
+chunks = "ceil(k/128)"
+group_pitch = "in1_d2*bc*min(1,in1_d0-1)"
+head_offset = "(in1_d2-heads*n)*bc"
+tail = "ds((k-1)%128+1)"
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_in1 = "CR6"
+qf_out0 = "CR7"
+config = "CR8"
+width = "CR9"
+heads = "CR10"
+pairs = "CR11"
+chunks = "CR12"
+n = "CR13"
+group_pitch = "CR14"
+tail = "CR15"
+in0_d0 = "LR15"
+head_offset = "LR11"
+
+[cases.default]
