@@ -10,15 +10,33 @@ default = "relu"
 [params.numel]
 type = "int"
 min = 1
-max = 2147483647
 default = 4096
 
-# The direct row path requires the channel vector to fit in one row.
+[params.in0_d0]
+type = "int"
+min = 1
+default = 1
+
 [params.in0_d1]
 type = "int"
 min = 1
 max = 128
 default = 64
+
+[params.in0_d2]
+type = "int"
+min = 1
+default = 8
+
+[params.in0_d3]
+type = "int"
+min = 1
+default = 8
+
+[params.out0_d0]
+type = "int"
+min = 1
+default = 1
 
 [params.out0_d1]
 type = "int"
@@ -26,9 +44,19 @@ min = 1
 max = 128
 default = 64
 
+[params.out0_d2]
+type = "int"
+min = 1
+default = 8
+
+[params.out0_d3]
+type = "int"
+min = 1
+default = 8
+
 [derived]
-input_rows = "numel // in0_d1"
-output_rows = "numel // out0_d1"
+input_rows = "in0_d0 * in0_d2 * in0_d3"
+output_rows = "out0_d0 * out0_d2 * out0_d3"
 penultimate = "input_rows - 2"
 input_active = "ds(in0_d1)"
 output_active = "ds(out0_d1)"
