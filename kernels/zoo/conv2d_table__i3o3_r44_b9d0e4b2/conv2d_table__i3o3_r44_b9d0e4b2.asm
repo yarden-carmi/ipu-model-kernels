@@ -3,9 +3,8 @@
 {% set qo = cr.qf_out0 ~ '.L' %}
 {% set ds = cr.full ~ '.L' %}
 {% set tail = cr.tail ~ '.L' %}
-{% set act = 'generic' if act_out0 in ['silu', 'hardswish', 'gelu', 'sigmoid', 'tanh'] else act_out0 %}
+{% set act = 'generic' if act_out0 == 'silu' else act_out0 %}
 {% set ir = (in0_d2*w+127)//128 %}
-{% set sr = (out0_d2*out0_d3+127)//128 %}
 {% set wk = 3+3*(cin//groups)*kh*kw %}
 {% macro bump(r,n) %}
 {% if n>0 %}INC {{ r }} {{ n }} ;{% elif n<0 %}DEC {{ r }} {{ -n }} ;{% endif %}
@@ -14,10 +13,8 @@
 SET {{ r }} CR0 ;;
 {% set a=n|abs %}
 {% for bit in range(19,-1,-1) if a >= 2**bit %}
-{% if bit < 19 and a >= 2**(bit+1) %}ADD {{ r }} {{ r }} {{ r }} ;;
-{% endif %}
-{% if (a//(2**bit))%2 %}{{ bump(r,1 if n>=0 else -1) }} ;;
-{% endif %}
+{% if bit < 19 and a >= 2**(bit+1) %}ADD {{ r }} {{ r }} {{ r }} ;;{% endif %}
+{% if (a//(2**bit))%2 %}{{ bump(r,1 if n>=0 else -1) }} ;;{% endif %}
 {% endfor %}
 {% endmacro %}
 {% macro small(r,n) %}
@@ -26,8 +23,7 @@ SET {{ r }} CR0 ;;
 {% endfor %}
 {% endmacro %}
 
-# Copy each spatial plane between zero guards. Offsets below are preincremented
-# so loads and stores use the same old-address convention as the loop branch.
+# Copy each spatial plane between zero guards.
 {{ small('LR0',0) }}
 {{ small('LR1',128) }}
 {{ small('LR2',-1) }}
@@ -45,9 +41,7 @@ copy_channel:
 {{ guard('copy_top') }}
 SET LR8 CR0 ;;
 copy_row:
-{% if (in0_d2*w)%128 %}
-BEQ LR8 LR6 copy_last ;;
-{% endif %}
+{% if (in0_d2*w)%128 %}BEQ LR8 LR6 copy_last ;;{% endif %}
 LD.MULT R0 LR2 {{ cr.in0 }} ; INC LR2 1 ;;
 MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ;
 ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.guard }} LR3 ; INC LR3 1 ; INC LR8 1 ; BLT.S LR8 LR6 copy_row ;;
@@ -62,8 +56,7 @@ copy_end:
 {{ guard('copy_bottom') }}
 INC LR4 1 ; BLT.S LR4 LR5 copy_channel ;;
 
-# Prepare one aligned vector per spatial block and tap, shared by every
-# output channel in the group. The coefficient rows mask horizontal padding.
+# Align a vector per spatial block and tap, shared across output channels.
 {{ small('LR2',-1) }}
 {{ small('LR4',0) }}
 {{ small('LR13',0) }}
@@ -118,8 +111,6 @@ LD.LUT {{ i }} {{ cr.lut }} LR2 ; INC LR2 1 ;;
 {{ small('LR14',0) }}
 {{ small('LR12',128) }}
 
-# LR3 identifies the first input channel of this group; LR6 is spatial.
-# The input and weight streams are reused independently across output rows.
 output_channel:
 SET LR6 CR0 ; SET LR10 LR3 ;;
 output_row:
@@ -149,9 +140,7 @@ MULT.RC.VV LR0 R0 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ;
 {% for t in range(kh*kw) %}
 {{ product() }} {% if loop.last %}ADD LR9 LR9 {{ cr.plane }} ; INC LR11 1 ; BLT.S LR11 {{ cr.input_tail_and_gc }}.L input_channel ;{% endif %} ;;
 {% endfor %}
-{% if (out0_d2*out0_d3)%128 %}
-BEQ LR6 {{ cr.sr_last }} store_tail ;;
-{% endif %}
+{% if (out0_d2*out0_d3)%128 %}BEQ LR6 {{ cr.sr_last }} store_tail ;;{% endif %}
 ACTIVATE.QUANTIZE {{ act }} {{ ds }} {{ qo }} {{ cr.out0 }} LR2 ; INC LR2 1 ; INC LR10 {{ kh*kw }} ; INC LR6 1 ; BLT.S LR6 {{ cr.sr_last }} output_row ;;
 {% if (out0_d2*out0_d3)%128 %}
 BEQ LR0 CR0 next_channel ;;
