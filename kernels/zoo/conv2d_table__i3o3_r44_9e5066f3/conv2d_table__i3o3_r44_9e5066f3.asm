@@ -24,7 +24,7 @@
 {{bound('LR3',384)}}
 {{bound('LR5',-1)}}
 {% if dw %}
-{# Stage even and odd columns separately; each staged row serves several channels. #}
+{# Stage parity-separated scanlines for a stride-two cyclic gather. #}
 {% set pair = stride == 2 and ni % 2 == 0 %}
 {{bound('LR10',h-(2 if pair else 1))}}
 {% if stride == 2 %}
@@ -66,7 +66,7 @@ stage_block:
  INC LR6 1 ;;
  BLT.S LR6 {{cr.no}} stage_block ;;
 {% else %}
-{# Replicate scanlines across output-channel segments, or stage three x offsets. #}
+{# Dense tiles broadcast each scanline to the packed output channels. #}
 {{bound('LR10',h-1)}}
 {{bound('LR15',-1)}}
 {{bound('LR9',op-2 if op>1 else 2)}}
@@ -82,18 +82,11 @@ stage_channel:
  {% if op>1 %}
  MULT.RC.VE LR1 CR1 0 LR0 {{ds}} {{qi}} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{cr.ds_width}}.L {{qi}} {{cr.pad}} LR5 ; INC LR5 1 ;;
  LD.MULT.CYCLIC LR5 {{cr.pad}} LR1 ; SET LR13 LR1 ;;
- {% if op==4 %}
- {% for s in range(op) %}
- MULT.RC.VE LR13 CR1 0 LR0 {{ds}} {{qi}} ; ACC.ADD{{ '.FIRST' if loop.first else '' }} ; {{inc('LR13',-w if s else 0)}}
- {% if loop.last %}ACTIVATE.QUANTIZE identity {{ds}} {{qi}} {{cr.pad}} LR5 ; ADD LR4 LR4 LR8 ; INC LR7 1 ; BLT.S LR7 LR10 stage_y ;{% endif %} ;;
- {% endfor %}
- {% else %}
  SET LR12 CR0 ;;
  MULT.RC.VE LR1 CR1 0 LR0 {{ds}} {{qi}} ; ACC.ADD.FIRST ; DEC LR5 1 ;;
  replicate:
  MULT.RC.VE LR13 CR1 0 LR0 {{ds}} {{qi}} ; ACC.ADD ; DEC LR13 {{w}} ; INC LR12 1 ; BLT.S LR12 LR9 replicate ;;
  ACTIVATE.QUANTIZE identity {{ds}} {{qi}} {{cr.pad}} LR5 ; INC LR5 1 ;;
- {% endif %}
  {% else %}
  {% for k in range(3) %}
  {% set shift = -1 if k==0 else 1 %}
@@ -105,7 +98,7 @@ stage_channel:
  {% endif %}
  {% endfor %}
  {% endif %}
- {% if op!=4 %}ADD LR4 LR4 LR8 ; INC LR7 1 ; BLT.S LR7 LR10 stage_y ;;{% endif %}
+ ADD LR4 LR4 LR8 ; INC LR7 1 ; BLT.S LR7 LR10 stage_y ;;
  {{zero()}}
  INC LR15 {{ix}} ; BLT.S LR15 LR6 stage_channel ;;
 {% endif %}
@@ -132,11 +125,8 @@ output_y:
  {% set d = k-1 %}
  {% set prev = d-1 %}
  {% set delta = d//stride+128*(d%stride)-(0 if k==0 else prev//stride+128*(prev%stride)) %}
- {% set paired = dw or (y==1 if w != 32 else (y*3+k in [0,4,8])) %}
- {% if paired %}
  MULT.RC.VV LR8 R0 0 LR0 {{ds}} {{qw}} ; ACC.ADD ; {{inc('LR8',delta)}} LD.MULT R1 LR15 {{cr.weights}} ; INC LR15 1 ;;
- {% endif %}
- MULT.RC.VV LR8 {{'R1' if paired else 'R0'}} 0 LR0 {{ds}} {{qw}} ; ACC.ADD ; {% if not paired %}{{inc('LR8',delta)}}{% endif %}
+ MULT.RC.VV LR8 R1 0 LR0 {{ds}} {{qw}} ; ACC.ADD ;
  {% if y<2 or k<2 %}LD.MULT R0 LR15 {{cr.weights}} ; INC LR15 1 ;
  {% elif dw %}ACTIVATE.QUANTIZE generic {{cr.ds_out}}.L {{qo}} {{cr.out0}} LR5 ; ADD LR5 LR5 {{cr.no}} ; INC LR12 {{stride*stride}} ; INC LR7 1 ; BLT.S LR7 LR9 output_y ;
  {% else %}LD.MULT R0 LR15 {{cr.weights}} ; INC LR15 1 ; ADD LR14 LR14 {{cr.plane}} ;
@@ -148,7 +138,7 @@ output_y:
  ACTIVATE.QUANTIZE generic {{cr.ds_out}}.L {{qo}} {{cr.out0}} LR5 ; ADD LR5 LR5 {{cr.no}} ; INC LR12 1 ; INC LR7 1 ; BLT.S LR7 LR9 output_y ;;
  {% endif %}
  {% else %}
- {# Scalar coefficient rows allow one load to serve nine taps. #}
+ {# The unbatched output uses two scalar coefficient rows per channel. #}
  MULT.RC.VE LR0 CR1 0 LR0 {{ds}} {{qw}} ; ACC.ADD.FIRST ; SET LR15 LR10 ; SET LR13 LR12 ; ADD LR14 LR12 CR1 ;;
  MULT.RC.VE LR3 CR1 0 LR0 {{ds}} {{qw}} ; ACC.ADD ; LD.MULT R0 LR15 {{cr.weights}} ; INC LR15 1 ;;
  LD.MULT R1 LR15 {{cr.weights}} ; INC LR15 1 ; SUB LR8 LR0 CR1 ; SUB LR11 LR1 CR1 ;;

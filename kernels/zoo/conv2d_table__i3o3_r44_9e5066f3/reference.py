@@ -53,60 +53,59 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 128, 16, 16], [32768, 256, 16, 1], 0), module.op0_weight, None, [1, 1], [1, 1])
+    r0 = aten.conv2d.default(_v(ins[0], [1, 128, 128, 128], [2097152, 16384, 128, 1], 0), module.op0_weight, None, [2, 2], [1, 1], [1, 1], 128)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 128, 16, 16], [32768, 256, 16, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 128, 64, 64], [524288, 4096, 64, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.silu_.default(_v(op1, [1, 128, 16, 16], [32768, 256, 16, 1], 0))
+    r0 = aten.silu_.default(_v(op1, [1, 128, 64, 64], [524288, 4096, 64, 1], 0))
     op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 128, 16, 16])}
+    return {"out0": _out(op2, [1, 128, 64, 64])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Fold inference batch normalization and split each row into two FP8 terms."""
+    """Fuse inference batch norm, then split bias and taps into NX8 rows."""
     import numpy as np
 
-    w = module.op0_weight.double()
-    cout, ni, kh, kw = w.shape
-    cin, groups = params['cin'], params['groups']
-    bias = getattr(module, 'op0_bias', None)
-    bias = w.new_zeros(cout) if bias is None else bias.double()
-    if hasattr(module, 'op1_running_var'):
+    weight = module.op0_weight.double()
+    channels = weight.shape[0]
+    conv_bias = getattr(module, "op0_bias", None)
+    bias = weight.new_zeros(channels) if conv_bias is None else conv_bias.double()
+    if hasattr(module, "op1_running_var"):
         scale = module.op1_weight.double() / (module.op1_running_var.double() + 1e-5).sqrt()
-        w = w * scale[:, None, None, None]
         bias = module.op1_bias.double() + (bias - module.op1_running_mean.double()) * scale
+        weight = weight * scale[:, None, None, None]
 
-    width, ow, stride = (params[key] for key in ('w', 'out0_d3', 'stride'))
-    dw = groups > 1
-    pack = max(1, 128 // ow) if dw else max(1, (128 // width) * (2 - stride))
-    taps = w.flatten(2).numpy()
-    if pack > 1 or dw:
-        rows = np.zeros(((cout + pack - 1) // pack, 1 + ni * 9, 128))
+    w, ow, stride = (params[key] for key in ('w', 'out0_d3', 'stride'))
+    dw = params['groups'] > 1
+    pack = max(1, 128 // ow) if dw else max(1, (128 // w) * (2 - stride))
+    taps = weight.flatten(2).numpy()
+    ni = taps.shape[1]
+    if dw or pack > 1:
+        rows = np.zeros(((channels + pack - 1) // pack, 1 + ni * 9, 128))
         x = np.arange(ow)[None, :] * stride + np.arange(ni * 9)[:, None] % 3 - 1
-        mask = (x >= 0) & (x < width)
-        for c in range(cout):
+        mask = (x >= 0) & (x < w)
+        for c in range(channels):
             block, segment = divmod(c, pack)
             lanes = slice(segment * ow, (segment + 1) * ow)
             rows[block, 0, lanes] = bias[c].item()
             rows[block, 1:, lanes] = taps[c].reshape(-1, 1) * mask
     else:
-        rows = np.concatenate((np.broadcast_to(bias.numpy()[:, None, None], (cout, 1, 128)),
+        rows = np.concatenate((np.broadcast_to(bias.numpy()[:, None, None], (channels, 1, 128)),
                                np.pad(taps, ((0, 0), (0, 0), (0, 119)))), axis=1)
     exponent = np.frexp(np.max(np.abs(rows), axis=-1, keepdims=True))[1] - 1
     step = np.exp2(exponent.astype(float) - 5)
     hi = np.sign(rows) * np.minimum(np.floor(np.abs(rows) / step + 0.5), 63) * step
     low = rows - hi
     if dw:
-        coeff = np.stack((hi, low), axis=2).reshape(-1, 128)
+        packed = np.stack((hi, low), axis=2).reshape(-1, 128)
     elif pack > 1:
         parts = [hi[:, 0], low[:, 0]]
         for t in range(ni * 9):
             i = t + 1
-            paired = t % 9 // 3 == 1 if width != 32 else t % 9 in (0, 4, 8)
-            parts.extend((hi[:, i], low[:, i]) if paired else (rows[:, i],))
-        coeff = np.pad(np.stack(parts, axis=1).reshape(-1, 128), ((0, 1), (0, 0)))
+            parts.extend((hi[:, i], low[:, i]))
+        packed = np.pad(np.stack(parts, axis=1).reshape(-1, 128), ((0, 1), (0, 0)))
     else:
         hi[:, 1:, 1:4] = rows[:, 1:, 1:4]
-        coeff = np.pad(np.stack((hi, rows - hi), axis=2).reshape(-1, 128), ((0, 2), (0, 0)))
-    return {'weights': coeff}
+        packed = np.pad(np.stack((hi, rows - hi), axis=2).reshape(-1, 128), ((0, 2), (0, 0)))
+    return {"weights": packed}
