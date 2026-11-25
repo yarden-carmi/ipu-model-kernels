@@ -1,0 +1,59 @@
+[kernel]
+op = "bmm"
+formats = ["e2", "e3"]
+
+[params]
+b = {type="int", min=1, max=65535, default=16}
+k = {type="int", min=1, max=65535, default=64}
+m = {type="int", min=1, max=65535, default=64}
+n = {type="int", min=1, max=65535, default=48}
+in0_d0 = {type="int", min=1, max=65535, default=4}
+in0_d1 = {type="int", min=1, max=65535, default=4}
+in0_d2 = {type="int", min=1, max=2048, default=64}
+in0_d3 = {type="int", min=1, max=2047, default=64}
+in1_d0 = {type="int", min=1, max=65535, default=4}
+in1_d1 = {type="int", min=1, max=65535, default=64}
+in1_d2 = {type="int", min=1, max=4194176, default=576}
+out0_d0 = {type="int", min=1, max=65535, default=4}
+out0_d1 = {type="int", min=1, max=65535, default=4}
+out0_d2 = {type="int", min=1, max=65535, default=64}
+out0_d3 = {type="int", min=1, max=65535, default=48}
+
+[inputs.in0]
+shape = ["in0_d0*in0_d1*in0_d3*astride", 128]
+range = [0, 1]
+[inputs.in1]
+shape = ["in1_d0", "in1_d1", "brows*128"]
+range = [-1, 1]
+[outputs.out0]
+shape = ["out0_d0", "out0_d1", "out0_d2", "ceil(out0_d3/128)*128"]
+
+[derived]
+astride = "ceil(in0_d2/128)"
+brows = "ceil(in1_d2/128)"
+offset = "in1_d2-in0_d1*n"
+bstart = "offset//128 + offset%128*65536"
+bgap = "in1_d1*brows+offset//128-(in1_d2-n)//128"
+mh = "m + in0_d1*65536"
+ds = "ds(128) + ds((n-1)%128+1)*65536"
+bh = "brows + 128*65536"
+aconfig = "astride + astride*in0_d3*65536"
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+k = "CR5"
+n = "CR6"
+mh = "CR7"
+aconfig = "CR8"
+bh = "CR9"
+ds = "CR10"
+qf_in0 = "CR11"
+qf_out0 = "CR12"
+qf_in1 = "CR13"
+bgap = "CR14"
+bstart = "CR15"
+in1_d0 = "LR13"
+
+[cases.default]
