@@ -6,8 +6,7 @@
 {%- endmacro %}
 {% macro init_bias(scalar) %}
     {{ load('LR0') }} ;;
-    {{ mac('LR0', scalar, true) }} ; {{ load('LR15') }} ;;
-    {{ mac('LR15', scalar) }} ;;
+    {{ mac('LR0', scalar, true) }} ;;
 {% endmacro %}
 {% macro store(ds) %}
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR7 ;;
@@ -27,13 +26,13 @@ tile:
 scalar:
     LD.MULT R0 LR1 {{ cr.in0 }} ;;
 scalar_ready:
-{# Prefetch the next activation on the last weight plane, except at a
-   d3 boundary where the merged input cursor must be adjusted first. #}
-    {{ load('LR0') }} ; DEC LR3 1 ; DEC LR8 1 ;;
-    {{ mac('LR0', 'LR2') }} ; {{ load('LR15') }} ; ADD LR1 LR1 {{ cr.chunks }} ; BEQ LR3 CR0 end_group ;;
-    {{ mac('LR15', 'LR2') }} ; LD.MULT R0 LR1 {{ cr.in0 }} ; B scalar_ready ;;
+{# Overlap the weight MAC with the next activation load. At a d3
+   boundary, adjust the merged cursor before issuing another input load. #}
+    {{ load('LR0') }} ; DEC LR3 1 ; DEC LR8 1 ; BEQ LR3 CR1 end_group ;;
+    {{ mac('LR0', 'LR2') }} ; LD.MULT R0 LR1 {{ cr.in0 }} ; ADD LR1 LR1 {{ cr.chunks }} ; BNE LR3 CR0 scalar_ready ;;
 end_group:
-    {{ mac('LR15', 'LR2') }} ; SET LR3 {{ cr.in0_d3 }} ; DEC LR4 1 ;;
+    {{ mac('LR0', 'LR2') }} ; ADD LR1 LR1 {{ cr.chunks }} ;;
+    SET LR3 {{ cr.in0_d3 }} ; DEC LR4 1 ;;
     INC LR2 1 ; BEQ LR4 CR0 next_head ;;
     SUB LR1 LR1 {{ cr.head_stride }} ;;
     BNE LR2 LR15 next_scalar ;;

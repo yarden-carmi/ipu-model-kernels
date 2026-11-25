@@ -56,15 +56,11 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    """Pack bias and transposed weights by tile, K, and radix-64 digit."""
+    """Pack bias and transposed weights by output tile and K."""
     weight = module.weight.detach().double()
     n, k = weight.shape
     bias = module.bias.detach().double() if params["bias"] else weight.new_zeros(n)
     rows = torch.cat((bias[None], weight.T), dim=0)
     rows = torch.nn.functional.pad(rows, (0, (-n) % 128))
     rows = rows.reshape(k + 1, -1, 128).transpose(0, 1)
-    exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))[1]
-    code = torch.ldexp(rows.abs(), 12 - exp).round().long().clamp(max=4095)
-    planes = [torch.ldexp(((code >> shift) & 63) * rows.sign(), exp + shift - 12)
-              for shift in (6, 0)]
-    return {"w": torch.stack(planes, dim=2).reshape(-1, 128).float()}
+    return {"w": rows.reshape(-1, 128).float()}
