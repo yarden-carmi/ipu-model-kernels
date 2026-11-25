@@ -4,7 +4,7 @@ formats = ["e1", "e2"]
 
 [params.act_out0]
 type = "str"
-choices = ["silu", "hardswish"]
+choices = ["silu"]
 default = "silu"
 [params.bias]
 type = "bool"
@@ -102,7 +102,7 @@ pc = "dw + (1 - dw) * ic"
 weight_block = "2 + 2 * kh * kw * (dw + (1 - dw) * cin - packed * (cin - 1))"
 ds128 = "ds(128)"
 ds_short = "ds(min(16, cout))"
-window_jump = "(in0_d3 + 2 * padding - kw) * pc + packed"
+window_jump = "(in0_d3 + 2 * padding - kw) * pc"
 
 [inputs.in0]
 shape = ["in0_d0", "in0_d2", "in0_d3", "ic", 128]
