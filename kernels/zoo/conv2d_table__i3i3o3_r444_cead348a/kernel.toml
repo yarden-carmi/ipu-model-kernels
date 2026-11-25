@@ -1,0 +1,154 @@
+[kernel]
+op = "conv2d_table"
+formats = ["e1", "e2"]
+
+[params.act_out0]
+type = "str"
+choices = ["silu"]
+default = "silu"
+[params.bias]
+type = "bool"
+default = true
+[params.cin]
+type = "int"
+min = 1
+max = 640
+default = 16
+[params.cout]
+type = "int"
+min = 1
+max = 640
+default = 16
+[params.groups]
+type = "int"
+choices = [1]
+default = 1
+[params.h]
+type = "int"
+min = 1
+max = 256
+default = 16
+[params.w]
+type = "int"
+choices = [2, 4, 8, 16, 32, 64]
+default = 16
+[params.kh]
+type = "int"
+choices = [3]
+default = 3
+[params.kw]
+type = "int"
+choices = [3]
+default = 3
+[params.padding]
+type = "int"
+choices = [1]
+default = 1
+[params.stride]
+type = "int"
+choices = [1]
+default = 1
+[params.in0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 640
+default = 16
+[params.in0_d2]
+type = "int"
+min = 1
+max = 256
+default = 16
+[params.in0_d3]
+type = "int"
+min = 1
+max = 128
+default = 16
+[params.in1_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.in1_d1]
+type = "int"
+min = 1
+max = 640
+default = 16
+[params.in1_d2]
+type = "int"
+min = 1
+max = 256
+default = 16
+[params.in1_d3]
+type = "int"
+choices = [2, 4, 8, 16, 32, 64]
+default = 16
+[params.out0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 640
+default = 16
+[params.out0_d2]
+type = "int"
+min = 1
+max = 256
+default = 16
+[params.out0_d3]
+type = "int"
+choices = [2, 4, 8, 16, 32, 64]
+default = 16
+
+[derived]
+ir = "ceil(in1_d2 * in1_d3 / 128)"
+sr = "ceil(out0_d2 * out0_d3 / 128)"
+sr_last = "sr - 1"
+plane = "9 * sr"
+full = "ds(128)"
+tail = "ds(1 + (out0_d2 * out0_d3 - 1) % 128)"
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d2", "in0_d1", 128]
+range = [-2, 2]
+[inputs.in1]
+shape = ["in1_d1 * ir", 128]
+range = [-2, 2]
+[inputs.weights]
+shape = ["cout * (3 + 27 * cin)", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[scratch.guard]
+shape = ["cin * (ir + 2)", 128]
+[scratch.stencil]
+shape = ["cin * plane", 128]
+[outputs.out0]
+shape = ["out0_d1 * sr", 128]
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+weights = "CR5"
+lut = "CR6"
+guard = "CR7"
+stencil = "CR8"
+qf_in0 = "CR9"
+qf_in1 = "CR10"
+qf_weights = "CR11"
+qf_out0 = "CR12"
+full = "CR13"
+tail = "CR14"
+plane = "CR15"
+sr_last = "LR15"
+
+[golden]
+tolerance = { e1 = "NX8_STEP", e2 = "NX8_STEP" }
+
+[cases.default]
