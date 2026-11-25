@@ -1,0 +1,94 @@
+[kernel]
+op = "multiplicity_pool_resize"
+formats = ["e2"]
+
+[params.in0_d0]
+type = "int"
+default = 1
+[params.in0_d1]
+type = "int"
+default = 64
+[params.in0_d2]
+type = "int"
+default = 64
+[params.in0_d3]
+type = "int"
+min = 8
+max = 64
+multiple_of = 4
+default = 64
+[params.out0_d0]
+type = "int"
+default = 1
+[params.out0_d1]
+type = "int"
+default = 64
+[params.out0_d2]
+type = "int"
+default = 128
+[params.out0_d3]
+type = "int"
+max = 128
+default = 128
+[params.oh]
+type = "int"
+default = 128
+[params.ow]
+type = "int"
+default = 128
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d1", "in0_d2", 128]
+[outputs.out0]
+shape = ["out0_d0", "out0_d1", "out0_d2", 128]
+[scratch.center_rows]
+shape = ["in0_d0 * in0_d1 * in0_d2", 128]
+[scratch.side_rows]
+shape = ["in0_d0 * in0_d1 * in0_d2", 128]
+
+[derived]
+nx = "min(1, case_qf)"
+center = "(1 - nx) * 0x3e900000 + nx * 0x017d10"
+side = "(1 - nx) * 0x3dc00000 + nx * 0x017b40"
+corner = "(1 - nx) * 0x3d000000 + nx * 0x017a00"
+expand_scale = "(1 - nx) * 0x40000000 + nx * 0x018000"
+rows = "in0_d0 * in0_d1 * in0_d2"
+last_y = "in0_d2 - 1"
+ds_out = "ds(out0_d3)"
+dst_lo = "0x03020100"
+dst_hi = "0x07060504"
+center_lo = "0x01010000"
+center_hi = "0x03030202"
+first_lo = "0x02000100"
+first_hi = "0x04020301"
+inner_lo = "0x06040503"
+inner_hi = "0x08060705"
+last_lo = "0x03010200 + (in0_d3 - 5) * 0x01010101"
+last_hi = "0x04030402 + (in0_d3 - 5) * 0x01010101"
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+qf_in0 = "CR4"
+qf_out0 = "CR5"
+center_rows = "CR6"
+side_rows = "CR7"
+rows = "CR8"
+last_y = "CR9"
+center = "CR10"
+side = "CR11"
+corner = "CR12"
+expand_scale = "CR13"
+ds_out = "CR15"
+dst_lo = "LR6"
+dst_hi = "LR7"
+center_lo = "LR8"
+center_hi = "LR9"
+first_lo = "LR10"
+first_hi = "LR11"
+inner_lo = "LR12"
+inner_hi = "LR13"
+last_lo = "LR14"
+last_hi = "LR15"
+
+[cases.default]
