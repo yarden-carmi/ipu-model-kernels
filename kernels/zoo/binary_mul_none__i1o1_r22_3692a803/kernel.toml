@@ -1,0 +1,39 @@
+[kernel]
+op = "binary_mul_none"
+formats = ["e1"]
+
+[params]
+broadcast = { type = "str", choices = ["none"], default = "none" }
+op = { type = "str", choices = ["mul"], default = "mul" }
+const = { type = "int", min = 1, max = 1, default = 1 }
+inner = { type = "int", min = 0, max = 0, default = 0 }
+numel = { type = "int", min = 1, default = 1 }
+in0_d0 = { type = "int", min = 1, default = 1 }
+in0_d1 = { type = "int", min = 1, max = 128, default = 1 }
+out0_d0 = { type = "int", min = 1, default = 1 }
+out0_d1 = { type = "int", min = 1, max = 128, default = 1 }
+
+[inputs.in0]
+shape = ["in0_d0", 128]
+range = [-2, 2]
+
+[inputs.factor]
+shape = [1, 128]
+range = [-1, 1]
+
+[outputs.out0]
+shape = ["out0_d0", 128]
+
+[derived]
+active = "ds(out0_d1)"
+
+[abi]
+in0 = "CR2"
+factor = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+out0_d0 = "CR7"
+active = "CR8"
+
+[cases.default]
