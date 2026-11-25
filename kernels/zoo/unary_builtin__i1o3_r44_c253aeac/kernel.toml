@@ -11,12 +11,11 @@ default = "relu"
 type = "int"
 min = 1
 max = 2147483647
-default = 4096
+default = 65536
 
 [params.in0_d0]
 type = "int"
 min = 1
-max = 2147483647
 default = 1
 
 [params.in0_d1]
@@ -28,19 +27,17 @@ default = 64
 [params.in0_d2]
 type = "int"
 min = 1
-max = 2147483647
-default = 8
+default = 32
 
 [params.in0_d3]
 type = "int"
 min = 1
 max = 128
-default = 8
+default = 32
 
 [params.out0_d0]
 type = "int"
 min = 1
-max = 2147483647
 default = 1
 
 [params.out0_d1]
@@ -52,22 +49,20 @@ default = 64
 [params.out0_d2]
 type = "int"
 min = 1
-max = 2147483647
-default = 8
+default = 32
 
 [params.out0_d3]
 type = "int"
 min = 1
 max = 128
-default = 8
+default = 32
 
 [derived]
-spatial_groups = "in0_d0 * in0_d2"
-input_rows = "spatial_groups * in0_d3"
+spatial_rows = "in0_d0 * in0_d2"
+input_rows = "spatial_rows * in0_d3"
 output_rows = "out0_d0 * out0_d2 * out0_d1"
-input_active = "ds(in0_d1)"
-output_active = "ds(out0_d3)"
-last_pixel = "in0_d3 - 1"
+active = "ds(out0_d3)"
+full = "ds(128)"
 
 [inputs.in0]
 shape = ["input_rows", 128]
@@ -81,11 +76,10 @@ in0 = "CR2"
 out0 = "CR3"
 qf_in0 = "CR4"
 qf_out0 = "CR5"
-input_active = "CR6"
-output_active = "CR7"
-in0_d1 = "CR8"
-in0_d3 = "CR9"
-input_rows = "CR10"
-last_pixel = "CR11"
+in0_d1 = "CR6"
+in0_d3 = "CR7"
+spatial_rows = "CR8"
+active = "CR9"
+full = "CR15"
 
 [cases.default]
