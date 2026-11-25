@@ -111,8 +111,11 @@ gemm_last_tile:
  {{ vec(first=true,s='CR0') }}
 sum:
  LD.MULT R0 LR5 {{ cr.hidden }} ;;
- MULT.VE LR0 CR1 0 LR0 {{ full }} {{ oq }} ; AGG.SUM LR0 {{ full }} ; INC LR5 1 ;;
- BLT.S LR5 {{ cr.tiles }} sum ;;
+ INC LR5 1 ;;
+ BGE.S LR5 {{ cr.tiles }} sum_tail ;;
+ MULT.VE LR0 CR1 0 LR0 {{ full }} {{ oq }} ; AGG.SUM LR0 {{ full }} ; B sum ;;
+sum_tail:
+ MULT.VE LR0 CR1 0 LR0 {{ full }} {{ oq }} ; AGG.SUM LR0 {{ tail }} ;;
  {{ average('mean') }}{{ save(6,3) }}
  SET LR5 CR0 ;;
  {{ at('LR9',32) }}
