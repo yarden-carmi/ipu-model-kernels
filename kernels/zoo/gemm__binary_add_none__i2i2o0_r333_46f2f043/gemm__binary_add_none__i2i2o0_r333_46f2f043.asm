@@ -1,0 +1,163 @@
+{% set chunks = (s0_k + 127) // 128 %}
+{% set rem = s0_m % 128 %}
+{% set batch_size = in1_d1 * in1_d2 %}
+{% set direct = batch_size % 128 == 0 and (rem == 0 or 128 % s0_m == 0) %}
+{% set b = in0_d0 %}
+{% set fast = chunks <= 4 and b <= 32 and 128 % b == 0 %}
+{% macro integer(reg, value) %}
+    SET {{reg}} CR0 ;;
+{% for shift in [24, 16, 8, 0] %}
+{% if value // (2 ** (shift + 8)) %}
+{% for bit in range(8) %}
+    ADD {{reg}} {{reg}} {{reg}} ;;
+{% endfor %}
+{% endif %}
+{% if (value // (2 ** shift)) % 256 %}
+    INC {{reg}} {{(value // (2 ** shift)) % 256}} ;;
+{% endif %}
+{% endfor %}
+{% endmacro %}
+{% macro dot(index, step='', advance=false, branch='') %}
+    MULT.RC.VV {{index}} R0 0 LR0 {{cr.full}}.L {{cr.qf_in0}}.L ; AGG.SUM LR13 {{cr.full}}.L {% if step %}; LD.MULT R0 LR7 {{cr.in0}} ; {{step}}{% endif %} {% if advance %}; INC LR13 1{% endif %} {{branch}} ;;
+{% endmacro %}
+{% macro group(drain=false) %}
+{% for j in range(b) %}
+{% for i in range(chunks) %}
+{% set last = i == chunks-1 and j == b-1 %}
+{% set step = 'INC LR7 1' if i < chunks-1 else ('SUB LR7 LR7 LR2' if last else 'ADD LR7 LR7 ' ~ cr.batch_step) %}
+{{ dot('LR' ~ (8+i), '' if last and drain else step, i == 0, '; BLT.S LR13 LR14 position' if last and not drain else '') }}
+{% endfor %}
+{% endfor %}
+{% endmacro %}
+{% macro store(ds) %}
+    ACTIVATE.QUANTIZE {{act_out0 | default('identity')}} {{ds}}.L {{cr.qf_out0}}.L {{cr.out0}} LR6 ; ADD LR6 LR6 {{cr.blocks}} ;;
+{% endmacro %}
+    SET LR0 CR0 ; SET LR1 CR0 ; SET LR12 CR0 ;;
+{{ integer('LR2', (b-1)*in0_d1*chunks if fast else 0) }}
+{% if fast %}
+    DEC LR2 1 ;;
+{% endif %}
+{% if fast and direct %}
+{{ integer('LR15', s0_m // 128) }}
+{% endif %}
+block:
+    SET LR3 CR0 ; SET LR4 LR1 ; SET LR5 CR0 ;;
+    SET LR6 LR1 ; INC LR1 1 ; DEC LR3 1 ;;
+    SUB LR6 LR6 {{cr.blocks}} ; SET LR14 {{cr.slot}} {% if rem %}; BLT.S LR1 {{cr.blocks}} channel{% endif %} ;;
+{% if rem %}
+    SET LR14 CR0 ;;
+    INC LR14 {{rem}} ;;
+{% endif %}
+channel:
+{% if direct %}
+    LD.MULT R0 LR4 {{cr.in1}} ;;
+    MULT.VE LR5 CR1 0 LR0 {{cr.full}}.L {{cr.qf_in1}}.L ; ACC.ADD.FIRST ; LD.MULT R0 LR3 {{cr.w}} ; INC LR3 1 ;;
+{% else %}
+    # Convert the flat residual view index to the packed batch's row and lane.
+    SET LR8 LR4 ; SET LR9 CR0 ;;
+{% for bit in range(7) %}
+    ADD LR8 LR8 LR8 ;;
+{% endfor %}
+    ADD LR8 LR8 LR5 ;;
+{{ integer('LR7', batch_size) }}
+{{ integer('LR15', (batch_size + 127) // 128) }}
+res_batch:
+    BLT.S LR8 LR7 res_lane ;;
+    SUB LR8 LR8 LR7 ; ADD LR9 LR9 LR15 ; B res_batch ;;
+res_lane:
+    SET LR13 LR8 ;;
+res_row:
+    BLT.S LR13 {{cr.slot}} res_init ;;
+    SUB LR13 LR13 {{cr.slot}} ; INC LR9 1 ; B res_row ;;
+res_init:
+    SET LR10 CR0 ; SET LR11 CR0 ; LD.MULT R0 LR9 {{cr.in1}} ;;
+    MULT.VE LR0 CR0 0 LR0 {{cr.full}}.L {{cr.qf_in1}}.L ; ACC.ADD.FIRST ;;
+res_gather:
+    MULT.EE LR13 CR1 0 LR0 {{cr.full}}.L {{cr.qf_in1}}.L ; ACC.RESHAPE LRD0 LRD10 7 ;;
+    INC LR10 1 ; INC LR13 1 ; INC LR8 1 ;;
+    BEQ LR10 LR14 res_done ;;
+    BEQ LR8 LR7 res_next_batch ;;
+    BLT.S LR13 {{cr.slot}} res_gather ;;
+    B res_next_row ;;
+res_next_batch:
+    SET LR8 CR0 ;;
+res_next_row:
+    SET LR13 CR0 ; INC LR9 1 ;;
+    LD.MULT R0 LR9 {{cr.in1}} ; B res_gather ;;
+res_done:
+    LD.MULT R0 LR3 {{cr.w}} ; INC LR3 1 ;;
+{% endif %}
+    MULT.VE LR0 CR1 0 LR0 {{cr.full}}.L {{cr.qf_in0}}.L ; ACC.ADD ;;
+{% if fast %}
+    # Keep all K vectors resident. Interleave the batch streams on the fly
+    # so the producer can keep its original batch-major input layout.
+    SET LR8 CR0 ; SET LR7 LR12 ; SET LR13 CR0 ;;
+    DEC LR7 1 ; DEC LR13 1 ; DEC LR14 {{b+1}} ;;
+{% for i in range(chunks) %}
+{% if i %}
+    ADD LR{{8+i}} LR{{7+i}} {{cr.slot}} ;;
+{% endif %}
+    LD.MULT.CYCLIC LR3 {{cr.w}} LR{{8+i}} ; INC LR3 1 ;;
+{% endfor %}
+    LD.MULT R0 LR7 {{cr.in0}} ; INC LR7 1 {% if rem == b %}; BLT.S LR14 CR0 drain{% endif %} ;;
+position:
+{{ group() }}
+drain:
+{{ group(true) }}
+    INC LR14 {{b+1}} ;;
+{% else %}
+    # General path: sweep one K tile and walk (batch, position) coordinates.
+{{ integer('LR15', b) }}
+    SET LR8 LR12 ; SET LR10 CR0 ;;
+weight_tile:
+    LD.MULT.CYCLIC LR3 {{cr.w}} LR0 ; INC LR3 1 ; SET LR7 LR8 ;;
+    SET LR11 CR0 ; SET LR13 CR0 ; SET LR9 LR8 ;;
+seek_batch:
+    BEQ LR11 LR2 tile_position ;;
+    ADD LR7 LR7 {{cr.batch_step}} ; INC LR11 1 ; B seek_batch ;;
+tile_position:
+    LD.MULT R0 LR7 {{cr.in0}} ;;
+{{ dot('LR0') }}
+    INC LR13 1 ; INC LR11 1 ; ADD LR7 LR7 {{cr.batch_step}} ;;
+    BEQ LR13 LR14 tile_end ;;
+    BLT.S LR11 LR15 tile_position ;;
+    ADD LR9 LR9 {{cr.chunks}} ; SET LR11 CR0 ;;
+    SET LR7 LR9 ; B tile_position ;;
+tile_end:
+    INC LR8 1 ; INC LR10 1 ; BLT.S LR10 {{cr.chunks}} weight_tile ;;
+{% endif %}
+{% if rem %}
+    BEQ LR1 {{cr.blocks}} store_tail ;;
+{{ store(cr.full) }}
+    B advance ;;
+store_tail:
+{{ store(cr.tail) }}
+{% else %}
+{{ store(cr.full) }}
+{% endif %}
+advance:
+    BEQ LR3 {{cr.weight_end}} next_block ;;
+{% if not (fast and direct) %}
+{{ integer('LR15', s0_m // 128) }}
+{% endif %}
+    ADD LR4 LR4 LR15 ;;
+{% if rem %}
+    INC LR5 {{rem}} ;;
+    BLT.S LR5 {{cr.slot}} channel ;;
+    SUB LR5 LR5 {{cr.slot}} ; INC LR4 1 ;;
+{% endif %}
+    B channel ;;
+next_block:
+    BEQ LR1 {{cr.blocks}} done ;;
+{% if fast %}
+{{ integer('LR7', (128 // b) * chunks) }}
+    ADD LR12 LR12 LR7 ; B block ;;
+{% else %}
+{{ integer('LR15', b) }}
+    ADD LR2 LR2 {{cr.slot}} ;;
+next_coord:
+    BLT.S LR2 LR15 block ;;
+    SUB LR2 LR2 LR15 ; ADD LR12 LR12 {{cr.chunks}} ; B next_coord ;;
+{% endif %}
+done:
+    HALT ;;
