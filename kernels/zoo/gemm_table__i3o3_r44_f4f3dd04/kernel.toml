@@ -1,0 +1,109 @@
+[kernel]
+op = "gemm_table"
+formats = ["e1", "e2"]
+
+[params.act_out0]
+type = "str"
+choices = ["hardswish", "silu", "hardsigmoid"]
+default = "hardswish"
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 4096
+default = 48
+[params.m]
+type = "int"
+min = 1
+max = 65535
+default = 196
+[params.n]
+type = "int"
+min = 1
+max = 4096
+default = 144
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 48
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65535
+default = 14
+[params.in0_d3]
+type = "int"
+min = 1
+max = 128
+default = 14
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 144
+[params.out0_d2]
+type = "int"
+min = 1
+max = 65535
+default = 14
+[params.out0_d3]
+type = "int"
+min = 1
+max = 128
+default = 14
+
+[derived]
+capacity = "128 // out0_d3"
+pack = "1 + (capacity - 1) * (1 - min(1, n % capacity))"
+tiles = "n // pack"
+stripes = "out0_d0 * out0_d2"
+input_rows = "in0_d0 * in0_d2 * in0_d1"
+coeff_rows = "tiles * (2 + 2 * k)"
+active = "ds(pack * out0_d3)"
+src_lo = "50462976"
+src_hi = "117835012"
+
+[inputs.in0]
+shape = ["input_rows", 128]
+range = [-2, 2]
+[inputs.coeff]
+shape = ["coeff_rows", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[scratch.repeated]
+shape = ["input_rows", 128]
+[outputs.out0]
+shape = ["stripes * tiles", 128]
+
+[abi]
+in0 = "CR2"
+coeff = "CR3"
+lut = "CR4"
+out0 = "CR5"
+qf_in0 = "CR6"
+qf_out0 = "CR7"
+repeated = "CR8"
+active = "CR9"
+src_lo = "CR10"
+src_hi = "CR11"
+input_rows = "CR12"
+stripes = "CR13"
+tiles = "CR14"
+k = "CR15"
+
+[cases.default]
