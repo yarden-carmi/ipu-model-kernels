@@ -78,6 +78,10 @@ def fold(module, **params):
     w = torch.cat((b.reshape(n, 1), module.op0_weight.reshape(n, k)), dim=1)
     w = torch.nn.functional.pad(w, (0, 0, 0, 256 - n))
     w = w.reshape(2, 128, k + 1).transpose(1, 2)
+    kr = (k + 127) // 128
+    if kr <= 4 and (n - 128) * kr < k:
+        tail_w = torch.nn.functional.pad(module.op0_weight.reshape(n, k)[128:], (0, 128 * kr - k))
+        w = torch.cat((w[0], w[1, :1], tail_w.reshape(-1, 128)))
     affine = torch.stack((module.op2_weight.reshape(n), module.op2_bias.reshape(n)))
     affine = torch.nn.functional.pad(affine, (0, 256 - n))
     return {

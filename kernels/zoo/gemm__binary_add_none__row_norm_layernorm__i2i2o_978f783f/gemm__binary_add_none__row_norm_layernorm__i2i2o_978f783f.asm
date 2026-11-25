@@ -4,6 +4,7 @@
 {% set tail = cr.tail ~ '.L' %}
 {% set krows = (s0_k+127)//128 %}
 {% set stride = in1_d0*in1_d1 %}
+{% set narrow = krows <= 4 and (s0_n-128)*krows < s0_k %}
 {% macro at(r,n) %}
  SET {{ r }} CR0 ;;
  {% for i in range(n//255) %}INC {{ r }} 255 ;;{% endfor %}
@@ -30,50 +31,49 @@
 
  SET LR8 CR0 ; SET LR9 CR0 ; SET LR12 CR0 ;;
  {{ at('LR15',in0_d0) }}
- {{ at('LR14',128) }}
+ {% if stride == 64 %}
+ SET LR14 {{ cr.pair_dst }} ;;
+ {% for i in range(6) %}ADD LR14 LR14 LR14 ;;{% endfor %}
+ {% else %}{{ at('LR14',128) }}{% endif %}
  batch:
  SET LR10 LR9 ; SET LR13 CR0 ;;
  {{ at('LR11',in0_d1) }}
  token:
  SET LR7 LR10 ; SET LR1 LR13 ; SET LR4 CR0 ;;
- {% macro scatter(lane,step='',first=false) %}
- MULT.EE {{ lane }} CR1 0 LR0 {{ full }} {{ qr }} ; ACC.RESHAPE LRD0 LRD2 7 {% if not first %}; ADDBI LRD2 1{% endif %} {{ step }} ;;
- {% endmacro %}
- {% macro gather(label,count,ds) %}
+ {% macro gather(label,count) %}
  SET LR2 CR0 ; SET LR3 CR0 ;;
- {% if stride%128 == 0 %}
- {{ at('LR6',count-2) }}
- LD.MULT R0 LR1 {{ cr.in1 }} ;;
- {% set next = '; INC LR1 ' ~ (stride//128) ~ ' ; LD.MULT R0 LR1 ' ~ cr.in1 %}
- {{ scatter('LR7',next,true) }}
+ {% if stride%128 == 0 or stride == 64 %}
+ {% set paired = stride == 64 %}
+ {% set step = 1 if paired else stride//128 %}
+ {% set width = 2 if paired else 1 %}
+ {% set ptr = 'LR5' if paired else 'LR1' %}
+ {% if paired %}
+ SET LR5 LR1 ; SET LR1 LR14 ; SET LR3 {{ cr.pair_dst }} ;;
+ {% endif %}
+ {{ at('LR6',count//width-2) }}
+ LD.MULT R0 {{ ptr }} {{ cr.in1 }} ;;
+ {% macro scatter(first=false,last=false) %}
+ {% if paired %}MULT.VE LR7 CR1 0 LR0 {{ full }} {{ qr }}{% else %}MULT.EE LR7 CR1 0 LR0 {{ full }} {{ qr }}{% endif %} ; ACC.RESHAPE LRD0 LRD2 {{ 8-width }} ; INC {{ ptr }} {{ step }} {% if not first %}; ADDBI LRD2 {{ width }}{% endif %}{% if not last %}; LD.MULT R0 {{ ptr }} {{ cr.in1 }}{% if not first %}; DEC LR6 1 ; BLT.S CR1 LR6 gather_{{ label }}{% endif %}{% endif %} ;;
+ {% endmacro %}
+ {{ scatter(first=true) }}
  gather_{{ label }}:
- {{ scatter('LR7',next ~ ' ; DEC LR6 1 ; BLT.S CR1 LR6 gather_' ~ label) }}
- {{ scatter('LR7','; INC LR1 ' ~ (stride//128)) }}
- {% elif stride == 64 %}
- SET LR5 LR7 ;;
- INC LR5 64 ;;
- {{ at('LR6',count//2-2) }}
- LD.MULT R0 LR1 {{ cr.in1 }} ;;
- {{ scatter('LR7',first=true) }}
- {{ scatter('LR5','; INC LR1 1 ; LD.MULT R0 LR1 ' ~ cr.in1) }}
- gather_{{ label }}:
- {{ scatter('LR7') }}
- {{ scatter('LR5','; INC LR1 1 ; LD.MULT R0 LR1 ' ~ cr.in1 ~ ' ; DEC LR6 1 ; BLT.S CR1 LR6 gather_' ~ label) }}
- {{ scatter('LR7') }}
- {{ scatter('LR5','; INC LR1 1') }}
+ {{ scatter() }}
+ {{ scatter(last=true) }}
+ {% if stride == 64 %}
+ SET LR1 LR5 ;;
+ {% endif %}
  {% else %}
  {{ at('LR6',count) }}
  gather_{{ label }}:
  LD.MULT R0 LR1 {{ cr.in1 }} ;;
- {{ scatter('LR7',first=true) }}
- ADDBI LRD2 1 ; DEC LR6 1 {% if stride//128 %}; INC LR1 {{ stride//128 }}{% endif %} ;;
+ MULT.EE LR7 CR1 0 LR0 {{ full }} {{ qr }} ; ACC.RESHAPE LRD0 LRD2 7 ; DEC LR6 1 {% if stride//128 %}; INC LR1 {{ stride//128 }}{% endif %} ;;
  {% if stride%128 %}
  INC LR7 {{ stride%128 }} ;;
  BLT.S LR7 LR14 gather_{{ label }}_nowrap ;;
  DEC LR7 128 ; INC LR1 1 ;;
  gather_{{ label }}_nowrap:
  {% endif %}
- BNE LR6 CR0 gather_{{ label }} ;;
+ ADDBI LRD2 1 ; BNE LR6 CR0 gather_{{ label }} ;;
  {% endif %}
  {% endmacro %}
  {% macro dot(label,count) %}
@@ -98,14 +98,34 @@
  {% endif %}
  {{ dot('gemm_tail_' ~ label,(s0_k-1)%128+1) }}
  {% endmacro %}
- {# Gather into R_ACC, then accumulate bias and GEMM without a residual spill. #}
- {{ gather('head',128,full) }}
+ {# Keep the wide tile output-parallel; pack narrow-tail weights along K. #}
+ {{ gather('head',128) }}
  SET LR5 LR1 ;;
  {{ gemm('head') }}
  {{ save(32) }}
- SET LR1 LR5 ; INC LR4 1 ;;
- {{ gather('tail',s0_n-128,tail) }}
- {{ gemm('tail') }}
+ INC LR4 1 ; SET LR1 LR5 ;;
+ {{ gather('tail',s0_n-128) }}
+ {% if narrow %}
+ LD.MULT R0 LR4 {{ cr.w }} ;;
+ {{ v(ds=tail) }}
+ SET LR1 LR8 ; SET LR3 CR0 ;;
+ DEC LR1 1 ; DEC LR3 1 ;;
+ {% set slots = ['LR0','LR5','LR6','LR7'] %}
+ {% for j in range(krows) %}
+ {% if j %}{{ at(slots[j],128*j) }}{% endif %}
+ LD.MULT.CYCLIC LR1 {{ cr.in0 }} {{ slots[j] }} ; INC LR1 1 ;;
+ {% endfor %}
+ {{ at('LR2',s0_n-130-(1 if krows == 1 else 0)) }}
+ INC LR4 1 ; LD.MULT R0 LR4 {{ cr.w }} ;;
+ narrow_tail:
+ {% macro narrow_dot(last=false) %}
+ {% for j in range(krows) %}
+ MULT.RC.VV {{ slots[j] }} R0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR3 {{ full }} {% if not (last and loop.last) %}; INC LR4 1 ; LD.MULT R0 LR4 {{ cr.w }}{% endif %}{% if loop.first %}; INC LR3 1{% endif %}{% if loop.last and not last %}; BLT.S LR3 LR2 narrow_tail{% endif %} ;;
+ {% endfor %}
+ {% endmacro %}
+ {{ narrow_dot() }}
+ {{ narrow_dot(last=true) }}
+ {% else %}{{ gemm('tail') }}{% endif %}
  {{ save(34,tail) }}
 
  {# Reduce directly into scalar lane zero, then broadcast the compensated sum. #}
@@ -214,9 +234,11 @@
  {% endfor %}
 
  INC LR8 {{ krows }} ; INC LR10 {{ in1_d0 }} ; DEC LR11 1 ;;
+ {% if stride != 64 %}
  BLT.S LR10 LR14 token_nowrap ;;
  DEC LR10 128 ; INC LR13 1 ;;
  token_nowrap:
+ {% endif %}
  BNE LR11 CR0 token ;;
  INC LR9 1 ; DEC LR15 1 ;;
  BNE LR15 CR0 batch ;;
