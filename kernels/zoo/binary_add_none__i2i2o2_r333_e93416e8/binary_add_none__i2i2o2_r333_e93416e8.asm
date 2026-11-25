@@ -17,9 +17,12 @@ row:
     SET LR6 LR4 ; SET LR7 LR5 ; SET LR12 {{ cr.out0_d2 }} ;;
 chunk:
     BGE.S LR13 LR12 tail_chunk ; SET LR11 LR12 ;;
-    SET LR11 LR13 ; DEC LR12 128 ; B gather ;;
+    SET LR11 LR13 ; DEC LR12 128 ; B start_gather ;;
 tail_chunk:
     SET LR12 CR0 ;;
+start_gather:
+// AGG sees the incremented destination; the branch sees the old cursor.
+    DEC LR2 1 ; DEC LR11 2 ;;
 gather:
     BLT.S LR7 {{ cr.span }}.L locate ;;
     SUB LR7 LR7 {{ cr.span }}.L ; ADD LR6 LR6 {{ cr.span }}.H ;;
@@ -40,9 +43,8 @@ physical_chunk:
 load:
     LD.MULT R0 LR10 {{ cr.in0 }} ;;
 {% endif %}
-    MULT.EE LR9 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.RESHAPE LRD2 LRD2 0 ;
-    ADD LR6 LR6 {{ cr.step_row }} ; ADD LR7 LR7 {{ cr.step_lane }} ; DEC LR11 1 ;;
-    ADDBI LRD2 1 ; BNE LR11 CR0 gather ;;
+    MULT.EE LR9 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; AGG.SUM.FIRST LR2 {{ cr.scalar }}.L ;
+    ADD LR6 LR6 {{ cr.step_row }} ; ADD LR7 LR7 {{ cr.step_lane }} ; INC LR2 1 ; BNE LR2 LR11 gather ;;
     BEQ LR12 CR0 end_row ;;
     {{ store('CR15.L') }}
     B chunk ;;
