@@ -31,8 +31,10 @@
  LD.MULT R0 LR1 {{ cr.tmp }} ; SET LR10 CR0 ;;
  {{ scalar('SUB') }} ; INC LR1 1 ; INC LR10 1 ; ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ; LD.MULT.CYCLIC LR10 {{ cr.crow }} LR3 ;;
  LD.MULT R0 LR0 {{ cr.tmp }} ; SET LR10 CR0 ;;
+ {# Retain the leading product and both orders of the first- and
+    second-order corrections of the split reciprocal and aggregate. #}
  {% for i in range(3) %}
- {% for slot in slots %}
+  {% for slot in slots[:3-i] %}
  MULT.RC.VE {{ slot }} LR0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if i == 0 and loop.first %}.FIRST{% endif %}
  {% if i == 0 and loop.index == 2 %} ; LD.MULT.CYCLIC LR1 {{ cr.crow }} LR4{% endif %}
  {% if loop.last and i < 2 %} ; INC LR10 1 ; LD.MULT R0 LR10 {{ cr.tmp }}{% endif %} ;;
@@ -58,20 +60,20 @@
  {{ scalar('SUB') }} ; INC LR9 1 ; ACTIVATE.QUANTIZE identity {{ ds }} {{ q }} {{ cr.tmp }} LR9 ;;
 {% endmacro %}
 {% macro variance(first=false) %}
- LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ; SET LR10 LR9 ;;
- LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR3 ; INC LR9 1 ;;
- LD.MULT R0 LR10 {{ cr.tmp }} ;;
- {% for i in range(4) %}
- MULT.RC.VV {{ slots[i % 2] }} R0 0 LR0 {{ full }} {{ q }} ; AGG.SUM{% if first and i == 0 %}.FIRST{% endif %} LR0 {{ full }}
- {% if i == 1 %} ; LD.MULT R0 LR9 {{ cr.tmp }}{% elif i == 3 %} ; INC LR9 1{% endif %}
- {% if not loop.last %};;{% endif %}
+ {# Square in place; only the cross term needs both operand registers. #}
+ LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;
+ MULT.RC.VS LR0 0 LR0 {{ full }} {{ q }} ; AGG.SUM{% if first %}.FIRST{% endif %} LR0 {{ full }} ; INC LR9 1 ; LD.MULT R0 LR9 {{ cr.tmp }} ;;
+ {% for i in range(2) %}
+ MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ full }}{% if loop.first %} ; LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR3{% endif %} ;;
  {% endfor %}
+ MULT.RC.VS LR3 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ full }} ; INC LR9 1
 {% endmacro %}
 {# Multiply two-piece factors using the fourth cyclic slot for the transient. #}
 {% macro affine(ds,advance) %}
  SET LR10 LR11 ; LD.MULT R0 LR10 {{ cr.gamma }} ;;
+ {# Keep terms through second order in the split scale and weight. #}
  {% for i in range(3) %}
- {% for slot in slots %}
+  {% for slot in slots[:3-i] %}
  {{ mac(slot,'ADD.FIRST' if i == 0 and loop.first else 'ADD') }}{% if loop.last and i < 2 %} ; ADD LR10 LR10 {{ cr.K }} ; LD.MULT R0 LR10 {{ cr.gamma }}{% elif i == 2 and loop.last %} ; SET LR1 LR12 ; ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1{% endif %} ;;
  {% endfor %}
  {% endfor %}
@@ -94,11 +96,15 @@
  INC LR4 128 ; INC LR7 32 ; SET LR12 CR0 ;;
  ADD LR15 LR4 LR3 ; INC LR12 9 ;;
 row_loop:
- SET LR5 LR2 ; SET LR9 LR7{% if k > 2 %} ; ADD LR6 LR2 {{ cr.K }}{% endif %} ;;
- {{ scalar('ADD.FIRST','CR0') }}{% if k > 2 %} ; DEC LR6 1{% endif %} ;;
  {% if k <= 2 %}
- {% for i in range(k) %}{{ sum_chunk(tail if loop.last else full,loop.first,not loop.first) }} ;;{% endfor %}
+ SET LR5 LR2 ; SET LR9 LR7 ; {{ scalar('ADD.FIRST','CR0') }} ; LD.MULT R0 LR5 {{ cr.in0 }} ;;
+ {% for i in range(k) %}
+ {% set ds = tail if loop.last else full %}
+ MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ iq }} ; AGG.SUM{% if loop.first %}.FIRST{% endif %} LR0 {{ ds }}{% if not loop.last %} ; INC LR5 1 ; LD.MULT R0 LR5 {{ cr.in0 }}{% endif %} ;;
+ {% endfor %}
  {% else %}
+ SET LR5 LR2 ; SET LR9 LR7 ; ADD LR6 LR2 {{ cr.K }} ;;
+ {{ scalar('ADD.FIRST','CR0') }} ; DEC LR6 1 ;;
  {{ sum_chunk(full,true) }} ;;
  INC LR5 1 ;;
 sum_loop:
