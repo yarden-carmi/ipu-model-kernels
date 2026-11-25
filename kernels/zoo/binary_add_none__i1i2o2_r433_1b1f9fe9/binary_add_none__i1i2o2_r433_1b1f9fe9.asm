@@ -11,9 +11,8 @@
 
 {% macro add_row(ds) %}
     LD.MULT R0 LR4 {{ cr.in0 }} ;;
-    LD.MULT R1 LR1 {{ cr.in1 }} ; MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ q0 }} ; ACC.ADD.FIRST ;;
-    MULT.VE LR2 CR1 0 LR0 {{ ds }} {{ q1 }} ; ACC.ADD ; ACTIVATE.QUANTIZE {{ act }} {{ ds }} {{ qo }} {{ cr.out0 }} LR1 ;;
-    INC LR1 1 ; INC LR4 1 ;;
+    LD.MULT R1 LR1 {{ cr.in1 }} ; MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ q0 }} ; ACC.ADD.FIRST ; INC LR4 1 ; SET LR5 LR1 ;;
+    MULT.VE LR2 CR1 0 LR0 {{ ds }} {{ q1 }} ; ACC.ADD ; ACTIVATE.QUANTIZE {{ act }} {{ ds }} {{ qo }} {{ cr.out0 }} LR5 ; INC LR1 1 ;;
 {% endmacro %}
 
 {% macro finish(which, ds) %}
@@ -49,10 +48,10 @@
     SET LR9 {{ channels }} ; SET LR8 {{ positions }} ;;
     DEC LR9 1 ;;
 {{ which }}_row:
-    SET LR2 CR0 ; SET LR3 CR0 ; SET LR12 LR13 ;;
+    // Prime the gather; the bottom of the loop loads the next element's row.
+    SET LR2 CR0 ; SET LR3 CR0 ; SET LR12 LR13 ; LD.MULT R0 LR5 {{ tensor }} ;;
 {{ which }}_element:
-    LD.MULT R0 LR5 {{ tensor }} ; DEC LR12 1 ;;
-    MULT.EE LR1 {{ cr.scale_up if which == 'patch' else 'CR1' }} 0 LR0 {{ full_ds }} {{ qf }} ; ACC.RESHAPE LRD0 LRD2 7 ; BEQ LR9 CR0 {{ which }}_position ;;
+    MULT.EE LR1 {{ cr.scale_up if which == 'patch' else 'CR1' }} 0 LR0 {{ full_ds }} {{ qf }} ; ACC.RESHAPE LRD0 LRD2 7 ; DEC LR12 1 ; BEQ LR9 CR0 {{ which }}_position ;;
     DEC LR9 1 ; INC.MODP2 LR1 CR1 7 ;;
     BNE LR1 CR0 {{ which }}_ready ;;
     INC LR5 1 ; B {{ which }}_ready ;;
@@ -62,7 +61,7 @@
     SET LR9 {{ channels }} ; SET LR1 CR0 ; ADD LR4 LR4 {{ step }} ;;
     DEC LR9 1 ; SET LR5 LR4 ;;
 {{ which }}_ready:
-    ADDBI LRD2 1 ; BNE LR12 CR0 {{ which }}_element ;;
+    ADDBI LRD2 1 ; LD.MULT R0 LR5 {{ tensor }} ; BNE LR12 CR0 {{ which }}_element ;;
     {{ finish(which, full_ds) }}
     B {{ which }}_row ;;
 {{ which }}_last:
