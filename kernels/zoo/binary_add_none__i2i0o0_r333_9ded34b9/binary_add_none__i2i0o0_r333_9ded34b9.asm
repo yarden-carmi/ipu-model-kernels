@@ -8,7 +8,7 @@
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ mask }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;
 {% endmacro %}
 
-// Lane order within each k plane is a + d0*j, matching in0's view.
+// Within each k plane, lanes follow a + d0*j, matching in0's view.
 {% if valid == 128 %}
     LD.MULT R0 LR2 {{ cr.in0 }} ; INC LR8 128 ;;
 stream:
