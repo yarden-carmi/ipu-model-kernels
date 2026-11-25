@@ -1,5 +1,5 @@
-// For a fixed d2 index, the view reads a contiguous d0*d1 plane
-// from in0. Pack in1 and out0 in that same order.
+// Each d2 slice of the strided view is a contiguous storage interval.
+// Pack the other operand and destination in the same lane order.
 {% set plane = out0_d0 * out0_d1 %}
 {% set valid = (plane - 1) % 128 + 1 %}
 {% macro first(offset, mask) %}
@@ -11,7 +11,6 @@
 {% endmacro %}
 
 {% if plane % 128 == 0 %}
-    // Both inputs advance together. Load the next row in the store word.
     LD.MULT R0 LR1 {{ cr.in0 }} ;;
 row:
     {{ first('LR0', 'CR15.L') }} SET LR3 LR1 ; BEQ LR1 {{ cr.last_row }} final ;;
@@ -19,8 +18,8 @@ row:
 final:
     {{ store('CR15.L') }} HALT ;;
 {% else %}
-    // LR2:LR4 is the row:lane cursor in the dense input. The
-    // destination rounds up each plane, but the input has no such gap.
+    // LR2:LR4 is the dense input row:lane cursor. Unlike the
+    // destination, the input does not round up at each d2 slice.
     INC LR6 128 ;;
 plane_start:
 {% if plane > 128 %}
@@ -36,7 +35,6 @@ full_ready:
     LD.MULT R0 LR2 {{ cr.in0 }} ; SET LR5 LR4 ;;
     INC LR5 {{ valid }} ;;
 {% if 128 % valid != 0 %}
-    // A tail can span two input rows; only load the second if needed.
     BGE.S LR6 LR5 tail_ready ; ADD LR7 LR2 CR1 ;;
     LD.MULT R1 LR7 {{ cr.in0 }} ;;
 tail_ready:
