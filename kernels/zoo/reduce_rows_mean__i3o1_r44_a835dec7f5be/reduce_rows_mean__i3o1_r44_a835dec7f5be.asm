@@ -8,11 +8,11 @@
 tile:
     SET LR4 CR0 ; MULT.RC.VE LR0 CR0 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
 channel:
-    # Physical row y*C+c; each width reduction contributes to the same output lane.
+    # Physical input row for height h and channel c is h*C + c.
     SET LR1 LR3 ; SET LR5 CR0 ;;
-spatial_row:
+height:
     LD.MULT R0 LR1 {{ cr.in0 }} ; INC LR5 1 ;;
-    MULT.VE LR0 {{ inv }} 0 LR0 {{ cr.active }}.L {{ cr.qf_in0 }}.L ; AGG.SUM LR4 {{ cr.active }}.L ; ADD LR1 LR1 {{ cr.in0_d1 }} ; BLT.S LR5 {{ cr.in0_d2 }} spatial_row ;;
+    MULT.VE LR0 {{ inv }} 0 LR0 {{ cr.active }}.L {{ cr.qf_in0 }}.L ; AGG.SUM LR4 {{ cr.active }}.L ; ADD LR1 LR1 {{ cr.in0_d1 }} ; BLT.S LR5 {{ cr.in0_d2 }} height ;;
     INC LR3 1 ; INC LR4 1 ;;
     BEQ LR3 {{ cr.out0_d1 }} finish ;;
     BLT.S LR4 LR6 channel ;;
