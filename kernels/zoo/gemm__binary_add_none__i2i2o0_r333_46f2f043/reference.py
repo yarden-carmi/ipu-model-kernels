@@ -59,7 +59,7 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    """Store a broadcast bias followed by padded K vectors per channel."""
+    """Store one broadcast bias and the K vectors for each output channel."""
     weight = module.weight.detach().double()
     n, k = weight.shape
     bias = module.bias.detach().double() if params["s0_bias"] else weight.new_zeros(n)

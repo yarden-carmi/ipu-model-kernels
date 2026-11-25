@@ -3,7 +3,7 @@
 {% set batch_size = in1_d1 * in1_d2 %}
 {% set direct = batch_size % 128 == 0 and (rem == 0 or 128 % s0_m == 0) %}
 {% set b = in0_d0 %}
-{% set fast = chunks <= 4 and b <= 32 and 128 % b == 0 %}
+{% set fast = chunks <= 4 and b <= 8 and 128 % b == 0 %}
 {% macro integer(reg, value) %}
     SET {{reg}} CR0 ;;
 {% for shift in [24, 16, 8, 0] %}
@@ -53,19 +53,23 @@ channel:
     LD.MULT R0 LR4 {{cr.in1}} ;;
     MULT.VE LR5 CR1 0 LR0 {{cr.full}}.L {{cr.qf_in1}}.L ; ACC.ADD.FIRST ; LD.MULT R0 LR3 {{cr.w}} ; INC LR3 1 ;;
 {% else %}
-    # Convert the flat residual view index to the packed batch's row and lane.
+    # Translate flat residual view offsets into padded batch rows.
     SET LR8 LR4 ; SET LR9 CR0 ;;
 {% for bit in range(7) %}
     ADD LR8 LR8 LR8 ;;
 {% endfor %}
     ADD LR8 LR8 LR5 ;;
 {{ integer('LR7', batch_size) }}
-{{ integer('LR15', (batch_size + 127) // 128) }}
+    SET LR15 CR0 ;;
 res_batch:
     BLT.S LR8 LR7 res_lane ;;
-    SUB LR8 LR8 LR7 ; ADD LR9 LR9 LR15 ; B res_batch ;;
+    SUB LR8 LR8 LR7 ; INC LR15 1 ; B res_batch ;;
 res_lane:
     SET LR13 LR8 ;;
+{{ integer('LR10', (batch_size + 127) // 128) }}
+res_batch_row:
+    BEQ LR15 CR0 res_row ;;
+    ADD LR9 LR9 LR10 ; DEC LR15 1 ; B res_batch_row ;;
 res_row:
     BLT.S LR13 {{cr.slot}} res_init ;;
     SUB LR13 LR13 {{cr.slot}} ; INC LR9 1 ; B res_row ;;
@@ -89,8 +93,7 @@ res_done:
 {% endif %}
     MULT.VE LR0 CR1 0 LR0 {{cr.full}}.L {{cr.qf_in0}}.L ; ACC.ADD ;;
 {% if fast %}
-    # Keep all K vectors resident. Interleave the batch streams on the fly
-    # so the producer can keep its original batch-major input layout.
+    # Keep every K vector resident while sweeping interleaved output rows.
     SET LR8 CR0 ; SET LR7 LR12 ; SET LR13 CR0 ;;
     DEC LR7 1 ; DEC LR13 1 ; DEC LR14 {{b+1}} ;;
 {% for i in range(chunks) %}
@@ -106,7 +109,6 @@ drain:
 {{ group(true) }}
     INC LR14 {{b+1}} ;;
 {% else %}
-    # General path: sweep one K tile and walk (batch, position) coordinates.
 {{ integer('LR15', b) }}
     SET LR8 LR12 ; SET LR10 CR0 ;;
 weight_tile:
