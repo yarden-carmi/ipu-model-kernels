@@ -71,12 +71,12 @@ height = "in0_d2 // pack"
 stripes = "in0_d0 * height"
 batch_skip = "(k - 1) * height"
 output_skip = "(n - 1) * height"
-digits = "2 + min(1, max(0, k - 64))"
+digits = "2"
 taps = "64"
 full_blocks = "(k - 1) // taps"
 active = "ds(out0_d3 * pack)"
 lane_bias = "127"
-singles = "(3 + 4 * min(1, max(0, k - 32))) * min(1, max(0, k - 31)) * (1 - min(1, max(0, k - 64)))"
+singles = "min(k * 5 // 16, (k - 1) // 2) * (1 - min(1, max(0, k - 64)))"
 
 [inputs.in0]
 shape = ["stripes * k", 128]

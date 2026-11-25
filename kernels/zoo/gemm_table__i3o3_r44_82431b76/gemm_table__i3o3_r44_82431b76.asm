@@ -1,6 +1,6 @@
 {# R0/R1 hold scalar coefficient digits; the cyclic register holds spatial lanes. #}
 {% set wide = k > 64 %}
-{% set groups = (3 if k == 32 else 7) if 32 <= k <= 64 else 0 %}
+{% set groups = [(k * 5) // 16, (k - 1) // 2] | min if k <= 64 else 0 %}
 {% macro coeff(reg) -%}
 INC LR7 1 ; LD.MULT {{ reg }} LR7 {{ cr.coeff }}
 {%- endmacro %}
@@ -22,11 +22,6 @@ ACTIVATE.QUANTIZE {{ 'generic' if act_out0 == 'silu' else act_out0 }} {{ cr.acti
 {% macro finish() -%}
 {{ store() }} ; {{ coeff('R0') }} ; DEC LR8 1 ; BNE LR8 CR1 channel
 {%- endmacro %}
-{% macro single(taps) %}
-{% for j in range(taps) %}
-    {{ mac('LR1') }} ; INC LR1 1{% if not loop.last %} ; {{ next_input() }}{% endif %} ;;
-{% endfor %}
-{% endmacro %}
 {% macro pairs(taps, last=false) %}
 {% for j in range(taps) %}
     {{ mac('LR1') }} ; INC LR1 1 ;;
@@ -35,13 +30,6 @@ ACTIVATE.QUANTIZE {{ 'generic' if act_out0 == 'silu' else act_out0 }} {{ cr.acti
 {% endmacro %}
 {% macro wide_block(taps) %}
     SET LR6 LR9 ; SUB LR1 LR0 CR1 ;;
-    {{ input() }} ;;
-    {{ single(32 if taps > 32 else taps) }}
-{% if taps > 32 %}
-    {{ next_input() }} ;;
-    {{ single(taps - 32) }}
-{% endif %}
-    {{ coeff('R0') }} ; SET LR6 LR9 ; SUB LR1 LR0 CR1 ;;
     {{ bias_mac('LR13') }} ; {{ coeff('R1') }} ;;
     {{ bias_mac('LR15') }} ; {{ input() }} ; SET LR2 {{ cr.lane_bias }} ;;
     {{ pairs(32 if taps > 32 else taps, taps <= 32) }}
@@ -61,12 +49,12 @@ stripe:
     SET LR8 {{ cr.n }} ; SET LR7 CR0 ; SET LR3 LR12 ; LD.MULT R0 LR0 {{ cr.coeff }} ;;
 channel:
 {% if wide %}
-    {{ bias_mac('LR13', true) }} ; SET LR4 LR3 ; ADD LR3 LR3 {{ cr.height }} ; SET LR9 LR5 ;;
+    MULT.EE LR0 CR0 0 LR0 {{ cr.active }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; SET LR4 LR3 ; ADD LR3 LR3 {{ cr.height }} ; SET LR9 LR5 ;;
     SET LR14 {{ cr.full_blocks }} ;;
 full_block:
     {{ wide_block(64) }}
     DEC LR14 1 ; ADD LR9 LR6 {{ cr.height }} ; {{ coeff('R0') }} ; BEQ LR14 CR1 tail ;;
-    {{ bias_mac('LR13') }} ; B full_block ;;
+     B full_block ;;
 tail:
     {{ wide_block((k - 1) % 64 + 1) }}
     {{ store() }} ; {{ coeff('R0') }} ; DEC LR8 1 ; BNE LR8 CR1 channel ;;

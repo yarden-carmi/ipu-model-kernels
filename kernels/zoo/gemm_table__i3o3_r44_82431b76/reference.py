@@ -82,19 +82,17 @@ def fold(module, **params):
     rows = weight.new_zeros((n, blocks, 128))
     rows[:, :, :64] = torch.nn.functional.pad(weight, (0, blocks * 64 - k)).reshape(n, blocks, 64)
     rows[:, 0, 127] = bias
-    groups = (3 if k == 32 else 7) if 32 <= k <= 64 else 0
+    groups = min(k * 5 // 16, (k - 1) // 2) if k <= 64 else 0
     if groups:
         rows[:, 0, k - 2 * groups:k] = 0
     terms = []
-    for _ in range(2 if k > 64 else 1):
+    for _ in range(1):
         _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
         step = torch.ldexp(torch.ones_like(exponent, dtype=rows.dtype), exponent - 5)
         coarse = torch.round(rows / step) * step
         terms.append(coarse)
         rows = rows - coarse
     terms.append(rows)
-    if k > 64:
-        terms = [terms[2], terms[0], terms[1]]
     packed = torch.stack(terms, dim=2).reshape(n, -1, 128)
     if groups:
         short = weight.new_zeros((n, groups, 128))
