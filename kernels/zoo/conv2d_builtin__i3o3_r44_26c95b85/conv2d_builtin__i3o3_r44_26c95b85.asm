@@ -14,6 +14,11 @@
     SET LR6 CR0 ; SET LR7 CR0 ;;
     INC LR1 128 ; INC LR2 255 ;;
     INC LR2 1 ;;
+stage:
+    ADD LR4 LR6 LR14 ; LD.MULT.CYCLIC LR6 {{ cr.in0 }} LR1 ;;
+    INC LR6 1 ;;
+    MULT.RC.VE LR1 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ cr.full }}.H {{ qi }} {{ cr.line }} LR4 ; BLT.S LR6 LR13 stage ;;
+    SET LR7 LR14 ; SET LR6 CR0 ;;
     LD.MULT.CYCLIC LR0 {{ cr.weights }} LR0 ;;
     LD.MULT.CYCLIC LR0 {{ cr.weights }} LR2 ;;
 batch:
@@ -36,7 +41,7 @@ ky:
     SET LR2 CR0 ;;
     INC LR2 {{ in0_d2 }} ;;
     BGE.S LR10 LR2 skip_ky ;;
-    LD.MULT.CYCLIC LR11 {{ cr.in0 }} LR1 ;;
+    LD.MULT.CYCLIC LR11 {{ cr.line }} LR1 ;;
     SET LR2 LR1 ;;
     DEC LR2 {{ padding }} ;;
 {% macro tap() %}
@@ -74,7 +79,6 @@ next_ky:
     {{ increase('LR2', outputs) }}
     BLT.S LR14 LR2 same_group ;;
     SET LR14 CR0 ;;
-    {# Advance by a group's input planes; break up the large product with a runtime loop. #}
     SET LR12 CR0 ; SET LR2 CR0 ;;
     {{ increase('LR2', inputs) }}
 advance_group:
@@ -100,17 +104,20 @@ gather_line:
     ADD LR9 LR9 LR11 ; LD.MULT.CYCLIC LR9 {{ cr.line }} LR6 ;;
     SET LR0 {{ cr.src_lo }} ; SET LR1 {{ cr.src_hi }} ;;
     SET LR2 LR12 ; SET LR3 LR13 ;;
+{% macro gather(trim) %}
+    MULT.RC.VE LR6 CR1 0 LR6 {{ ds }} {{ qo }} ; ACC.RESHAPE LRD0 LRD2 {{ trim }} ;;
+{% endmacro %}
 {% if width >= 8 %}
     SET LR8 CR0 ;;
     INC LR8 {{ width // 8 }} ;;
 gather_eight:
-    MULT.RC.VE LR6 CR1 0 LR6 {{ ds }} {{ qo }} ; ACC.RESHAPE LRD0 LRD2 0 ;;
+    {{ gather(0) }}
     ADDBI LRD0 {{ 8 * stride }} ; ADDBI LRD2 8 ; DEC LR8 1 ;;
     BLT.S LR6 LR8 gather_eight ;;
 {% endif %}
 {% if width % 8 %}
     ADDBI LRD0 {{ (width % 8 - 8) * stride }} ; ADDBI LRD2 {{ width % 8 - 8 }} ;;
-    MULT.RC.VE LR6 CR1 0 LR6 {{ ds }} {{ qo }} ; ACC.RESHAPE LRD0 LRD2 {{ 8 - width % 8 }} ;;
+    {{ gather(8 - width % 8) }}
 {% endif %}
     INC LR4 1 ;;
 {% if pack > 1 %}

@@ -53,18 +53,18 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 72, 56, 56], [225792, 3136, 56, 1], 0), module.op0_weight, None, [2, 2], [1, 1], [1, 1], 72)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 88, 28, 28], [68992, 784, 28, 1], 0), module.op0_weight, None, [1, 1], [1, 1], [1, 1], 88)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 72, 28, 28], [56448, 784, 28, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 88, 28, 28], [68992, 784, 28, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.relu_.default(_v(op1, [1, 72, 28, 28], [56448, 784, 28, 1], 0))
+    r0 = aten.relu_.default(_v(op1, [1, 88, 28, 28], [68992, 784, 28, 1], 0))
     op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 72, 28, 28])}
+    return {"out0": _out(op2, [1, 88, 28, 28])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Fold inference BN, with paired high and residual tap rows."""
+    """Fuse inference BN into the filter and keep a residual weight digit."""
     scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
     bias = module.op1_bias.double() - module.op1_running_mean.double() * scale
     conv_bias = getattr(module, "op0_bias", None)
