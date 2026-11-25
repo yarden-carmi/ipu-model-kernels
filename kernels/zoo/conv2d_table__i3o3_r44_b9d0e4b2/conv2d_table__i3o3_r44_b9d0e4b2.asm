@@ -19,7 +19,7 @@ SET {{ r }} CR0 ;;
 {% endif %}
 {% endmacro %}
 
-# Copy spatial planes between explicit vertical zero guards.
+# Copy each channel between zero guards for vertically shifted windows.
 {{ imm('LR0',0) }}
 {{ imm('LR1',128) }}
 {{ imm('LR2',-1) }}
@@ -33,26 +33,25 @@ SET LR8 CR0 ; MULT.RC.VE LR0 CR0 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ;;
 {{ label }}:
 ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.guard }} LR3 ; INC LR3 1 ; INC LR8 1 ; BLT.S LR8 LR7 {{ label }} ;;
 {% endmacro %}
+{% macro copy(active) %}
+LD.MULT R0 LR2 {{ cr.in0 }} ; INC LR2 1 ;;
+MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ;
+ACTIVATE.QUANTIZE identity {{ active }} {{ qi }} {{ cr.guard }} LR3 ; INC LR3 1 ;
+{% endmacro %}
 copy_channel:
 {{ guard('copy_top',4) }}
 SET LR8 CR0 ;;
 copy_row:
 {% if (in0_d2*w)%128 %}BEQ LR8 LR6 copy_last ;;{% endif %}
-LD.MULT R0 LR2 {{ cr.in0 }} ; INC LR2 1 ;;
-MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ;
-ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.guard }} LR3 ; INC LR3 1 ; INC LR8 1 ; BLT.S LR8 LR6 copy_row ;;
+{{ copy(ds) }} INC LR8 1 ; BLT.S LR8 LR6 copy_row ;;
 {% if (in0_d2*w)%128 %}
-BEQ LR0 CR0 copy_end ;;
 copy_last:
-LD.MULT R0 LR2 {{ cr.in0 }} ; INC LR2 1 ;;
-MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ;
-ACTIVATE.QUANTIZE identity {{ cr.input_tail }}.H {{ qi }} {{ cr.guard }} LR3 ; INC LR3 1 ;;
-copy_end:
+{{ copy(cr.input_tail ~ '.H') }} ;;
 {% endif %}
 {{ guard('copy_bottom',6) }}
 INC LR4 1 ; BLT.S LR4 LR5 copy_channel ;;
 
-# For stride two, compact the four input quadrants into output order once.
+# Create stride-two tap vectors by compacting every other lane.
 {% if stride == 2 %}
 {{ imm('LR2',-1) }}
 {{ imm('LR4',0) }}
