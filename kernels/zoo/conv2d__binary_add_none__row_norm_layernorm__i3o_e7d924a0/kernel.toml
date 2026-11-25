@@ -1,0 +1,165 @@
+[kernel]
+op = "conv2d__binary_add_none__row_norm_layernorm"
+formats = ["e2"]
+
+[params.s0_bias]
+type = "bool"
+default = false
+[params.s0_cin]
+type = "int"
+min = 1
+max = 512
+default = 3
+[params.s0_cout]
+type = "int"
+min = 1
+max = 1024
+default = 768
+[params.s0_groups]
+type = "int"
+choices = [1]
+default = 1
+[params.s0_h]
+type = "int"
+min = 1
+max = 1024
+default = 224
+[params.s0_w]
+type = "int"
+min = 1
+max = 1024
+default = 224
+[params.s0_kh]
+type = "int"
+min = 1
+max = 128
+default = 32
+[params.s0_kw]
+type = "int"
+min = 1
+max = 128
+default = 32
+[params.s0_padding]
+type = "int"
+choices = [0]
+default = 0
+[params.s0_stride]
+type = "int"
+min = 1
+max = 128
+default = 32
+[params.s1_broadcast]
+type = "str"
+choices = ["none"]
+default = "none"
+[params.s1_const]
+type = "int"
+choices = [1]
+default = 1
+[params.s1_inner]
+type = "int"
+choices = [0]
+default = 0
+[params.s1_numel]
+type = "int"
+min = 1
+max = 1048576
+default = 38400
+[params.s1_op]
+type = "str"
+choices = ["add"]
+default = "add"
+[params.s2_channels]
+type = "int"
+min = 1
+max = 1024
+default = 768
+[params.s2_eps]
+type = "float"
+min = 0.0
+max = 1.0
+default = 0.00001
+[params.s2_kind]
+type = "str"
+choices = ["layernorm"]
+default = "layernorm"
+[params.s2_rows]
+type = "int"
+min = 1
+max = 1048576
+default = 50
+[params.in0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 512
+default = 3
+[params.in0_d2]
+type = "int"
+min = 1
+max = 1024
+default = 224
+[params.in0_d3]
+type = "int"
+min = 1
+max = 1024
+default = 224
+[params.out0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 1048576
+default = 50
+[params.out0_d2]
+type = "int"
+min = 1
+max = 1024
+default = 768
+
+[derived]
+chunks = "ceil(in0_d3 / 128)"
+tiles = "ceil(out0_d2 / 128)"
+taps = "s0_cin * s0_kh * s0_kw"
+wo = "(s0_w - s0_kw) // s0_stride + 1"
+tail = "ds(1 + (out0_d2 - 1) % 128)"
+scalar = "ds(1)"
+skip = "taps + 2"
+lanes = "128"
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d1 * in0_d2 * chunks", 128]
+[inputs.weights]
+shape = ["tiles * (taps + 2)", 128]
+[inputs.addend]
+shape = ["2 * out0_d1 * tiles", 128]
+[inputs.affine]
+shape = ["4 * tiles", 128]
+[inputs.stats]
+shape = [3, 128]
+[scratch.tmp]
+shape = ["4 * tiles + 8", 128]
+[outputs.out0]
+shape = ["out0_d0 * out0_d1 * tiles", 128]
+
+[abi]
+in0 = "CR2"
+weights = "CR3"
+addend = "CR4"
+affine = "CR5"
+stats = "CR6"
+tmp = "CR7"
+out0 = "CR8"
+qf_in0 = "CR9"
+qf_out0 = "CR10"
+tail = "CR11"
+scalar = "CR12"
+skip = "CR13"
+lanes = "CR14"
+
+[cases.default]
