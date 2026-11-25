@@ -1,0 +1,131 @@
+[kernel]
+op = "conv2d"
+formats = ["e1", "e2"]
+
+[params.bias]
+type = "bool"
+default = false
+[params.cin]
+type = "int"
+min = 1
+max = 1024
+default = 96
+[params.cout]
+type = "int"
+min = 1
+max = 1024
+default = 64
+[params.groups]
+type = "int"
+min = 1
+max = 1024
+default = 1
+[params.h]
+type = "int"
+min = 1
+max = 256
+default = 32
+[params.w]
+type = "int"
+min = 1
+max = 256
+default = 32
+[params.kh]
+type = "int"
+choices = [3]
+default = 3
+[params.kw]
+type = "int"
+choices = [3]
+default = 3
+[params.padding]
+type = "int"
+min = 0
+max = 1
+default = 1
+[params.stride]
+type = "int"
+choices = [1, 2]
+default = 1
+[params.in0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 1024
+default = 96
+[params.in0_d2]
+type = "int"
+min = 1
+max = 256
+default = 32
+[params.in0_d3]
+type = "int"
+min = 1
+max = 256
+default = 32
+[params.out0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 1024
+default = 64
+[params.out0_d2]
+type = "int"
+min = 1
+max = 256
+default = 32
+[params.out0_d3]
+type = "int"
+min = 1
+max = 128
+default = 32
+
+[derived]
+chunks = "ceil(in0_d1 / 128)"
+gcin = "cin // groups"
+capacity = "min(out0_d2, 128 // out0_d3)"
+pack = "1 + (capacity - 1) * (1 - min(1, out0_d2 % capacity))"
+tiles = "out0_d2 // pack"
+packed = "min(1, pack - 1)"
+plane = "(1 - packed) * (in0_d2 + 2 * padding) * kw + packed * tiles * kh * kw"
+group_plane = "plane * gcin"
+residual_offset = "plane * cin"
+row_step = "in0_d3 * chunks * (1 + packed * (stride - 1))"
+input_end = "in0_d2 * in0_d3 * chunks"
+ds128 = "ds(128)"
+ds_out = "ds(pack * out0_d3)"
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d2", "in0_d3", "chunks", 128]
+range = [-2, 2]
+[inputs.weights]
+shape = ["3 * cout * (1 + gcin)", 128]
+range = [-1, 1]
+[scratch.taps]
+shape = ["2 * residual_offset + 1", 128]
+[outputs.out0]
+shape = ["out0_d1", "out0_d0", "tiles", 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+weights = "CR4"
+input_end = "CR5"
+taps = "CR6"
+qf_in0 = "CR7"
+qf_weights = "CR8"
+qf_out0 = "CR9"
+ds128 = "CR10"
+ds_out = "CR11"
+row_step = "CR12"
+plane = "CR13"
+group_plane = "CR14"
+residual_offset = "CR15"
+
+[cases.default]
