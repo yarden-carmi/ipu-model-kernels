@@ -104,10 +104,10 @@ center_loop:
  {% endfor %}
  BNE LR5 LR6 center_full ;;
  {{ encode('LR9',2,tail) }}
- BEQ LR0 CR0 variance_start ;;
+ B variance_start ;;
 center_full:
  {{ encode('LR9',2) }}
- INC LR9 1 ; INC LR5 1 ; BEQ LR0 CR0 center_loop ;;
+ INC LR9 1 ; INC LR5 1 ; B center_loop ;;
 
 variance_start:
  INC LR6 1 ;;
@@ -132,7 +132,7 @@ variance_loop:
  LD.MULT R0 LR1 {{ cr.tmp }} ;;
  {{ scalar('SUB') }} ;;{{ save(22,1) }}
 
- {# Refine the table estimate with two Newton corrections. #}
+ {# Refine the table estimate once, then keep three residual pieces for affine. #}
  {{ load(8,true) }}{{ load(8) }}{{ mac('LR0',true) }} ;;{{ save(13) }}
  {{ product(11,13,15) }}
  {{ load(8,true) }}{{ load(15) }}{{ mac('LR0',true) }} ;;
@@ -141,14 +141,6 @@ variance_loop:
  {{ mac('LR0') }} ;;{{ save(17) }}
  MULT.RC.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ;;
  MULT.RC.VE LR0 {{ cr.half }} 0 LR0 {{ full }} {{ q }} ; ACC.ADD ;;
- {% for n in [17,18] %}{{ load(n) }}{{ scalar('SUB',imm=cr.half) }} ;;{% endfor %}
- {{ save(19) }}
- {{ product(19,19,13) }}{{ product(11,13,15) }}{{ product(19,15,17) }}
- {% for n in [19,20] %}
- {{ load(n,true) }}
- MULT.RC.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %} ;;
- MULT.RC.VE LR0 {{ cr.half }} 0 LR0 {{ full }} {{ q }} ; ACC.ADD ;;
- {% endfor %}
  {% for n in [17,18] %}{{ load(n) }}{{ scalar('SUB',imm=cr.half) }} ;;{% endfor %}
  {{ save(19) }}
  LD.MULT R0 LR1 {{ cr.tmp }} ;;
@@ -178,14 +170,13 @@ affine_loop:
  {% endfor %}
  BEQ LR5 LR6 affine_tail ;;
  {{ store(full) }}
- INC LR5 1 ; INC LR11 1 ; BEQ LR0 CR0 affine_loop ;;
+ INC LR5 1 ; INC LR11 1 ; B affine_loop ;;
 affine_tail:
  {{ store(tail) }}
  ADD LR2 LR2 LR13 ;;
  BGE.S LR14 {{ cr.M }} finished ;;
  BLT.S LR2 {{ cr.M }} row_loop ;;
- {# The patches view traverses every out0_d0-th spatial row per group. #}
  SUB LR2 LR2 {{ cr.M }} ;;
- ADD LR2 LR2 {{ cr.K }} ; BEQ LR0 CR0 row_loop ;;
+ ADD LR2 LR2 {{ cr.K }} ; B row_loop ;;
 finished:
  HALT ;;
