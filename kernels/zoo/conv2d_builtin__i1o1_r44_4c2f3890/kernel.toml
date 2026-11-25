@@ -86,7 +86,7 @@ default = 64
 
 [derived]
 pitch = "in0_d3 // 2"
-rowstep = "pitch * stride"
+ds_pair = "ds(2 * cin)"
 last_x = "in0_d3 - 1"
 last_y = "in0_d2 - 1"
 xend = "out0_d3 * stride"
@@ -99,7 +99,7 @@ ds_out = "ds(cout)"
 shape = ["in0_d2 * pitch", 128]
 range = [-2, 2]
 [inputs.weights]
-shape = ["1 + 9 * cout", 128]
+shape = ["1 + (3 - stride) * 6 * cout", 128]
 range = [-1, 1]
 [outputs.out0]
 shape = ["out0_d2 * out0_d3", 128]
@@ -111,7 +111,7 @@ out0 = "CR4"
 qf_in0 = "CR5"
 qf_out0 = "CR6"
 pitch = "CR7"
-rowstep = "CR8"
+ds_pair = "CR8"
 last_x = "CR9"
 last_y = "CR10"
 xend = "CR11"

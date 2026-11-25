@@ -49,19 +49,27 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 64, 64], [262144, 4096, 64, 1], 0), module.weight, module.bias, [1, 1], [1, 1])
+    r0 = aten.conv2d.default(_v(ins[0], [1, 32, 224, 224], [1605632, 50176, 224, 1], 0), module.weight, module.bias, [1, 1], [1, 1])
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.relu.default(_v(op0, [1, 32, 64, 64], [131072, 4096, 64, 1], 0))
+    r0 = aten.relu.default(_v(op0, [1, 32, 224, 224], [1605632, 50176, 224, 1], 0))
     op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 32, 64, 64])}
+    return {"out0": _out(op1, [1, 32, 224, 224])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
     weight = module.weight
     co, ci, kh, kw = weight.shape
-    rows = weight.new_zeros((1 + kh * kw * co, 128))
-    rows[1:, :ci] = weight.permute(2, 3, 0, 1).reshape(-1, ci)
+    patterns = (((0,), (1, 2)), ((0, 1), (2,)))[:3 - params["stride"]]
+    rows = weight.new_zeros((1 + len(patterns) * kh * 2 * co, 128))
+    start = 1
+    for pattern in patterns:
+        for y in range(kh):
+            for taps in pattern:
+                rows[start:start + co, :len(taps) * ci] = torch.cat(
+                    [weight[:, :, y, x] for x in taps], dim=1
+                )
+                start += co
     if params["bias"]:
         rows[0, :co] = module.bias
     return {"weights": rows}
