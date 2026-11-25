@@ -1,6 +1,7 @@
-{# R0/R1 hold scalar coefficient digits; the cyclic register holds spatial lanes. #}
-{% set wide = k > 64 %}
-{% set groups = [(k * 5) // 16, (k - 1) // 2] | min if k <= 64 else 0 %}
+{# Spatial positions fill each row. Keep two coefficient digits for the
+   prefix, then use tightly scaled two-tap rows for the suffix. #}
+{% set groups = [k * 5 // 16, (k - 1) // 2] | min %}
+{% set paired = k - 2 * groups %}
 {% macro coeff(reg) -%}
 INC LR7 1 ; LD.MULT {{ reg }} LR7 {{ cr.coeff }}
 {%- endmacro %}
@@ -16,61 +17,61 @@ MULT.RC.VE LR0 {{ src }} 0 LR0 {{ cr.active }}.L {{ cr.qf_in0 }}.L ; ACC.ADD
 {% macro bias_mac(src, first=false) -%}
 MULT.EE {{ src }} CR1 0 LR0 {{ cr.active }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{% if first %}.FIRST{% endif %}
 {%- endmacro %}
-{% macro store() -%}
-ACTIVATE.QUANTIZE {{ 'generic' if act_out0 == 'silu' else act_out0 }} {{ cr.active }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR4
-{%- endmacro %}
 {% macro finish() -%}
-{{ store() }} ; {{ coeff('R0') }} ; DEC LR8 1 ; BNE LR8 CR1 channel
+ACTIVATE.QUANTIZE generic {{ cr.active }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR4 ; {{ coeff('R0') }} ; DEC LR8 1 ; BNE LR8 CR1 channel
 {%- endmacro %}
-{% macro pairs(taps, last=false) %}
+{% macro pairs(taps, block=false) %}
 {% for j in range(taps) %}
-    {{ mac('LR1') }} ; INC LR1 1 ;;
-    {{ mac('LR2') }} ; INC LR2 1{% if not (last and loop.last) %} ; {{ next_input() }}{% elif groups %} ; {{ coeff('R0') }}{% elif not wide %} ; {{ finish() }}{% endif %} ;;
+    {{ mac('LR1') }} ; INC LR1 1{% if loop.last and (groups or block) %} ; {{ coeff('R0') }}{% endif %} ;;
+    {{ mac('LR2') }} ; INC LR2 1{% if not loop.last %} ; {{ next_input() }}{% elif not groups and not block %} ; {{ finish() }}{% endif %} ;;
 {% endfor %}
 {% endmacro %}
-{% macro wide_block(taps) %}
-    SET LR6 LR9 ; SUB LR1 LR0 CR1 ;;
-    {{ bias_mac('LR13') }} ; {{ coeff('R1') }} ;;
-    {{ bias_mac('LR15') }} ; {{ input() }} ; SET LR2 {{ cr.lane_bias }} ;;
-    {{ pairs(32 if taps > 32 else taps, taps <= 32) }}
-{% if taps > 32 %}
-    {{ pairs(taps - 32, true) }}
-{% endif %}
-{% endmacro %}
+{% macro indices() -%}
+SUB LR1 LR0 CR1 ; SET LR2 LR13
+{%- endmacro %}
 
     SET LR0 CR0 ; SET LR5 CR0 ; SET LR12 CR0 ;;
     SET LR4 CR0 ; SET LR10 {{ cr.stripes }} ; SET LR11 {{ cr.height }} ;;
-    SET LR15 {{ cr.lane_bias }} ; SET LR13 {{ cr.lane_bias }} ;;
-    INC LR15 128 ;;
+    SET LR13 CR0 ; SET LR15 CR0 ;;
+    INC LR13 127 ; INC LR15 255 ;;
 {% for segment in range(5) %}
     {% if segment %}INC LR4 1 ; {% endif %}LD.LUT {{ segment }} {{ cr.lut }} LR4 ;;
 {% endfor %}
 stripe:
     SET LR8 {{ cr.n }} ; SET LR7 CR0 ; SET LR3 LR12 ; LD.MULT R0 LR0 {{ cr.coeff }} ;;
 channel:
-{% if wide %}
-    MULT.EE LR0 CR0 0 LR0 {{ cr.active }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; SET LR4 LR3 ; ADD LR3 LR3 {{ cr.height }} ; SET LR9 LR5 ;;
-    SET LR14 {{ cr.full_blocks }} ;;
-full_block:
-    {{ wide_block(64) }}
-    DEC LR14 1 ; ADD LR9 LR6 {{ cr.height }} ; {{ coeff('R0') }} ; BEQ LR14 CR1 tail ;;
-     B full_block ;;
-tail:
-    {{ wide_block((k - 1) % 64 + 1) }}
-    {{ store() }} ; {{ coeff('R0') }} ; DEC LR8 1 ; BNE LR8 CR1 channel ;;
-{% else %}
     {{ bias_mac('LR13', true) }} ; {{ coeff('R1') }} ; SET LR6 LR5 ; SET LR4 LR3 ;;
-    {{ bias_mac('LR15') }} ; {{ input() }} ; ADD LR3 LR3 {{ cr.height }} ; SUB LR1 LR0 CR1 ; SET LR2 {{ cr.lane_bias }} ;;
-{% set paired = k - 2 * groups %}
-{% if paired > 32 %}
-    {{ pairs(32) }}
+{% if k > 64 %}
+    {{ bias_mac('LR15') }} ; {{ coeff('R0') }} ; ADD LR3 LR3 {{ cr.height }} ;;
+    {{ coeff('R1') }} ; {{ indices() }} ;;
+    {{ input() }} ; SET LR14 {{ cr.full_blocks }} ;;
+{% else %}
+    {{ bias_mac('LR15') }} ; {{ input() }} ; ADD LR3 LR3 {{ cr.height }} ; {{ indices() }} ;;
 {% endif %}
-    {{ pairs((paired - 1) % 32 + 1, true) }}
-{% for j in range(groups) %}
+{% if paired > 32 %}
+full_block:
+    {{ pairs(32, true) }}
+    {{ coeff('R1') }} ; {{ indices() }} ;;
+    {{ next_input() }} ; DEC LR14 1 ; BNE LR14 CR1 full_block ;;
+{% endif %}
+    {{ pairs((paired - 1) % 32 + 1) }}
+{% if groups %}
+{% if groups <= 32 %}
     {{ next_input() }} ;;
+{% for j in range(groups) %}
     {{ mac('LR0') }} ; {{ next_input() }} ;;
     {{ mac('LR13') }} ; {% if loop.last %}{{ finish() }}{% else %}{{ coeff('R0') }}{% endif %} ;;
+    {% if not loop.last %}{{ next_input() }} ;;{% endif %}
 {% endfor %}
+{% else %}
+    {{ next_input() }} ; SET LR14 {{ cr.groups }} ;;
+single_pair:
+    {{ mac('LR0') }} ; {{ next_input() }} ;;
+    {{ mac('LR13') }} ; {{ coeff('R0') }} ; DEC LR14 1 ; BEQ LR14 CR1 store ;;
+    {{ next_input() }} ; B single_pair ;;
+store:
+    ACTIVATE.QUANTIZE generic {{ cr.active }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR4 ; DEC LR8 1 ; BNE LR8 CR1 channel ;;
+{% endif %}
 {% endif %}
     INC LR5 1 ; DEC LR10 1 ; DEC LR11 1 ;;
     INC LR12 1 ; BEQ LR10 CR0 end ;;
