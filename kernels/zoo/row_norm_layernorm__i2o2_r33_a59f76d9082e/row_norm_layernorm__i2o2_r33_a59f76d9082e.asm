@@ -102,13 +102,19 @@
  SET LR12 CR0 ; SET LR13 CR0 ; SET LR7 CR0 ;;
  pack_tile:
  {% set band = M if 128 % M == 0 and M % 8 == 0 else 16 %}
- {% if channels % band == 0 and rows % band == 0 and channels // band <= 9 and rows // channels < 126 and (channels == 192 or channels == 144) %}
+ {% if channels % band == 0 and rows % band == 0 and rows // channels < 126 and ((channels // band <= 9 and (channels == 192 or channels == 144)) or (channels == 240 and rows < channels and channels // band <= 15)) %}
  {# Each channel step rotates the source band. Pipeline a block with
     fixed row advances and lane shifts, then jump to its successor. #}
  {% set phases = channels // band %}
  {% set rotation = (rows % channels) // band %}
+ {# For long phase cycles, share each four-channel body across the tile. #}
+ {% set chunk = 4 if phases > 9 else 16 %}
  SET LR4 LR12 ; SET LR8 CR0 ; SET LR9 CR0 ;;
  INC LR8 {{ channels // 16 }} ; INC.MODP2 LR9 LR13 {{ {8:3,16:4,32:5,64:6,128:7}[band] }} ; SET LR6 CR0 ;;
+ {% if chunk < 16 %}
+ SET LR5 CR0 ; SET LR2 {{ cr.c128 }} ; SET LR3 {{ cr.cC }} ;;
+ INC LR5 {{ 16 // chunk }} ;;
+ {% endif %}
  {% for p in range(phases-1) %}
  {% if p*band == 128 %}INC LR4 1 ;;{% endif %}
  INC LR6 {{ band }} ;;
@@ -117,9 +123,14 @@
  {% if (phases-1)*band == 128 %}INC LR4 1 ; {% endif %}B pack_phase{{ phases-1 }} ;;
  {% macro pack_phase(p) %}
  pack_phase{{ p }}:
+ {% if chunk == 16 %}
  SET LR0 {{ cr.c128 }} ; SET LR1 {{ cr.cC }} ; DEC LR8 1 ;;
  SET LR2 {{ cr.c128 }} ; SET LR3 {{ cr.cC }} ; ADDB LRD0 LR9 ; LD.MULT R0 LR4 {{ cr.in0 }} ;;
- {% for i in range(16) %}
+ {% else %}
+ SET LR0 {{ cr.c128 }} ; SET LR1 {{ cr.cC }} ; DEC LR5 1 ; LD.MULT R0 LR4 {{ cr.in0 }} ;;
+ ADDB LRD0 LR9 ;;
+ {% endif %}
+ {% for i in range(chunk) %}
  {% set phase = ((p+i*rotation) % phases)*band %}
  {% set prev = ((p+(i-1)*rotation) % phases)*band %}
  {% set next = (phase + rows) % channels %}
@@ -131,8 +142,13 @@
  {% if not loop.last %}LD.MULT R0 LR4 {{ cr.in0 }} ; {% endif %}
  MULT.VE LR7 CR1 0 LR7 CR15.L {{ q }} ; ACC.RESHAPE LRD0 LRD2 0 ;;
  {% endfor %}
+ {% set successor = (p+chunk*rotation) % phases %}
+ {% if chunk < 16 %}
+ ADDBI LRD2 8 ; BNE LR5 CR0 pack_phase{{ successor }} ;;
+ DEC LR8 1 ; INC LR5 {{ 16 // chunk }} ;;
+ {% endif %}
  ACTIVATE.QUANTIZE identity CR15.L {{ q }} {{ cr.tmp }} LR10 ;;
- INC LR10 1 ; BNE LR8 CR0 pack_phase{{ (p+16*rotation) % phases }} ;;
+ INC LR10 1 ; {% if chunk < 16 %}SET LR2 {{ cr.c128 }} ; SET LR3 {{ cr.cC }} ; {% endif %}BNE LR8 CR0 pack_phase{{ successor }} ;;
  B pack_tile_finish ;;
  {% endmacro %}
  {% for p in range(phases) %}{{ pack_phase(p) }}{% endfor %}
@@ -258,14 +274,14 @@ row_loop:
  {% endfor %}
  {% endfor %}
   {# Keep the mean in lane zero and broadcast each piece at subtraction. #}
-  {{ save(27,3) }}
+   {{ save(27,2) }}
 
  SET LR5 LR14 ; SET LR9 CR0 ;;
  INC LR9 32 ;;
  {% for ds in ['CR15.L',cr.dsl ~ '.L'] %}
  {% if not loop.first %}INC LR5 1 ; INC LR9 1 ; {% endif %}LD.MULT R0 LR5 {{ cr.tmp }} ;;
   SET LR1 LR6 ; MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ q }} ; ACC.ADD.FIRST ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
-  {% for n in range(3) %}
+   {% for n in range(2) %}
   MULT.EE LR0 CR1 0 LR0 {{ ds }} {{ q }} ; ACC.SUB ; {% if not loop.last %}INC LR1 1 ; LD.MULT R0 LR1 {{ cr.tmp }}{% else %}ACTIVATE.QUANTIZE identity {{ ds }} {{ q }} {{ cr.tmp }} LR9{% endif %} ;;
   {% endfor %}
   {% for n in range(1) %}
@@ -275,19 +291,17 @@ row_loop:
   DEC LR9 2 ;;
  {% endfor %}
 
- {{ scalar(first=true,imm='CR0',tail='; SET LR9 CR0') }}
- {% for h in range(2) %}
-  {% for slot in ['LR0','LR3'] %}
- INC LR9 {{ (32 if h == 0 else 1) if loop.first else 2 }} ; LD.MULT.CYCLIC LR9 {{ cr.tmp }} {{ slot }}{% if loop.first %} ; SET LR10 CR0{% endif %} ;;
- {% endfor %}
- INC LR10 {{ 32 + h }} ; LD.MULT R0 LR10 {{ cr.tmp }} ;;
-  {% for slot in ['LR0','LR3'] %}
- {% set last_slot = loop.last %}
-  {% for i in range(2) %}
-  {% if not (last_slot and loop.last) %}{{ 'DEC LR10 2' if loop.last else 'INC LR10 2' }} ; LD.MULT R0 LR10 {{ cr.tmp }} ; {% endif %}MULT.RC.VV {{ slot }} R0 0 LR0 CR15.L {{ q }} ; AGG.SUM LR0 CR15.L ;;
- {% endfor %}
- {% endfor %}
-  {% if h == 0 %}DEC LR9 2 ;;{% endif %}
+  {{ scalar(first=true,imm='CR0',tail='; SET LR9 CR0') }}
+  INC LR9 32 ; LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;
+  {% for h in range(2) %}
+  {# Pipeline the two pieces; only the cross term needs Ra. #}
+  INC LR9 2 ; LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR3 ;
+  MULT.RC.VS LR0 0 LR0 CR15.L {{ q }} ; AGG.SUM{% if h == 0 %}.FIRST{% endif %} LR0 CR15.L ;;
+  LD.MULT R0 LR9 {{ cr.tmp }} ; MULT.RC.VS LR3 0 LR0 CR15.L {{ q }} ; AGG.SUM LR0 CR15.L ;;
+  {% for cross in range(2) %}
+  {% if loop.last and h == 0 %}DEC LR9 1 ; LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ; {% endif %}
+  MULT.RC.VV LR0 R0 0 LR0 CR15.L {{ q }} ; AGG.SUM LR0 CR15.L ;;
+  {% endfor %}
  {% endfor %}
  {# Work in sum-of-squares units: epsilon and gamma compensate in fold(). #}
  {{ broadcast_sum('LD.MULT R0 LR0 ' ~ cr.epsilon ~ ' ; ') }}
@@ -297,7 +311,7 @@ row_loop:
  LD.MULT R0 LR1 {{ cr.tmp }} ;;
  {{ scalar('SUB') }}{{ save(22,1) }}
 
- {# Refine the approximate inverse standard deviation and keep three residual pieces. #}
+ {# Refine the approximate inverse standard deviation and keep two pieces. #}
  {{ load(8,true) }}{{ load(8) }}{{ mul(first=true) }}{{ save(13) }}
  {{ product(11,13,15) }}
   {# Accumulate twice the Newton correction directly; gamma carries the factor 1/2. #}
@@ -307,27 +321,30 @@ row_loop:
   MULT.RC.VE LR0 CR1 0 LR0 CR15.L {{ q }} ; ACC.ADD ;;
   {{ mul(op='SUB',tail='; INC LR1 1 ; LD.MULT R0 LR1 ' ~ cr.tmp) }}
   {{ mul(op='SUB') }}
- {{ save(19,3) }}
+  {{ save(19,2) }}
 
  SET LR15 LR2 ; SET LR5 CR0 ; SET LR11 CR0 ;;
  INC LR5 32 ; INC LR11 19 ;;
  {% for h in range(2) %}
  SET LR10 {{ 'CR0' if h == 0 else 'CR1' }} ; SET LR1 LR11 ; LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
  INC LR1 1 ; LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR3 ;;
- INC LR1 1 ; LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR4 ;;
  LD.MULT R0 LR10 {{ cr.gamma }} ;;
  {% for i in range(3) %}
- {{ mul(first=i==0) }}{{ mul(slot='LR3') }}
- {{ mul(slot='LR4',tail='; INC LR10 2 ; LD.MULT R0 LR10 ' ~ cr.gamma if not loop.last else '; SET LR1 LR7 ; ACTIVATE.QUANTIZE identity CR15.L ' ~ q ~ ' ' ~ cr.tmp ~ ' LR1') }}
+  {{ mul(first=i==0) }}
+  {{ mul(slot='LR3',tail='; INC LR10 2 ; LD.MULT R0 LR10 ' ~ cr.gamma if not loop.last else '; SET LR1 LR7 ; ACTIVATE.QUANTIZE identity CR15.L ' ~ q ~ ' ' ~ cr.tmp ~ ' LR1') }}
  {% endfor %}
  {# Encode the gain while replacing the inverse slots with centered input. #}
  LD.MULT R0 LR1 {{ cr.tmp }} ;;
  {% for slot in ['LR0','LR3'] %}
+ {% if loop.first %}
  {{ scalar('SUB',tail='; INC LR1 1 ; LD.MULT.CYCLIC LR5 ' ~ cr.tmp ~ ' ' ~ slot ~ ' ; ACTIVATE.QUANTIZE identity CR15.L ' ~ q ~ ' ' ~ cr.tmp ~ ' LR1') }}
  INC LR5 2 ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
+ {% else %}
+ LD.MULT.CYCLIC LR5 {{ cr.tmp }} {{ slot }} ;;
+ {% endif %}
  {% endfor %}
- SET LR1 LR7 ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
- {% for i in range(3) %}
+ SET LR1 LR7 ; INC LR5 2 ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
+ {% for i in range(2) %}
   {{ mul(first=loop.first) }}
   {{ mul(slot='LR3',tail='; INC LR1 1 ; LD.MULT R0 LR1 ' ~ cr.tmp if not loop.last else '; SET LR10 ' ~ ('CR0' if h == 0 else 'CR1') ~ ' ; LD.MULT R0 LR10 ' ~ cr.beta) }}
  {% endfor %}
