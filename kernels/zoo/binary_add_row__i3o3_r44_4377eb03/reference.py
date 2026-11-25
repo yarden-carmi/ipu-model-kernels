@@ -56,7 +56,7 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    """Pack one repeated operand plane into padded 128-lane rows."""
+    """Pack one broadcast plane in the same padded row order as in0."""
     height, width = params["in0_d2"], params["in0_d3"]
     operand = module.op0_const0.reshape(-1)
     plane = operand.repeat(height * width // operand.numel()).reshape(height, width)
