@@ -58,7 +58,7 @@
  {% endfor %}
 {% endmacro %}
 
-{# Broadcast one K element at a time: each lane owns one output channel. #}
+{# Broadcast each K element to a tile of output channels. #}
 {% macro coeff() %}LD.MULT.CYCLIC LR5 {{ cr.coeff }} LR0 ; INC LR5 1{% endmacro %}
 {% macro kchunk(count,label) %}
  LD.MULT R0 LR7 {{ cr.in0 }} ; SET LR10 CR0 ;;
@@ -106,7 +106,7 @@ gemm_full_chunk:
 gemm_last_tile:
  {{ gelu(tail) }}
 
-{# Center the stored GELU values; retain residual components for the variance and affine pass. #}
+{# Keep residual components of centered values for variance and affine. #}
  SET LR5 CR0 ;;
  {{ vec(first=true,s='CR0') }}
 sum:
