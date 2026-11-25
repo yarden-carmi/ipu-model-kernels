@@ -1,138 +1,121 @@
-{% set chunks = (in0_d3 + 127) // 128 %}
 {% set qi = cr.qf_in0 ~ '.L' %}
 {% set ds = cr.full ~ '.L' %}
-{% set last_input = cr.clean if in0_d3 % 128 else cr.in0 %}
-{% set single = in0_d1 == 1 %}
-
-{# Load the center and the in-bounds neighbor into the cyclic window. #}
-{% macro products(c, y) %}
- SET LR10 LR9 ; SET LR7 CR0 ; SET LR6 LR2 ;;
- {% if y == 0 %}DEC LR10 {{ chunks }} ; {% elif y == 2 %}INC LR10 {{ chunks }} ; {% endif %}LD.MULT.CYCLIC LR10 {{ last_input if c == chunks-1 else cr.in0 }} LR2 ;;
- {% if chunks == 2 %}
- {{ 'INC' if c == 0 else 'DEC' }} LR10 1 ; LD.MULT.CYCLIC LR10 {{ last_input if c == 0 else cr.in0 }} {{ 'LR4' if c == 0 else 'LR0' }} ;;
- {% endif %}
- {% if y %}INC LR7 {{ 3*y-1 }} ; INC LR6 {{ 3*y-1 }} ;;{% else %}DEC LR7 1 ; DEC LR6 1 ;;{% endif %}
- {% for shift in ['LR1', 'LR2', 'LR3'] %}
- MULT.RC.VE {{ shift }} LR7 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ; INC LR7 1 ;;
- MULT.RC.VE {{ shift }} LR6 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ; INC LR6 1 ;;
- {% endfor %}
+{% set source = cr.clean if in0_d3 % 128 else cr.in0 %}
+{% macro count(reg, value) %}
+    SET {{ reg }} CR0 ;;
+    {% for start in range(0, value, 255) %}
+    INC {{ reg }} {{ [255, value - start] | min }} ;;
+    {% endfor %}
+{% endmacro %}
+{% macro stage(size) %}
+    MULT.RC.VE LR2 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ;;
+    ACTIVATE.QUANTIZE identity {{ size }} {{ qi }} {{ cr.clean }} LR14 ; INC LR14 1 ;;
+{% endmacro %}
+{% macro shift(reg, amount) %}
+    {% if amount %}
+    {{ 'INC' if amount > 0 else 'DEC' }} {{ reg }} {{ amount | abs }} ;;
+    {% endif %}
 {% endmacro %}
 
-{# Keep slots 2 and 3 zero. Slots 0 and 1 hold the two chunks of a
-   source scanline in order, so either output chunk can shift across them. #}
-{% macro single_products(c, y) %}
- {% set center = 'LR0' if c == 0 else 'LR2' %}
- {% set neighbor = 'LR2' if c == 0 else 'LR0' %}
- {% set shifts = ['LR4', 'LR0', 'LR9'] if c == 0 else ['LR1', 'LR2', 'LR3'] %}
- {% if y == 0 %}DEC LR10 {{ chunks }} ; {% elif y == 1 %}SET LR10 LR12 ; {% else %}INC LR10 {{ chunks - 1 if c == 0 and chunks == 2 else chunks + 1 if c == 1 else chunks }} ; {% endif %}
- LD.MULT.CYCLIC LR10 {{ last_input if c == chunks-1 else cr.in0 }} {{ center }} ;;
- {% set load_neighbor = ('INC' if c == 0 else 'DEC') ~ ' LR10 1 ; LD.MULT.CYCLIC LR10 ' ~ (last_input if c == 0 else cr.in0) ~ ' ' ~ neighbor ~ ' ;' %}
- {% if c == 1 %}{{ load_neighbor }} ;;{% endif %}
- {% for shift in shifts %}
- MULT.RC.VE {{ shift }} LR7 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ; INC LR7 1 ; {{ load_neighbor if c == 0 and chunks == 2 and loop.first else '' }} ;;
- MULT.RC.VE {{ shift }} LR6 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ; INC LR6 1 ; {{ 'BEQ LR13 ' ~ cr.last_y ~ ' single_store_' ~ c if y == 1 and loop.last else '' }} ;;
- {% endfor %}
+{# For a fixed output chunk, absent neighbor slots remain zero throughout. #}
+{% macro products(y) %}
+    SET LR10 LR13 ;;
+    {{ shift('LR10', y - padding) }}
+    BLT.S LR10 CR0 skip_{{ y }} ;;
+    BGE.S LR10 {{ cr.heights }} skip_{{ y }} ;;
+    ADD LR10 LR9 LR5 ;;
+    {% for j in range(y) %}
+    ADD LR10 LR10 {{ cr.chunks }} ;;
+    {% endfor %}
+    BGE.S LR5 {{ cr.chunks }} no_center_{{ y }} ;;
+    LD.MULT.CYCLIC LR10 {{ source }} LR2 ;;
+no_center_{{ y }}:
+    BEQ LR5 CR0 no_left_{{ y }} ;;
+    DEC LR10 1 ; LD.MULT.CYCLIC LR10 {{ source }} LR0 ;;
+    INC LR10 1 ;;
+no_left_{{ y }}:
+    INC LR10 1 ; ADD LR6 LR5 CR1 ;;
+    BGE.S LR6 {{ cr.chunks }} no_right_{{ y }} ;;
+    LD.MULT.CYCLIC LR10 {{ source }} LR3 ;;
+no_right_{{ y }}:
+    SET LR6 LR2 ; SET LR7 CR0 ; SET LR10 LR2 ;;
+    {% if padding %}DEC LR6 {{ padding }} ;;{% endif %}
+    {% if y %}INC LR7 {{ y * kw - 1 }} ; INC LR10 {{ y * kw - 1 }} ;;{% else %}DEC LR7 1 ; DEC LR10 1 ;;{% endif %}
+    {% for x in range(kw) %}
+    MULT.RC.VE LR6 LR7 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ; INC LR7 1{% if x %} ; INC LR6 1{% endif %} ;;
+    MULT.RC.VE LR6 LR10 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ; INC LR10 1 ;;
+    {% endfor %}
+skip_{{ y }}:
 {% endmacro %}
 
-{% macro single_tile(c) %}
- SET LR10 LR12 ; SET LR7 LR4 ; SET LR6 LR1 ; MULT.EE LR0 CR0 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ; BNE LR13 CR0 single_top_{{ c }} ;;
- INC LR7 3 ; INC LR6 3 ; BEQ LR0 CR0 single_middle_{{ c }} ;;
- single_top_{{ c }}:
- {{ single_products(c, 0) }}
- single_middle_{{ c }}:
- {{ single_products(c, 1) }}
- {{ single_products(c, 2) }}
- single_store_{{ c }}:
- {% if bias %}
- MULT.EE LR8 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ;;
- MULT.EE LR11 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ;
- {% endif %}
- ACTIVATE.QUANTIZE {{ act_out0 }} {{ cr.tail if c == chunks-1 else cr.full }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR14 ; INC LR14 1 ; INC LR12 1 ; {{ 'INC LR13 1 ; BLT.S LR13 ' ~ cr.last_y ~ ' row' if c == chunks-1 else '' }} ;;
-{% endmacro %}
-
-{% macro tile(c) %}
- {{ 'SET LR8 LR15 ;' if not single else '' }} SET LR9 LR12 ; LD.MULT.CYCLIC LR0 {{ cr.weights }} {{ 'LR0' if c == 0 else 'LR4' }} ;;
- {% if chunks == 1 %}LD.MULT.CYCLIC LR0 {{ cr.weights }} LR4 ;;{% endif %}
- {% if not single %}
- {% if c %}INC LR9 {{ c }} ;;{% endif %}
- LD.MULT R0 LR8 {{ cr.weights }} ;;
- LD.MULT R1 LR8 {{ cr.weights }} ; INC LR8 1 ;;
- {% endif %}
- {% if c and single %}INC LR9 {{ c }} ; {% endif %}MULT.EE LR0 CR0 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST {{ '; BEQ LR13 CR0 skip_top_' ~ c if single else '' }} ;;
-input_channel_{{ c }}:
- {% if not single %}BEQ LR13 CR0 skip_top_{{ c }} ;;{% endif %}
- {{ products(c, 0) }}
-skip_top_{{ c }}:
- {{ products(c, 1) }}
- BEQ LR13 {{ cr.last_y }} skip_bottom_{{ c }} ;;
- {{ products(c, 2) }}
-skip_bottom_{{ c }}:
- {% if not single %}
- ADD LR9 LR9 {{ cr.channel_pitch }} ; INC LR8 1 ;;
- BGE.S LR9 LR11 store_{{ c }} ;;
- LD.MULT R0 LR8 {{ cr.weights }} ;;
- LD.MULT R1 LR8 {{ cr.weights }} ; INC LR8 1 ; BEQ LR0 CR0 input_channel_{{ c }} ;;
-store_{{ c }}:
- {% if bias %}
- SET LR7 CR0 ; SET LR6 LR2 ; LD.MULT R0 LR15 {{ cr.weights }} ; SET LR10 LR15 ;;
- INC LR7 9 ; INC LR6 9 ; INC LR10 1 ; LD.MULT R1 LR10 {{ cr.weights }} ;;
- {% endif %}
- {% endif %}
- {% if bias %}
- MULT.EE {{ 'LR8' if single else 'LR7' }} CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ;;
- MULT.EE {{ 'LR11' if single else 'LR6' }} CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ;
- {% endif %}
- ACTIVATE.QUANTIZE {{ act_out0 }} {{ cr.tail if c == chunks-1 else cr.full }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR14 ; INC LR14 1 ;;
-{% endmacro %}
-
- SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
- SET LR3 CR0 ; SET LR4 CR0 ; SET LR14 CR0 ;;
- INC LR1 127 ; INC LR2 128 ; INC LR3 129 ;;
- INC LR4 255 ; DEC LR14 1 ;;
- INC LR4 1 ;;
- {% if in0_d3 % 128 %}
- SET LR9 CR0 ;;
- {% if chunks > 1 %}INC LR9 {{ chunks-1 }} ;;{% endif %}
+    SET LR0 CR0 ; SET LR2 CR0 ; SET LR3 CR0 ;;
+    SET LR14 CR0 ; SET LR15 CR1 ; SET LR1 CR1 ;;
+    SET LR11 CR0 ;;
+    INC LR2 128 ; INC LR3 255 ; DEC LR14 1 ;;
+    INC LR3 1 ;;
+{% if in0_d3 % 128 %}
+    SET LR9 CR0 ;;
+    {{ count('LR12', in0_d1) }}
+clean_channel:
+    SET LR13 {{ cr.heights }} ;;
+clean_row:
+    SET LR5 {{ cr.chunks }} ;;
+clean_chunk:
+    LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR2 ; BEQ LR5 CR1 clean_tail ;;
+    {{ stage(ds) }}
+    INC LR9 1 ; DEC LR5 1 ; BEQ LR0 CR0 clean_chunk ;;
 clean_tail:
- LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR2 ;;
- MULT.RC.VE LR2 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ cr.tail }}.L {{ qi }} {{ cr.clean }} LR9 ;;
- INC LR9 {{ chunks }} ;;
- BLT.S LR9 LR5 clean_tail ;;
- {% endif %}
-
- {% if single %}
- SET LR4 CR0 ; SET LR9 CR1 ;
- LD.MULT.CYCLIC LR0 {{ cr.weights }} LR0 ;;
- DEC LR4 1 ; LD.MULT.CYCLIC LR0 {{ cr.weights }} LR2 ;;
- {# At startup all other cyclic slots are zero and are never written. #}
- {% endif %}
- {% if single and bias %}
- SET LR8 CR0 ; SET LR11 LR2 ;;
- INC LR8 9 ; INC LR11 9 ;;
- {% endif %}
- SET LR5 CR0 ;;
-batch:
- SET LR15 CR1 ;;
-output_channel:
- {% if single %}
- LD.MULT R0 LR15 {{ cr.weights }} ;;
- INC LR15 1 ; LD.MULT R1 LR15 {{ cr.weights }} ;;
- {% endif %}
- SET LR12 LR5 ; SET LR13 CR0 ;;
+    {{ stage(cr.tail ~ '.H') }}
+    INC LR9 1 ; DEC LR13 1 ;;
+    BNE LR13 CR0 clean_row ;;
+    DEC LR12 1 ;;
+    BNE LR12 CR0 clean_channel ;;
+    SET LR14 CR0 ;;
+    DEC LR14 1 ;;
+{% endif %}
+group:
+    ADD LR11 LR11 {{ cr.group_rows }} ; ADD LR1 LR1 {{ cr.group_weights }} ;;
+channel:
+    SUB LR12 LR11 {{ cr.group_rows }} ; SET LR13 CR0 ;;
+    {% for j in range(padding) %}
+    SUB LR12 LR12 {{ cr.chunks }} ;;
+    {% endfor %}
 row:
- {% if not single %}ADD LR11 LR12 {{ cr.batch_pitch }} ;;{% endif %}
- {% for c in range(chunks) %}{{ single_tile(c) if single else tile(c) }}{% endfor %}
- {% if not single %}
- INC LR12 {{ chunks }} ; INC LR13 1 ;;
- BGE.S {{ cr.last_y }} LR13 row ;;
- {% endif %}
- {% if single %}
- INC LR15 1 ; BLT.S LR15 {{ cr.last_weight }} output_channel ;;
- {% else %}
- SET LR15 LR8 ; BLT.S LR8 {{ cr.weight_rows }} output_channel ;;
- {% endif %}
- ADD LR5 LR5 {{ cr.batch_pitch }} ; INC LR14 1 ;;
- BLT.S LR14 {{ cr.out_rows }} more_batches ;;
- HALT ;;
-more_batches:
- DEC LR14 1 ; BEQ LR0 CR0 batch ;;
+    SET LR5 CR0 ;;
+chunk:
+    SET LR8 LR15 ; SET LR9 LR12 ;;
+    LD.MULT.CYCLIC LR0 {{ cr.weights }} LR0 ;;
+    LD.MULT.CYCLIC LR0 {{ cr.weights }} LR2 ;;
+    LD.MULT.CYCLIC LR0 {{ cr.weights }} LR3 ;;
+    MULT.RC.VE LR0 CR0 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ;;
+input_channel:
+    LD.MULT R0 LR8 {{ cr.weights }} ;;
+    INC LR8 1 ;;
+    LD.MULT R1 LR8 {{ cr.weights }} ;;
+    INC LR8 1 ;;
+    {% for y in range(kh) %}{{ products(y) }}{% endfor %}
+    ADD LR9 LR9 {{ cr.pitch }} ;;
+    {# Compare at the same vertical origin as the plane limit. #}
+    SET LR10 LR9 ;;
+    {% for j in range(padding) %}
+    ADD LR10 LR10 {{ cr.chunks }} ;;
+    {% endfor %}
+    BLT.S LR10 LR11 input_channel ;;
+    {% if bias %}
+    LD.MULT R0 LR15 {{ cr.weights }} ; SET LR7 CR0 ; ADD LR6 LR15 CR1 ;;
+    LD.MULT R1 LR6 {{ cr.weights }} ; SET LR10 LR2 ;;
+    MULT.EE LR7 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ; INC LR7 {{ kh * kw }} ;;
+    MULT.EE LR10 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ; INC LR10 {{ kh * kw }} ;;
+    {% endif %}
+    INC LR5 1 ;;
+    {{ count('LR10', (out0_d3 + 127) // 128) }}
+    BEQ LR5 LR10 tail ;;
+    ACTIVATE.QUANTIZE {{ act_out0 }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR14 ; INC LR14 1 ; BEQ LR0 CR0 chunk ;;
+tail:
+    ACTIVATE.QUANTIZE {{ act_out0 }} {{ cr.tail }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR14 ; INC LR14 1 ; INC LR13 1 ;;
+    ADD LR12 LR12 {{ cr.chunks }} ;;
+    {{ count('LR10', out0_d2) }}
+    BLT.S LR13 LR10 row ;;
+    SET LR15 LR8 ; BLT.S LR8 LR1 channel ;;
+    BLT.S LR8 {{ cr.weight_rows }} group ;;
+    HALT ;;
