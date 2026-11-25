@@ -64,24 +64,25 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    """Fold inference batch norm and pack output-channel vectors by k."""
-    n, k = params["n"], params["k"]
-    if hasattr(module, "op0_weight"):
+    """Fold inference batch norm and pack bias/weights into channel tiles."""
+    n, k = params['n'], params['k']
+    if hasattr(module, 'op1_running_var'):
         scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
         weight = module.op0_weight.double().reshape(n, k) * scale[:, None]
         bias = module.op1_bias.double() - module.op1_running_mean.double() * scale
+        if getattr(module, 'op0_bias', None) is not None:
+            bias = bias + module.op0_bias.double() * scale
     else:
         weight = module.weight.double().reshape(n, k)
-        bias = getattr(module, "bias", None)
-    if bias is None or not params["bias"]:
-        bias = weight.new_zeros(n)
+        bias = getattr(module, 'bias', None)
 
-    padded = ((n + 127) // 128) * 128
-    rows = weight.new_zeros((k + 1, padded))
-    rows[0, :n] = bias
+    rows = weight.new_zeros((k + 1, ((n + 127) // 128) * 128))
+    if params['bias'] and bias is not None:
+        rows[0, :n] = bias
     rows[1:, :n] = weight.T
     rows = rows.reshape(k + 1, -1, 128).transpose(0, 1).reshape(-1, 128)
-    _, exp = torch.frexp(rows.abs().amax(dim=1, keepdim=True))
-    step = torch.ldexp(torch.ones_like(exp, dtype=rows.dtype), exp - 4)
+    # Independently quantized coarse and residual rows retain small coefficients.
+    _, exponent = torch.frexp(rows.abs().amax(dim=1, keepdim=True))
+    step = torch.ldexp(torch.ones_like(exponent, dtype=rows.dtype), exponent - 4)
     coarse = torch.round(rows / step) * step
-    return {"coeff": torch.stack((coarse, rows - coarse), dim=1).reshape(-1, 128)}
+    return {'coeff': torch.stack((coarse, rows - coarse), dim=1).reshape(-1, 128)}

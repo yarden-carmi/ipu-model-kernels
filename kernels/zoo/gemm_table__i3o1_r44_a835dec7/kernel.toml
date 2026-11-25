@@ -1,6 +1,6 @@
 [kernel]
 op = "gemm_table"
-formats = ["e2"]
+formats = ["e1", "e2"]
 
 [params.act_out0]
 type = "str"
@@ -12,18 +12,18 @@ default = true
 [params.k]
 type = "int"
 min = 1
-max = 4096
+max = 65535
 default = 16
-[params.n]
-type = "int"
-min = 1
-max = 4096
-default = 64
 [params.m]
 type = "int"
 min = 1
 max = 65535
 default = 16384
+[params.n]
+type = "int"
+min = 1
+max = 65535
+default = 64
 [params.in0_d0]
 type = "int"
 min = 1
@@ -32,7 +32,7 @@ default = 1
 [params.in0_d1]
 type = "int"
 min = 1
-max = 4096
+max = 65535
 default = 16
 [params.in0_d2]
 type = "int"
@@ -52,7 +52,7 @@ default = 1
 [params.out0_d1]
 type = "int"
 min = 1
-max = 4096
+max = 65535
 default = 64
 [params.out0_d2]
 type = "int"
@@ -68,12 +68,11 @@ default = 128
 [derived]
 stripes = "in0_d0 * in0_d2"
 blocks = "ceil(n / 128)"
-last = "blocks - 1"
 full_ds = "ds(128)"
-tail_ds = "ds(n - 128 * last)"
+tail_ds = "ds(n - 128 * (blocks - 1))"
 
 [inputs.in0]
-shape = ["stripes * k", 128]
+shape = ["stripes * in0_d1", 128]
 range = [-2, 2]
 [inputs.coeff]
 shape = ["blocks * 2 * (k + 1)", 128]
@@ -82,7 +81,7 @@ range = [-1, 1]
 shape = [5, 128]
 range = [0, 0]
 [outputs.out0]
-shape = ["m * blocks", 128]
+shape = ["out0_d0 * out0_d2 * out0_d3 * ceil(out0_d1 / 128)", 128]
 
 [abi]
 in0 = "CR2"
@@ -92,10 +91,10 @@ lut = "CR5"
 qf_in0 = "CR6"
 qf_out0 = "CR7"
 k = "CR8"
-stripes = "CR9"
 in0_d3 = "CR10"
-last = "CR11"
+stripes = "CR11"
 full_ds = "CR12"
 tail_ds = "CR13"
+blocks = "CR14"
 
 [cases.default]
