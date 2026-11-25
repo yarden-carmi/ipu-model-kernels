@@ -11,8 +11,8 @@
     INC LR2 1 {% if full_tile %}; BNE LR4 CR0 copy_tile{% endif %} ;;
 {% endmacro %}
 
-# A coefficient pair holds 16 taps. Keep it resident while streaming
-# spatial windows through the cyclic register, one window per tap.
+# Keep the coarse and residual coefficients for 16 taps resident
+# while streaming spatial windows through the cyclic register.
 {% macro group(tag, count, repeat) %}
 {{ tag }}_group:
     LD.MULT R0 LR3 {{ cr.coeff }} ; SET LR8 LR0 ; SET LR9 LR11 ;;
