@@ -8,7 +8,7 @@ default = true
 [params.s0_k]
 type = "int"
 min = 1
-max = 8192
+max = 512
 default = 384
 [params.s0_m]
 type = "int"
@@ -51,7 +51,7 @@ default = 64
 [params.in0_d2]
 type = "int"
 min = 1
-max = 8192
+max = 512
 default = 384
 [params.in1_d0]
 type = "int"
@@ -92,12 +92,14 @@ tail = "ds((s0_m - 1) % 128 + 1)"
 slot = "128"
 quotient = "s0_m // 128"
 batch_size = "in1_d1 * in1_d2"
+batch_rows = "ceil(batch_size / 128)"
+block_stride = "128 * chunks"
 
 [inputs.in0]
 shape = ["in0_d0 * in0_d1 * chunks", 128]
 range = [-2, 2]
 [inputs.in1]
-shape = ["in1_d0 * ceil(batch_size / 128)", 128]
+shape = ["in1_d0 * batch_rows", 128]
 range = [-2, 2]
 [inputs.w]
 shape = ["s0_n * (chunks + 1)", 128]
@@ -118,7 +120,7 @@ tail = "CR10"
 slot = "CR11"
 blocks = "CR12"
 s0_n = "CR13"
-quotient = "CR14"
-chunks = "CR15"
+batch_size = "CR14"
+batch_rows = "CR15"
 
 [cases.default]
