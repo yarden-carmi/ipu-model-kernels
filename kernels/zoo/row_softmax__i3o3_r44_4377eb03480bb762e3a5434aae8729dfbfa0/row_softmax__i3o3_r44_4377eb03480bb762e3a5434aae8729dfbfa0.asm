@@ -7,7 +7,7 @@
     MULT.VE LR0 CR0 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ;;
 {% endmacro %}
 
-{# Store the powers of two used to construct both coefficients exactly. #}
+{# Build the dyadic coefficients from nearby powers of two. #}
 {% macro power(delta,slot) %}
 {% for i in range(delta) %}
     MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB{% if loop.last %} ; ACTIVATE.QUANTIZE exp2 {{ full }} {{ q }} {{ cr.tmp }} {{ slot }}{% endif %} ;;
@@ -38,30 +38,15 @@
     BEQ {{ cr.tail }} {{ cr.full }} pair_row ;;
 dispatch_single:
     BEQ LR8 CR0 single_start ;;
-{% macro exp_store(ds, load='', first_load='', second_load='') %}
-{# Two dyadic terms approximate log2(e)/2 with relative error below 5e-5. #}
-{% for index in ['LR0','LR13'] %}
-    MULT.RC.VV {{ index }} R0 0 LR0 {{ ds }} {{ q }} ; ACC.ADD{% if loop.first %}.FIRST {{ first_load }}{% endif %} ;;
-    MULT.RC.VE {{ index }} LR13 0 LR0 {{ ds }} {{ q }} ; ACC.SUB{% if loop.last %} ; ACTIVATE.QUANTIZE exp2 {{ ds }} {{ root }} {{ cr.roots }} LR3 {{ load }}{% else %} {{ second_load }}{% endif %} ;;
-{% endfor %}
-{% endmacro %}
-{% macro normalize_store(ds, extra='') %}
-    MULT.RC.VV LR0 R0 0 LR0 {{ ds }} {{ root }} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE {{ 'relu' if act_out0 | default('identity') == 'identity' else act_out0 }} {{ ds }} {{ qo }} {{ cr.out0 }} LR4 ; INC LR4 1 {{ extra }} ;;
-{% endmacro %}
-{% macro normalize(ds, label, next_label='') %}
-    MULT.RC.VE LR0 LR13 0 LR0 {{ ds }} {{ root }} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ ds }} {{ root }} {{ cr.exps }} LR0 ;;
-    LD.MULT R0 LR0 {{ cr.exps }}{% if not next_label %} ; ADD LR2 LR2 {{ cr.K }}{% endif %} ;;
-{% if next_label == 'pair' %}
-{{ normalize_store(ds, '; LD.MULT.CYCLIC LR1 ' ~ cr.roots ~ ' LR0') }}
-{% elif next_label %}
-{{ normalize_store(ds, '; LD.MULT.CYCLIC LR3 ' ~ cr.roots ~ ' LR0 ; INC LR3 1 ; BLT.S LR3 LR7 ' ~ next_label) }}
-{% else %}
-{{ normalize_store(ds, '; BLT.S LR2 ' ~ cr.M ~ ' ' ~ label ~ '_row') }}
+{% macro process(label, paired, single=false) %}
+{% if single %}
+single_start:
+    LD.MULT R0 LR2 {{ cr.in0 }} ; SET LR1 CR1 ; SET LR3 CR0 ; DEC LR4 1 ;;
 {% endif %}
-{% endmacro %}
-{% macro process(label, paired) %}
 {{ label }}_row:
-{% if paired %}
+{% if single %}
+    MULT.VE LR0 CR1 0 LR0 {{ tail }} {{ q }} ; AGG.MAX.FIRST LR0 {{ tail }} ; ACTIVATE.QUANTIZE identity {{ cr.single }}.H {{ q }} {{ cr.tmp }} LR1 ; LD.MULT.CYCLIC LR6 {{ cr.tmp }} LR0 ;;
+{% elif paired %}
     LD.MULT R0 LR2 {{ cr.in0 }} ; ADD LR4 LR2 CR1 ; SET LR3 CR0 ; SET LR1 CR1 ;;
     MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; AGG.MAX.FIRST LR0 {{ full }} ; LD.MULT R0 LR4 {{ cr.in0 }} ;;
     MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; AGG.MAX LR0 {{ full }} ; ACTIVATE.QUANTIZE identity {{ cr.single }}.H {{ q }} {{ cr.tmp }} LR1 ; LD.MULT.CYCLIC LR6 {{ cr.tmp }} LR0 ;;
@@ -83,14 +68,24 @@ dispatch_single:
     SET LR1 CR1 ;;
     ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
 {% endif %}
-{% if not paired %}
+{% if not paired and not single %}
     SUB LR4 LR2 CR1 ; LD.MULT.CYCLIC LR6 {{ cr.tmp }} LR0 ;;
-{% endif %}
-{% if not paired %}
     LD.MULT R1 LR1 {{ cr.tmp }} ;;
 {% endif %}
-{% if paired %}
-{# Stream both roots without rescaling. Load the first after its coefficient's last use. #}
+{% macro exp_store(ds, load='', first_load='', second_load='') %}
+{# Two dyadic terms approximate log2(e)/2 with relative error below 5e-5. #}
+{% for index in ['LR0','LR13'] %}
+    MULT.RC.VV {{ index }} R0 0 LR0 {{ ds }} {{ q }} ; ACC.ADD{% if loop.first %}.FIRST {{ first_load }}{% endif %} ;;
+    MULT.RC.VE {{ index }} LR13 0 LR0 {{ ds }} {{ q }} ; ACC.SUB{% if loop.last %} ; ACTIVATE.QUANTIZE exp2 {{ ds }} {{ root }} {{ cr.roots }} LR3 {{ load }}{% else %} {{ second_load }}{% endif %} ;;
+{% endfor %}
+{% endmacro %}
+{% if single %}
+{# R0 still holds the input from the max reduction. #}
+{{ exp_store(tail, '', '; LD.MULT R1 LR1 ' ~ cr.tmp ~ ' ; INC LR2 1') }}
+    LD.MULT.CYCLIC LR0 {{ cr.roots }} LR0 ;;
+    MULT.RC.VS LR0 0 LR0 {{ tail }} {{ root }} ; AGG.SUM.FIRST LR0 {{ tail }} ; ACTIVATE.QUANTIZE reciprocal {{ cr.single }}.H {{ root }} {{ cr.tmp }} LR0 ;;
+{% elif paired %}
+{# Prefetch the first root once its cyclic coefficient slot is free. #}
 {{ exp_store(full, '; LD.MULT R0 LR4 ' ~ cr.in0, '; LD.MULT R1 LR1 ' ~ cr.tmp) }}
 {{ exp_store(full, '', '; INC LR3 1', '; LD.MULT.CYCLIC LR0 ' ~ cr.roots ~ ' LR0') }}
     MULT.RC.VS LR0 0 LR0 {{ full }} {{ root }} ; AGG.SUM.FIRST LR0 {{ full }} ; LD.MULT.CYCLIC LR3 {{ cr.roots }} LR0 ;;
@@ -110,34 +105,36 @@ dispatch_single:
 {{ label }}_sum_tail:
     MULT.RC.VS LR0 0 LR0 {{ tail }} {{ root }} ; AGG.SUM LR0 {{ tail }} ; ACTIVATE.QUANTIZE reciprocal {{ cr.single }}.H {{ root }} {{ cr.tmp }} LR0 ;;
 {% endif %}
-    LD.MULT R1 LR0 {{ cr.tmp }} ; SUB LR4 LR2 CR1 ; SET LR3 CR0 ;;
+    LD.MULT R1 LR0 {{ cr.tmp }}{% if not single %} ; SUB LR4 LR2 CR1 ; SET LR3 CR0{% endif %} ;;
 
-{% if paired %}
-{{ normalize(full, label, 'pair') }}
-{{ normalize(full, label) }}
-{% else %}
+{% if not paired and not single %}
     LD.MULT.CYCLIC LR3 {{ cr.roots }} LR0 ; BEQ LR8 CR0 {{ label }}_normalize_tail ;;
 {{ label }}_normalize_loop:
-{{ normalize(full, label, label ~ '_normalize_loop') }}
+{% endif %}
+{% macro normalize(ds, next_label='') %}
+    MULT.RC.VE LR0 LR13 0 LR0 {{ ds }} {{ root }} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ ds }} {{ root }} {{ cr.exps }} LR0 ;;
+    LD.MULT R0 LR0 {{ cr.exps }}{% if not next_label %} ; ADD LR2 LR2 {{ cr.K }}{% endif %} ;;
+    MULT.RC.VV LR0 R0 0 LR0 {{ ds }} {{ root }} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE {{ 'relu' if act_out0 | default('identity') == 'identity' else act_out0 }} {{ ds }} {{ qo }} {{ cr.out0 }} LR4 ; INC LR4 1{% if next_label == 'pair' %} ; LD.MULT.CYCLIC LR1 {{ cr.roots }} LR0{% elif next_label %} ; LD.MULT.CYCLIC LR3 {{ cr.roots }} LR0 ; INC LR3 1 ; BLT.S LR3 LR7 {{ next_label }}{% else %} ; BLT.S LR2 {{ cr.M }} {{ label }}_row{% endif %} ;;
+{% endmacro %}
+{% if paired %}
+{{ normalize(full, 'pair') }}
+{{ normalize(full) }}
+{% elif single %}
+    MULT.RC.VE LR0 LR13 0 LR0 {{ tail }} {{ root }} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ tail }} {{ root }} {{ cr.exps }} LR0 ;;
+    LD.MULT R0 LR0 {{ cr.exps }} ; BEQ LR2 {{ cr.M }} single_last ;;
+{% macro single_store(extra='') %}
+    MULT.RC.VV LR0 R0 0 LR0 {{ tail }} {{ root }} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE {{ 'relu' if act_out0 | default('identity') == 'identity' else act_out0 }} {{ tail }} {{ qo }} {{ cr.out0 }} LR4 ; INC LR4 1 {{ extra }} ;;
+{% endmacro %}
+{{ single_store('; LD.MULT R0 LR2 ' ~ cr.in0 ~ ' ; B single_row') }}
+single_last:
+{{ single_store() }}
+{% else %}
+{{ normalize(full, label ~ '_normalize_loop') }}
 {{ label }}_normalize_tail:
-{{ normalize(tail, label) }}
+{{ normalize(tail) }}
 {% endif %}
     HALT ;;
 {% endmacro %}
 {{ process('generic', false) }}
 {{ process('pair', true) }}
-single_start:
-    LD.MULT R0 LR2 {{ cr.in0 }} ; SET LR1 CR1 ; SET LR3 CR0 ; DEC LR4 1 ;;
-single_row:
-{# Keep the input in R0 from max through exponentiation; no tile loops. #}
-    MULT.VE LR0 CR1 0 LR0 {{ tail }} {{ q }} ; AGG.MAX.FIRST LR0 {{ tail }} ; ACTIVATE.QUANTIZE identity {{ cr.single }}.H {{ q }} {{ cr.tmp }} LR1 ; LD.MULT.CYCLIC LR6 {{ cr.tmp }} LR0 ;;
-{{ exp_store(tail, '', '; LD.MULT R1 LR1 ' ~ cr.tmp) }}
-    LD.MULT.CYCLIC LR0 {{ cr.roots }} LR0 ;;
-    MULT.RC.VS LR0 0 LR0 {{ tail }} {{ root }} ; AGG.SUM.FIRST LR0 {{ tail }} ; ACTIVATE.QUANTIZE reciprocal {{ cr.single }}.H {{ root }} {{ cr.tmp }} LR0 ;;
-    LD.MULT R1 LR0 {{ cr.tmp }} ;;
-    MULT.RC.VE LR0 LR13 0 LR0 {{ tail }} {{ root }} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ tail }} {{ root }} {{ cr.exps }} LR0 ; INC LR2 1 ;;
-    LD.MULT R0 LR0 {{ cr.exps }} ; BEQ LR2 {{ cr.M }} single_last ;;
-{{ normalize_store(tail, '; LD.MULT R0 LR2 ' ~ cr.in0 ~ ' ; B single_row') }}
-single_last:
-{{ normalize_store(tail) }}
-    HALT ;;
+{{ process('single', false, true) }}
