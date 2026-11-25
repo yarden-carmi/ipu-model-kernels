@@ -8,7 +8,7 @@
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ mask }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;
 {% endmacro %}
 
-// Within each k plane, lanes follow a + d0*j, matching in0's view.
+// Physical in0 is dense: its flat order already matches the transposed view.
 {% if valid == 128 %}
     LD.MULT R0 LR2 {{ cr.in0 }} ; INC LR8 128 ;;
 stream:
@@ -17,7 +17,7 @@ stream:
 final:
     {{ second('LR8', 'CR15.L') }} HALT ;;
 {% else %}
-// LR2:LR4 tracks the dense input across padded output plane boundaries.
+// LR2 and LR4 locate the input row and lane for each padded output row.
     INC LR6 128 ; SET LR3 {{ cr.width }} ;;
 row:
     LD.MULT R0 LR2 {{ cr.in0 }} ; ADD LR7 LR2 CR1 ; BEQ LR3 CR1 tail ;;
