@@ -1,5 +1,5 @@
-// Packed in0 follows the view's (d2,d1,d0) traversal. The other tensors
-// follow that same traversal but start each d2 plane on a row boundary.
+// Match the logical view's (d2,d1,d0) traversal. Only in1 and out0
+// round each plane up to a row; in0 is a dense stream.
 {% set plane = out0_d0 * out0_d1 %}
 {% set valid = (plane - 1) % 128 + 1 %}
 {% macro first(mask) %}
@@ -12,9 +12,9 @@
 
 {% if plane % 128 == 0 %}
     LD.MULT R0 LR1 {{ cr.in0 }} ;;
-aligned:
+row:
     {{ first('CR15.L') }} SET LR3 LR1 ; BEQ LR1 {{ cr.last_row }} final ;;
-    {{ store('CR15.L', 'LR3') }} LD.MULT R0 LR1 {{ cr.in0 }} ; INC LR1 1 ; B aligned ;;
+    {{ store('CR15.L', 'LR3') }} LD.MULT R0 LR1 {{ cr.in0 }} ; INC LR1 1 ; B row ;;
 final:
     {{ store('CR15.L') }} HALT ;;
 {% else %}
@@ -28,11 +28,9 @@ full_row:
     LD.MULT R1 LR2 {{ cr.in0 }} ;;
 full_ready:
     {{ first('CR15.L') }} ;;
-    {{ store('CR15.L') }} ;;
-    INC LR1 1 ; INC LR3 1 ;;
-    BLT.S LR3 {{ cr.full }} full_row ;;
+    {{ store('CR15.L') }} INC LR1 1 ; INC LR3 1 ; BLT.S LR3 {{ cr.full }} full_row ;;
 {% endif %}
-    // The tail straddles two input rows only if offset + length > 128.
+    // Fetch the next input row only if this plane's tail crosses into it.
     LD.MULT R0 LR2 {{ cr.in0 }} ; SET LR5 LR4 ;;
     INC LR5 {{ valid }} ;;
     BGE.S LR6 LR5 tail_ready ; ADD LR7 LR2 CR1 ;;
