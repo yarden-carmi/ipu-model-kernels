@@ -30,10 +30,8 @@ locate:
 {% if in0_d2 <= 128 %}
     LD.MULT R0 LR6 {{ cr.in0 }} ; SET LR9 LR7 ;;
 {% elif in0_d2 <= 256 %}
-    BLT.S LR7 LR13 low ; ADD LR10 LR6 CR1 ;;
-    LD.MULT R0 LR10 {{ cr.in0 }} ; SUB LR9 LR7 LR13 ; B loaded ;;
-low:
-    LD.MULT R0 LR6 {{ cr.in0 }} ; SET LR9 LR7 ;;
+    LD.MULT R0 LR6 {{ cr.in0 }} ; SET LR9 LR7 ; ADD LR10 LR6 CR1 ; BLT.S LR7 LR13 loaded ;;
+    LD.MULT R0 LR10 {{ cr.in0 }} ; SUB LR9 LR7 LR13 ;;
 loaded:
 {% else %}
     SET LR10 LR6 ; SET LR9 LR7 ;;
