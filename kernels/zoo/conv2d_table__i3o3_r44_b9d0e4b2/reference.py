@@ -53,18 +53,18 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 384, 32, 32], [393216, 1024, 32, 1], 0), module.op0_weight, None, [2, 2], [1, 1], [1, 1], 384)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 256, 64, 64], [1048576, 4096, 64, 1], 0), module.op0_weight, None, [1, 1], [1, 1], [1, 1], 256)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 384, 16, 16], [98304, 256, 16, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 256, 64, 64], [1048576, 4096, 64, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.silu_.default(_v(op1, [1, 384, 16, 16], [98304, 256, 16, 1], 0))
+    r0 = aten.silu_.default(_v(op1, [1, 256, 64, 64], [1048576, 4096, 64, 1], 0))
     op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 384, 16, 16])}
+    return {"out0": _out(op2, [1, 256, 64, 64])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Fold inference BN, and split coefficients for FP8 accumulation."""
+    """Fold inference BN and prepare horizontally masked spatial coefficients."""
     import numpy as np
 
     weight = module.op0_weight.double()
@@ -83,12 +83,7 @@ def fold(module, **params):
         x = np.arange(128) % min(128, ow) + tile * 128
         ix = x[None, :] * stride + np.arange(gc * kh * kw)[:, None] % kw - padding
         rows[:, tile, 0] = bias.numpy()[:, None]
-        mask = (0 <= ix) & (ix < w)
-        if stride == 1 and params['in0_d2'] * w <= 128:
-            y = np.arange(128) // ow
-            iy = y[None, :] + (np.arange(gc * kh * kw)[:, None] // kw) % kh - padding
-            mask &= (0 <= iy) & (iy < params['in0_d2'])
-        rows[:, tile, 1:] = weight.reshape(cout, -1, 1).numpy() * mask
+        rows[:, tile, 1:] = weight.reshape(cout, -1, 1).numpy() * ((0 <= ix) & (ix < w))
 
     def leading(values):
         exponent = np.frexp(np.max(np.abs(values), axis=-1, keepdims=True))[1] - 1

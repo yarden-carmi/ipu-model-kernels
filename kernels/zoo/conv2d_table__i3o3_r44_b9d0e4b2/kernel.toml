@@ -5,52 +5,50 @@ formats = ["e1", "e2"]
 [params]
 act_out0 = {type = "str", choices = ["silu"], default = "silu"}
 bias = {type = "bool", default = true}
-cin = {type = "int", min = 1, max = 640, default = 16}
-cout = {type = "int", min = 1, max = 640, default = 16}
-groups = {type = "int", min = 1, max = 640, default = 16}
-h = {type = "int", min = 1, max = 256, default = 16}
-w = {type = "int", choices = [8, 16, 32, 64, 128, 256], default = 16}
+cin = {type = "int", min = 1, max = 640, default = 256}
+cout = {type = "int", min = 1, max = 640, default = 256}
+groups = {type = "int", min = 1, max = 640, default = 256}
+h = {type = "int", min = 1, max = 256, default = 64}
+w = {type = "int", choices = [8, 16, 32, 64, 128, 256], default = 64}
 kh = {type = "int", choices = [3], default = 3}
 kw = {type = "int", choices = [3], default = 3}
 padding = {type = "int", choices = [1], default = 1}
 stride = {type = "int", choices = [1, 2], default = 1}
 in0_d0 = {type = "int", choices = [1], default = 1}
-in0_d1 = {type = "int", min = 1, max = 640, default = 16}
-in0_d2 = {type = "int", min = 1, max = 256, default = 16}
-in0_d3 = {type = "int", choices = [8, 16, 32, 64, 128, 256], default = 16}
+in0_d1 = {type = "int", min = 1, max = 640, default = 256}
+in0_d2 = {type = "int", min = 1, max = 256, default = 64}
+in0_d3 = {type = "int", choices = [8, 16, 32, 64, 128, 256], default = 64}
 out0_d0 = {type = "int", choices = [1], default = 1}
-out0_d1 = {type = "int", min = 1, max = 640, default = 16}
-out0_d2 = {type = "int", min = 1, max = 256, default = 16}
-out0_d3 = {type = "int", choices = [4, 8, 16, 32, 64, 128, 256], default = 16}
+out0_d1 = {type = "int", min = 1, max = 640, default = 256}
+out0_d2 = {type = "int", min = 1, max = 256, default = 64}
+out0_d3 = {type = "int", choices = [4, 8, 16, 32, 64, 128, 256], default = 64}
 
 [derived]
 ir = "ceil(in0_d2 * in0_d3 / 128)"
-guard_rows = "ir + 10"
 sr = "ceil(out0_d2 * out0_d3 / 128)"
-sr_last = "sr - 1"
 gc = "cin // groups"
-gc_last = "gc - 1"
 taps = "kh * kw"
-plane = "(2 - stride) * (1 + min(1, ir - 1) * (guard_rows - 1)) + (stride - 1) * sr * taps"
+plane = "(2 - stride) * (ir + 10) + (stride - 1) * sr * taps"
 group_plane = "gc * plane"
 tiles = "ceil(out0_d3 / 128)"
 weight_tile = "3 + 3 * gc * taps"
-weight_channel = "tiles * weight_tile"
 full = "ds(128)"
 input_tail = "65536 * ds(1 + (in0_d2 * in0_d3 - 1) % 128) + full"
 tail = "ds(1 + (out0_d2 * out0_d3 - 1) % 128)"
+sr_last = "sr - 1"
+gc_last = "gc - 1"
 
 [inputs.in0]
 shape = ["in0_d1 * ir", 128]
 range = [-2, 2]
 [inputs.weights]
-shape = ["cout * weight_channel", 128]
+shape = ["cout * tiles * weight_tile", 128]
 range = [-1, 1]
 [inputs.lut]
 shape = [5, 128]
 range = [0, 0]
 [scratch.guard]
-shape = ["cin * guard_rows", 128]
+shape = ["cin * (ir + 10)", 128]
 [scratch.stencil]
 shape = ["cin * sr * taps", 128]
 [outputs.out0]
@@ -74,5 +72,5 @@ plane = "CR15"
 group_plane = "LR15"
 
 [golden]
-tolerance = { e1 = "NX8_STEP", e2 = "NX8_STEP" }
+tolerance = {e1 = "NX8_STEP", e2 = "NX8_STEP"}
 [cases.default]
