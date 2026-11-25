@@ -89,4 +89,5 @@ def fold(module, **params):
                    for t in (module.op2_weight, module.op2_bias)]
     reciprocal = split(w.new_full((1, 128), 1 / params['s1_channels'])).reshape(3, 128)
     eps = w.new_full((1, 128), params['s1_eps'])
-    return {'coeff': coeff, 'norm': torch.cat((reciprocal, eps, torch.cat((gamma, beta), dim=1).reshape(-1, 128)))}
+    affine = torch.cat((gamma, beta), dim=1).reshape(-1, 128)
+    return {'coeff': coeff, 'norm': torch.cat((reciprocal, eps, affine))}
