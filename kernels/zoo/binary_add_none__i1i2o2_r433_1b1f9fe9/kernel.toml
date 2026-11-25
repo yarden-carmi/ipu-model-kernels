@@ -1,0 +1,64 @@
+[kernel]
+op = "binary_add"
+formats = ["e2"]
+
+[params]
+broadcast = { type = "str", choices = ["none"], default = "none" }
+inner = { type = "int", min = 0, max = 0, default = 0 }
+op = { type = "str", choices = ["add"], default = "add" }
+numel = { type = "int", min = 1, max = 16777216, default = 49152 }
+in0_d0 = { type = "int", min = 1, max = 1, default = 1 }
+in0_d1 = { type = "int", min = 1, max = 16384, default = 192 }
+in0_d2 = { type = "int", min = 1, max = 16384, default = 16 }
+in0_d3 = { type = "int", min = 1, max = 16384, default = 16 }
+in1_d0 = { type = "int", min = 1, max = 16384, default = 4 }
+in1_d1 = { type = "int", min = 1, max = 16384, default = 64 }
+in1_d2 = { type = "int", min = 1, max = 16384, default = 192 }
+out0_d0 = { type = "int", min = 1, max = 16384, default = 4 }
+out0_d1 = { type = "int", min = 1, max = 16384, default = 64 }
+out0_d2 = { type = "int", min = 1, max = 16384, default = 192 }
+
+[derived]
+blocks = "ceil(out0_d2 / 128)"
+patch_step = "out0_d0 * blocks"
+plane_step = "out0_d1 * blocks"
+positions_blocks = "out0_d1 + 65536 * blocks"
+channels_phases = "out0_d2 + 65536 * out0_d0"
+# Unsigned e1 scalars: 2^9, 2^-9, and zero in NX8 respectively.
+scale_up = "68 * 16777216 + 65536 + 136 * 256"
+scale_down = "59 * 16777216 + 65536 + 118 * 256"
+scale_correction = "55 * 16777216 + 65536 + 128"
+pack = "1 + (out0_d1 - 1) * min(1, max(0, out0_d2 - 144))"
+width = "ceil(out0_d2 * pack / 128)"
+rows = "out0_d0 * (out0_d1 // pack) * width"
+tail = "ds((out0_d2 * pack - 1) % 128 + 1)"
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d2", "in0_d3", "ceil(in0_d1 / 128) * 128"]
+range = [-2, 2]
+[inputs.in1]
+shape = ["in1_d0", "in1_d1", "ceil(in1_d2 / 128) * 128"]
+range = [-2, 2]
+[outputs.out0]
+shape = ["rows", 128]
+[scratch.parts]
+shape = ["3 * rows", 128]
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_in1 = "CR6"
+qf_out0 = "CR7"
+scale_up = "CR8"
+scale_down = "CR9"
+positions_blocks = "CR10"
+channels_phases = "CR11"
+scale_correction = "CR12"
+parts = "CR13"
+tail = "CR14"
+patch_step = "LR14"
+plane_step = "LR15"
+
+[cases.default]
