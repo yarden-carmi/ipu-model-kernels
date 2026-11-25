@@ -12,7 +12,7 @@
     INC {{ reg }} {{ val }} ;;
 {% endmacro %}
 
-{# Generate the dyadic coefficients in the input format. #}
+{# Generate dyadic coefficients in the input format. #}
 {% macro coefficient(power,count,slot) %}
     LD.MULT R0 LR14 {{ cr.tmp }} ;;
 {{ clear() }}
@@ -33,7 +33,6 @@ count_{{ slot }}:
     ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
 {% endmacro %}
 
-{# Walk the full tiles, then the one potentially partial tile. #}
 {% macro tiles(label) %}
     SET LR3 CR0 ; SET LR4 LR2 ; BEQ LR8 CR0 {{ label }}_tail ;;
 {{ label }}_loop:
@@ -111,7 +110,7 @@ max_ready:
     MULT.RC.VS LR0 0 LR0 {{ ds }} {{ root }} ; AGG.SUM LR0 {{ ds }} ;;
 {% endcall %}
 
-{# Recover the low part of the sum and use it to correct the reciprocal. #}
+{# Recover the sum residual and use it to correct the reciprocal. #}
     ACTIVATE.QUANTIZE identity {{ full }} {{ work }} {{ cr.tmp }} LR0 ;;
     LD.MULT R0 LR0 {{ cr.tmp }} ;;
     MULT.VE LR0 CR1 0 LR0 {{ full }} {{ work }} ; ACC.SUB ; INC LR1 1 ;;
