@@ -238,7 +238,7 @@ gather_next:
   {{ at('LR6',27) }}
   {{ at('LR7',9) }}
   {{ at('LR13',rows) }}
-  {{ at('LR11',13) }}
+   {{ at('LR11',8) }}
   SET LR15 LR2 ;;
 row_loop:
  {# Normalize while summing, rather than encoding and reloading the sum. #}
@@ -278,29 +278,16 @@ row_loop:
   {% endfor %}
  {% endfor %}
  {# Work in sum-of-squares units: epsilon and gamma compensate in fold(). #}
- {% set one = cr.ds1 ~ '.L' %}
-  {# Refine the inverse in lane zero; fold the factor of 1/2 into gamma. #}
- LD.MULT R0 LR0 {{ cr.epsilon }} ; SET LR1 CR0 ;;
-  {{ scalar(ds=one,tail='; INC LR1 8 ; ACTIVATE.QUANTIZE rsqrt ' ~ one ~ ' ' ~ q ~ ' ' ~ cr.tmp ~ ' LR1') }}
-   SET LR10 LR1 ; INC LR1 1 ; LD.MULT.CYCLIC LR10 {{ cr.tmp }} LR0 ; ACTIVATE.QUANTIZE identity {{ one }} {{ q }} {{ cr.tmp }} LR1 ;;
-   INC LR10 1 ; LD.MULT.CYCLIC LR10 {{ cr.tmp }} LR3 ; MULT.RC.VS LR0 0 LR0 {{ one }} {{ q }} ; ACC.ADD.FIRST ; INC LR1 1 ; ACTIVATE.QUANTIZE identity {{ one }} {{ q }} {{ cr.tmp }} LR1 ;;
-  LD.MULT R0 LR1 {{ cr.tmp }} ;;
-  {{ scalar('SUB',ds=one,tail='; INC LR1 1 ; ACTIVATE.QUANTIZE identity ' ~ one ~ ' ' ~ q ~ ' ' ~ cr.tmp ~ ' LR1') }}
-  SET LR1 CR1 ; LD.MULT R1 LR1 {{ cr.epsilon }} ;;
-  MULT.VE LR3 CR1 0 LR0 {{ one }} {{ q }} ; ACC.ADD.FIRST ; INC LR1 10 ;;
-  MULT.RC.VV LR3 R0 0 LR0 {{ one }} {{ q }} ; ACC.SUB ; LD.MULT R1 LR1 {{ cr.tmp }} ;;
-  MULT.RC.VV LR3 R1 0 LR0 {{ one }} {{ q }} ; ACC.SUB ; INC LR1 1 ; ACTIVATE.QUANTIZE identity {{ one }} {{ q }} {{ cr.tmp }} LR1 ;;
-  LD.MULT R0 LR1 {{ cr.tmp }} ;;
-  MULT.RC.VE LR0 CR1 0 LR0 {{ one }} {{ q }} ; ACC.ADD.FIRST ;;
-  MULT.RC.VE LR0 CR1 0 LR0 {{ one }} {{ q }} ; ACC.ADD ;;
-  MULT.RC.VV LR0 R0 0 LR0 {{ one }} {{ q }} ; ACC.ADD ; INC LR1 1 ; ACTIVATE.QUANTIZE identity {{ one }} {{ q }} {{ cr.tmp }} LR1 ;;
-  LD.MULT R0 LR1 {{ cr.tmp }} ;;
-   {{ scalar('SUB',ds=one,tail='; INC LR1 1 ; SET LR5 LR8 ; SET LR10 CR0 ; LD.MULT.CYCLIC LR10 ' ~ cr.gamma ~ ' LR0 ; ACTIVATE.QUANTIZE identity ' ~ one ~ ' ' ~ q ~ ' ' ~ cr.tmp ~ ' LR1') }}
+  {% set one = cr.ds1 ~ '.L' %}
+  {% set qgain = cr.ds1 ~ '.H' %}
+   {# Take the reciprocal square root directly in sum-of-squares units. #}
+  LD.MULT R0 LR0 {{ cr.epsilon }} ;;
+   {{ scalar(ds=one,tail='; ACTIVATE.QUANTIZE rsqrt ' ~ one ~ ' ' ~ qgain ~ ' ' ~ cr.tmp ~ ' LR11') }}
+   SET LR5 LR8 ; SET LR10 CR0 ; LD.MULT.CYCLIC LR10 {{ cr.gamma }} LR0 ;;
  {% for h in range(2) %}
-   {% if h == 0 %}SET LR1 LR11 ; LD.MULT R0 LR1 {{ cr.tmp }} ;;{% endif %}
+    LD.MULT R0 LR11 {{ cr.tmp }} ;;
    {% for i in range(2) %}
-    MULT.RC.VE LR0 LR0 0 LR0 CR15.L {{ q }} ; ACC.ADD{% if i==0 %}.FIRST ; INC LR1 1 ; LD.MULT R1 LR1 {{ cr.tmp }}{% endif %} ;;
-    MULT.RC.VE LR0 LR3 0 LR0 CR15.L {{ q }} ; ACC.ADD ; {% if not loop.last %}INC LR10 2 ; LD.MULT.CYCLIC LR10 {{ cr.gamma }} LR0{% else %}SET LR1 LR7 ; LD.MULT.CYCLIC LR5 {{ cr.tmp }} LR4 ; ACTIVATE.QUANTIZE identity CR15.L {{ q }} {{ cr.tmp }} LR1{% endif %} ;;
+     MULT.RC.VE LR0 LR0 0 LR0 CR15.L {{ qgain }} ; ACC.ADD{% if i==0 %}.FIRST{% endif %} ; {% if not loop.last %}INC LR10 2 ; LD.MULT.CYCLIC LR10 {{ cr.gamma }} LR0{% else %}SET LR1 LR7 ; LD.MULT.CYCLIC LR5 {{ cr.tmp }} LR4 ; ACTIVATE.QUANTIZE identity CR15.L {{ q }} {{ cr.tmp }} LR1{% endif %} ;;
  {% endfor %}
  {# Encode the gain while replacing the inverse slots with centered input. #}
   INC LR5 2 ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
@@ -312,7 +299,6 @@ row_loop:
   {% for i in range(2) %}
    {{ scalar(tail='; INC LR10 2 ; LD.MULT R0 LR10 ' ~ cr.beta if not loop.last else '; INC LR15 1 ; DEC LR5 1 ; ACTIVATE.QUANTIZE ' ~ (act_out0 | default('identity')) ~ ' CR15.L ' ~ cr.qf_out0 ~ '.L ' ~ cr.out0 ~ ' LR15' ~ (' ; SET LR10 CR1 ; LD.MULT.CYCLIC LR10 ' ~ cr.gamma ~ ' LR0' if h == 0 else '')) }}
    {% endfor %}
-   {% if h == 0 %}SET LR1 LR11 ; LD.MULT R0 LR1 {{ cr.tmp }} ;;{% endif %}
  {% endfor %}
  INC LR14 2 ; BNE LR13 CR0 row_loop ;;
  HALT ;;

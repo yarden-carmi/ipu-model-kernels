@@ -63,20 +63,20 @@ def fold(module, **params):
         out[:channels] = t.reshape(-1)
         return out
 
-    def split(t):
+    def split(t, mantissa=5):
         residual = t.reshape(-1, 128)
         parts = []
         for _ in range(1):
             peak = residual.abs().amax(1, keepdim=True).clamp_min(1e-30)
-            step = 2.0 ** (torch.floor(torch.log2(peak)) - 5)
+            step = 2.0 ** (torch.floor(torch.log2(peak)) - mantissa)
             part = torch.round(residual / step) * step
             parts.append(part)
             residual = residual - part
         return torch.cat([*parts, residual])
 
     return {
-        "gamma": split(pad(module.weight) * (0.5 * channels**0.5)),
+        "gamma": split(pad(module.weight) * channels**0.5, mantissa=6),
         "beta": split(pad(module.bias)),
         "crow": split(torch.full((128,), 1 / channels)),
-        "epsilon": torch.stack((torch.full((128,), params["eps"] * channels), torch.ones(128))),
+        "epsilon": torch.full((1, 128), params["eps"] * channels),
     }

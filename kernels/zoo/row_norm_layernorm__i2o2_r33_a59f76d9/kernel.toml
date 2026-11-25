@@ -53,7 +53,7 @@ max = 256
 default = 240
 
 [derived]
-ds1 = "ds(1)"
+ds1 = "ds(1) + 65536 * qf(1, 1, 8, 0)"
 c128 = "128 + (1 - min(1, rows % 8 + channels % 16)) * (50462976 - 128)"
 cC = "channels + (1 - min(1, rows % 8 + channels % 16)) * (117835012 - channels)"
 dsl = "ds(channels - 128)"
@@ -67,7 +67,7 @@ shape = [4, 128]
 [inputs.crow]
 shape = [2, 128]
 [inputs.epsilon]
-shape = [2, 128]
+shape = [1, 128]
 [scratch.tmp]
 shape = ["40 + 2 * rows + (rows // 8) * (channels // 16)", 128]
 [outputs.out0]
