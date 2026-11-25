@@ -9,30 +9,29 @@ default = "relu"
 
 [params.numel]
 type = "int"
-min = 128
+min = 1
 max = 2147483647
-multiple_of = 128
-default = 4096
+default = 16384
 
-# Two channel vectors fill one 128-lane row.
+# Two channel vectors must fit in a single row.
 [params.in0_d1]
 type = "int"
-min = 64
+min = 1
 max = 64
 default = 64
 
 [params.out0_d1]
 type = "int"
-min = 64
+min = 1
 max = 64
 default = 64
 
 [derived]
-input_rows = "numel // (2 * in0_d1)"
-output_rows = "numel // (2 * out0_d1)"
-last_row = "input_rows - 1"
+input_rows = "ceil(numel / (2 * in0_d1))"
+output_rows = "ceil(numel / (2 * out0_d1))"
 penultimate = "input_rows - 2"
-active = "ds(128)"
+input_active = "ds(2 * in0_d1)"
+output_active = "ds(2 * out0_d1)"
 
 [inputs.in0]
 shape = ["input_rows", 128]
@@ -44,10 +43,10 @@ shape = ["output_rows", 128]
 [abi]
 in0 = "CR2"
 out0 = "CR3"
-last_row = "CR4"
-qf_in0 = "CR5"
-qf_out0 = "CR6"
-active = "CR7"
-penultimate = "CR8"
+qf_in0 = "CR4"
+qf_out0 = "CR5"
+penultimate = "CR6"
+input_active = "CR7"
+output_active = "CR8"
 
 [cases.default]
