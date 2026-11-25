@@ -1,0 +1,100 @@
+[kernel]
+op = "row_norm"
+formats = ["e1", "e2"]
+
+[params.kind]
+type = "str"
+choices = ["layernorm"]
+default = "layernorm"
+[params.channels]
+type = "int"
+min = 1
+max = 4096
+default = 240
+[params.rows]
+type = "int"
+min = 1
+max = 4096
+default = 64
+[params.eps]
+type = "float"
+min = 0.0
+max = 1.0
+default = 1e-5
+[params.in0_d0]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 240
+[params.in0_d2]
+type = "int"
+min = 1
+max = 4096
+default = 8
+[params.in0_d3]
+type = "int"
+min = 1
+max = 4096
+default = 8
+[params.out0_d0]
+type = "int"
+min = 1
+max = 4096
+default = 4
+[params.out0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 16
+[params.out0_d2]
+type = "int"
+min = 1
+max = 4096
+default = 240
+
+[derived]
+chunks = "ceil(in0_d1 / 128)"
+input_stride = "out0_d0 * chunks"
+tiles = "ceil(out0_d1 / 128)"
+size = "out0_d0 * out0_d2 * tiles"
+tilejump = "128 * input_stride"
+ds_pair = "ds((out0_d1 - 1) % 128 + 1) + 65536 * ds(128)"
+widths = "(out0_d1 - 1) % 128 + 1 + 65536 * chunks"
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d2 * in0_d3 * chunks", 128]
+[inputs.affine]
+shape = ["8 * channels", 128]
+[inputs.stats]
+shape = [9, 128]
+[scratch.tmp]
+shape = [32, 128]
+[scratch.data]
+shape = ["4 * channels", 128]
+[outputs.out0]
+shape = ["size", 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+affine = "CR4"
+stats = "CR5"
+tmp = "CR6"
+data = "CR7"
+qf_in0 = "CR8"
+qf_out0 = "CR9"
+qf_stats = "CR10"
+ds_pair = "CR11"
+channels = "CR12"
+tilejump = "CR13"
+size = "CR14"
+widths = "CR15"
+input_stride = "LR8"
+tiles = "LR9"
+
+[cases.default]
