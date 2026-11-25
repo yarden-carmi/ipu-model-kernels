@@ -93,18 +93,18 @@ default = 112
 tail = "ds(out0_d1)"
 depthwise = "min(1, groups // max(cin, cout))"
 tap_rows = "2 * (depthwise + (1 - depthwise) * cin)"
-weight_rows = "2 + kh * kw * tap_rows"
 output_rows = "out0_d0 * out0_d2 * out0_d3"
 line_step = "stride * in0_d3"
 batch_step = "in0_d2 * in0_d3"
 end_x = "out0_d3 * stride - padding"
 end_y = "out0_d2 * stride - padding"
+kernel_row_weights = "kw * tap_rows"
 
 [inputs.in0]
 shape = ["in0_d0", "in0_d2", "in0_d3", 128]
 range = [-2, 2]
 [inputs.weights]
-shape = ["weight_rows", 128]
+shape = ["2 + kh * kernel_row_weights", 128]
 range = [-1, 1]
 [outputs.out0]
 shape = ["out0_d0", "out0_d2", "out0_d3", 128]

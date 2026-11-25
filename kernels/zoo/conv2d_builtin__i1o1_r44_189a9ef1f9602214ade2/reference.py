@@ -64,7 +64,7 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    """Fold inference batch norm into the convolution and split NX8 digits."""
+    """Absorb inference batch normalization and pack high/residual weight rows."""
     scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
     bias = module.op1_bias.double() - module.op1_running_mean.double() * scale
     conv_bias = getattr(module, "op0_bias", None)
