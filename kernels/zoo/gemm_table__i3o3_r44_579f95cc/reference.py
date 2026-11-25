@@ -53,20 +53,20 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 16, 128, 128], [262144, 16384, 128, 1], 0), module.op0_weight)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 64, 64], [262144, 4096, 64, 1], 0), module.op0_weight)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 64, 128, 128], [1048576, 16384, 128, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 256, 64, 64], [1048576, 4096, 64, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.silu_.default(_v(op1, [1, 64, 128, 128], [1048576, 16384, 128, 1], 0))
+    r0 = aten.silu_.default(_v(op1, [1, 256, 64, 64], [1048576, 4096, 64, 1], 0))
     op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 64, 128, 128])}
+    return {"out0": _out(op2, [1, 256, 64, 64])}
 # ---- end of the frozen reference ----
 
 
 def _digits(rows):
     """Split row-scaled coefficients into a coarse term and a residual."""
     _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
-    step = torch.ldexp(torch.ones_like(exponent, dtype=rows.dtype), exponent - 4)
+    step = torch.ldexp(torch.ones_like(exponent, dtype=rows.dtype), exponent - 5)
     coarse = torch.round(rows / step) * step
     return torch.stack((coarse, rows - coarse), dim=-2)
 
@@ -84,8 +84,34 @@ def fold(module, **params):
     if not params['bias']:
         bias = weight.new_zeros(n)
 
-    blocks = (k + 31) // 32
-    weights = torch.nn.functional.pad(weight, (0, blocks * 32 - k)).reshape(n, blocks, 32)
-    weights = torch.nn.functional.pad(_digits(weights), (0, 96)).reshape(n, blocks * 2, 128)
-    biases = _digits(bias[:, None].expand(n, 128))
-    return {'coeff': torch.cat((biases, weights), dim=1).reshape(-1, 128)}
+    if params['in0_d3'] <= 32:
+        blocks = (k + 127) // 128
+        taps = torch.nn.functional.pad(weight, (0, blocks * 128 - k)).reshape(n, blocks, 128)
+        digits = _digits(taps).reshape(n, 2 * blocks, 128)
+        biases = _digits(bias[:, None].expand(n, 128))
+        return {'coeff': torch.cat((biases, digits), dim=1).reshape(-1, 128)}
+
+    compact = params['in0_d3'] > 64 and 16 < k <= 32
+    if compact:
+        weight = weight.flip(1)
+        tail = weight.new_zeros(n, 1, 128)
+        tail[:, 0, :2] = weight[:, -2:]
+        weight = weight[:, :-2]
+    taps = weight.shape[1]
+    blocks = (taps + 31) // 32
+    rows = weight.new_zeros(n, blocks, 128)
+    rows[:, :, :32] = torch.nn.functional.pad(weight, (0, blocks * 32 - taps)).reshape(n, blocks, 32)
+    if k <= 64:
+        rows[:, 0, 127] = bias
+    packed = _digits(rows).reshape(n, -1, 128)
+    if compact:
+        packed[:, 0, 127] = bias
+        packed[:, 1, 127] = 0
+    if k > 64:
+        bias_rows = weight.new_zeros(n, 128)
+        bias_rows[:, 127] = bias
+        packed = torch.cat((_digits(bias_rows), packed), dim=1)
+    if compact:
+        packed = torch.cat((packed, tail), dim=1)
+    # One guard row for the pipelined coefficient load on the last store.
+    return {'coeff': torch.nn.functional.pad(packed.reshape(-1, 128), (0, 0, 0, 1))}

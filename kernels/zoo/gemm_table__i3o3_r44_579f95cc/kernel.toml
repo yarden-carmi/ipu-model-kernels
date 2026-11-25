@@ -67,21 +67,30 @@ default = 128
 
 [derived]
 stripes = "in0_d0 * in0_d2"
-full_blocks = "(k - 1) // 32"
+narrow = "1 - min(1, max(0, in0_d3 - 32))"
+compact = "min(1, max(0, in0_d3 - 64)) * min(1, max(0, k - 16)) * (1 - min(1, max(0, k - 32)))"
+full_blocks = "(k - 2 * compact - 1) // 32"
+dot_blocks = "(k + 127) // 128"
+pair = "1 - min(1, max(in0_d3 - 64, 64 - in0_d3))"
+full = "ds(128) + pair * 16777216"
+aux = "(1 - pair) * dot_blocks + pair * k"
+bias_rows = "2 * min(1, max(0, k - 64))"
 active = "ds(out0_d3)"
-lanes = "128"
 
 [inputs.in0]
 shape = ["stripes * in0_d1", 128]
 range = [-2, 2]
 [inputs.coeff]
-shape = ["n * (4 + 2 * full_blocks)", 128]
+shape = ["narrow * n * (2 + 2 * dot_blocks) + (1 - narrow) * (n * (2 * (1 + full_blocks) + bias_rows + compact) + 1)", 128]
 range = [-1, 1]
 [inputs.lut]
 shape = [5, 128]
 range = [0, 0]
 [outputs.out0]
 shape = ["out0_d0 * out0_d2 * out0_d1", 128]
+
+[scratch.pixels]
+shape = ["max(1, narrow * 2 * in0_d3 * dot_blocks, pair * (k + 2))", 128]
 
 [abi]
 in0 = "CR2"
@@ -94,7 +103,9 @@ k = "CR8"
 n = "CR9"
 stripes = "CR10"
 active = "CR11"
-lanes = "CR12"
+pixels = "CR12"
 full_blocks = "CR13"
+full = "CR14"
+aux = "CR15"
 
 [cases.default]
