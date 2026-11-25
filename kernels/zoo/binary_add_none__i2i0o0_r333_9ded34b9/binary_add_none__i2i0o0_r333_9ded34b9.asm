@@ -1,5 +1,5 @@
-// Match the logical view's (d2,d1,d0) traversal. Only in1 and out0
-// round each plane up to a row; in0 is a dense stream.
+// The strided view traverses dense in0 in (d2,d1,d0) order.
+// In1 and out0 use that same order, rounding each d2 plane to a row.
 {% set plane = out0_d0 * out0_d1 %}
 {% set valid = (plane - 1) % 128 + 1 %}
 {% macro first(mask) %}
@@ -30,7 +30,7 @@ full_ready:
     {{ first('CR15.L') }} ;;
     {{ store('CR15.L') }} INC LR1 1 ; INC LR3 1 ; BLT.S LR3 {{ cr.full }} full_row ;;
 {% endif %}
-    // Fetch the next input row only if this plane's tail crosses into it.
+    // Read a second source row only if the valid tail crosses a row boundary.
     LD.MULT R0 LR2 {{ cr.in0 }} ; SET LR5 LR4 ;;
     INC LR5 {{ valid }} ;;
     BGE.S LR6 LR5 tail_ready ; ADD LR7 LR2 CR1 ;;
