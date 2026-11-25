@@ -101,10 +101,11 @@ ni = "ceil(cin / ip)"
 no = "ceil(cout / op)"
 ix = "ceil(in0_d3 / 128)"
 ox = "ceil(out0_d3 / 128)"
-gc_last = "cin // groups - 1"
+gc = "cin // groups"
+gc_last = "gc - 1"
 plane = "(in0_d2 + 2 * padding) * (dw * stride + (1 - dw) * (1 + (kw * ox - 1) * (1 // op)))"
-compact = "(1 // groups) * (2 - stride) * (1 // (1 + max(w - out0_d3, out0_d3 - w))) * (1 // (1 + max(w - 16, 16 - w)))"
-weight_block = "3 + ((2 - compact) * kh + compact) * kw * (cin // groups) - dw"
+single = "(1 // groups) * (2 - stride) * (1 // (1 + max(w - out0_d3, out0_d3 - w))) * (1 // (1 + max(w - 16, 16 - w)))"
+weight_block = "3 + (2 * kh * kw - single * (kh - 1) * kw) * gc - dw"
 ds128 = "ds(128)"
 ds_tail = "ds((1 + (out0_d3 - 1) % 128) * op)"
 ds_width = "ds(min(128, in0_d3))"
@@ -141,4 +142,5 @@ gc_last = "CR15"
 
 [golden]
 tolerance = { e1 = "NX8_STEP", e2 = "NX8_STEP" }
+
 [cases.default]

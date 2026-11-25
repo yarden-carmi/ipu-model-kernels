@@ -53,57 +53,57 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 128, 16, 16], [32768, 256, 16, 1], 0), module.op0_weight, None, [1, 1], [1, 1])
+    r0 = aten.conv2d.default(_v(ins[0], [1, 96, 32, 32], [98304, 1024, 32, 1], 0), module.op0_weight, None, [1, 1], [1, 1])
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 128, 16, 16], [32768, 256, 16, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 96, 32, 32], [98304, 1024, 32, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.silu_.default(_v(op1, [1, 128, 16, 16], [32768, 256, 16, 1], 0))
+    r0 = aten.silu_.default(_v(op1, [1, 96, 32, 32], [98304, 1024, 32, 1], 0))
     op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 128, 16, 16])}
+    return {"out0": _out(op2, [1, 96, 32, 32])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Fold inference BN and broadcast weights over each packed spatial row."""
+    """Fold inference BN and pack weights by output channel tile and tap."""
     import numpy as np
 
-    weight = module.op0_weight.double()
-    cout, _, kh, kw = weight.shape
+    w = module.op0_weight.double()
+    cout, ni, kh, kw = w.shape
     cin, groups = params['cin'], params['groups']
     bias = getattr(module, 'op0_bias', None)
-    bias = weight.new_zeros(cout) if bias is None else bias.double()
+    bias = w.new_zeros(cout) if bias is None else bias.double()
     if hasattr(module, 'op1_running_var'):
         scale = module.op1_weight.double() / (module.op1_running_var.double() + 1e-5).sqrt()
+        w = w * scale[:, None, None, None]
         bias = module.op1_bias.double() + (bias - module.op1_running_mean.double()) * scale
-        weight = weight * scale[:, None, None, None]
 
-    w, s, p, ow = (params[k] for k in ('w', 'stride', 'padding', 'out0_d3'))
-    dw = 1 < groups == cin == cout and w <= 128 and w % s == 0 and (2*p-kw)//s+1 == 0
-    pack = 128 // w * s if dw else (128 // w if groups == 1 and s == 1 and w == ow and w <= 128 else 1)
+    width, s, p, ow = (params[k] for k in ('w', 'stride', 'padding', 'out0_d3'))
+    dw = 1 < groups == cin == cout and width <= 128 and width % s == 0 and (2*p-kw)//s+1 == 0
+    dense_pack = groups == 1 and s == 1 and width == ow and width <= 128
+    pack = 128 // width * s if dw else (128 // width if dense_pack else 1)
     gc = cin // groups
     rows = np.zeros(((cout + pack - 1) // pack, 1 + gc * kh * kw, 128))
-    width = min(ow, 128) if pack > 1 else 128
     for c in range(cout):
         block, slot = divmod(c, pack)
-        dest = rows[block, :, slot*width:(slot+1)*width]
+        span = ow if pack > 1 else 128
+        dest = rows[block, :, slot*span:(slot+1)*span]
         dest[0] = bias[c].item()
-        dest[1:] = weight[c].reshape(-1, 1).numpy()
+        dest[1:] = w[c].reshape(-1, 1).numpy()
         if dw or pack > 1:
-            x = np.arange(width)[None, :] * s + np.arange(gc*kh*kw)[:, None] % kw - p
-            dest[1:] *= (x >= 0) & (x < w)
-
+            x = np.arange(span)[None, :] * s + np.arange(gc*kh*kw)[:, None] % kw - p
+            dest[1:] *= (x >= 0) & (x < width)
     exponent = np.frexp(np.max(np.abs(rows), axis=-1, keepdims=True))[1] - 1
     step = np.exp2(exponent.astype(float) - 5)
     hi = np.sign(rows) * np.minimum(np.floor(np.abs(rows) / step + 0.5), 63) * step
     low = rows - hi
-    if groups == 1 and s == 1 and w == ow == 16:
-        parts = [hi[:, 0], low[:, 0]]
-        for t in range(gc * kh * kw):
-            i = t + 1
-            parts.extend((hi[:, i], low[:, i]) if t // kw % kh == kh // 2 else (rows[:, i],))
-        paired = np.stack(parts, axis=1)
-    else:
-        paired = np.stack((hi, low), axis=-2).reshape(rows.shape[0], -1, 128)
-    if not dw:
-        paired = np.pad(paired, ((0, 0), (0, 1), (0, 0)))
-    return {'weights': paired.reshape(-1, 128)}
+    if dw:
+        return {'weights': np.stack((hi, low), axis=-2).reshape(-1, 128)}
+    compact = dense_pack and width == 16
+    parts = [hi[:, 0], low[:, 0]]
+    for t in range(gc * kh * kw):
+        i = t + 1
+        if not compact or t // kw % kh == kh // 2:
+            parts.extend((hi[:, i], low[:, i]))
+        else:
+            parts.append(rows[:, i])
+    return {'weights': np.pad(np.stack(parts, axis=1), ((0, 0), (0, 1), (0, 0))).reshape(-1, 128)}
