@@ -49,30 +49,30 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.default(_v(ins[0], [1, 48, 64, 64], [196608, 4096, 64, 1], 0), module.weight, None, [1, 1], [1, 1])
+    r0 = aten.conv2d.default(_v(ins[0], [1, 192, 16, 16], [49152, 256, 16, 1], 0), module.weight, None, [1, 1], [1, 1])
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 64, 64, 64])}
+    return {"out0": _out(op0, [1, 64, 16, 16])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
     weight = module.weight.detach()
-    cout = weight.shape[0]
-    taps = weight.permute(0, 2, 1, 3).reshape(cout, -1)
+    channels = weight.shape[0]
+    taps = weight.permute(0, 2, 1, 3).reshape(channels, -1)
     panels = torch.nn.functional.pad(taps, (0, (-taps.shape[1]) % 128))
-    bias = getattr(module, 'bias', None)
-    if bias is None or not params['bias']:
-        bias = weight.new_zeros(cout)
-    rows = torch.cat((bias.reshape(cout, 1).expand(-1, 128), panels), dim=1)
+    bias = getattr(module, "bias", None) if params["bias"] else None
+    if bias is None:
+        bias = weight.new_zeros(channels)
+    rows = torch.cat((bias[:, None].expand(-1, 128), panels), dim=1)
 
-    ow, oh = params['out0_d3'], params['out0_d2']
-    pack = min(oh, 128 // ow)
-    if oh % pack:
-        pack = 1
+    ow, oh = params["out0_d3"], params["out0_d2"]
+    candidate = min(oh, 128 // ow)
+    pack = candidate if oh % candidate == 0 else 1
+    x = torch.arange(ow, device=weight.device) * params["stride"]
     masks = weight.new_zeros((1 + 3 * pack, 128))
     for kx in range(3):
-        x = torch.arange(ow) * params['stride'] + kx - 1
-        valid = (x >= 0) & (x < params['in0_d3'])
-        for slot in range(pack):
-            masks[1 + kx * pack + slot, slot * ow:(slot + 1) * ow] = valid
-    return {'weights': rows.reshape(-1, 128), 'masks': masks}
+        ix = x + kx - 1
+        valid = (ix >= 0) & (ix < params["in0_d3"])
+        for item in range(pack):
+            masks[1 + kx * pack + item, item * ow:(item + 1) * ow] = valid
+    return {"weights": rows.reshape(-1, 128), "masks": masks}
