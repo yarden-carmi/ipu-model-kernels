@@ -77,5 +77,6 @@ def fold(module, **params):
         return torch.stack((coarse, rows - coarse), dim=-2)
 
     bias_rows = split(torch.nn.functional.pad(bias[:, None], (0, 127)))
-    taps = split(torch.nn.functional.pad(weight.reshape(n, k // 16, 16), (0, 112)))
+    taps = torch.nn.functional.pad(weight, (0, (-k) % 16)).reshape(n, -1, 16)
+    taps = split(torch.nn.functional.pad(taps, (0, 112)))
     return {'coeff': torch.cat((bias_rows, taps.reshape(n, -1, 128)), dim=1).reshape(-1, 128)}
