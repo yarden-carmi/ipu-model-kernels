@@ -1,0 +1,61 @@
+[kernel]
+op = "binary_mul_scalar"
+formats = ["e1", "e2"]
+
+[params]
+broadcast = { type = "str", choices = ["scalar"], default = "scalar" }
+const = { type = "int", min = 1, max = 1, default = 1 }
+inner = { type = "int", min = 0, max = 0, default = 0 }
+op = { type = "str", choices = ["mul"], default = "mul" }
+numel = { type = "int", min = 1, max = 2147483647, default = 30000 }
+in0_d0 = { type = "int", min = 1, max = 2147483647, default = 1 }
+in0_d1 = { type = "int", min = 1, max = 2147483647, default = 12 }
+in0_d2 = { type = "int", min = 1, max = 2147483647, default = 50 }
+in0_d3 = { type = "int", min = 1, max = 2147483647, default = 50 }
+out0_d0 = { type = "int", min = 1, max = 2147483647, default = 1 }
+out0_d1 = { type = "int", min = 1, max = 2147483647, default = 12 }
+out0_d2 = { type = "int", min = 1, max = 2147483647, default = 50 }
+out0_d3 = { type = "int", min = 1, max = 2147483647, default = 50 }
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d3 * column_stride", 128]
+range = [-2.0, 2.0]
+
+[outputs.out0]
+shape = ["out0_d0 * out0_d1 * out0_d2 * oc", 128]
+
+[scratch.scalar]
+shape = [1, 128]
+
+[derived]
+ic = "ceil(in0_d2 / 128)"
+oc = "ceil(out0_d3 / 128)"
+column_stride = "in0_d1 * ic"
+batch_gap = "(in0_d3 - 1) * column_stride"
+last = "(out0_d3 - 1) % 128 + 1"
+ds_pair = "ds(last) + ds(128) * 65536"
+# Their difference supplies 1/8 in FP32; nx_scale supplies it in NX8.
+fp_hi = "0x43012080"
+fp_lo = "0x43010080"
+nx_scale = "0x00017c00"
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+qf_in0 = "CR4"
+qf_out0 = "CR5"
+ic = "CR6"
+oc = "CR7"
+out0_d2 = "CR8"
+column_stride = "CR9"
+in0_d1 = "CR10"
+ds_pair = "CR11"
+scalar = "CR12"
+fp_hi = "CR13"
+fp_lo = "CR14"
+nx_scale = "CR15"
+batch_gap = "LR0"
+in0_d0 = "LR9"
+last = "LR15"
+
+[cases.default]
