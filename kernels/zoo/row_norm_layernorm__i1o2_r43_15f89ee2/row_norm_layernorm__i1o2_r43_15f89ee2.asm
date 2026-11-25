@@ -36,17 +36,13 @@
 {% endmacro %}
 {% macro average() %}
  {{ save(0,3) }}
- {% for j in range(3) %}
- {{ load(j) }}
- MULT.EE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %} ;;
- {% endfor %}
- {{ save(3,3) }}
- {{ load_parts(3) }}
- SET LR10 CR0 ;;
- LD.MULT R0 LR10 {{ cr.crow }} ;;
+ SET LR10 CR0 ; SET LR1 CR0 ; LD.MULT.CYCLIC LR10 {{ cr.crow }} LR0 ;;
+ INC LR10 1 ; LD.MULT.CYCLIC LR10 {{ cr.crow }} LR3 ;;
+ INC LR10 1 ; LD.MULT.CYCLIC LR10 {{ cr.crow }} LR4 ;;
+ LD.MULT R0 LR1 {{ cr.tmp }} ;;
  {% for i in range(3) %}
  {% for slot in slots %}
- {{ mac(slot,i == 0 and loop.first) }}{% if loop.last and i < 2 %} ; LD.MULT R0 LR10 {{ cr.crow }} ; INC LR10 1{% endif %} ;;
+ MULT.RC.VE {{ slot }} LR0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if i == 0 and loop.first %}.FIRST{% endif %}{% if loop.last and i < 2 %} ; INC LR1 1 ; LD.MULT R0 LR1 {{ cr.tmp }}{% endif %} ;;
  {% endfor %}
  {% endfor %}
 {% endmacro %}
