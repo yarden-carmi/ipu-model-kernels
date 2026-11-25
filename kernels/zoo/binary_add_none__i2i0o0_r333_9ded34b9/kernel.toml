@@ -19,8 +19,8 @@ out0_d2 = { type = "int", min = 1, max = 16384, default = 192 }
 
 [derived]
 width = "ceil(out0_d0 * out0_d1 / 128)"
-tail = "ds((out0_d0 * out0_d1 - 1) % 128 + 1)"
 last_row = "out0_d2 * width - 1"
+tail = "ds((out0_d0 * out0_d1 - 1) % 128 + 1)"
 
 [inputs.in0]
 shape = ["ceil(in0_d0 * in0_d1 * in0_d2 / 128)", 128]

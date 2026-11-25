@@ -8,7 +8,7 @@
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ mask }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;
 {% endmacro %}
 
-// Packed in0 follows the flat storage offsets of the transposed view.
+// Flattening the first two view axes makes in0 a dense stream in storage order.
 {% if valid == 128 %}
     LD.MULT R0 LR2 {{ cr.in0 }} ; INC LR8 128 ;;
 stream:
@@ -17,7 +17,7 @@ stream:
 final:
     {{ second('LR8', 'CR15.L') }} HALT ;;
 {% else %}
-// LR2 and LR4 track the dense input cursor across padded output tiles.
+// Only in1 and out0 are padded per d2 slice. Track the dense in0 lane offset.
     INC LR6 128 ; SET LR3 {{ cr.width }} ;;
 row:
     LD.MULT R0 LR2 {{ cr.in0 }} ; ADD LR7 LR2 CR1 ; BEQ LR3 CR1 tail ;;
