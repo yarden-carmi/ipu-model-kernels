@@ -7,7 +7,7 @@
 
     SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
     INC LR2 128 ; SET LR5 CR1 ;;
-plane:
+period:
     SET LR3 CR0 ;;
 row:
     SET LR4 {{ cr.chunks }} ; BEQ {{ cr.chunks }} LR5 tail ;;
@@ -17,6 +17,8 @@ chunk:
     BNE LR4 LR5 chunk ;;
 tail:
     {{ add_row(cr.tail ~ '.L') }}
-    BLT.S LR3 {{ cr.plane_rows }} row ;;
-    BLT.S LR1 {{ cr.rows }} plane ;;
+    BEQ LR1 {{ cr.rows }} done ;;
+    BLT.S LR3 {{ cr.operand_rows }} row ;;
+    BEQ CR0 CR0 period ;;
+done:
     HALT ;;

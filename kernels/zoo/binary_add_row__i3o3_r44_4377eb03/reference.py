@@ -56,8 +56,12 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    """Pack one broadcast plane in the same padded row order as in0."""
-    height, width = params["in0_d2"], params["in0_d3"]
+    """Prepare reusable padded rows, or the full sequence for an unaligned period."""
+    width, inner = params["in0_d3"], params["inner"]
+    logical_rows = params["in0_d0"] * params["in0_d1"] * params["in0_d2"]
+    rows = logical_rows if inner % width else min(logical_rows, inner // width)
     operand = module.op0_const0.reshape(-1)
-    plane = operand.repeat(height * width // operand.numel()).reshape(height, width)
-    return {"operand": torch.nn.functional.pad(plane, (0, (-width) % 128)).reshape(-1, 128)}
+    count = rows * width
+    values = operand.repeat((count + operand.numel() - 1) // operand.numel())[:count]
+    return {"operand": torch.nn.functional.pad(values.reshape(rows, width),
+                                               (0, (-width) % 128)).reshape(-1, 128)}
