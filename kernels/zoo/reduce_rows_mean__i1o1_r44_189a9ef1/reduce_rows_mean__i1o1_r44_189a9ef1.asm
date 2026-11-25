@@ -1,4 +1,3 @@
-{# Each tile accumulates 128 independent channel means. #}
 {% set scale = cr.inv_fp32 if format == 'fp32' else cr.inv %}
 {% macro accumulate(op) -%}
     MULT.RC.VE LR0 {{ scale }} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; {{ op }}
