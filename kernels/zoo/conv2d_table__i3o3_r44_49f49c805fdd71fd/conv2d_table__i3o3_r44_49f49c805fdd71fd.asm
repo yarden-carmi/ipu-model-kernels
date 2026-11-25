@@ -25,7 +25,7 @@ MULT.VE LR0 CR0 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ;
 ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.shifted }} LR5 ; INC LR5 1 ; INC LR12 1 ; BLT.S LR12 LR13 {{ label }} ;;
 {% endmacro %}
 
-{# Make padded, stride-adjusted scanlines for each horizontal tap. #}
+{# Stage padded, stride-adjusted scanlines for each horizontal tap. #}
 SET LR0 CR0 ; SET LR6 CR0 ;;
 {{ init('LR4',-1) }}
 {{ init('LR5',-1) }}
@@ -72,7 +72,7 @@ INC LR7 1 ; BLT.S LR7 LR10 shift_y ;;
 INC LR6 1 ; BLT.S LR6 LR11 shift_channel ;;
 
 {% if pack>1 %}
-{# Join scanlines so each convolution produces one packed output row. #}
+{# Pack scanlines so each convolution writes one physical output row. #}
 SET LR5 CR0 ; SET LR6 CR1 ; SET LR7 CR0 ;;
 {{ init('LR10',(in0_d2+2)*kw-1) }}
 {{ init('LR14',pack-2) }}
@@ -143,7 +143,7 @@ MULT.RC.VE {{ slot }} LR9 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; INC LR9 1 ;
 ADD LR12 LR12 {{ cr.span }} ; INC LR14 1 ;;
 SET LR13 LR12 ; BLT.S LR14 LR2 input_channel ;;
 {% endif %}
-ACTIVATE.QUANTIZE generic {{ cr.ds_out }}.L {{ qo }} {{ cr.out0 }} LR5 ; INC LR5 1 ;;
+ACTIVATE.QUANTIZE {{ 'generic' if act_out0 == 'silu' else act_out0 }} {{ cr.ds_out }}.L {{ qo }} {{ cr.out0 }} LR5 ; INC LR5 1 ;;
 {{ adjust('LR4',stride*pack*kw) }}
 DEC LR15 1 ; BLT.S CR0 LR15 output_y ;;
 {% if not resident %}SET LR10 LR11 ;;{% endif %}
