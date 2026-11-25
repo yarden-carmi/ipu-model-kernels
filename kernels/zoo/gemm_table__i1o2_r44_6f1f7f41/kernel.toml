@@ -1,0 +1,104 @@
+[kernel]
+op = "gemm_table"
+formats = ["e1"]
+
+[params.act_out0]
+type = "str"
+choices = ["hardswish"]
+default = "hardswish"
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 4096
+default = 48
+[params.n]
+type = "int"
+min = 1
+max = 4096
+default = 144
+[params.m]
+type = "int"
+min = 1
+max = 65535
+default = 196
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 48
+[params.in0_d2]
+type = "int"
+min = 1
+max = 4096
+default = 14
+[params.in0_d3]
+type = "int"
+min = 1
+max = 65535
+default = 14
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 144
+[params.out0_d2]
+type = "int"
+min = 1
+max = 4096
+default = 14
+[params.out0_d3]
+type = "int"
+min = 1
+max = 65535
+default = 14
+
+[derived]
+chunks = "ceil(k / 128)"
+pitch = "in0_d3 * chunks"
+batch_rows = "in0_d2 * pitch"
+tiles = "ceil(out0_d2 / 128)"
+full = "ds(128)"
+tail = "ds(1 + (out0_d2 - 1) % 128)"
+
+[inputs.in0]
+shape = ["in0_d0 * batch_rows", 128]
+range = [-2, 2]
+[inputs.coeff]
+shape = ["n * (3 * chunks + 2)", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[outputs.out0]
+shape = ["out0_d0 * out0_d1 * out0_d3 * tiles", 128]
+
+[abi]
+in0 = "CR2"
+coeff = "CR3"
+lut = "CR4"
+out0 = "CR5"
+qf_in0 = "CR6"
+qf_out0 = "CR7"
+full = "CR8"
+tail = "CR9"
+pitch = "CR10"
+batch_rows = "CR11"
+out0_d3 = "CR12"
+n = "CR13"
+out0_d0 = "CR14"
+chunks = "CR15"
+
+[cases.default]
