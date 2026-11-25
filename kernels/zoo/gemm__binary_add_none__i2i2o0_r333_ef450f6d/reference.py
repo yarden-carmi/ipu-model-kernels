@@ -49,19 +49,20 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.linear.default(_v(ins[0], [4, 256, 288], [73728, 288, 1], 0), module.weight, module.bias)
+    r0 = aten.linear.default(_v(ins[0], [4, 64, 384], [24576, 384, 1], 0), module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
     op0 = r_(op0, "s0")  # stored
-    r0 = aten.add.Tensor(_v(ins[1], [4, 256, 144], [1, 4, 1024], 0), _v(op0, [4, 256, 144], [36864, 144, 1], 0))
+    r0 = aten.add.Tensor(_v(ins[1], [4, 64, 192], [1, 4, 256], 0), _v(op0, [4, 64, 192], [12288, 192, 1], 0))
     op1 = _pick(r0, 0)  # step 1
-    return {"out0": _out(op1, [4, 256, 144])}
+    return {"out0": _out(op1, [4, 64, 192])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """For each output: a broadcast bias row, then dot-product tiles."""
+    """Keep each channel's bias and K tiles together for reuse across positions."""
     weight = module.weight.detach().double()
     n, k = weight.shape
     bias = module.bias.detach().double() if params["s0_bias"] else weight.new_zeros(n)
-    weight = torch.nn.functional.pad(weight, (0, (-k) % 128)).reshape(n, -1, 128)
-    return {"w": torch.cat((bias[:, None, None].expand(-1, 1, 128), weight), dim=1).reshape(-1, 128).float()}
+    tiles = torch.nn.functional.pad(weight, (0, (-k) % 128)).reshape(n, -1, 128)
+    return {"w": torch.cat((bias[:, None, None].expand(-1, 1, 128), tiles), dim=1)
+            .reshape(-1, 128).float()}
