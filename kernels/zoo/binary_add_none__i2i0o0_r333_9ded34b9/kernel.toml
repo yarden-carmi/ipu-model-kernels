@@ -67,10 +67,8 @@ max = 16384
 default = 240
 
 [derived]
-plane = "out0_d0 * out0_d1"
-width = "ceil(plane / 128)"
-tail = "ds(plane - (width - 1) * 128)"
-full = "max(0, plane // 128 - 1)"
+width = "ceil(out0_d0 * out0_d1 / 128)"
+tail = "ds((out0_d0 * out0_d1 - 1) % 128 + 1)"
 last_row = "out0_d2 * width - 1"
 
 [inputs.in0]
@@ -90,7 +88,7 @@ qf_in0 = "CR5"
 qf_in1 = "CR6"
 qf_out0 = "CR7"
 last_row = "CR8"
-full = "CR9"
+width = "CR9"
 tail = "CR10"
 
 [cases.default]
