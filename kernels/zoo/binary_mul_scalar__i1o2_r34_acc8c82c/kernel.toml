@@ -7,21 +7,24 @@ broadcast = { type = "str", choices = ["scalar"], default = "scalar" }
 const = { type = "int", min = 1, max = 1, default = 1 }
 inner = { type = "int", min = 0, max = 0, default = 0 }
 op = { type = "str", choices = ["mul"], default = "mul" }
-numel = { type = "int", min = 1, max = 2147483647, default = 49152 }
-in0_d0 = { type = "int", min = 1, max = 65536, default = 4 }
-in0_d1 = { type = "int", min = 1, max = 65536, default = 64 }
-in0_d2 = { type = "int", min = 1, max = 65536, default = 576 }
-out0_d0 = { type = "int", min = 1, max = 65536, default = 4 }
-out0_d1 = { type = "int", min = 1, max = 65536, default = 4 }
-out0_d2 = { type = "int", min = 1, max = 65536, default = 64 }
-out0_d3 = { type = "int", min = 1, max = 128, default = 48 }
+numel = { type = "int", min = 1, max = 2147483647, default = 15360 }
+in0_d0 = { type = "int", min = 1, max = 2147483647, default = 4 }
+in0_d1 = { type = "int", min = 1, max = 2147483647, default = 16 }
+in0_d2 = { type = "int", min = 1, max = 2147483647, default = 720 }
+out0_d0 = { type = "int", min = 1, max = 2147483647, default = 4 }
+out0_d1 = { type = "int", min = 1, max = 2147483647, default = 4 }
+out0_d2 = { type = "int", min = 1, max = 2147483647, default = 16 }
+out0_d3 = { type = "int", min = 1, max = 128, default = 60 }
 
 [derived]
 chunks = "ceil(in0_d1 / 128)"
-out_chunks = "ceil(out0_d2 / 128)"
 input_batch = "in0_d2 * chunks"
-selected = "out0_d1 * out0_d3"
-ds_pair = "ds(out0_d2 - 128 * (out_chunks - 1)) + 65536 * ds(128)"
+output_batch = "out0_d1 * out0_d3 * chunks"
+active_tail = "out0_d2 - 128 * (chunks - 1)"
+one_run = "max(1 // chunks, active_tail // 128)"
+run_limit = "one_run * output_batch + (1 - one_run) * chunks - 2"
+ds_pair = "ds(active_tail) + 65536 * ds((1 // chunks) * active_tail + (1 - 1 // chunks) * 128)"
+full_ds = "ds(128)"
 fp_base = "0x4b010080"
 fp_top = "fp_base + out0_d3"
 head_width = "0x18600 + out0_d3 + 128 * (1 - out0_d3 // 128) - 128 * (out0_d3 // 128)"
@@ -31,7 +34,7 @@ shape = ["in0_d0 * input_batch", 128]
 range = [-2, 2]
 
 [outputs.out0]
-shape = ["out0_d0 * selected * out_chunks", 128]
+shape = ["out0_d0 * output_batch", 128]
 
 [scratch.scalar]
 shape = [1, 128]
@@ -46,9 +49,10 @@ scalar = "CR7"
 fp_top = "CR8"
 fp_base = "CR9"
 head_width = "CR10"
-chunks = "CR11"
+run_limit = "CR11"
 input_batch = "CR12"
-selected = "CR13"
+output_batch = "CR13"
+full_ds = "CR14"
 out0_d0 = "LR6"
 
 [cases.default]
