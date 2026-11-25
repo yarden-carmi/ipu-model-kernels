@@ -1,0 +1,49 @@
+[kernel]
+op = "binary_mul_scalar"
+formats = ["e2", "e3"]
+
+[params]
+broadcast = { type = "str", choices = ["scalar"], default = "scalar" }
+const = { type = "int", min = 1, max = 1, default = 1 }
+inner = { type = "int", min = 0, max = 0, default = 0 }
+op = { type = "str", choices = ["mul"], default = "mul" }
+numel = { type = "int", min = 1, max = 2147483647, default = 15360 }
+in0_d0 = { type = "int", min = 1, max = 128, default = 4 }
+in0_d1 = { type = "int", min = 1, max = 65536, default = 16 }
+in0_d2 = { type = "int", min = 1, max = 65536, default = 720 }
+out0_d0 = { type = "int", min = 1, max = 128, default = 4 }
+out0_d1 = { type = "int", min = 1, max = 65536, default = 4 }
+out0_d2 = { type = "int", min = 1, max = 65536, default = 16 }
+out0_d3 = { type = "int", min = 1, max = 127, default = 60 }
+
+[derived]
+width = "out0_d1 * out0_d3"
+gap = "in0_d2 - width"
+sizes = "ds(out0_d0) + 65536 * ds(128)"
+fp_base = "0x4b010080"
+fp_top = "fp_base + out0_d3"
+head_width = "0x18600 + out0_d3 + 128"
+
+[inputs.in0]
+shape = ["in0_d1 * in0_d2", 128]
+range = [-2, 2]
+[outputs.out0]
+shape = ["out0_d2 * width", 128]
+[scratch.scalar]
+shape = [1, 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+qf_in0 = "CR4"
+qf_out0 = "CR5"
+sizes = "CR6"
+scalar = "CR7"
+fp_base = "CR8"
+fp_top = "CR9"
+head_width = "CR10"
+width = "CR11"
+gap = "CR12"
+out0_d2 = "LR4"
+
+[cases.default]
