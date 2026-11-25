@@ -1,0 +1,53 @@
+[kernel]
+op = "bmm"
+formats = ["e2"]
+
+[params]
+b = {type="int", min=1, max=2147483647, default=8}
+k = {type="int", min=1, max=128, default=64}
+m = {type="int", min=1, max=2147483647, default=64}
+n = {type="int", min=1, max=64, default=64}
+in0_d0 = {type="int", min=1, max=2147483647, default=1}
+in0_d1 = {type="int", min=1, max=2147483647, default=64}
+in0_d2 = {type="int", min=1, max=2147483647, default=512}
+in1_d0 = {type="int", min=1, max=2147483647, default=1}
+in1_d1 = {type="int", min=1, max=64, default=64}
+in1_d2 = {type="int", min=1, max=2147483647, default=512}
+out0_d0 = {type="int", min=1, max=2147483647, default=1}
+out0_d1 = {type="int", min=1, max=2147483647, default=8}
+out0_d2 = {type="int", min=1, max=2147483647, default=64}
+out0_d3 = {type="int", min=1, max=64, default=64}
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d1", "arows*128"]
+range = [-1, 1]
+[inputs.in1]
+shape = ["in1_d0", "brows", 128]
+range = [-1, 1]
+[outputs.out0]
+shape = ["out0_d0", "out0_d1", "out0_d2", 128]
+[derived]
+arows = "ceil(in0_d2/128)"
+brows = "ceil(in1_d2/2)"
+agap = "in0_d1*arows*min(1,in0_d0-1)-(out0_d1*k)//128"
+bgap = "brows*min(1,in1_d0-1)-(out0_d1*k)//2"
+outdesc = "ds(n)"
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+k = "CR5"
+qf_in0 = "CR6"
+qf_in1 = "CR7"
+qf_out0 = "CR8"
+outdesc = "CR10"
+in1_d1 = "CR11"
+arows = "CR12"
+m = "CR13"
+out0_d0 = "CR14"
+out0_d1 = "CR15"
+agap = "LR0"
+bgap = "CR9"
+
+[cases.default]
