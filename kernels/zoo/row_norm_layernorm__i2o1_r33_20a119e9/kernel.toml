@@ -1,20 +1,19 @@
 [kernel]
 op = "row_norm"
 formats = ["e2"]
-
 [params.kind]
 type = "str"
 choices = ["layernorm"]
 default = "layernorm"
 [params.channels]
 type = "int"
-min = 1
+min = 8
 max = 4096
 default = 144
 [params.rows]
 type = "int"
 min = 1
-max = 4096
+max = 16384
 default = 1024
 [params.eps]
 type = "float"
@@ -24,7 +23,7 @@ default = 1e-5
 [params.in0_d0]
 type = "int"
 min = 1
-max = 4096
+max = 16
 default = 4
 [params.in0_d1]
 type = "int"
@@ -39,7 +38,7 @@ default = 144
 [params.out0_d0]
 type = "int"
 min = 1
-max = 4096
+max = 16
 default = 4
 [params.out0_d1]
 type = "int"
@@ -48,13 +47,14 @@ max = 4096
 default = 256
 [params.out0_d2]
 type = "int"
-min = 1
+min = 8
 max = 4096
 default = 144
 
 [derived]
 chunks = "ceil(in0_d2 / 128)"
 stride = "ceil(out0_d1 / 128)"
+channel_stride = "channels + 65536 * stride"
 size = "out0_d0 * out0_d2 * stride"
 ds_pair = "ds(out0_d1 - (stride - 1) * 128) + 65536 * ds(128)"
 token_dims = "in0_d1 + 65536 * in0_d0"
@@ -85,7 +85,7 @@ qf_in0 = "CR7"
 qf_out0 = "CR8"
 work_qf = "CR9"
 ds_pair = "CR10"
-channels = "CR11"
+channel_stride = "CR11"
 transposed = "CR12"
 chunks = "CR13"
 token_dims = "CR14"
