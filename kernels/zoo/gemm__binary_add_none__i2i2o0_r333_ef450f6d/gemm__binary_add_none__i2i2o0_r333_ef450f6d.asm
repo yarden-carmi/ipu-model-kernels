@@ -36,7 +36,7 @@ channel:
     LD.MULT R0 LR4 {{cr.in1}} ;;
     MULT.VE LR5 CR1 0 LR0 {{cr.full}}.L {{cr.qf_in1}}.L ; ACC.ADD.FIRST ; LD.MULT R0 LR3 {{cr.w}} ; INC LR3 1 ;;
 {% else %}
-    # Convert the residual's logical flat offset to its padded batch/row.
+    # Map the flat residual view onto batch-padded storage rows.
     SET LR8 LR4 ; SET LR9 CR0 ;;
 {% for bit in range(7) %}
     ADD LR8 LR8 LR8 ;;
@@ -70,10 +70,9 @@ res_next_row:
 res_done:
     LD.MULT R0 LR3 {{cr.w}} ; INC LR3 1 ;;
 {% endif %}
-    MULT.VE LR0 CR1 0 LR0 {{cr.full}}.L {{cr.qf_in0}}.L ; ACC.ADD ;;
-    # Hot loop preloads the next activation; the drain never reads beyond the block.
-    DEC LR14 {{3 if chunks == 1 or chunks > 4 else 2}} ;;
+    MULT.VE LR0 CR1 0 LR0 {{cr.full}}.L {{cr.qf_in0}}.L ; ACC.ADD ; DEC LR14 2 ;;
 {% if chunks <= 4 %}
+    # Keep the K tiles resident; each AGG writes one position lane.
     SET LR8 CR0 ; SET LR7 LR12 ; SET LR13 CR0 ;;
     DEC LR7 1 ; DEC LR13 1 ;;
 {% for i in range(chunks) %}
@@ -92,7 +91,7 @@ drain:
 {{ dot('LR' ~ (8+i), i < chunks-1, 'INC LR7 1', i == 0) }}
 {% endfor %}
 {% else %}
-    # With more K tiles than cyclic slots, reuse one tile across the block.
+    # For a wide reduction, sweep the position block once per K tile.
     SET LR9 CR0 ; SET LR10 LR12 ;;
 weight_tile:
     LD.MULT.CYCLIC LR3 {{cr.w}} LR0 ; INC LR3 1 ; SUB LR7 LR10 {{cr.chunks}} ; SET LR13 CR0 ;;
@@ -105,7 +104,7 @@ tile_drain:
     INC LR9 1 ; INC LR10 1 ;;
     BLT.S LR9 {{cr.chunks}} weight_tile ;;
 {% endif %}
-    INC LR14 {{3 if chunks == 1 or chunks > 4 else 2}} ;;
+    INC LR14 2 ;;
 {% if rem %}
     BEQ LR1 {{cr.blocks}} store_tail ;;
 {{ store(cr.full) }}

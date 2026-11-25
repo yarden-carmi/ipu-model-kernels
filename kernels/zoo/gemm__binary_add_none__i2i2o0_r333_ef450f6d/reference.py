@@ -59,10 +59,10 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    """Keep each channel's bias and K tiles together for reuse across positions."""
+    """Store a broadcast bias and padded K vectors together per channel."""
     weight = module.weight.detach().double()
     n, k = weight.shape
     bias = module.bias.detach().double() if params["s0_bias"] else weight.new_zeros(n)
     tiles = torch.nn.functional.pad(weight, (0, (-k) % 128)).reshape(n, -1, 128)
-    return {"w": torch.cat((bias[:, None, None].expand(-1, 1, 128), tiles), dim=1)
-            .reshape(-1, 128).float()}
+    rows = torch.cat((bias[:, None, None].expand(-1, 1, 128), tiles), dim=1)
+    return {"w": rows.reshape(-1, 128).float()}
