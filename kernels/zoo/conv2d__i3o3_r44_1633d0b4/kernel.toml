@@ -2,93 +2,35 @@
 op = "conv2d"
 formats = ["e1", "e2"]
 
-[params.bias]
-type = "bool"
-default = true
-[params.groups]
-type = "int"
-choices = [1]
-default = 1
-[params.cin]
-type = "int"
-min = 1
-max = 1024
-default = 64
-[params.cout]
-type = "int"
-min = 1
-max = 2048
-default = 64
-[params.h]
-type = "int"
-min = 1
-default = 8
-[params.w]
-type = "int"
-min = 1
-max = 128
-default = 8
-[params.kh]
-type = "int"
-choices = [3]
-default = 3
-[params.kw]
-type = "int"
-choices = [3]
-default = 3
-[params.padding]
-type = "int"
-choices = [1]
-default = 1
-[params.stride]
-type = "int"
-choices = [1, 2]
-default = 1
-[params.in0_d0]
-type = "int"
-choices = [1]
-default = 1
-[params.in0_d1]
-type = "int"
-min = 1
-max = 1024
-default = 64
-[params.in0_d2]
-type = "int"
-min = 1
-default = 8
-[params.in0_d3]
-type = "int"
-min = 1
-max = 128
-default = 8
-[params.out0_d0]
-type = "int"
-choices = [1]
-default = 1
-[params.out0_d1]
-type = "int"
-min = 1
-max = 2048
-default = 64
-[params.out0_d2]
-type = "int"
-min = 1
-default = 8
-[params.out0_d3]
-type = "int"
-min = 1
-max = 128
-default = 8
+[params]
+bias = {type = "bool", default = false}
+groups = {type = "int", choices = [1], default = 1}
+cin = {type = "int", min = 1, max = 1024, default = 384}
+cout = {type = "int", min = 1, max = 1024, default = 64}
+h = {type = "int", min = 1, max = 512, default = 8}
+w = {type = "int", min = 1, max = 128, default = 8}
+kh = {type = "int", choices = [3], default = 3}
+kw = {type = "int", choices = [3], default = 3}
+padding = {type = "int", choices = [1], default = 1}
+stride = {type = "int", choices = [1, 2], default = 1}
+in0_d0 = {type = "int", choices = [1], default = 1}
+in0_d1 = {type = "int", min = 1, max = 1024, default = 384}
+in0_d2 = {type = "int", min = 1, max = 512, default = 8}
+in0_d3 = {type = "int", min = 1, max = 128, default = 8}
+out0_d0 = {type = "int", choices = [1], default = 1}
+out0_d1 = {type = "int", min = 1, max = 1024, default = 64}
+out0_d2 = {type = "int", min = 1, max = 512, default = 8}
+out0_d3 = {type = "int", min = 1, max = 128, default = 8}
 
 [derived]
-input_rows = "in0_d1 * in0_d2"
-panel_count = "9 * cin // 128"
-tail_end = "9 * cin % 128 - 3"
-weight_rows = "out0_d1 * (1 + ceil(9 * cin / 128))"
-tile_end = "stride * out0_d2"
+candidate = "min(out0_d2, 128 // out0_d3)"
+pack = "1"
+weight_rows = "cout * (1 + ceil(9 * cin / 128))"
+input_rows = "in0_d2 * in0_d1"
 full = "ds(128)"
-width_ds = "ds(out0_d3)"
+packed = "ds(pack * out0_d3)"
+width = "ds(out0_d3)"
+tile_end = "out0_d2 * stride"
 
 [inputs.in0]
 shape = ["input_rows", 128]
@@ -97,12 +39,12 @@ range = [-1, 1]
 shape = ["weight_rows", 128]
 range = [-1, 1]
 [inputs.masks]
-shape = [3, 128]
+shape = ["1 + 3 * pack", 128]
 range = [0, 1]
-[scratch.patch]
-shape = ["9 * cin", 128]
+[scratch.patches]
+shape = ["9 * cin + 1", 128]
 [scratch.parity]
-shape = ["1 + (stride - 1) * 2 * input_rows", 128]
+shape = ["(stride - 1) * 2 * input_rows + 1", 128]
 [outputs.out0]
 shape = ["out0_d2 * out0_d1", 128]
 
@@ -111,18 +53,17 @@ in0 = "CR2"
 out0 = "CR3"
 weights = "CR4"
 masks = "CR5"
-patch = "CR6"
+patches = "CR6"
 parity = "CR7"
 qf_in0 = "CR8"
 qf_out0 = "CR9"
 full = "CR10"
-width_ds = "CR11"
+packed = "CR11"
 cin = "CR12"
 in0_d2 = "CR13"
 weight_rows = "CR14"
-tile_end = "CR15"
-input_rows = "LR12"
-panel_count = "LR14"
-tail_end = "LR15"
+input_rows = "LR14"
+width = "CR15"
+cout = "LR15"
 
 [cases.default]

@@ -49,9 +49,9 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 32, 32], [65536, 1024, 32, 1], 0), module.weight, module.bias, [1, 1], [1, 1])
+    r0 = aten.conv2d.default(_v(ins[0], [1, 384, 8, 8], [24576, 64, 8, 1], 0), module.weight, None, [1, 1], [1, 1])
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 64, 32, 32])}
+    return {"out0": _out(op0, [1, 64, 8, 8])}
 # ---- end of the frozen reference ----
 
 
@@ -60,13 +60,17 @@ def fold(module, **params):
     cout = weight.shape[0]
     taps = weight.permute(0, 2, 1, 3).reshape(cout, -1)
     panels = torch.nn.functional.pad(taps, (0, (-taps.shape[1]) % 128))
-    bias = getattr(module, 'bias', None)
-    if bias is None or not params['bias']:
+    bias = getattr(module, 'bias', None) if params['bias'] else None
+    if bias is None:
         bias = weight.new_zeros(cout)
     rows = torch.cat((bias.reshape(cout, 1).expand(-1, 128), panels), dim=1)
-    masks = weight.new_zeros((3, 128))
-    ow = params['out0_d3']
-    for x in range(3):
-        col = torch.arange(ow) * params['stride'] + x - 1
-        masks[x, :ow] = (col >= 0) & (col < params['in0_d3'])
+
+    ow, oh = params['out0_d3'], params['out0_d2']
+    pack = 1
+    masks = weight.new_zeros((1 + 3 * pack, 128))
+    for kx in range(3):
+        x = torch.arange(ow) * params['stride'] + kx - 1
+        valid = (x >= 0) & (x < params['in0_d3'])
+        for slot in range(pack):
+            masks[1 + kx * pack + slot, slot * ow:(slot + 1) * ow] = valid
     return {'weights': rows.reshape(-1, 128), 'masks': masks}
