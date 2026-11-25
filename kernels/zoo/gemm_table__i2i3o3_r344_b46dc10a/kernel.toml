@@ -38,7 +38,7 @@ default = 16
 [params.in0_d2]
 type = "int"
 min = 1
-max = 256
+max = 16384
 multiple_of = 8
 default = 240
 [params.in1_d0]
@@ -85,7 +85,7 @@ default = 8
 [derived]
 tiles = "ceil(m / 128)"
 groups = "k // 16"
-activation_rows = "in0_d0 * ceil(in0_d1 * in0_d2 / 128)"
+activation_rows = "in0_d0 * (in0_d1 * in0_d2 // 128)"
 full = "ds(128)"
 tail = "ds(1 + (m - 1) % 128)"
 
