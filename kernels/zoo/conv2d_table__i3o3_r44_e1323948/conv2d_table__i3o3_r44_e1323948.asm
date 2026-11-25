@@ -2,7 +2,6 @@
 {% set ip = 128 // w if dw else 1 %}
 {% set op = ip * stride if dw else ([1,128 // w]|max if stride == 1 else 1) %}
 {% set ni = (cin + ip - 1) // ip %}
-{% set no = (cout + op - 1) // op %}
 {% set ix = (w + 127) // 128 %}
 {% set row = stride if dw else (1 if op > 1 else 3) %}
 {% set ds = cr.ds128 ~ '.L' %}
@@ -14,28 +13,28 @@
  SET {{r}} CR0 ;;
  {% for off in range(0,n|abs,255) %}{{inc(r,([255,n|abs-off]|min)*(1 if n>0 else -1))}} ;;{% endfor %}
 {% endmacro %}
-{% macro zero(label) %}
- SET LR12 CR0 ;;
- {{label}}:
- MULT.VE LR0 CR0 0 LR0 {{ds}} {{qi}} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ds}} {{qi}} {{cr.pad}} LR5 ; INC LR5 1 ; INC LR12 1 ; BLT.S LR12 LR11 {{label}} ;;
+{% macro zero() %}
+ {% for i in range(row) %}
+ MULT.VE LR0 CR0 0 LR0 {{ds}} {{qi}} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ds}} {{qi}} {{cr.pad}} LR5 ; INC LR5 1 ;;
+ {% endfor %}
 {% endmacro %}
 
 {{bound('LR1',128)}}
 {{bound('LR2',256)}}
 {{bound('LR3',384)}}
 {{bound('LR5',-1)}}
-{{bound('LR11',row-1)}}
 {% if dw %}
-{% set unzip_pair = stride == 2 and ni % 2 == 0 %}
-{{bound('LR10',h-(2 if unzip_pair else 1))}}
+{# Split even and odd x coordinates, packing both channel blocks without horizontal copies. #}
+{% set pair = stride == 2 and ni % 2 == 0 %}
+{{bound('LR10',h-(2 if pair else 1))}}
 {% if stride == 2 %}
  {{bound('LR13',2)}}
  {{bound('LR15',ni-1)}}
- {{bound('LR14',no-1)}}
+ {{bound('LR14',(cout + op - 1) // op-1)}}
  {{bound('LR8',256-w*ip)}}
 {% endif %}
 stage_block:
- {{zero('top')}}
+ {{zero()}}
  SET LR7 CR0 ; {% if stride == 1 %}SET LR4 LR6 ;{% else %}ADD LR4 LR6 LR6 ;{% endif %} ;;
 {% macro unzip(again) %}
  MULT.RC.VE LR0 CR1 0 LR0 {{ds}} {{qi}} ; ACC.STRIDE 64 on off LR0 ; LD.MULT.CYCLIC LR4 {{cr.in0}} LR2 ; INC LR4 1 ;;
@@ -43,12 +42,12 @@ stage_block:
  MULT.RC.VE LR0 CR1 0 LR0 {{ds}} {{qi}} ; ACC.STRIDE 64 on_inv off LR0 ;;
  MULT.RC.VE LR2 CR1 0 LR0 {{ds}} {{qi}} ; ACC.STRIDE 64 on_inv off LR13 ; ACTIVATE.QUANTIZE identity {{ds}} {{qi}} {{cr.pad}} LR5 ; INC LR5 1 ; ADD LR4 LR4 LR15 ; {% if again %}LD.MULT.CYCLIC LR4 {{cr.in0}} LR0 ; INC LR7 1 ; BLT.S LR7 LR10 stage_y ;{% endif %} ;;
 {% endmacro %}
- {% if unzip_pair %}LD.MULT.CYCLIC LR4 {{cr.in0}} LR0 ;;{% endif %}
+ {% if pair %}LD.MULT.CYCLIC LR4 {{cr.in0}} LR0 ;;{% endif %}
  stage_y:
  {% if stride == 1 %}
  LD.MULT R0 LR4 {{cr.in0}} ;;
  MULT.VE LR0 CR1 0 LR0 {{ds}} {{qi}} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ds}} {{qi}} {{cr.pad}} LR5 ; INC LR5 1 ; INC LR7 1 ; ADD LR4 LR4 {{cr.no}} ; BLT.S LR7 LR10 stage_y ;;
- {% elif unzip_pair %}
+ {% elif pair %}
  {{unzip(true)}}
  {{unzip(false)}}
  {% else %}
@@ -63,37 +62,39 @@ stage_block:
  MULT.RC.VE LR0 CR1 0 LR0 {{ds}} {{qi}} ; ACC.STRIDE 64 on off LR0 ; ACTIVATE.QUANTIZE identity {{ds}} {{qi}} {{cr.pad}} LR5 ;;
  MULT.RC.VE LR0 CR1 0 LR0 {{ds}} {{qi}} ; ACC.STRIDE 64 on_inv off LR0 ; ACTIVATE.QUANTIZE identity {{ds}} {{qi}} {{cr.pad}} LR5 ; INC LR5 1 ; ADD LR4 LR4 LR15 ; INC LR7 1 ; BLT.S LR7 LR10 stage_y ;;
  {% endif %}
- {{zero('bottom')}}
+ {{zero()}}
  INC LR6 1 ;;
  BLT.S LR6 {{cr.no}} stage_block ;;
 {% else %}
+{# Broadcast each input scanline into output-channel segments. For a single
+   segment, stage the three horizontal offsets instead. #}
 {{bound('LR10',h-1)}}
 {{bound('LR15',-1)}}
 {{bound('LR9',op-2 if op>1 else 2)}}
 {{bound('LR8',(cin-1)*ix)}}
 {{bound('LR6',(cin-1)*ix-1)}}
 stage_channel:
- {{zero('top')}}
+ {{zero()}}
  SET LR4 LR15 ; SET LR7 CR0 ; LD.MULT.CYCLIC LR0 {{cr.pad}} LR0 ;;
  LD.MULT.CYCLIC LR0 {{cr.pad}} LR3 ;;
  stage_y:
  LD.MULT.CYCLIC LR4 {{cr.in0}} LR1 ; INC LR4 1 ; {% if op==1 %}SET LR13 LR1 ; SET LR12 LR2 ;{% endif %} ;;
  {% if ix == 2 %}LD.MULT.CYCLIC LR4 {{cr.in0}} LR2 ; INC LR4 1 ;;{% elif op==1 %}LD.MULT.CYCLIC LR0 {{cr.pad}} LR2 ;;{% endif %}
- {% if op==4 %}
+ {% if op>1 %}
  MULT.RC.VE LR1 CR1 0 LR0 {{ds}} {{qi}} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{cr.ds_width}}.L {{qi}} {{cr.pad}} LR5 ; INC LR5 1 ;;
  LD.MULT.CYCLIC LR5 {{cr.pad}} LR1 ; SET LR13 LR1 ;;
+ {% if op==4 %}
  {% for s in range(4) %}
  MULT.RC.VE LR13 CR1 0 LR0 {{ds}} {{qi}} ; ACC.ADD{{ '.FIRST' if loop.first else '' }} ; {{inc('LR13',-w if s else 0)}}
  {% if loop.last %}ACTIVATE.QUANTIZE identity {{ds}} {{qi}} {{cr.pad}} LR5 ; ADD LR4 LR4 LR8 ; INC LR7 1 ; BLT.S LR7 LR10 stage_y ;{% endif %} ;;
  {% endfor %}
- {% elif op>1 %}
- {# Copy with the inactive tail cleared before replicating into channel segments. #}
- MULT.RC.VE LR1 CR1 0 LR0 {{ds}} {{qi}} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{cr.ds_width}}.L {{qi}} {{cr.pad}} LR5 ; INC LR5 1 ;;
- LD.MULT.CYCLIC LR5 {{cr.pad}} LR1 ; SET LR12 CR0 ; SET LR13 LR1 ;;
+ {% else %}
+ SET LR12 CR0 ;;
  MULT.RC.VE LR1 CR1 0 LR0 {{ds}} {{qi}} ; ACC.ADD.FIRST ; DEC LR5 1 ;;
  replicate:
  MULT.RC.VE LR13 CR1 0 LR0 {{ds}} {{qi}} ; ACC.ADD ; DEC LR13 {{w}} ; INC LR12 1 ; BLT.S LR12 LR9 replicate ;;
  ACTIVATE.QUANTIZE identity {{ds}} {{qi}} {{cr.pad}} LR5 ; INC LR5 1 ;;
+ {% endif %}
  {% else %}
  {% for k in range(3) %}
  {% set shift = -1 if k==0 else 1 %}
@@ -106,7 +107,7 @@ stage_channel:
  {% endfor %}
  {% endif %}
  {% if op!=4 %}ADD LR4 LR4 LR8 ; INC LR7 1 ; BLT.S LR7 LR10 stage_y ;;{% endif %}
- {{zero('bottom')}}
+ {{zero()}}
  INC LR15 {{ix}} ; BLT.S LR15 LR6 stage_channel ;;
 {% endif %}
 
@@ -124,9 +125,7 @@ output_y:
  {% if dw or op>1 %}
  MULT.RC.VE LR0 CR1 0 LR0 {{ds}} {{qw}} ; ACC.ADD.FIRST ; SET LR15 LR10 ; ADD LR13 LR12 CR1 ; LD.MULT.CYCLIC LR13 {{cr.pad}} LR1 ; {% if not dw %}ADD LR14 LR12 CR1 ;{% endif %} ;;
  MULT.RC.VE LR3 CR1 0 LR0 {{ds}} {{qw}} ; ACC.ADD ; LD.MULT R0 LR15 {{cr.weights}} ; INC LR15 1 ; SET LR8 LR1 ;;
- {% if not dw %}
- dense_channel:
- {% endif %}
+ {% if not dw %}dense_channel:{% endif %}
  {% for y in range(3) %}
  {% if y %}LD.MULT.CYCLIC LR13 {{cr.pad}} LR1 ; INC LR13 1 ; SET LR8 LR1 ;;{% endif %}
  {% if dw and stride==2 %}LD.MULT.CYCLIC LR13 {{cr.pad}} LR2 ; INC LR13 1 ;;{% endif %}
@@ -139,10 +138,10 @@ output_y:
  MULT.RC.VV LR8 R0 0 LR0 {{ds}} {{qw}} ; ACC.ADD ; {{inc('LR8',delta)}} LD.MULT R1 LR15 {{cr.weights}} ; INC LR15 1 ;;
  {% endif %}
  MULT.RC.VV LR8 {{'R1' if paired else 'R0'}} 0 LR0 {{ds}} {{qw}} ; ACC.ADD ; {% if not paired %}{{inc('LR8',delta)}}{% endif %}
- {% if y<2 or k<2 %}LD.MULT R0 LR15 {{cr.weights}} ; INC LR15 1 ;;
- {% elif dw %}ACTIVATE.QUANTIZE generic {{cr.ds_out}}.L {{qo}} {{cr.out0}} LR5 ; ADD LR5 LR5 {{cr.no}} ; INC LR12 {{stride*stride}} ; INC LR7 1 ; BLT.S LR7 LR9 output_y ;;
- {% else %}LD.MULT R0 LR15 {{cr.weights}} ; INC LR15 1 ; ADD LR14 LR14 {{cr.plane}} ;;
- {% endif %}
+ {% if y<2 or k<2 %}LD.MULT R0 LR15 {{cr.weights}} ; INC LR15 1 ;
+ {% elif dw %}ACTIVATE.QUANTIZE generic {{cr.ds_out}}.L {{qo}} {{cr.out0}} LR5 ; ADD LR5 LR5 {{cr.no}} ; INC LR12 {{stride*stride}} ; INC LR7 1 ; BLT.S LR7 LR9 output_y ;
+ {% else %}LD.MULT R0 LR15 {{cr.weights}} ; INC LR15 1 ; ADD LR14 LR14 {{cr.plane}} ;
+ {% endif %} ;;
  {% endfor %}
  {% endfor %}
  {% if not dw %}
@@ -150,7 +149,7 @@ output_y:
  ACTIVATE.QUANTIZE generic {{cr.ds_out}}.L {{qo}} {{cr.out0}} LR5 ; ADD LR5 LR5 {{cr.no}} ; INC LR12 1 ; INC LR7 1 ; BLT.S LR7 LR9 output_y ;;
  {% endif %}
  {% else %}
- {# Two scalar coefficient rows per input channel, with residuals only for paired taps. #}
+ {# Two scalar rows per channel; pipeline the next data and coefficient loads. #}
  MULT.RC.VE LR0 CR1 0 LR0 {{ds}} {{qw}} ; ACC.ADD.FIRST ; SET LR15 LR10 ; SET LR13 LR12 ; ADD LR14 LR12 CR1 ;;
  MULT.RC.VE LR3 CR1 0 LR0 {{ds}} {{qw}} ; ACC.ADD ; LD.MULT R0 LR15 {{cr.weights}} ; INC LR15 1 ;;
  LD.MULT R1 LR15 {{cr.weights}} ; INC LR15 1 ; SUB LR8 LR0 CR1 ; SUB LR11 LR1 CR1 ;;
