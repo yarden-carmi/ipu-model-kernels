@@ -1,0 +1,86 @@
+[kernel]
+op = "gemm"
+formats = ["e1", "e2"]
+
+[params.act_out0]
+type = "str"
+choices = ["relu"]
+default = "relu"
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+default = 24
+[params.m]
+type = "int"
+min = 1
+default = 784
+[params.n]
+type = "int"
+min = 1
+default = 88
+[params.in0_d0]
+type = "int"
+min = 1
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+default = 24
+[params.in0_d2]
+type = "int"
+min = 1
+default = 28
+[params.in0_d3]
+type = "int"
+min = 1
+default = 28
+[params.out0_d0]
+type = "int"
+min = 1
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+default = 88
+[params.out0_d2]
+type = "int"
+min = 1
+default = 28
+[params.out0_d3]
+type = "int"
+min = 1
+default = 28
+
+[derived]
+pack = "1 + min(1, 64 // in0_d1)"
+input_tiles = "ceil(in0_d1 / 128)"
+tiles = "ceil(out0_d1 / 128)"
+points = "out0_d0 * out0_d2 * out0_d3"
+full = "ds(128)"
+tail = "ds((out0_d1 - 1) % 128 + 1)"
+
+[inputs.in0]
+shape = ["ceil(in0_d0 * in0_d2 * in0_d3 / pack) * input_tiles", 128]
+[inputs.w]
+shape = ["2 * tiles * (1 + k)", 128]
+[outputs.out0]
+shape = ["points * tiles", 128]
+
+[abi]
+in0 = "CR2"
+w = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+full = "CR7"
+tail = "CR8"
+k = "CR9"
+tiles = "CR10"
+in0_d1 = "CR11"
+input_tiles = "CR12"
+points = "LR11"
+
+[cases.default]
