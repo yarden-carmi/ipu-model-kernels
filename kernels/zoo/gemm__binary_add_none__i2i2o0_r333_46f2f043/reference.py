@@ -49,17 +49,17 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.linear.default(_v(ins[0], [4, 16, 480], [7680, 480, 1], 0), module.weight, module.bias)
+    r0 = aten.linear.default(_v(ins[0], [4, 64, 384], [24576, 384, 1], 0), module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
     op0 = r_(op0, "s0")  # stored
-    r0 = aten.add.Tensor(_v(ins[1], [4, 16, 240], [1, 4, 64], 0), _v(op0, [4, 16, 240], [3840, 240, 1], 0))
+    r0 = aten.add.Tensor(_v(ins[1], [4, 64, 192], [1, 4, 256], 0), _v(op0, [4, 64, 192], [12288, 192, 1], 0))
     op1 = _pick(r0, 0)  # step 1
-    return {"out0": _out(op1, [4, 16, 240])}
+    return {"out0": _out(op1, [4, 64, 192])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Store one broadcast bias and the K vectors for each output channel."""
+    """Store a broadcast bias and padded K vectors for each output channel."""
     weight = module.weight.detach().double()
     n, k = weight.shape
     bias = module.bias.detach().double() if params["s0_bias"] else weight.new_zeros(n)

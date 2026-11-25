@@ -90,7 +90,6 @@ blocks = "ceil(s0_m / 128)"
 full = "ds(128)"
 tail = "ds((s0_m - 1) % 128 + 1)"
 slot = "128"
-batch_size = "in1_d1 * in1_d2"
 fast = "1 - min(1, max(0, chunks - 4) + max(0, in0_d0 - 8) + 128 % in0_d0)"
 batch_step = "in0_d1 * chunks - fast * (chunks - 1)"
 weight_end = "s0_n * (chunks + 1) - 1"
@@ -99,7 +98,7 @@ weight_end = "s0_n * (chunks + 1) - 1"
 shape = ["in0_d0 * in0_d1 * chunks", 128]
 range = [-2, 2]
 [inputs.in1]
-shape = ["in1_d0 * ceil(batch_size / 128)", 128]
+shape = ["in1_d0 * ceil(in1_d1 * in1_d2 / 128)", 128]
 range = [-2, 2]
 [inputs.w]
 shape = ["s0_n * (chunks + 1)", 128]
