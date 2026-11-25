@@ -1,39 +1,35 @@
-{# Two adjacent reduction chunks share a row. Keep both packed halves of K
-   resident: the full output tile uses outer products, and the partial tile
-   uses two lane-parallel dot products per output instead of padded vectors. #}
+{# Each packed activation row provides two heads' worth of K scalars.
+   Stream weight planes through a single cyclic slot, one word ahead. #}
 {% macro next_weight() %}
-    LD.MULT.CYCLIC LR4 {{ cr.w }} LR0 ; INC LR4 1
+    LD.MULT.CYCLIC LR6 {{ cr.w }} LR0 ; INC LR6 1
 {%- endmacro %}
-{% macro outer() %}
-    MULT.RC.VE LR0 LR3 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD
-{%- endmacro %}
-{% macro dot(bank) %}
-    MULT.RC.VV LR0 {{ bank }} 0 LR0 {{ cr.dot }}.L {{ cr.qf_in0 }}.L ; AGG.SUM LR3 {{ cr.dot }}.L
-{%- endmacro %}
-{% macro bias() %}
-    MULT.RC.VE LR0 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST
+{% macro mac(scalar, first=false) %}
+    MULT.RC.VE LR0 {{ scalar }} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{% if first %}.FIRST{% endif %} ; {{ next_weight() }}
 {%- endmacro %}
 {% macro store(ds) %}
-    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR5
+    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR7 ;;
+    INC LR7 1 ;;
 {%- endmacro %}
-    LD.MULT.CYCLIC LR4 {{ cr.w }} LR0 ; DEC LR5 1 ; SET LR10 {{ cr.rows }} ; INC LR7 127 ;;
+{% set bias_scalar = 'CR1' if bias else 'CR0' %}
+    SET LR14 {{ cr.rows }} ;;
 row:
-    LD.MULT R0 LR5 {{ cr.in0 }} ; INC LR5 1 ; SET LR3 CR0 ;;
-    LD.MULT R1 LR2 {{ cr.in0 }} ; ADD LR2 LR5 CR1 ; DEC LR3 1 ;;
-    {{ bias() }} ; {{ next_weight() }} ;;
-first_bank:
-    {{ outer() }} ; {{ next_weight() }} ; INC LR3 1 ; BLT.S LR3 {{ cr.first_end }} first_bank ;;
-    {# Switch banks as the first bank's last multiply retires. #}
-    {{ outer() }} ; {{ next_weight() }} ; ADD LR3 LR7 CR1 ;;
-{% if chunk > 2 %}
-second_bank:
-    {{ outer() }} ; {{ next_weight() }} ; INC LR3 1 ; BLT.S LR3 {{ cr.second_end }} second_bank ;;
-{% endif %}
-    {{ outer() }} ; {{ next_weight() }} ; INC LR3 1 ; {{ store(cr.full) }} ;;
-    {{ bias() }} ; {{ next_weight() }} ; SUB LR3 LR0 CR1 ; DEC LR10 1 ;;
-tail_first:
-    {{ dot('R0') }} ; {{ next_weight() }} ; INC LR3 1 ; BEQ LR3 {{ cr.tail_end }} tail_last ;;
-    {{ dot('R1') }} ; {{ next_weight() }} ; B tail_first ;;
-tail_last:
-    LD.MULT.CYCLIC LR4 {{ cr.w }} LR0 ; SET LR4 CR0 ; {{ dot('R1') }} ; INC LR5 1 ; {{ store(cr.tail) }} ; BNE LR10 CR0 row ;;
+    SET LR9 {{ cr.tiles }} ; SET LR6 CR0 ;;
+    LD.MULT.CYCLIC LR6 {{ cr.w }} LR0 ;;
+tile:
+    SET LR1 LR10 ; SET LR4 {{ cr.groups }} ;;
+    {{ mac(bias_scalar, true) }} ;;
+    {{ mac(bias_scalar) }} ;;
+group:
+    LD.MULT R0 LR1 {{ cr.in0 }} ; SET LR2 CR0 ;;
+    DEC LR2 1 ;;
+reduction:
+    {{ mac('LR2') }} ; INC LR2 1 ;;
+    {{ mac('LR2') }} ; BLT.S LR2 {{ cr.group_last }} reduction ;;
+    INC LR1 1 ; DEC LR4 1 ; BNE LR4 CR1 group ;;
+    DEC LR9 1 ; BEQ LR9 CR1 last_tile ;;
+    {{ store(cr.full) }}
+    B tile ;;
+last_tile:
+    {{ store(cr.tail) }}
+    SET LR10 LR1 ; DEC LR14 1 ; BNE LR14 CR1 row ;;
     HALT ;;

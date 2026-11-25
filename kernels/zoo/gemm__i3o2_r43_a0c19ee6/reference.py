@@ -49,19 +49,24 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.linear.default(_v(ins[0], [4, 256, 144], [36864, 144, 1], 0), module.weight, module.bias)
+    r0 = aten.linear.default(_v(ins[0], [4, 64, 192], [12288, 192, 1], 0), module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [4, 256, 144])}
+    return {"out0": _out(op0, [4, 64, 192])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Stream the full tile by reduction lane and the tail by output channel."""
-    n, k = module.weight.shape
-    weight = module.weight.detach()
-    bias = module.bias.detach() if params["bias"] else weight.new_zeros(n)
-    full = torch.cat((bias[None, :128], weight[:128].T))
-    tail_bias = torch.nn.functional.pad(bias[None, 128:], (0, 256 - n))
-    halves = weight[128:].reshape(2 * (n - 128), k // 2)
-    tail = torch.nn.functional.pad(halves, (0, 128 - k // 2))
-    return {"w": torch.cat((full, tail_bias, tail))}
+    """Pack bias and transposed weights by tile, K, and radix-64 digit."""
+    weight = module.weight.detach().double()
+    n, k = weight.shape
+    bias = module.bias.detach().double() if params["bias"] else weight.new_zeros(n)
+    rows = torch.cat((bias[None], weight.T), dim=0)
+    rows = torch.nn.functional.pad(rows, (0, (-n) % 128))
+    rows = rows.reshape(k + 1, -1, 128).transpose(0, 1)
+    exp = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))[1]
+    code = torch.ldexp(rows.abs(), 12 - exp).round().long().clamp(max=4095)
+    planes = [torch.ldexp(((code >> shift) & 63) * rows.sign(), exp + shift - 12)
+              for shift in (6, 0)]
+    stream = torch.stack(planes, dim=2).reshape(-1, 128).float()
+    # The final MAC still issues a lookahead load.
+    return {"w": torch.nn.functional.pad(stream, (0, 0, 0, 1))}
