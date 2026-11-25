@@ -146,7 +146,7 @@ MULT.RC.VE {{ slot }} LR9 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; INC LR9 1 ;
 ADD LR12 LR12 {{ cr.span }} ; INC LR14 1 ;;
 SET LR13 LR12 ; BLT.S LR14 LR2 input_{{ x }} ;;
 {% endif %}
-ACTIVATE.QUANTIZE generic {{ do if x+1==ox else ds }} {{ qo }} {{ cr.out0 }} LR5 ; INC LR5 1 ;;
+ACTIVATE.QUANTIZE {{ 'generic' if act_out0 == 'silu' else act_out0 }} {{ do if x+1==ox else ds }} {{ qo }} {{ cr.out0 }} LR5 ; INC LR5 1 ;;
 {% endmacro %}
 {% if not resident %}{{ init('LR2',gc) }}{% endif %}
 {{ init('LR14',tiles-1) }}

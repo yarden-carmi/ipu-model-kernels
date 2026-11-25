@@ -53,18 +53,18 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 256, 64, 64], [1048576, 4096, 64, 1], 0), module.op0_weight, None, [2, 2], [1, 1], [1, 1], 256)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 512, 16, 16], [131072, 256, 16, 1], 0), module.op0_weight, None, [2, 2], [1, 1], [1, 1], 512)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 256, 32, 32], [262144, 1024, 32, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 512, 8, 8], [32768, 64, 8, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.silu_.default(_v(op1, [1, 256, 32, 32], [262144, 1024, 32, 1], 0))
+    r0 = aten.silu_.default(_v(op1, [1, 512, 8, 8], [32768, 64, 8, 1], 0))
     op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 256, 32, 32])}
+    return {"out0": _out(op2, [1, 512, 8, 8])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Fold inference BN and store each coefficient as high and residual parts."""
+    """Fuse inference batch normalization and split constants into two FP8 terms."""
     import numpy as np
 
     weight = module.op0_weight.double()
