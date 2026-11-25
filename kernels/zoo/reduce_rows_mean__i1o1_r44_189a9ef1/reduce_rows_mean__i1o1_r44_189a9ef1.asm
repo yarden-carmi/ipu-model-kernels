@@ -5,9 +5,9 @@
 {% macro load_next() -%}
     LD.MULT.CYCLIC LR2 {{ cr.in0 }} LR0 ;; ADD LR2 LR2 {{ cr.cb }}
 {%- endmacro %}
-{% macro store(ds) %}
+{% macro store(ds) -%}
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;;
-{% endmacro %}
+{%- endmacro %}
     SET LR0 CR0 ; SET LR1 CR0 ;;
 tile:
     SET LR2 LR1 ; SET LR3 CR1 ;;
