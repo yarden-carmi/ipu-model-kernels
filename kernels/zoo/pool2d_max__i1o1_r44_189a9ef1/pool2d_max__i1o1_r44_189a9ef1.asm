@@ -1,4 +1,4 @@
-{#- Max-pool channels in parallel, clipping each window to real input pixels. -#}
+{#- Reduce one spatial window with all channels in parallel. -#}
 {% macro reduce(op) %}MULT.VE LR0 CR1 0 LR0 {{ cr.valid }}.L {{ cr.qf_in0 }}.L ; ACC.MAX{{ op }}{% endmacro %}
 
     SET LR0 CR0 ; SET LR2 CR0 ; SET LR7 CR0 ;;
@@ -21,7 +21,7 @@ clip_top:
     BGE.S LR9 CR0 seed ;;
     INC LR9 1 ; ADD LR10 LR10 {{ cr.in0_d3 }} ; BEQ LR0 CR0 clip_top ;;
 seed:
-    # Initialize from a real pixel, not zero: signed windows can be all negative.
+    # Seed from the first real pixel so padding never wins a signed maximum.
     ADD LR12 LR10 LR11 ; LD.MULT R0 LR12 {{ cr.in0 }} ;;
     {{ reduce('.FIRST') }} ;;
 window_y:
