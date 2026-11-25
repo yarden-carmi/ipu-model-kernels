@@ -13,6 +13,7 @@
     ACTIVATE.QUANTIZE identity {{ full }} {{ qi }} {{ cr.scalar }} LR0 ;;
     LD.MULT.CYCLIC LR0 {{ cr.scalar }} LR0 ;;
 
+# Gather two adjacent input lanes from each column into one packed row.
 plane:
     SET LR10 LR1 ; SET LR2 {{ cr.pairs }} ; SET LR11 CR0 ;;
 chunk:
