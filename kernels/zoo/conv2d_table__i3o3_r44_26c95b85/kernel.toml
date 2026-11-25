@@ -98,6 +98,7 @@ tiles = "ceil(out0_d2 / pack)"
 extra = "stride * (pack - 1)"
 plane = "(in0_d2 + 2 * padding + extra) * kw * ox"
 gcin = "cin // groups"
+ pipe = "(1 - min(1, groups - 1)) * min(1, gcin - 1)"
 group_plane = "plane * gcin"
 mask_rows = "pack * min(1, pack - 1)"
 weights_end = "mask_rows + cout * (2 + 2 * gcin) - 1"
@@ -109,15 +110,15 @@ ds_out = "ds(pack * out0_d3 - 128 * (ox - 1))"
 shape = ["in0_d0", "in0_d1", "in0_d2", "ix", 128]
 range = [-2, 2]
 [inputs.weights]
-shape = ["mask_rows + cout * (2 + 2 * gcin)", 128]
+shape = ["mask_rows + cout * (2 + 2 * gcin) + 2 * pipe", 128]
 range = [-1, 1]
 [inputs.lut]
 shape = [5, 128]
 range = [0, 0]
 [scratch.shifted]
-shape = ["1 + cin * plane", 128]
+shape = ["1 + (cin + pipe) * plane", 128]
 [scratch.packed]
-shape = ["1 + cin * plane * min(1, pack - 1)", 128]
+shape = ["1 + (cin + pipe) * plane * min(1, pack - 1)", 128]
 [outputs.out0]
 shape = ["out0_d0", "out0_d1", "tiles", "ox", 128]
 
