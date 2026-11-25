@@ -1,0 +1,128 @@
+[kernel]
+op = "conv2d"
+formats = ["e1", "e2"]
+
+[params.bias]
+type = "bool"
+default = true
+[params.groups]
+type = "int"
+choices = [1]
+default = 1
+[params.cin]
+type = "int"
+min = 1
+max = 1024
+default = 64
+[params.cout]
+type = "int"
+min = 1
+max = 2048
+default = 64
+[params.h]
+type = "int"
+min = 1
+default = 8
+[params.w]
+type = "int"
+min = 1
+max = 128
+default = 8
+[params.kh]
+type = "int"
+choices = [3]
+default = 3
+[params.kw]
+type = "int"
+choices = [3]
+default = 3
+[params.padding]
+type = "int"
+choices = [1]
+default = 1
+[params.stride]
+type = "int"
+choices = [1, 2]
+default = 1
+[params.in0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 1024
+default = 64
+[params.in0_d2]
+type = "int"
+min = 1
+default = 8
+[params.in0_d3]
+type = "int"
+min = 1
+max = 128
+default = 8
+[params.out0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 2048
+default = 64
+[params.out0_d2]
+type = "int"
+min = 1
+default = 8
+[params.out0_d3]
+type = "int"
+min = 1
+max = 128
+default = 8
+
+[derived]
+input_rows = "in0_d1 * in0_d2"
+panel_count = "9 * cin // 128"
+tail_end = "9 * cin % 128 - 3"
+weight_rows = "out0_d1 * (1 + ceil(9 * cin / 128))"
+tile_end = "stride * out0_d2"
+full = "ds(128)"
+width_ds = "ds(out0_d3)"
+
+[inputs.in0]
+shape = ["input_rows", 128]
+range = [-1, 1]
+[inputs.weights]
+shape = ["weight_rows", 128]
+range = [-1, 1]
+[inputs.masks]
+shape = [3, 128]
+range = [0, 1]
+[scratch.patch]
+shape = ["9 * cin", 128]
+[scratch.parity]
+shape = ["1 + (stride - 1) * 2 * input_rows", 128]
+[outputs.out0]
+shape = ["out0_d2 * out0_d1", 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+weights = "CR4"
+masks = "CR5"
+patch = "CR6"
+parity = "CR7"
+qf_in0 = "CR8"
+qf_out0 = "CR9"
+full = "CR10"
+width_ds = "CR11"
+cin = "CR12"
+in0_d2 = "CR13"
+weight_rows = "CR14"
+tile_end = "CR15"
+input_rows = "LR12"
+panel_count = "LR14"
+tail_end = "LR15"
+
+[cases.default]
