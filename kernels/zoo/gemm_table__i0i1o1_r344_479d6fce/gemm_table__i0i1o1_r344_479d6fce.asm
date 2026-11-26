@@ -54,13 +54,31 @@ gemm_block:
 # LR8 is the packed row, LR9 the lane of the first slab and LR15 the
 # inner coordinate of the flat view index within a slab. Taps at equal
 # indices in different slabs share the row and occupy consecutive lanes.
+{% macro product(slot) %}
+MULT.RC.VE {{ slot }} LR9 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD
+{%- endmacro %}
     LD.MULT R0 LR8 {{ cr.in0 }} ;;
 tap:
 {% for g in range(groups) %}
-    MULT.RC.VE LR0 LR9 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR6 1{% if loop.first %} ; DEC LR10 1{% else %} ; INC LR9 1{% endif %} ; LD.MULT.CYCLIC LR6 {{ cr.w }} LR11 ;;
-    MULT.RC.VE LR11 LR9 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{% if not loop.last %} ; INC LR6 1 ; LD.MULT.CYCLIC LR6 {{ cr.w }} LR0{% else %} ; BEQ LR10 CR0 taps_done{% endif %}{% if fast and loop.index == 1 %} ; INC LR15 {{ dy }}{% endif %}{% if fast and loop.index == 2 and dx // pack + dy * chunks %} ; ADD LR8 LR8 {{ cr.pixel_step }}.H{% endif %} ;;
+    {{ product('LR0') }} ; INC LR6 1{% if loop.first %} ; DEC LR10 1{% else %} ; INC LR9 1{% endif %} ; LD.MULT.CYCLIC LR6 {{ cr.w }} LR11{% if fast and loop.last %} ; BEQ LR10 CR0 last_product{% endif %} ;;
+{% if fast and loop.last %}
+    # Stream the next weight in the last MAC word of each nonterminal group.
+    # MULT sees the updated LR, so advance its scalar lane after this word.
+    {{ product('LR11') }} ; INC LR6 1 ; LD.MULT.CYCLIC LR6 {{ cr.w }} LR0 ; BLT.S LR15 {{ cr.row_period }}.L tap_lane ;;
+{% else %}
+    {{ product('LR11') }}{% if not loop.last %} ; INC LR6 1 ; LD.MULT.CYCLIC LR6 {{ cr.w }} LR0{% else %} ; BEQ LR10 CR0 taps_done{% endif %}{% if fast and loop.index == 1 %} ; INC LR15 {{ dy }}{% endif %}{% if fast and loop.index == 2 and dx // pack + dy * chunks %} ; ADD LR8 LR8 {{ cr.pixel_step }}.H{% endif %} ;;
+{% endif %}
 {% endfor %}
-    INC LR6 1 ; LD.MULT.CYCLIC LR6 {{ cr.w }} LR0{% if fast and dx % pack * groups - (groups - 1) %} ; INC LR9 {{ dx % pack * groups - (groups - 1) }}{% endif %}{% if fast %} ; BLT.S LR15 {{ cr.row_period }}.L tap_lane{% endif %} ;;
+{% if fast %}
+    SUB LR15 LR15 {{ cr.row_period }}.L ; SUB LR8 LR8 {{ cr.row_period }}.H ; INC LR9 {{ dx % pack * groups + 1 }} ; LD.MULT R0 LR8 {{ cr.in0 }} ; BLT.S LR9 {{ cr.copy_tail }}.H tap ;;
+    SUB LR9 LR9 LR12 ; INC LR8 1 ; LD.MULT R0 LR8 {{ cr.in0 }} ; BEQ LR0 CR0 tap ;;
+tap_lane:
+    INC LR9 {{ dx % pack * groups - (groups - 1) }} ; LD.MULT R0 LR8 {{ cr.in0 }} ; BLT.S LR9 {{ cr.full }}.H tap ;;
+    SUB LR9 LR9 LR12 ; INC LR8 1 ; LD.MULT R0 LR8 {{ cr.in0 }} ; BEQ LR0 CR0 tap ;;
+last_product:
+    {{ product('LR11') }}{% if n % 128 %} ; SET LR12 CR0{% endif %} ;;
+{% else %}
+    INC LR6 1 ; LD.MULT.CYCLIC LR6 {{ cr.w }} LR0 ;;
 {% if groups > 1 and not fast %}
     DEC LR9 {{ groups - 1 }} ;;
 {% endif %}
@@ -74,16 +92,19 @@ tap:
     {% for i in range(0 if fast else (dy + 254) // 255) %}
     INC LR15 {{ [255, dy - i * 255] | min }} ;;
     {% endfor %}
-    {% if not fast %}BLT.S LR15 {{ cr.row_period }}.L tap_lane ;;{% endif %}
+    BLT.S LR15 {{ cr.row_period }}.L tap_lane ;;
     SUB LR15 LR15 {{ cr.row_period }}.L ; SUB LR8 LR8 {{ cr.row_period }}.H ; INC LR9 {{ groups }} ;;
 tap_lane:
 {% endif %}
     LD.MULT R0 LR8 {{ cr.in0 }} ; BLT.S LR9 LR12 tap ;;
     SUB LR9 LR9 LR12 ; INC LR8 1 ; LD.MULT R0 LR8 {{ cr.in0 }} ; BEQ LR0 CR0 tap ;;
+{% endif %}
 
 taps_done:
 {% if n % 128 %}
+{% if not fast %}
     SET LR12 CR0 ;;
+{% endif %}
     INC LR12 {{ blocks }} ;;
     BNE LR13 LR12 direct ;;
     {{ store(act) }}
