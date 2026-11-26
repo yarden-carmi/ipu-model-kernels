@@ -145,7 +145,7 @@ variance_tail:
  {{ save(9,3) }}
  {{ at('LR1',13) }}{{ vec(first=true,s='CR0') }}
  ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
- {{ at('LR4',2) }}
+ {{ at('LR4',1) }}
 // Newton refinement: y <- 1.5*y - 0.5*v*y^3.
 refine:
  {{ product(12,12,2,2) }}{{ save(14) }}
