@@ -70,22 +70,26 @@ pack = "1 + (min(in0_d2, 128 // in0_d3) - 1) * (1 - min(1, in0_d2 % min(in0_d2, 
 height = "in0_d2 // pack"
 stripes = "in0_d0 * height"
 batch_skip = "(k - 1) * height"
-small = "1 - min(1, max(0, k - 16))"
-tight = "min(1, max(0, k - 17)) * (1 - min(1, max(0, k - 32))) * (1 - k % 2)"
-cache_slot = "128 * tight + 384 * (1 - tight)"
-compensated = "1 - small"
-groups = "tight * ((k - 2) // 2) + (1 - tight) * (small * min((k + 3) // 4, (k - 1) // 2) + compensated * (k // 4 + min(1, max(0, k - 64)) * ((k - 1) // 2 - k // 4)))"
-paired = "k - 2 * groups"
-cache_start = "height * (2 * tight + small * (paired + 2)) + (1 - tight) * compensated * groups"
-full_blocks = "(paired - 1) // 32"
+output_skip = "(n - 1) * height"
+full_blocks = "(k - 1) // 8"
+compensated = "1 - min(1, k // 97)"
+groups = "compensated * min(26, min(k // 2, k * 7 // 16)) + (1 - compensated) * min(k * 5 // 16, (k - 1) // 2)"
+small = "1 - min(1, k // 17)"
+wide = "min(1, k // 144)"
+middle = "min(1, k // 33) * (1 - min(1, k // 65))"
+quad = "small * min(1, k // 8) * (1 - min(1, k % 4))"
+tail_groups = "quad * (k // 4 + 2 * (k // 16)) + (small - quad) * (k // 2) + middle * (k // 4) + (1 - small - middle) * groups"
+paired = "(1 - quad) * (k - 2 * tail_groups)"
+pair_blocks = "(paired + 31) // 32"
+coeff_rows = "wide * (3 + full_blocks) + (1 - wide) * (2 * pair_blocks + 2 * min(1, k // 65) + 2 * quad + compensated * 2 * min(1, tail_groups) + (1 - compensated) * tail_groups)"
+tail_b = "63"
 active = "ds(out0_d3 * pack)"
-tail_blocks = "max(0, groups - 1) // 32"
 
 [inputs.in0]
 shape = ["stripes * in0_d1", 128]
 range = [-2, 2]
 [inputs.coeff]
-shape = ["n * (tight * 4 + (1 - tight) * (2 * (1 + full_blocks) + small * groups + compensated * 2 * (tail_blocks + min(1, groups)) + 2 * min(1, max(0, k - 32)))) + 1", 128]
+shape = ["n * coeff_rows + 1", 128]
 range = [-1, 1]
 [inputs.lut]
 shape = [5, 128]
@@ -94,7 +98,7 @@ range = [0, 0]
 shape = ["n * stripes", 128]
 
 [scratch.sums]
-shape = ["max(1, groups)", 128]
+shape = ["128 + max(1, tail_groups)", 128]
 
 [abi]
 in0 = "CR2"
@@ -105,11 +109,11 @@ qf_in0 = "CR6"
 qf_out0 = "CR7"
 n = "CR8"
 height = "CR9"
-cache_slot = "CR10"
+output_skip = "CR10"
 stripes = "CR11"
 active = "CR12"
 sums = "CR13"
-cache_start = "CR14"
+tail_b = "CR14"
 batch_skip = "CR15"
 
 [cases.default]

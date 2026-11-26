@@ -53,20 +53,20 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 96, 32, 32], [98304, 1024, 32, 1], 0), module.op0_weight)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 64, 64], [262144, 4096, 64, 1], 0), module.op0_weight)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 384, 32, 32], [393216, 1024, 32, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 256, 64, 64], [1048576, 4096, 64, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.silu_.default(_v(op1, [1, 384, 32, 32], [393216, 1024, 32, 1], 0))
+    r0 = aten.silu_.default(_v(op1, [1, 256, 64, 64], [1048576, 4096, 64, 1], 0))
     op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 384, 32, 32])}
+    return {"out0": _out(op2, [1, 256, 64, 64])}
 # ---- end of the frozen reference ----
 
 
-def _digits(rows):
+def _digits(rows, bits):
     """Split row-scaled coefficients into a coarse term and a residual."""
     _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
-    step = torch.ldexp(torch.ones_like(exponent, dtype=rows.dtype), exponent - 4)
+    step = torch.ldexp(torch.ones_like(exponent, dtype=rows.dtype), exponent - bits)
     coarse = torch.round(rows / step) * step
     return torch.stack((coarse, rows - coarse), dim=-2)
 
@@ -84,60 +84,75 @@ def fold(module, **params):
     if not params['bias']:
         bias = weight.new_zeros(n)
 
-    small = k <= 16
-    tight = 18 <= k <= 32 and k % 2 == 0
-    groups = (k - 2) // 2 if tight else min((k + 3) // 4, (k - 1) // 2) if small else k // 4 if k <= 64 else (k - 1) // 2
-    paired = k - 2 * groups
-    blocks = (paired + 31) // 32
-    rows = weight.new_zeros(n, blocks, 128)
-    rows[:, :, :32] = torch.nn.functional.pad(weight[:, :paired], (0, blocks * 32 - paired)).reshape(n, blocks, 32)
-    if k <= 32:
-        rows[:, 0, 127] = bias
-    packed = _digits(rows).reshape(n, -1, 128)
-    if tight:
-        packed = packed[:, :0]
-    if k > 32 or tight:
-        packed = torch.cat((_digits(bias[:, None].expand(n, 128)), packed), dim=1)
-    if small and groups:
-        tail = weight.new_zeros(n, groups, 128)
-        tail[..., 0] = weight[:, paired::2]
-        tail[..., 127] = weight[:, paired + 1::2]
-        packed = torch.cat((packed, tail), dim=1)
-    elif groups:
-        for start in range(paired, k, 64):
-            pair = weight[:, start:start + 64].reshape(n, -1, 2)
-            _, exponent = torch.frexp(pair.abs().amax(dim=(1, 2), keepdim=True))
-            step = torch.ldexp(torch.ones_like(exponent, dtype=pair.dtype), exponent - 6)
-            a, b = pair.unbind(-1)
-            s = step.squeeze(-1)
-            # Choose a small common correction on the coefficient grid. The
-            # unrounded remainder still goes in the table for FP32 execution.
-            scale = s * 32
-            grid = torch.arange(-64, 65, dtype=pair.dtype, device=pair.device)
-            candidates = s.unsqueeze(-1) * grid / 32
-            def error(w):
-                v = (w.unsqueeze(-1) - candidates).abs()
-                _, e = torch.frexp(v)
-                quantum = torch.maximum(torch.ldexp(torch.ones_like(v), e - 6), s.unsqueeze(-1) / 8)
-                rounded = torch.minimum(torch.round(v / quantum) * quantum, (scale * (63 / 32)).unsqueeze(-1))
-                return rounded - v
-            ea, eb = error(a), error(b)
-            loss = ea.square() + eb.square() + candidates.square() / 4096
-            if tight:
-                # The first shared residual also covers the cached prefix.
-                for extra in weight[:, :2].unbind(-1):
-                    loss[:, :1] += error(extra[:, None]).square()
-            correction = candidates.expand_as(loss).gather(-1, loss.argmin(dim=-1, keepdim=True)).squeeze(-1)
-            tail = weight.new_zeros(n, 2, 128)
-            count = a.shape[1]
-            if tight:
-                tail[:, 0, :2] = weight[:, :2] - correction[:, :1]
-                tail[:, 0, 2:2 + 2 * count:2] = a - correction
-                tail[:, 0, 3:2 + 2 * count:2] = b - correction
+    if k >= 144:
+        width = 8
+        blocks = (k + width - 1) // width
+        rows = weight.new_zeros(n, blocks, 128)
+        rows[:, :, :width] = torch.nn.functional.pad(weight, (0, blocks * width - k)).reshape(n, blocks, width)
+        packed = torch.cat((_digits(bias[:, None].expand(n, 128), 5), rows), dim=1)
+    else:
+        compensated = k <= 96
+        groups = k // 2 if k <= 16 else (min(26, k // 2, k * 7 // 16) if compensated else min(k * 5 // 16, (k - 1) // 2))
+        if 32 < k <= 64:
+            groups = k // 4
+        quad = 8 <= k <= 16 and k % 4 == 0
+        if quad:
+            chunks = [3, 3, 3, 3, 2, 2] if k == 16 else [4] * (k // 4)
+            groups = len(chunks)
+        paired = 0 if quad else k - 2 * groups
+        blocks = (paired + 31) // 32
+        rows = weight.new_zeros(n, blocks, 128)
+        rows[:, :, :32] = torch.nn.functional.pad(weight[:, :paired], (0, blocks * 32 - paired)).reshape(n, blocks, 32)
+        if k <= 64 and paired:
+            rows[:, 0, 127] = bias
+        bits = 6 if k <= 16 else 5
+        packed = _digits(rows, bits).reshape(n, -1, 128)
+        if k > 64 or quad:
+            packed = torch.cat((_digits(bias[:, None].expand(n, 128), bits), packed), dim=1)
+        if paired < k:
+            if compensated:
+                if quad:
+                    pieces = weight.split(chunks, dim=1)
+                    pair = torch.stack([torch.nn.functional.pad(piece, (0, max(chunks) - size))
+                                        for piece, size in zip(pieces, chunks)], dim=1)
+                else:
+                    pair = weight[:, paired:].reshape(n, groups, 2)
+                peak = pair.abs().amax(dim=(1, 2), keepdim=True)
+                if not paired and not quad:
+                    digits = _digits(bias[:, None], bits).reshape(n, 2)
+                    peak = torch.maximum(peak, digits[:, 0].abs().reshape(n, 1, 1))
+                _, exponent = torch.frexp(peak)
+                scale = torch.ldexp(torch.ones_like(peak), exponent - 1)
+                s = scale.squeeze(-1)
+                grid = torch.arange(-64, 65, dtype=weight.dtype, device=weight.device)
+                candidates = s.unsqueeze(-1) * grid / (4096 if k <= 16 else 1024)
+                mantissa = 6 if k <= 16 else 5
+
+                def error(w):
+                    v = (w.unsqueeze(-1) - candidates).abs()
+                    _, e = torch.frexp(v)
+                    quantum = torch.maximum(torch.ldexp(torch.ones_like(v), e - 1 - mantissa),
+                                            s.unsqueeze(-1) / (64 if k <= 16 else 256))
+                    rounded = torch.minimum(torch.round(v / quantum) * quantum,
+                                            (s * (2 - 2.0 ** -mantissa)).unsqueeze(-1))
+                    return rounded - v + (v >= 2 * s.unsqueeze(-1)) * s.unsqueeze(-1)
+
+                loss = sum(error(tap).square() for tap in pair.unbind(-1)) + candidates.square() / 4096
+                correction = candidates.expand_as(loss).gather(-1, loss.argmin(dim=-1, keepdim=True)).squeeze(-1)
+                tail = weight.new_zeros(n, 2, 128)
+                residual = pair - correction[..., None]
+                if quad:
+                    tail[:, 0, :k] = torch.cat([residual[:, j, :size] for j, size in enumerate(chunks)], dim=1)
+                else:
+                    tail[:, 0, :groups] = residual[..., 0]
+                    tail[:, 0, 64:64 + groups] = residual[..., 1]
+                tail[:, 0, 126] = scale.flatten()
+                tail[:, 1, :groups] = correction
+                if not paired and not quad:
+                    tail[:, :, 127] = digits
             else:
-                tail[:, 0, :count] = a - correction
-                tail[:, 0, 64:64 + count] = b - correction
-            tail[:, 0, 127] = scale.flatten()
-            tail[:, 1, :count] = correction
+                tail = weight.new_zeros(n, groups, 128)
+                tail[..., 0] = weight[:, paired::2]
+                tail[..., 127] = weight[:, paired + 1::2]
             packed = torch.cat((packed, tail), dim=1)
     return {'coeff': torch.nn.functional.pad(packed.reshape(-1, 128), (0, 0, 0, 1))}
