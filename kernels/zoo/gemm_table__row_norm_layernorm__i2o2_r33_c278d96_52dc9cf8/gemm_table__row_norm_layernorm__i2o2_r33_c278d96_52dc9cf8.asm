@@ -18,6 +18,7 @@
 {% macro mul(first=false,slot='LR0') %}
  MULT.RC.VV {{ slot }} R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if first %}.FIRST{% endif %} ;;
 {% endmacro %}
+// Preserve accumulator precision across scratch stores by saving residuals.
 {% macro split(reg,count) %}
  ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} {{ reg }} ;;
  {% for p in range(count-1) %}
@@ -42,9 +43,6 @@
  INC LR10 1 ;;
  BLT.S LR10 LR7 {{ label }} ;;
 {% endmacro %}
-{% macro sum_lanes(ds) %}
- MULT.VE LR0 CR1 0 LR0 {{ full }} {{ oq }} ; AGG.SUM LR0 {{ ds }} ;;
-{% endmacro %}
 {% macro squares(ds) %}
  LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;
  LD.MULT R0 LR9 {{ cr.tmp }} ;;
@@ -61,32 +59,34 @@
  {% endfor %}
 {% endmacro %}
 {% macro coeff() %}LD.MULT.CYCLIC LR5 {{ cr.coeff }} LR0 ; INC LR5 1{% endmacro %}
-{% macro mac(extra) %}
- MULT.RC.VE LR0 LR10 0 LR0 {{ full }} {{ iq }} ; ACC.ADD ; {{ extra }} ;;
-{% endmacro %}
 {% macro kchunk(limit,label) %}
  LD.MULT R0 LR7 {{ cr.in0 }} ; SET LR10 CR0 ;;
  {{ coeff() }} ;;
  BEQ LR10 {{ limit }} {{ label }}_last ;;
+ SET LR1 {{ limit }} ;;
+ DEC LR1 1 ;;
 {{ label }}:
- {{ mac(coeff()) }}
- INC LR10 1 ;;
- BLT.S LR10 {{ limit }} {{ label }} ;;
+ // Both SET and BLT see the pre-increment lane; MULT sees the snapshot.
+ MULT.RC.VE LR0 LR6 0 LR0 {{ full }} {{ iq }} ; ACC.ADD ; {{ coeff() }} ; INC LR10 1 ; SET LR6 LR10 ; BLT.S LR10 LR1 {{ label }} ;;
 {{ label }}_last:
- {{ mac('INC LR7 1') }}
+ MULT.RC.VE LR0 LR10 0 LR0 {{ full }} {{ iq }} ; ACC.ADD ; INC LR7 1 ;;
+{% endmacro %}
+{% macro lut(i) %}
+ LD.LUT {{ i }} {{ cr.lut }} LR1 ;;
+ INC LR1 1 ;;
 {% endmacro %}
 {% macro gelu(ds) %}ACTIVATE.QUANTIZE generic {{ ds }} {{ oq }} {{ cr.hidden }} LR4 ;;{% endmacro %}
 {% macro store(ds) %}ACTIVATE.QUANTIZE identity {{ ds }} {{ oq }} {{ cr.out0 }} LR13 ;;{% endmacro %}
+
  SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
  SET LR13 CR0 ;;
  {{ at('LR3',64) }}
  INC LR3 64 ;;
  {{ at('LR11',63) }}
  INC LR11 64 ;;
- {% for i in range(5) %}
- LD.LUT {{ i }} {{ cr.lut }} LR1 ;;
- INC LR1 1 ;;
- {% endfor %}
+ {% for i in range(5) %}{{ lut(i) }}{% endfor %}
+
+// Stream GEMM coefficients and keep only one activation row in scratch.
 row:
  SET LR4 CR0 ; SET LR5 CR0 ;;
  DEC LR5 1 ;;
@@ -113,10 +113,9 @@ sum:
  LD.MULT R0 LR5 {{ cr.hidden }} ;;
  INC LR5 1 ;;
  BGE.S LR5 {{ cr.tiles }} sum_tail ;;
- {{ sum_lanes(full) }}
- B sum ;;
+ MULT.VE LR0 CR1 0 LR0 {{ full }} {{ oq }} ; AGG.SUM LR0 {{ full }} ; B sum ;;
 sum_tail:
- {{ sum_lanes(tail) }}
+ MULT.VE LR0 CR1 0 LR0 {{ full }} {{ oq }} ; AGG.SUM LR0 {{ tail }} ;;
  {{ average('mean') }}{{ save(6,3) }}
  SET LR5 CR0 ;;
  {{ at('LR9',32) }}
@@ -147,6 +146,7 @@ variance_tail:
  {{ at('LR1',13) }}{{ vec(first=true,s='CR0') }}
  ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
  {{ at('LR4',2) }}
+// Newton refinement: y <- 1.5*y - 0.5*v*y^3.
 refine:
  {{ product(12,12,2,2) }}{{ save(14) }}
  {{ product(9,14,3,2) }}{{ save(16) }}
