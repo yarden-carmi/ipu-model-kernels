@@ -53,32 +53,36 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 120, 14, 14], [23520, 196, 14, 1], 0), module.op0_weight, None, [1, 1], [2, 2], [1, 1], 120)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 144, 14, 14], [28224, 196, 14, 1], 0), module.op0_weight, None, [1, 1], [2, 2], [1, 1], 144)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 120, 14, 14], [23520, 196, 14, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 144, 14, 14], [28224, 196, 14, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.hardswish_.default(_v(op1, [1, 120, 14, 14], [23520, 196, 14, 1], 0))
+    r0 = aten.hardswish_.default(_v(op1, [1, 144, 14, 14], [28224, 196, 14, 1], 0))
     op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 120, 14, 14])}
+    return {"out0": _out(op2, [1, 144, 14, 14])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Fuse inference batch norm and split each coefficient row into two FP8 terms."""
+    """Fold inference BN and split coefficients into three FP8 rows."""
     import numpy as np
 
-    weight = module.op0_weight.double()
-    cout = weight.shape[0]
-    bias = getattr(module, "op0_bias", None)
-    bias = weight.new_zeros(cout) if bias is None else bias.double()
-    if hasattr(module, "op1_running_var"):
+    w = module.op0_weight.detach().double()
+    cout = w.shape[0]
+    bias = getattr(module, 'op0_bias', None)
+    bias = w.new_zeros(cout) if bias is None else bias.detach().double()
+    if hasattr(module, 'op1_running_var'):
         scale = module.op1_weight.double() / (module.op1_running_var.double() + 1e-5).sqrt()
         bias = module.op1_bias.double() + (bias - module.op1_running_mean.double()) * scale
-        weight = weight * scale[:, None, None, None]
+        w = w * scale[:, None, None, None]
 
-    taps = weight.flatten(2).numpy()
-    rows = np.concatenate((np.broadcast_to(bias.numpy()[:, None, None], (cout, 1, 128)),
-                           np.pad(taps, ((0, 0), (0, 0), (0, 128 - taps.shape[-1])))), axis=1)
-    step = np.exp2(np.frexp(np.max(np.abs(rows), axis=-1, keepdims=True))[1] - 6.)
-    hi = np.sign(rows) * np.minimum(np.floor(np.abs(rows) / step + 0.5), 63) * step
-    return {"weights": np.stack((hi, rows - hi), axis=2).reshape(-1, 128)}
+    rows = torch.cat((bias[:, None], w.reshape(cout, -1)), dim=1).numpy()
+
+    def leading(values):
+        step = np.exp2(np.frexp(np.abs(values))[1] - 6.)
+        return np.sign(values) * np.minimum(np.floor(np.abs(values) / step + 0.5), 63) * step
+
+    hi = leading(rows)
+    mid = leading(rows - hi)
+    parts = np.stack((hi, mid, rows - hi - mid), axis=-1)
+    return {'weights': np.repeat(parts.reshape(-1, 1), 128, axis=1)}
