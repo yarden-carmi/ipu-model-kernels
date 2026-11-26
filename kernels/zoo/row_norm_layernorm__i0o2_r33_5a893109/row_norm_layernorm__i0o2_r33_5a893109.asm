@@ -7,6 +7,7 @@
 {% set stride = (plane + 127) // 128 %}
 {% set rem = plane % in0_d2 %}
 {% set packed_step = (plane // in0_d2) * in0_d0 %}
+{% set split_lane = plane > 128 and plane % 128 == 0 and packed_step + in0_d0 < 128 %}
 {% macro at(r,n) %}
  SET {{ r }} CR0 ;;
  {% if n %}INC {{ r }} {{ n }} ;;{% endif %}
@@ -35,13 +36,8 @@
 {% endmacro %}
 {% macro wrap(i) %}
 wrap_{{ i }}:
- BLT.S LR1 {{ cr.plane }} wrapped_{{ i }} ;;
- SUB LR1 LR1 {{ cr.plane }} ;;
- {% if packed_step + in0_d0 < plane %}
- INC LR1 1 ;;
- {% else %}
- INC LR1 1 ; B wrap_{{ i }} ;;
- {% endif %}
+ BLT.S LR1 {{ cr.plane_pair }}.L wrapped_{{ i }} ;;
+ SUB LR1 LR1 {{ cr.plane_pair }}.H {% if packed_step + in0_d0 >= plane %}; B wrap_{{ i }}{% endif %} ;;
 wrapped_{{ i }}:
 {% endmacro %}
 {% macro gather(i,count) %}
@@ -50,6 +46,13 @@ wrapped_{{ i }}:
  {{ at('LR6',count) }}
  {{ vec('ADD.FIRST','CR0',iq) }} ;;
 gather_{{ i }}:
+ {% if split_lane or stride == 1 %}
+ # LR4 already includes the packed row group. Broadcast the selected
+ # input lane so the reshape source index can stay zero throughout.
+ LD.MULT R0 LR4 {{ cr.in0 }} ; INC LR5 1 ;;
+ MULT.EE {{ 'LR8' if split_lane else 'LR1' }} CR1 0 LR0 {{ full }} {{ iq }} ; ACC.RESHAPE LRD0 LRD2 7 {% if packed_step and (split_lane or rem) %}; INC LR1 {{ packed_step }}{% endif %} ;;
+ {% if packed_step and not split_lane and not rem %}INC LR1 {{ packed_step }} ;;{% endif %}
+ {% else %}
  SET LR8 LR1 ; SET LR0 LR4 ;;
  {% if stride <= 8 %}
  {% for group in range(stride-1) %}
@@ -63,22 +66,35 @@ group_{{ i }}:
  {% endif %}
 load_{{ i }}:
  LD.MULT R0 LR0 {{ cr.in0 }} ; INC LR5 1 ;;
- {% if packed_step <= 1023 %}
+ {% if packed_step <= 255 %}
  MULT.VE LR8 CR1 0 LR0 {{ full }} {{ iq }} ; ACC.RESHAPE LRD0 LRD2 7 ; SET LR0 CR0 ; INC LR1 {{ packed_step }} ;;
  {% else %}
  MULT.VE LR8 CR1 0 LR0 {{ full }} {{ iq }} ; ACC.RESHAPE LRD0 LRD2 7 ; SET LR0 CR0 ;;
  {% endif %}
- {% if packed_step > 1023 %}
- {% for offset in range(0, packed_step, 1023) %}
- INC LR1 {{ [packed_step - offset, 1023] | min }} ;;
+ {% if packed_step > 255 %}
+ {% for offset in range(0, packed_step, 255) %}
+  INC LR1 {{ [packed_step - offset, 255] | min }} ;;
  {% endfor %}
  {% endif %}
+ {% endif %}
  {% if rem %}
- INC LR10 {{ rem }} ; ADD LR4 LR4 LR13 ;;
+ INC LR10 {{ rem }} ; ADD LR4 LR4 LR13 {% if split_lane and packed_step %}; INC LR8 {{ packed_step }}{% endif %} ;;
  BLT.S LR10 LR11 wrap_{{ i }} ;;
  SUB LR10 LR10 LR11 ; SUB LR4 LR4 {{ cr.span }} ; ADD LR1 LR1 LR14 ;;
+ {% if split_lane %}ADD LR8 LR8 LR14 ;;{% endif %}
  {% endif %}
+ {% if split_lane %}
+ {% if not rem and packed_step %}INC LR8 {{ packed_step }} ;;{% endif %}
+wrap_{{ i }}:
+ BLT.S LR1 {{ cr.plane_pair }}.L lane_check_{{ i }} ;;
+ SUB LR1 LR1 {{ cr.plane_pair }}.H ; INC LR8 1 ; DEC LR4 {{ stride }} ;;
+lane_check_{{ i }}:
+ BLT.S LR8 LR15 lane_ready_{{ i }} ;;
+ DEC LR8 128 ; INC LR4 1 ;;
+lane_ready_{{ i }}:
+ {% else %}
  {{ wrap(i) }}
+ {% endif %}
  ADDBI LRD2 1 ; BLT.S LR5 LR6 gather_{{ i }} ;;
 gather_done_{{ i }}:
  {{ save(2*i,2,tail if i == k-1 else full,'LR6') }}
@@ -114,10 +130,33 @@ start_divide:
  SUB LR10 LR10 LR11 ; ADD LR1 LR1 LR14 ; B start_divide ;;
  {{ wrap('start') }}
  SET LR8 LR10 ;;
+ {% if stride <= 7 %}
+ # Decode the initial channel-plane address in logarithmic time.
+ {% for bit in [128,64,32,16,8,4,2] if bit < in0_d2 %}
+ {{ at('LR6',bit) }}
+ BLT.S LR8 LR6 start_bit_{{ bit }} ;;
+ DEC LR8 {{ bit }} ; INC LR4 {{ [bit * stride, 255] | min }} ;;
+ {% for offset in range(255,bit * stride,255) %}
+ INC LR4 {{ [bit * stride - offset,255] | min }} ;;
+ {% endfor %}
+start_bit_{{ bit }}:
+ {% endfor %}
+ BEQ LR8 CR0 start_ready ;;
+ INC LR4 {{ stride }} ;;
+ {% else %}
 start_plane:
  BEQ LR8 CR0 start_ready ;;
  DEC LR8 1 ; INC LR4 {{ stride }} ; B start_plane ;;
+ {% endif %}
 start_ready:
+ SET LR0 CR0 ;;
+ {% if split_lane %}
+ SET LR8 LR1 ;;
+start_group:
+ BLT.S LR8 LR15 start_group_done ;;
+ DEC LR8 128 ; INC LR4 1 ; B start_group ;;
+start_group_done:
+ {% endif %}
  {% for i in range(k) %}{{ gather(i,128 if not loop.last else channels-128*i) }}{% endfor %}
 
  # Gathered chunks and residuals have zero padding.
@@ -183,7 +222,7 @@ start_ready:
  {% endfor %}
  BGE.S LR9 {{ cr.M }} finished ;;
  ADD LR7 LR7 LR14 ;;
- BLT.S LR7 {{ cr.plane }} row_loop ;;
+ BLT.S LR7 {{ cr.plane_pair }}.L row_loop ;;
 next_batch:
  INC LR12 1 ;;
  SET LR7 LR12 ; B row_loop ;;
