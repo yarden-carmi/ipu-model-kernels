@@ -1,0 +1,94 @@
+[kernel]
+op = "gemm"
+formats = ["e1", "e2"]
+
+[params.bias]
+type = "bool"
+default = true
+[params.act_out0]
+type = "str"
+choices = ["relu"]
+default = "relu"
+[params.k]
+type = "int"
+min = 1
+max = 4096
+default = 24
+[params.n]
+type = "int"
+min = 1
+max = 4096
+default = 88
+[params.m]
+type = "int"
+min = 1
+max = 65536
+default = 784
+[params.in0_d0]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 24
+[params.in0_d2]
+type = "int"
+min = 1
+max = 128
+default = 28
+[params.in0_d3]
+type = "int"
+min = 1
+max = 128
+default = 28
+[params.out0_d0]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 88
+[params.out0_d2]
+type = "int"
+min = 1
+max = 128
+default = 28
+[params.out0_d3]
+type = "int"
+min = 1
+max = 128
+default = 28
+
+[derived]
+tiles = "ceil(in0_d3 / max(1, -ceil(-128 / in0_d2))) * ceil(in0_d2 / 128)"
+full_ds = "ds(128)"
+store_ds = "ds(min(128, in0_d2 * min(in0_d3, max(1, -ceil(-128 / in0_d2)))))"
+tail_ds = "ds(in0_d2 * (in0_d3 - (tiles - 1) * max(1, -ceil(-128 / in0_d2))))"
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d1 * tiles", 128]
+[inputs.coeff]
+shape = ["2 * n * (k + 1)", 128]
+[outputs.out0]
+shape = ["out0_d0 * out0_d1 * tiles", 128]
+
+[abi]
+in0 = "CR2"
+coeff = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+k = "CR7"
+tiles = "CR8"
+n = "CR9"
+full_ds = "CR12"
+store_ds = "CR13"
+tail_ds = "CR14"
+
+[cases.default]
