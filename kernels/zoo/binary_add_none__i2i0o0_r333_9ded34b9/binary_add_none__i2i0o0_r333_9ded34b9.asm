@@ -9,8 +9,6 @@
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ mask }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;
 {% endmacro %}
 
-// For fixed c, the view reads a contiguous run in a + d0*b order.
-// Match that order on the lanes of in1 and out0 rather than gathering c.
 {% if valid == 128 %}
     LD.MULT R0 LR2 {{ cr.in0 }} ; INC LR8 128 ;;
 stream:
@@ -19,7 +17,6 @@ stream:
 drain:
     {{ right('LR8', full) }} HALT ;;
 {% else %}
-// LR2: dense input row; LR4: starting lane; LR3: rows left in slice.
     INC LR6 128 ; SET LR3 {{ cr.width }} ;;
 next_row:
     LD.MULT R0 LR2 {{ cr.in0 }} ; ADD LR7 LR2 CR1 ; BEQ LR3 CR1 slice_tail ;;
