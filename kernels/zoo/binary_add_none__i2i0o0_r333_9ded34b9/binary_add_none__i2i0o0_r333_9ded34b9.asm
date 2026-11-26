@@ -1,3 +1,5 @@
+// The view consumes in0's densely packed storage in column order:
+// for each column, lanes enumerate d0 first, then d1.
 {% set valid = (out0_d0 * out0_d1 - 1) % 128 + 1 %}
 {% set full = 'CR15.L' %}
 {% set tail = cr.tail ~ '.L' %}
@@ -17,6 +19,8 @@ stream:
 drain:
     {{ right('LR8', full) }} HALT ;;
 {% else %}
+    // LR4 is the lane offset in the dense in0 stream. Read a second
+    // source row only when the current vector crosses a row boundary.
     INC LR6 128 ; SET LR3 {{ cr.width }} ;;
 next_row:
     LD.MULT R0 LR2 {{ cr.in0 }} ; ADD LR7 LR2 CR1 ; BEQ LR3 CR1 slice_tail ;;
