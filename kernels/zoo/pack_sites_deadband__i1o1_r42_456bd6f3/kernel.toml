@@ -1,0 +1,31 @@
+[kernel]
+op = "pack_sites_deadband"
+formats = ["e2"]
+
+[params]
+cin = { type = "int", min = 1, default = 96 }
+in0_d0 = { type = "int", min = 1, default = 1 }
+in0_d1 = { type = "int", min = 1, max = 128, default = 96 }
+in0_d2 = { type = "int", min = 1, default = 16 }
+in0_d3 = { type = "int", min = 1, default = 16 }
+out0_d0 = { type = "int", min = 1, default = 256 }
+out0_d1 = { type = "int", min = 1, max = 128, default = 96 }
+
+[derived]
+channel_ds = "ds(out0_d1)"
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d2 * in0_d3", 128]
+
+[outputs.out0]
+shape = ["out0_d0", 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+qf_in0 = "CR4"
+qf_out0 = "CR5"
+out0_d0 = "CR6"
+channel_ds = "CR7"
+
+[cases.default]
