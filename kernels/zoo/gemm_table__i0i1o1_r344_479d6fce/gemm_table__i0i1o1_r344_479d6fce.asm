@@ -6,6 +6,7 @@
 {% set dx = m // in0_d2 %}
 {% set dy = m % in0_d2 %}
 {% set blocks = (out0_d1 + 127) // 128 - full_copy %}
+{% set fast = groups == 4 and dy > 0 and dy <= 255 and dx % pack * groups >= groups - 1 and dx % pack * groups - (groups - 1) <= 255 %}
 
 {% macro store(fn) %}
     ACTIVATE.QUANTIZE {{ fn }} {{ cr.full }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;;
@@ -57,20 +58,20 @@ tap:
     LD.MULT R0 LR8 {{ cr.in0 }} ; DEC LR10 1 ;;
 {% for g in range(groups) %}
     MULT.RC.VE LR0 LR9 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR6 1{% if not loop.first %} ; INC LR9 1{% endif %} ; LD.MULT.CYCLIC LR6 {{ cr.w }} LR11 ;;
-    MULT.RC.VE LR11 LR9 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{% if not loop.last %} ; INC LR6 1 ; LD.MULT.CYCLIC LR6 {{ cr.w }} LR0{% else %} ; BEQ LR10 CR0 taps_done{% endif %} ;;
+    MULT.RC.VE LR11 LR9 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{% if not loop.last %} ; INC LR6 1 ; LD.MULT.CYCLIC LR6 {{ cr.w }} LR0{% else %} ; BEQ LR10 CR0 taps_done{% endif %}{% if fast and loop.index == 1 %} ; INC LR15 {{ dy }}{% endif %}{% if fast and loop.index == 2 and dx // pack + dy * chunks %} ; ADD LR8 LR8 {{ cr.pixel_step }}.H{% endif %} ;;
 {% endfor %}
-    INC LR6 1 ; LD.MULT.CYCLIC LR6 {{ cr.w }} LR0 ;;
-{% if groups > 1 %}
+    INC LR6 1 ; LD.MULT.CYCLIC LR6 {{ cr.w }} LR0{% if fast and dx % pack * groups - (groups - 1) %} ; INC LR9 {{ dx % pack * groups - (groups - 1) }}{% endif %} ;;
+{% if groups > 1 and not fast %}
     DEC LR9 {{ groups - 1 }} ;;
 {% endif %}
-{% if dx // pack + dy * chunks %}
+{% if dx // pack + dy * chunks and not fast %}
     ADD LR8 LR8 {{ cr.pixel_step }}.H ;;
 {% endif %}
-{% if dx % pack %}
+{% if dx % pack and not fast %}
     INC LR9 {{ (dx % pack) * groups }} ;;
 {% endif %}
 {% if dy %}
-    {% for i in range((dy + 254) // 255) %}
+    {% for i in range(0 if fast else (dy + 254) // 255) %}
     INC LR15 {{ [255, dy - i * 255] | min }} ;;
     {% endfor %}
     BLT.S LR15 {{ cr.row_period }}.L tap_lane ;;
