@@ -1,25 +1,24 @@
 [kernel]
 op = "binary_mul_col"
-formats = ["e1"]
+formats = ["e1", "e2"]
 
-[params.broadcast]
-type = "str"
-choices = ["col"]
-default = "col"
-[params.op]
-type = "str"
-choices = ["mul"]
-default = "mul"
-[params.inner]
-type = "int"
-min = 1
-max = 16384
-default = 16
-[params.numel]
-type = "int"
-min = 1
-max = 16777216
-default = 192
+[params]
+broadcast = { type = "str", choices = ["col"], default = "col" }
+op = { type = "str", choices = ["mul"], default = "mul" }
+inner = { type = "int", min = 1, max = 16384, default = 16 }
+numel = { type = "int", min = 1, max = 16777216, default = 50176 }
+in0_d0 = { type = "int", min = 1, default = 1 }
+in0_d1 = { type = "int", min = 1, default = 16 }
+in0_d2 = { type = "int", min = 1, default = 56 }
+in0_d3 = { type = "int", min = 1, default = 56 }
+in1_d0 = { type = "int", min = 1, default = 1 }
+in1_d1 = { type = "int", min = 1, default = 16 }
+in1_d2 = { type = "int", min = 1, default = 1 }
+in1_d3 = { type = "int", min = 1, default = 1 }
+out0_d0 = { type = "int", min = 1, default = 1 }
+out0_d1 = { type = "int", min = 1, default = 16 }
+out0_d2 = { type = "int", min = 1, default = 56 }
+out0_d3 = { type = "int", min = 1, default = 56 }
 
 [derived]
 spatial_rows = "numel // inner"
@@ -52,4 +51,4 @@ full_size = "CR15"
 tail_size = "CR14"
 
 [cases.default]
-numel = 192
+numel = 50176

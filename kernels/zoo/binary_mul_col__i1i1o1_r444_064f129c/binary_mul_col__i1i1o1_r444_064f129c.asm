@@ -1,4 +1,4 @@
-{# Load each channel-scale row once, then reuse it across the spatial plane. #}
+{# Keep one channel-scale block resident as the spatial rows stream past. #}
 {% macro product(size) %}
  MULT.RC.VV LR0 R0 0 LR0 {{ size }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ size }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR3
 {%- endmacro %}
