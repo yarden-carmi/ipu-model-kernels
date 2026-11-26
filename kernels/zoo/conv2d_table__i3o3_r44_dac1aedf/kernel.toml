@@ -1,0 +1,75 @@
+[kernel]
+op = "conv2d_table"
+formats = ["e1", "e2"]
+
+[params]
+act_out0 = {type="str", choices=["hardswish", "silu"], default="hardswish"}
+bias = {type="bool", default=true}
+cin = {type="int", min=1, max=640, default=8}
+cout = {type="int", min=1, max=640, default=8}
+groups = {type="int", min=1, max=640, default=8}
+h = {type="int", min=1, max=256, default=8}
+w = {type="int", choices=[8,16,32,64,128,256], default=8}
+kh = {type="int", choices=[3], default=3}
+kw = {type="int", choices=[3], default=3}
+padding = {type="int", choices=[1], default=1}
+stride = {type="int", min=1, max=2, default=1}
+in0_d0 = {type="int", choices=[1], default=1}
+in0_d1 = {type="int", min=1, max=640, default=8}
+in0_d2 = {type="int", min=1, max=256, default=8}
+in0_d3 = {type="int", min=1, max=256, default=8}
+out0_d0 = {type="int", choices=[1], default=1}
+out0_d1 = {type="int", min=1, max=640, default=8}
+out0_d2 = {type="int", min=1, max=260, default=8}
+out0_d3 = {type="int", min=1, max=260, default=8}
+
+[derived]
+ix = "ceil(in0_d3 / 128)"
+dw = "1 - min(1, max(cin - groups, groups - cin, cout - groups, groups - cout, w - 128))"
+ip = "1 + dw * (128 // w - 1)"
+op = "dw * ip * stride + (1 - dw) * max(1, 128 // w * (2 - stride))"
+ni = "ceil(cin / ip)"
+no = "ceil(cout / op)"
+wide = "min(1, op - 1)"
+row = "dw * stride + (1 - dw) * (3 - 2 * wide)"
+plane = "(in0_d2 + 2) * row"
+channel_end = "cin * plane - row"
+full_split = "1 - min(1, max(w - 32, 32 - w))"
+weight_rows = "dw * 20 * no + (1 - dw) * (no * (2 + cin * (2 + (10 + 6 * full_split) * wide)) + 2 - wide)"
+ds128 = "ds(128)"
+ds_width = "ds(min(w, 128))"
+ds_out = "ds(min(128, op * out0_d3))"
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d2", "ni", "ix", 128]
+range = [-2, 2]
+[inputs.weights]
+shape = ["weight_rows",128]
+range = [-1,1]
+[inputs.lut]
+shape = [5,128]
+range = [0,0]
+[scratch.pad]
+shape = ["(dw * no + (1 - dw) * (cin + 1)) * plane + 2",128]
+[outputs.out0]
+shape = ["out0_d0", "out0_d2", "no", 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+weights = "CR4"
+lut = "CR5"
+pad = "CR6"
+no = "CR7"
+qf_in0 = "CR8"
+qf_weights = "CR9"
+qf_out0 = "CR10"
+ds128 = "CR11"
+ds_width = "CR12"
+ds_out = "CR13"
+plane = "CR14"
+channel_end = "CR15"
+
+[golden]
+tolerance = {e1="NX8_STEP", e2="NX8_STEP"}
+[cases.default]
