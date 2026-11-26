@@ -1,0 +1,103 @@
+[kernel]
+op = "gemm"
+formats = ["e2"]
+
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 65536
+default = 768
+[params.m]
+type = "int"
+min = 1
+max = 65536
+default = 256
+[params.n]
+type = "int"
+min = 1
+max = 16384
+default = 768
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 12
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 256
+[params.in0_d3]
+type = "int"
+min = 1
+max = 128
+default = 64
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 256
+[params.out0_d2]
+type = "int"
+min = 1
+max = 16384
+default = 768
+
+[derived]
+pack = "1 + (1 - min(1, in0_d2 % 2 + max(0, in0_d3 - 64) + k % (2 * in0_d3)))"
+width = "in0_d3 * pack"
+blocks = "ceil(k / width)"
+fast = "1 - min(1, max(k - 2 * width, 2 * width - k) + max(0, 129 - n) + max(0, n - 255))"
+pitch = "ceil(n / 128)"
+finish_out = "m * pitch - 3"
+full = "ds(128)"
+tail = "ds((n - 1) % 128 + 1)"
+width_ds = "ds(min(128, width))"
+last_scalar = "width - 3"
+last_short = "(k - 1) % width - 2"
+last_tile = "pitch - 1"
+tail_loop = "(n - 1) % 128 - 1"
+next_panel = "128 + width - 3"
+
+[inputs.in0]
+shape = ["m * blocks", 128]
+range = [-2, 2]
+[inputs.w]
+shape = ["fast * (k + 2 + 2 * (n - 128)) + (1 - fast) * (k + 1) * pitch", 128]
+range = [-1, 1]
+[outputs.out0]
+shape = ["m * pitch", 128]
+
+[abi]
+in0 = "CR2"
+w = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+tail_loop = "CR7"
+full = "CR8"
+tail = "CR9"
+width_ds = "CR10"
+last_scalar = "CR11"
+last_short = "CR12"
+finish_out = "CR13"
+blocks = "CR14"
+pitch = "CR15"
+last_tile = "LR10"
+m = "LR11"
+next_panel = "LR15"
+
+[cases.default]
