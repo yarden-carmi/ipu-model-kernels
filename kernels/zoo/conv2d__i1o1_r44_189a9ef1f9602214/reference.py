@@ -77,7 +77,5 @@ def fold(module, **params):
         bias = getattr(module, "bias_vec", None)
         if bias is None:
             bias = module.bias
-        padded_bias = weight.new_zeros(blocks * 128)
-        padded_bias[:co] = bias.reshape(-1)
-        rows[:, 0] = padded_bias.view(blocks, 128)
+        rows[:, 0] = torch.nn.functional.pad(bias.reshape(-1), (0, blocks * 128 - co)).view(blocks, 128)
     return {"weights": rows}

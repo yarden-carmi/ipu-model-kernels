@@ -6,11 +6,14 @@
 {% endfor %}
 {% endmacro %}
 
-{# Broadcast 16 input channels into 16 consecutive filter rows. #}
 {% macro channel(i) %}
 {% set cur = 'LR15' if i % 2 == 0 else 'LR12' %}
 {% set nxt = 'LR12' if i % 2 == 0 else 'LR15' %}
  MULT.RC.VE {{ cur }} LR11 0 LR15 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR4 1 ; INC LR11 1 {% if i < 15 %}; LD.MULT.CYCLIC LR4 {{ cr.weights }} {{ nxt }}{% else %}; BNE LR10 CR0 channels{% endif %} ;;
+{% endmacro %}
+
+{% macro store(mask) %}
+ ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ mask }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR13 ;;
 {% endmacro %}
 
 {% if dot %}
@@ -73,10 +76,10 @@
  INC LR5 1 ; ADD LR14 LR14 {{ cr.input_hw }}.H ; BLT.S LR5 {{ cr.kernel_last }}.H ky ;;
  INC LR3 1 ;;
  BLT.S LR3 {{ cr.blocks }} fullstore ;;
- ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.tail }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR13 ;;
+ {{ store(cr.tail ~ '.L') }}
  INC LR13 1 ; B advance ;;
  fullstore:
- ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.full }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR13 ;;
+ {{ store(cr.full ~ '.L') }}
  INC LR13 1 ; B block ;;
  advance:
  INC LR1 {{ stride }} ; INC LR2 {{ stride }} ;;
