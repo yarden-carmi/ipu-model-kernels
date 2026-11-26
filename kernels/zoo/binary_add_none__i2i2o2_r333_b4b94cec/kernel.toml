@@ -1,0 +1,58 @@
+[kernel]
+op = "binary_add"
+formats = ["e2", "e3"]
+
+[params]
+broadcast = { type = "str", choices = ["none"], default = "none" }
+inner = { type = "int", min = 0, max = 0, default = 0 }
+op = { type = "str", choices = ["add"], default = "add" }
+numel = { type = "int", min = 1, max = 16777216, default = 49152 }
+in0_d0 = { type = "int", min = 1, max = 4096, default = 4 }
+in0_d1 = { type = "int", min = 1, max = 16384, default = 64 }
+in0_d2 = { type = "int", min = 1, max = 16384, default = 192 }
+in1_d0 = { type = "int", min = 1, max = 4096, default = 4 }
+in1_d1 = { type = "int", min = 1, max = 16384, default = 64 }
+in1_d2 = { type = "int", min = 1, max = 16384, default = 192 }
+out0_d0 = { type = "int", min = 1, max = 4096, default = 4 }
+out0_d1 = { type = "int", min = 1, max = 16384, default = 64 }
+out0_d2 = { type = "int", min = 1, max = 16384, default = 192 }
+
+[derived]
+width = "ceil(out0_d2 / 128)"
+rows = "out0_d0 * out0_d1 * width"
+input_span = "in0_d1 * in0_d2"
+padded = "min(1, input_span % 128)"
+lane_span = "128 + padded * (in0_d2 - 128)"
+input_width = "1 + padded * (ceil(in0_d2 / 128) - 1)"
+span = "lane_span + 65536 * input_width"
+step_row = "(out0_d0 * out0_d1 // lane_span) * input_width"
+step_lane = "out0_d0 * out0_d1 % lane_span"
+dims = "out0_d0 + 65536 * out0_d1"
+tail = "ds((out0_d2 - 1) % 128 + 1)"
+scalar = "ds(1)"
+
+[inputs.in0]
+shape = ["in0_d0", "(1 - padded) * ceil(input_span / 128) + padded * in0_d1 * input_width", 128]
+range = [-2, 2]
+[inputs.in1]
+shape = ["in1_d0", "in1_d1", "ceil(in1_d2 / 128) * 128"]
+range = [-2, 2]
+[outputs.out0]
+shape = ["out0_d0", "out0_d1", "width * 128"]
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_in1 = "CR6"
+qf_out0 = "CR7"
+span = "CR8"
+step_row = "CR9"
+step_lane = "CR10"
+dims = "CR11"
+tail = "CR12"
+out0_d2 = "CR13"
+scalar = "CR14"
+
+[cases.default]
