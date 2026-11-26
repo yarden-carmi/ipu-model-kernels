@@ -1,0 +1,61 @@
+[kernel]
+op = "bmm__binary_mul_none"
+formats = ["e1"]
+
+[params]
+s0_b = {type="int", min=1, default=1}
+s0_k = {type="int", min=1, default=512}
+s0_m = {type="int", min=1, default=1}
+s0_n = {type="int", min=1, default=1}
+s1_broadcast = {type="str", choices=["none"], default="none"}
+s1_const = {type="int", min=1, max=1, default=1}
+s1_inner = {type="int", min=0, default=0}
+s1_numel = {type="int", min=1, default=1}
+s1_op = {type="str", choices=["mul"], default="mul"}
+in0_d0 = {type="int", min=1, default=1}
+in0_d1 = {type="int", min=1, default=512}
+in1_d0 = {type="int", min=1, default=1}
+in1_d1 = {type="int", min=1, default=512}
+out0_d0 = {type="int", min=1, default=1}
+out0_d1 = {type="int", min=1, default=1}
+
+[inputs.in0]
+shape = ["in0_d0", "ceil(in0_d1/128)*128"]
+range = [-1, 1]
+[inputs.in1]
+shape = ["in1_d0", "ceil(in1_d1/128)*128"]
+range = [-1, 1]
+[inputs.factor]
+shape = [1, 128]
+range = [-1, 1]
+[outputs.out0]
+shape = ["out0_d0", "ceil(out0_d1/128)*128"]
+[scratch.tmp]
+shape = [1, 128]
+
+[derived]
+chunks = "ceil(s0_k/128)"
+rhs_batch = "s0_n*chunks"
+out_prev = "-1"
+last_lane = "127"
+ds = "ds(128) + ds((s0_n-1)%128+1)*65536"
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+s0_b = "CR5"
+s0_m = "CR6"
+s0_n = "CR7"
+chunks = "CR8"
+rhs_batch = "CR9"
+out_prev = "CR10"
+ds = "CR11"
+qf_in0 = "CR12"
+qf_in1 = "LR14"
+qf_out0 = "CR14"
+tmp = "CR15"
+last_lane = "LR13"
+factor = "CR13"
+
+[cases.default]
