@@ -3,6 +3,10 @@
     LD.MULT R0 LR2 {{ cr.in0 }} ; INC LR3 1 ;;
     LD.MULT.CYCLIC LR6 {{ cr.c0 }} LR0 ; INC LR2 1 ;;
     LD.MULT R1 LR6 {{ cr.c1 }} ; MULT.RC.VV LR0 R0 0 LR0 {{ ds }} {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; {{ advance }} ;;
+    LD.MULT.CYCLIC LR6 {{ cr.c2 }} LR0 ;;
+    MULT.RC.VV LR0 R0 0 LR0 {{ ds }} {{ cr.qf_in0 }}.L ; ACC.ADD ;;
+    MULT.VE LR1 CR1 0 LR0 {{ ds }} {{ cr.qf_c1 }}.L ; ACC.ADD ;;
+    LD.MULT R1 LR6 {{ cr.c3 }} ;;
     MULT.VE LR1 CR1 0 LR0 {{ ds }} {{ cr.qf_c1 }}.L ; ACC.ADD ; ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR3 ; {{ branch }} ;;
 {% endmacro %}
 

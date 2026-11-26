@@ -49,9 +49,9 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.batch_norm.default(_v(ins[0], [2, 256, 512], [131072, 1, 256], 0), module.weight, module.bias, module.running_mean, module.running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(ins[0], [2, 512, 512], [262144, 1, 512], 0), module.weight, module.bias, module.running_mean, module.running_var, False, 0.1, 1e-05, True)
     op0 = _pick(r0, 0)  # step 1
-    return {"out0": _out(op0, [2, 256, 512])}
+    return {"out0": _out(op0, [2, 512, 512])}
 # ---- end of the frozen reference ----
 
 
@@ -66,4 +66,8 @@ def fold(module, **params):
     def pack(values):
         return torch.nn.functional.pad(values[:channels], (0, (-channels) % 128)).reshape(-1, 128)
 
-    return {"c0": pack(scale), "c1": pack(bias)}
+    high = torch.sign(scale) * torch.pow(2.0, torch.floor(torch.log2(torch.abs(scale))))
+    high = torch.where(scale == 0, torch.zeros_like(scale), high)
+    bias_high = torch.sign(bias) * torch.pow(2.0, torch.floor(torch.log2(torch.abs(bias))))
+    bias_high = torch.where(bias == 0, torch.zeros_like(bias), bias_high)
+    return {"c0": pack(high), "c1": pack(bias_high), "c2": pack(scale - high), "c3": pack(bias - bias_high)}
