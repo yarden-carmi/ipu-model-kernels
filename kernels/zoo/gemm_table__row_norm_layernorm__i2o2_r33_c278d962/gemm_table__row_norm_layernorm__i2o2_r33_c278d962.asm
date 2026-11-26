@@ -57,7 +57,6 @@
  {% for j in range(nb) %}{{ load(b+j) }}{{ mul(i==0 and j==0) }}{% endfor %}
  {% endfor %}
 {% endmacro %}
-
 {% macro coeff() %}LD.MULT.CYCLIC LR5 {{ cr.coeff }} LR0 ; INC LR5 1{% endmacro %}
 {% macro kchunk(limit,label) %}
  LD.MULT R0 LR7 {{ cr.in0 }} ; SET LR10 CR0 ;;
@@ -76,7 +75,6 @@
 {% endmacro %}
 {% macro gelu(ds) %}ACTIVATE.QUANTIZE generic {{ ds }} {{ oq }} {{ cr.hidden }} LR4 ;;{% endmacro %}
 {% macro store(ds) %}ACTIVATE.QUANTIZE identity {{ ds }} {{ oq }} {{ cr.out0 }} LR13 ;;{% endmacro %}
-
  SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
  SET LR13 CR0 ;;
  {{ at('LR3',64) }}
@@ -104,7 +102,6 @@ gemm_last_chunk:
  SET LR4 LR6 ; B gemm_tile ;;
 gemm_last_tile:
  {{ gelu(tail) }}
-
  SET LR5 CR0 ;;
  {{ vec(first=true,s='CR0') }}
 sum:
@@ -124,7 +121,6 @@ center:
  {{ split('LR9',2) }}
  INC LR9 1 ; INC LR5 1 ;;
  BLT.S LR5 {{ cr.tiles }} center ;;
-
  {{ vec(first=true,s='CR0') }}
  {{ at('LR9',32) }}
  SET LR5 CR1 ;;
@@ -157,7 +153,6 @@ refine:
  {{ save(12) }}
  DEC LR4 1 ;;
  BNE LR4 CR0 refine ;;
-
  SET LR5 CR0 ;;
  {{ at('LR9',32) }}{{ at('LR7',3) }}{{ at('LR10',4) }}
 normalize:

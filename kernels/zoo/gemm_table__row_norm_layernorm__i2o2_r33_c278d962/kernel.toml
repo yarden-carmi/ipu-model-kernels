@@ -1,7 +1,6 @@
 [kernel]
 op = "gemm_table__row_norm_layernorm"
 formats = ["e2"]
-
 [params.s0_k]
 type = "int"
 min = 1
@@ -73,7 +72,6 @@ type = "int"
 min = 1
 max = 4096
 default = 128
-
 [derived]
 pitch = "ceil(in0_d2 / 128)"
 tiles = "ceil(s1_channels / 128)"
@@ -83,7 +81,6 @@ tail = "ds((out0_d2 - 1) % 128 + 1)"
 half = "1277440"
 chunks = "(s0_k - 1) // 128"
 last_k = "(s0_k - 1) % 128"
-
 [inputs.in0]
 shape = ["in0_d0 * in0_d1 * pitch", 128]
 range = [-2, 2]
@@ -99,7 +96,6 @@ shape = ["32 + 2 * tiles", 128]
 shape = ["tiles", 128]
 [outputs.out0]
 shape = ["rows * tiles", 128]
-
 [abi]
 in0 = "CR2"
 coeff = "CR3"
@@ -118,5 +114,4 @@ half = "CR15"
 last_k = "LR12"
 chunks = "LR14"
 rows = "LR15"
-
 [cases.default]
