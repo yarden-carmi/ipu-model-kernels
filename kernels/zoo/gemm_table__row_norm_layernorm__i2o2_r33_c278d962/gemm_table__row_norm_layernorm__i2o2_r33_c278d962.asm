@@ -58,7 +58,6 @@
  {% endfor %}
 {% endmacro %}
 
-{# Each coefficient row provides the output lanes for one K element. #}
 {% macro coeff() %}LD.MULT.CYCLIC LR5 {{ cr.coeff }} LR0 ; INC LR5 1{% endmacro %}
 {% macro kchunk(limit,label) %}
  LD.MULT R0 LR7 {{ cr.in0 }} ; SET LR10 CR0 ;;
@@ -106,7 +105,6 @@ gemm_last_chunk:
 gemm_last_tile:
  {{ gelu(tail) }}
 
-{# Keep residual components of centered values for variance and affine. #}
  SET LR5 CR0 ;;
  {{ vec(first=true,s='CR0') }}
 sum:
