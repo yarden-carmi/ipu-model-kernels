@@ -1,7 +1,6 @@
 [kernel]
 op = "binary_mul_col__binary_add_col"
 formats = ["e1", "e2"]
-
 [params.s0_broadcast]
 type = "str"
 choices = ["col"]
@@ -14,13 +13,13 @@ default = 1
 [params.s0_inner]
 type = "int"
 min = 1
-max = 256
-default = 256
+max = 65535
+default = 128
 [params.s0_numel]
 type = "int"
 min = 1
-max = 131072
-default = 131072
+max = 2147483647
+default = 65536
 [params.s0_op]
 type = "str"
 choices = ["mul"]
@@ -37,13 +36,13 @@ default = 1
 [params.s1_inner]
 type = "int"
 min = 1
-max = 256
-default = 256
+max = 65535
+default = 128
 [params.s1_numel]
 type = "int"
 min = 1
-max = 131072
-default = 131072
+max = 2147483647
+default = 65536
 [params.s1_op]
 type = "str"
 choices = ["add"]
@@ -61,8 +60,8 @@ default = 512
 [params.in0_d2]
 type = "int"
 min = 1
-max = 256
-default = 256
+max = 65535
+default = 128
 [params.out0_d0]
 type = "int"
 min = 1
@@ -71,20 +70,18 @@ default = 2
 [params.out0_d1]
 type = "int"
 min = 1
-max = 256
-default = 256
+max = 65535
+default = 128
 [params.out0_d2]
 type = "int"
 min = 1
 max = 65535
 default = 512
-
 [derived]
 blocks = "ceil(in0_d1 / 128)"
 ds_pair = "ds(in0_d1 - 128 * (blocks - 1)) + ds(128) * 65536"
 channels = "in0_d2"
 batches = "in0_d0"
-
 [inputs.in0]
 shape = ["in0_d0 * in0_d2 * blocks", 128]
 range = [-2.0, 2.0]
@@ -99,7 +96,6 @@ shape = ["channels", 128]
 range = [-2.0, 2.0]
 [outputs.out0]
 shape = ["out0_d0 * out0_d1 * ceil(out0_d2 / 128)", 128]
-
 [abi]
 in0 = "CR2"
 c0 = "CR3"
@@ -114,6 +110,5 @@ ds_pair = "CR11"
 channels = "CR12"
 batches = "CR13"
 c2 = "CR14"
-
 [cases.default]
 formats = ["e1", "e2"]
