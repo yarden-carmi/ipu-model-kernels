@@ -1,0 +1,117 @@
+[kernel]
+op = "gemm_table"
+formats = ["e1", "e2"]
+
+[params.act_out0]
+type = "str"
+choices = ["silu", "hardsigmoid", "hardswish"]
+default = "silu"
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 4096
+default = 32
+[params.n]
+type = "int"
+min = 1
+max = 4096
+default = 128
+[params.m]
+type = "int"
+min = 1
+max = 65535
+default = 64
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 32
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65535
+default = 8
+[params.in0_d3]
+type = "int"
+min = 1
+max = 128
+default = 8
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 128
+[params.out0_d2]
+type = "int"
+min = 1
+max = 65535
+default = 8
+[params.out0_d3]
+type = "int"
+min = 1
+max = 128
+default = 8
+
+[derived]
+chunks = "(k + 127) // 128"
+blocks = "(n + 127) // 128"
+input_rows = "m * chunks"
+last_pixel = "input_rows - chunks"
+wide = "min(1, k // 17) - min(1, k // 128)"
+short_mode = "(1 - min(1, k // 17)) * (1 - min(1, k % 8)) * (1 - min(1, (n - 1) // 128))"
+medium_mode = "(1 - min(1, max(k - 32, 32 - k))) * (1 - min(1, (n - 1) // 128))"
+coeff_rows = "blocks * (2 + k + (1 - wide) * (k // 4) + wide * (k // 2) + short_mode * (k // 4 - 1) - medium_mode)"
+sum_ds = "ds(max(1, min(127, k - 1)))"
+full = "ds(128)"
+tail = "ds(1 + (n - 1) % 128)"
+tail_groups = "((k - 1) % 128) // 32"
+preceding = "chunks - 1"
+three = "3"
+
+[inputs.in0]
+shape = ["input_rows", 128]
+range = [-2, 2]
+[inputs.coeff]
+shape = ["coeff_rows", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[outputs.out0]
+shape = ["m * blocks", 128]
+
+[scratch.pairs]
+shape = ["m", 128]
+
+[abi]
+in0 = "CR2"
+coeff = "CR3"
+out0 = "CR4"
+lut = "CR5"
+qf_in0 = "CR6"
+qf_out0 = "CR7"
+chunks = "CR8"
+blocks = "CR9"
+last_pixel = "CR10"
+full = "CR11"
+tail = "CR12"
+tail_groups = "CR13"
+preceding = "LR11"
+three = "LR12"
+pairs = "CR14"
+sum_ds = "CR15"
+
+[cases.default]
