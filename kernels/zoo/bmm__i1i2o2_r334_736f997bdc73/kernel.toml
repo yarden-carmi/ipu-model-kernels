@@ -1,0 +1,49 @@
+[kernel]
+op = "bmm"
+formats = ["e2"]
+[params]
+b = {type="int", min=1, max=65535, default=6}
+k = {type="int", min=64, max=64, default=64}
+m = {type="int", min=1, max=65535, default=257}
+n = {type="int", min=1, max=65535, default=257}
+in0_d0 = {type="int", min=1, max=65535, default=1}
+in0_d1 = {type="int", min=1, max=65535, default=257}
+in0_d2 = {type="int", min=1, max=65535, default=384}
+in1_d0 = {type="int", min=1, max=65535, default=1}
+in1_d1 = {type="int", min=1, max=65535, default=257}
+in1_d2 = {type="int", min=1, max=65535, default=384}
+out0_d0 = {type="int", min=1, max=65535, default=1}
+out0_d1 = {type="int", min=1, max=65535, default=6}
+out0_d2 = {type="int", min=1, max=65535, default=257}
+out0_d3 = {type="int", min=1, max=65535, default=257}
+[inputs.in0]
+shape = ["in0_d0", "in0_d2", "ceil(in0_d1/128)*128"]
+range = [0, 1]
+[inputs.in1]
+shape = ["in1_d0", "in1_d1", "ceil(in1_d2/128)*128"]
+range = [-1, 1]
+[outputs.out0]
+shape = ["out0_d0", "out0_d1", "out0_d3", "ceil(out0_d2/128)*128"]
+[derived]
+strides = "ceil(in0_d1/128)+65536*ceil(in1_d2/128)"
+widths = "ds(128)+65536*ds((m-1)%128+1)"
+sizes = "ceil(m/128)+65536*n"
+heads = "out0_d1+65536*out0_d0"
+headstep = "64*ceil(in0_d1/128)"
+agap = "(min(1,in0_d0-1)*in0_d2-out0_d1*64)*ceil(in0_d1/128)"
+bgap = "min(1,in1_d0-1)*in1_d1*ceil(in1_d2/128)-(out0_d1-1)//2"
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_in1 = "CR6"
+qf_out0 = "CR7"
+strides = "CR8"
+widths = "CR9"
+sizes = "CR10"
+heads = "CR11"
+headstep = "CR12"
+agap = "CR13"
+bgap = "CR14"
+[cases.default]
