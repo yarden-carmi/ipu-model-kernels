@@ -1,7 +1,7 @@
-{% macro product(first) %}
+{% macro product(first, loop=false) %}
     LD.MULT R0 LR6 {{ cr.in1 }} ;;
     LD.MULT.CYCLIC LR5 {{ cr.in0 }} LR9 ;;
-    MULT.RC.VE LR9 LR3 0 LR9 {{ cr.ds_pair }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{{ '.FIRST' if first else '' }} ; ADD LR5 LR5 {{ cr.strides }}.L ; ADD LR6 LR6 {{ cr.strides }}.H ; DEC LR7 1 ;;
+    MULT.RC.VE LR9 LR3 0 LR9 {{ cr.ds_pair }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{{ '.FIRST' if first else '' }} ; ADD LR5 LR5 {{ cr.strides }}.L ; ADD LR6 LR6 {{ cr.strides }}.H ; DEC LR7 1 {% if loop %}; BNE LR7 CR1 reduce {% endif %};;
 {% endmacro %}
 {% macro output(half) %}
     {% set ds = cr.ds_pair ~ '.' ~ half %}
@@ -40,8 +40,7 @@ tile:
     {{ product(true) }}
     BEQ LR7 CR0 store ;;
 reduce:
-    {{ product(false) }}
-    BNE LR7 CR0 reduce ;;
+    {{ product(false, true) }}
 store:
     INC LR8 1 ;;
     BEQ LR8 {{ cr.strides }}.L tail ;;
