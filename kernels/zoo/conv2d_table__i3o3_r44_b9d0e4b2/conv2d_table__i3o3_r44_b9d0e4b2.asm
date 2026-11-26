@@ -3,7 +3,8 @@
 {% set qo = cr.qf_out0 ~ '.L' %}
 {% set ds = cr.input_tail ~ '.L' %}
 {% set ir = (in0_d2*w+127)//128 %}
-{% set wk = 3+3*(cin//groups)*kh*kw %}
+{% set wk = 3+(4-stride)*(cin//groups)*kh*kw %}
+{% set window = stride == 1 and w <= 128 %}
 {% macro bump(r,n) %}
 {% if n>0 %}INC {{ r }} {{ n }} ;{% elif n<0 %}DEC {{ r }} {{ -n }} ;{% endif %}
 {% endmacro %}
@@ -58,6 +59,9 @@ INC LR4 1 ; BLT.S LR4 LR5 copy_channel ;;
 {{ imm('LR4',0) }}
 {{ imm('LR13',4) }}
 {{ imm('LR14',ir+10) }}
+{{ imm('LR10',128) }}
+{{ imm('LR11',256) }}
+{{ imm('LR12',384) }}
 {% macro piece(d,acc,last,p,step) %}
 LD.MULT.CYCLIC LR6 {{ cr.guard }} LR0 ;
 {% if p %}{{ bump('LR6',step-(1 if d%128 else 0)) }} INC LR9 {{ 1 if w <= 64 else 2 }} ;{% endif %} ;;
@@ -72,8 +76,16 @@ MULT.RC.VE LR7 CR1 0 LR0 {{ ds }} {{ qi }} ; {{ acc }} ;
 SET LR6 LR3 ; SET LR7 LR0 ; SET LR9 LR0 ;;
 {% if d %}{{ bump('LR6',d//128) }} {{ bump('LR7',d%128) }} ;;{% endif %}
 {% if w <= 64 %}
+{# Walk adjacent slots of the cyclic ring; the next window shares its first row. #}
+LD.MULT.CYCLIC LR6 {{ cr.guard }} LR0 ; DEC LR7 128 ; DEC LR9 1 ;;
+LD.MULT.CYCLIC LR6 {{ cr.guard }} LR10 ; INC LR6 1 ;;
 {% for p in range(4) %}
-{{ piece(d,'ACC.STRIDE '~([16,w]|max)~' on on LR9',p==3,p,1) }}
+MULT.RC.VE LR7 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.STRIDE {{ [16,w]|max }} on on LR9 ; INC LR7 128 ; INC LR9 1 ;
+{% if p < 3 %}
+LD.MULT.CYCLIC LR6 {{ cr.guard }} {{ ['LR11','LR12','LR0'][p] }} ; INC LR6 1 ;
+{% else %}
+ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.stencil }} LR2 ; INC LR2 1 ;
+{% endif %} ;;
 {% endfor %}
 {% else %}
 {{ piece(d,'ACC.STRIDE 64 on off LR9',false,0,1) }}
@@ -104,24 +116,36 @@ LD.LUT {{ i }} {{ cr.lut }} LR2 ; INC LR2 1 ;;
 output_channel:
 SET LR6 CR0 ; SET LR10 LR3 ;;
 output_row:
-SET LR8 LR7 ;;
 {% if out0_d3>128 %}
+SET LR8 LR7 ;;
 SET LR11 LR6 ;;
 INC.MODP2 LR11 CR0 1 ;;
 BEQ LR11 LR0 bias_load ;;
 {{ imm('LR1',wk) }}
 ADD LR8 LR8 LR1 ;;
 bias_load:
-{% endif %}
 LD.MULT.CYCLIC LR8 {{ cr.weights }} LR0 ; INC LR8 1 ;;
-LD.MULT.CYCLIC LR8 {{ cr.weights }} LR12 ; INC LR8 1 ;;
-MULT.RC.VE LR0 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD.FIRST ; SET LR9 LR10 ; LD.MULT.CYCLIC LR8 {{ cr.weights }} LR0 ; INC LR8 1 ;;
-MULT.RC.VE LR12 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; SET LR11 CR0 ;;
-MULT.RC.VE LR0 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;;
+{% else %}
+ADD LR8 LR7 CR1 ; LD.MULT.CYCLIC LR8 {{ cr.weights }} LR0 ;;
+{% endif %}
+MULT.RC.VE LR0 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD.FIRST ; SET LR9 LR10 ; LD.MULT.CYCLIC LR8 {{ cr.weights }} LR12 ; INC LR8 1 ;;
+MULT.RC.VE LR12 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; SET LR11 CR0 ; LD.MULT.CYCLIC LR8 {{ cr.weights }} LR0 ; INC LR8 1 ;;
+MULT.RC.VE LR0 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ; {% if stride == 2 %}SET LR1 LR9 ;{% endif %} ;;
 input_channel:
-{% if stride == 2 %}SET LR1 LR9 ;;{% endif %}
+{% if window %}
+SET LR1 LR9 ; SET LR0 CR0 ;;
+DEC LR1 2 ;;
+LD.MULT.CYCLIC LR1 {{ cr.guard }} LR0 ;;
+LD.MULT.CYCLIC LR1 {{ cr.guard }} LR0 ; INC LR1 1 ; INC LR0 128 ;;
+LD.MULT.CYCLIC LR1 {{ cr.guard }} LR0 ; INC LR1 1 ; INC LR0 128 ;;
+LD.MULT.CYCLIC LR1 {{ cr.guard }} LR0 ; INC LR1 1 ; INC LR0 128 ;;
+SET LR0 CR0 ; SET LR1 LR12 ;;
+{{ bump('LR1',127-w) }} ;;
+{% endif %}
 {% macro product(t) %}
-{% if stride == 1 %}
+{% if window %}
+{% set rc = 'LR1' %}
+{% elif stride == 1 %}
 {% set d = (t//kw-padding)*w+t%kw-padding %}
 SET LR1 LR9 ;;
 {% if d//128 %}{{ bump('LR1',d//128) }} ;;{% endif %}
@@ -137,9 +161,12 @@ LD.MULT.CYCLIC LR1 {{ cr.guard }} LR12 ; INC LR1 1 ;;
 LD.MULT.CYCLIC LR1 {{ cr.stencil }} LR0 ; INC LR1 1 ;;
 {% set rc = 'LR0' %}
 {% endif %}
-MULT.RC.VV {{ rc }} R0 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; LD.MULT R1 LR8 {{ cr.weights }} ; INC LR8 1 ;;
+MULT.RC.VV {{ rc }} R0 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; LD.MULT R1 LR8 {{ cr.weights }} ; INC LR8 1 ;
+{% if window and t %}INC LR1 {{ w-2 if t%kw == 0 else 1 }} ;{% endif %} ;;
+{% if stride == 1 %}
 MULT.RC.VV {{ rc }} R1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;;
-MULT.RC.VV {{ rc }} R0 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ;
+{% endif %}
+MULT.RC.VV {{ rc }} {{ 'R0' if stride == 1 else 'R1' }} 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ;
 {% if t+1 < kh*kw %}LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;{% endif %}
 {%- endmacro %}
 {% for t in range(kh*kw) %}
@@ -161,4 +188,4 @@ INC LR4 1 ; BLT.S LR4 LR5 output_channel ;;
 HALT ;;
 
 next_input_channel:
-LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ; BEQ LR0 CR0 input_channel ;;
+LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ; {% if stride == 2 %}SET LR1 LR9 ;{% endif %} BEQ LR0 CR0 input_channel ;;

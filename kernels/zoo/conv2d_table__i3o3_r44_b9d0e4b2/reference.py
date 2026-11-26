@@ -93,4 +93,9 @@ def fold(module, **params):
     hi = leading(rows)
     remainder = rows - hi
     mid = leading(remainder)
+    if stride == 2:
+        bias_rows = np.stack((hi[:, :, :1], mid[:, :, :1], (remainder - mid)[:, :, :1]), axis=-2)
+        taps = np.stack((hi[:, :, 1:], remainder[:, :, 1:]), axis=-2)
+        return {'weights': np.concatenate((bias_rows.reshape(cout, tiles, 3, 128),
+                                           taps.reshape(cout, tiles, -1, 128)), axis=2).reshape(-1, 128)}
     return {'weights': np.stack((hi, mid, remainder - mid), axis=-2).reshape(-1, 128)}
