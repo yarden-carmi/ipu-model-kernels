@@ -1,6 +1,7 @@
 [kernel]
 op = "gemm_table"
 formats = ["e2"]
+
 [params.m]
 type = "int"
 min = 1
@@ -81,12 +82,14 @@ type = "int"
 min = 1
 max = 4096
 default = 16
+
 [derived]
 tiles = "ceil(m / 128)"
 groups = "k // 16"
 activation_rows = "in0_d0 * (in0_d1 * in0_d2 // 128)"
 full = "ds(128)"
 tail = "ds(1 + (m - 1) % 128)"
+
 [inputs.in0]
 shape = ["activation_rows", 128]
 range = [-2, 2]
@@ -101,6 +104,7 @@ shape = [5, 128]
 range = [0, 0]
 [outputs.out0]
 shape = ["out0_d0 * out0_d1 * ceil(out0_d2 * out0_d3 / 128)", 128]
+
 [abi]
 in0 = "CR2"
 in1 = "CR3"
@@ -116,6 +120,8 @@ tail = "CR12"
 n = "CR13"
 groups = "CR14"
 activation_rows = "CR15"
+
 [cases.default]
+
 [golden]
 tolerance = { e2 = "NX8_STEP" }

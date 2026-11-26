@@ -1,22 +1,26 @@
 chain = ["gemm"]
 chain_in = ["in0", "in1"]
 chain_out = ["out0"]
+
 [layout.in0]
 lanes = 2
 rows = [0, 1]
 pack = "d1"
 [view.in0]
 kind = "other"
+
 [layout.in1]
 lanes = 3
 rows = [0, 1, 2]
 pack = "d2"
 [view.in1]
 kind = "whole"
+
 [layout.out0]
 lanes = 3
 rows = [0, 1, 2]
 pack = "d2"
+
 [prefer.in0]
 lanes = 2
 rows = [0, 1]
@@ -25,6 +29,7 @@ pack = "d1"
 lanes = 3
 rows = [0, 1, 2]
 pack = "d2"
+
 [lut.out0]
 range_mode = 2
 range_exp = 40
