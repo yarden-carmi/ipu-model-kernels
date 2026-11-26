@@ -12,6 +12,17 @@
  {% else %}
  SET LR9 LR8 ;;
  {% endif %}
+ {% if chunks == 2 %}
+ {% if cin == 1 %}
+ ADD LR1 LR9 LR7 ; LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR11 ;;
+ {% else %}
+ ADD LR1 LR10 LR10 ; LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR11 ;;
+ SUB LR1 LR9 LR1 ;;
+ INC LR1 1 ;;
+ {% endif %}
+ LD.MULT.CYCLIC LR1 {{ cr.in0 }} LR0 ;;
+ LD.MULT.CYCLIC LR1 {{ cr.in0 }} LR12 ;;
+ {% else %}
  LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR11 ;;
  {% if chunks > 1 %}
  BEQ LR10 CR0 previous_{{ tag }} ; SET LR1 LR9 ;;
@@ -25,6 +36,7 @@
  {% else %}
  LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR0 ;;
  LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR12 ;;
+ {% endif %}
  {% endif %}
  {{ weight() }} ;;
  {% for idx in ['LR13', 'LR11', 'LR14'] %}
@@ -47,16 +59,23 @@
  DEC LR5 1 ;;
  chunk:
  SET LR6 CR0 ; ADD LR3 LR4 LR10 ;;
+ {% if chunks == 2 and cin == 1 %}
+ SET LR7 CR1 ;;
+ SUB LR7 LR7 LR10 ;;
+ SUB LR7 LR7 LR10 ;;
+ {% endif %}
  oc:
- {{ weight() }} ; SET LR7 CR0 ; ADD LR8 LR2 LR10 ;;
+ {{ weight() }} ; {% if cin != 1 %}SET LR7 CR0 ; {% endif %}ADD LR8 LR2 LR10 ;;
  MULT.VE LR0 CR1 0 LR0 {{ full }} {{ qi }} ; ACC.ADD.FIRST ; {{ weight() }} ;;
  MULT.VE LR0 CR1 0 LR0 {{ full }} {{ qi }} ; ACC.ADD ;;
  ic:
  {{ column('left', -1) }}
  {{ column('center', 0) }}
  {{ column('right', 1) }}
+ {% if cin != 1 %}
  INC LR8 {{ chunks }} ; INC LR7 1 ;;
  BLT.S LR7 {{ cr.cin }} ic ;;
+ {% endif %}
  {% if chunks > 1 %}
  BEQ LR10 {{ cr.last_chunk }} tail ;;
  ACTIVATE.QUANTIZE {{ act_out0 }} {{ full }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR3 ; B stored ;;
