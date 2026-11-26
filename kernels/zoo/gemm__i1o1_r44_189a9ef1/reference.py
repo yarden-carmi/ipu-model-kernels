@@ -49,9 +49,11 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.default(_v(ins[0], [1, 96, 32, 32], [98304, 1024, 32, 1], 0), module.weight)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 256, 64, 64], [1048576, 4096, 64, 1], 0), module.op0_weight)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 144, 32, 32])}
+    r0 = aten.batch_norm.default(_v(op0, [1, 64, 64, 64], [262144, 4096, 64, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    op1 = _pick(r0, 0)  # step 0
+    return {"out0": _out(op1, [1, 64, 64, 64])}
 # ---- end of the frozen reference ----
 
 
@@ -78,10 +80,6 @@ def fold(module, **params):
 
     pad = torch.nn.functional.pad
     name = 'w' if params['bias'] else 'w_unbiased'
-    if not params['bias'] and k == 96 and n == 144:
-        dots = pad(weight, (0, 32))
-        d = _digits(dots)
-        return {name: torch.cat((d[:96].reshape(-1, 128), dots[96:128], d[128:].reshape(-1, 128)))}
     if params['bias'] and 24 < n <= 32 and k <= 64:
         # Each packed activation is [x, 1, x[:63] / 8]. Scale the
         # corresponding residual coefficients up before NX8 encoding.
@@ -103,6 +101,12 @@ def fold(module, **params):
 
     dots = pad(weight, (0, 128 * chunks - k)).reshape(n, chunks, 128)
     digits = _digits(dots)
+    if params['bias'] and k == 256 and n == 64:
+        rows = [_digits(pad(bias, (0, 64)))]
+        for c in range(chunks):
+            for i in range(n):
+                rows.append(dots[i, c:c+1] if i % 4 == 3 and i // 4 not in (0, 2, 4, 7, 9, 12, 15) else digits[i, c])
+        return {name: torch.cat(rows)}
     tiles = []
     for start in range(0, n, 128):
         if params['bias']:

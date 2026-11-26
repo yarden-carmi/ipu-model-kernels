@@ -68,17 +68,17 @@ outer = "min(1, max(0, 2 * chunks * n // ceil(n / 128) - 3 * k - 8))"
 outer_rows = "2 * tiles * (k + 1)"
 dot_rows = "2 * chunks * n"
 single = "min(1, max(0, n - 24)) * min(1, max(0, 33 - n)) * min(1, max(0, 65 - k))"
-special = "min(1, max(0, k - 95)) * min(1, max(0, 97 - k)) * min(1, max(0, n - 143)) * min(1, max(0, 145 - n))"
+fast = "(1 - min(1, max(k - 256, 256 - k) + max(n - 64, 64 - n)))"
 
 [inputs.in0]
 shape = ["input_points * input_chunks", 128]
 range = [-2, 2]
 [inputs.w]
-shape = ["single * (n + 3) + (1 - single) * (outer * outer_rows + (1 - outer) * (dot_rows + 2 * tiles))", 128]
+shape = ["single * (n + 3) + (1 - single) * (outer * outer_rows + (1 - outer) * (dot_rows + 2 * tiles - fast * 18))", 128]
 range = [-1, 1]
 when = "bias"
 [inputs.w_unbiased]
-shape = ["outer * outer_rows + (1 - outer) * dot_rows - 32 * special", 128]
+shape = ["outer * outer_rows + (1 - outer) * dot_rows", 128]
 range = [-1, 1]
 when = "not bias"
 [outputs.out0]

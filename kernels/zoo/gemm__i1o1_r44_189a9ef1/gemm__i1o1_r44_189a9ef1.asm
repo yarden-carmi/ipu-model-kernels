@@ -1,27 +1,27 @@
-{% if not bias and k == 96 and n == 144 %}
-{% macro wt(slot) %}LD.MULT.CYCLIC LR4 {{ cr.w_unbiased }} {{ slot }} ; INC LR4 1{% endmacro %}
-{% macro red(slot, dest, first=false) %}MULT.RC.VV {{ slot }} R0 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; AGG.SUM{% if first %}.FIRST{% endif %} {{ dest }} {{ cr.full }}.L{% endmacro %}
-    SET LR0 CR0 ; SET LR1 {{ cr.lanes128 }} ; SET LR5 CR0 ;;
-    SET LR8 CR0 ; SET LR9 {{ cr.points }} ; DEC LR5 1 ;;
-special_row:
-    SET LR4 CR0 ; SUB LR3 LR0 CR1 ; LD.MULT R0 LR8 {{ cr.in0 }} ;;
-    DEC LR4 1 ; SET LR12 CR0 ;;
-    INC LR12 96 ; {{ wt('LR0') }} ;;
-special_dual:
-    {{ red('LR0', 'LR3', true) }} ; INC LR3 1 ; {{ wt('LR1') }} ; DEC LR12 1 ;;
-    {{ red('LR1', 'LR3') }} ; {{ wt('LR0') }} ; BNE LR12 CR0 special_dual ;;
-    SET LR12 CR0 ;;
-    INC LR12 32 ;;
-special_single:
-    {{ red('LR0', 'LR3', true) }} ; INC LR3 1 ; {{ wt('LR0') }} ; DEC LR12 1 ; BNE LR12 CR1 special_single ;;
-    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.full }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR5 ; INC LR5 1 ; SUB LR3 LR0 CR1 ; SET LR12 CR0 ;;
-    INC LR12 16 ;;
-special_tail:
-    {{ red('LR0', 'LR3', true) }} ; INC LR3 1 ; {{ wt('LR1') }} ; DEC LR12 1 ; BEQ LR12 CR1 special_last ;;
-    {{ red('LR1', 'LR3') }} ; {{ wt('LR0') }} ; B special_tail ;;
-special_last:
-    {{ red('LR1', 'LR3') }} ;;
-    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.tail }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR5 ; INC LR5 1 ; INC LR8 1 ; DEC LR9 1 ; BNE LR9 CR1 special_row ;;
+{% if bias and k == 256 and n == 64 %}
+    SET LR0 CR0 ; SET LR5 CR0 ; SET LR8 CR0 ;;
+    SET LR9 {{ cr.points }} ; DEC LR5 1 ; SET LR4 CR0 ;;
+fast_row:
+    DEC LR4 1 ;;
+    LD.MULT.CYCLIC LR4 {{ cr.w }} LR0 ; INC LR4 1 ;;
+    MULT.RC.VE LR0 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; LD.MULT.CYCLIC LR4 {{ cr.w }} LR0 ; INC LR4 1 ;;
+    MULT.RC.VE LR0 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; LD.MULT.CYCLIC LR4 {{ cr.w }} LR0 ; INC LR4 1 ;;
+    LD.MULT R0 LR8 {{ cr.in0 }} ; SET LR3 CR0 ; SET LR13 CR0 ;;
+{% for chunk in range(2) %}
+{% for group in range(16) %}
+{% for j in range(4) %}
+{% set single = j == 3 and group not in [0, 2, 4, 7, 9, 12, 15] %}
+    MULT.RC.VV LR0 R0 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; AGG.SUM {{ 'LR3' if j % 2 == 0 else 'LR13' }} {{ cr.full }}.L {% if not (chunk == 1 and group == 15 and j == 3 and single) %}; LD.MULT.CYCLIC LR4 {{ cr.w }} LR0 ; INC LR4 1{% endif %} {% if single %}; INC LR3 2{% endif %} {% if group == 0 and j == 0 %}; DEC LR13 1{% endif %} ;;
+{% if not single %}
+    MULT.RC.VV LR0 R0 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; AGG.SUM {{ 'LR3' if j % 2 == 0 else 'LR13' }} {{ cr.full }}.L {% if not (chunk == 1 and group == 15 and j == 3) %}; LD.MULT.CYCLIC LR4 {{ cr.w }} LR0 ; INC LR4 1{% else %}; INC LR8 1{% endif %} ; INC {{ 'LR13' if j % 2 == 0 else 'LR3' }} 2 ;;
+{% endif %}
+{% endfor %}
+{% endfor %}
+{% if chunk == 0 %}
+    INC LR8 1 ; LD.MULT R0 LR8 {{ cr.in0 }} ; SET LR3 CR0 ; SET LR13 CR0 ;;
+{% endif %}
+{% endfor %}
+    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.tail }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR5 ; INC LR5 1 ; SET LR4 CR0 ; DEC LR9 1 ; BNE LR9 CR1 fast_row ;;
     HALT ;;
 {% elif bias and 24 < n and n <= 32 and k <= 64 %}
 {# Pack x, a bias lane, and a scaled copy of x in a two-word loop. A
