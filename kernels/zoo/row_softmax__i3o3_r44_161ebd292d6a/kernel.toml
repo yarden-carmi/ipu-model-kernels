@@ -1,0 +1,46 @@
+[kernel]
+op = "row_softmax"
+formats = ["e1", "e2", "e3"]
+
+[params]
+n = {type = "int", min = 1, max = 128, default = 50}
+rows = {type = "int", min = 1, default = 600}
+in0_d0 = {type = "int", min = 1, default = 1}
+in0_d1 = {type = "int", min = 1, default = 12}
+in0_d2 = {type = "int", min = 1, default = 50}
+in0_d3 = {type = "int", min = 1, max = 128, default = 50}
+out0_d0 = {type = "int", min = 1, default = 1}
+out0_d1 = {type = "int", min = 1, default = 12}
+out0_d2 = {type = "int", min = 1, default = 50}
+out0_d3 = {type = "int", min = 1, max = 128, default = 50}
+
+[derived]
+pack = "1 + 64 // in0_d3"
+irows = "ceil(in0_d0 * in0_d1 * in0_d2 / pack)"
+orows = "out0_d0 * out0_d1 * out0_d2 * ceil(out0_d3 / 128)"
+full = "ds(128) + ds(1) * 65536"
+valid = "ds(n)"
+scratch_qf = "40"
+
+[inputs.in0]
+shape = ["irows", 128]
+range = [-2, 2]
+[outputs.out0]
+shape = ["orows", 128]
+[scratch.tmp]
+shape = [5, 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+qf_in0 = "CR4"
+qf_out0 = "CR5"
+tmp = "CR6"
+full = "CR7"
+valid = "CR8"
+scratch_qf = "CR9"
+pack = "CR10"
+n = "CR11"
+rows = "CR12"
+
+[cases.default]
