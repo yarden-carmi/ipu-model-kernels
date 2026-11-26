@@ -8,9 +8,14 @@
 {% set rem = plane % in0_d2 %}
 {% set packed_step = (plane // in0_d2) * in0_d0 %}
 {% set split_lane = plane > 128 and plane % 128 == 0 and packed_step + in0_d0 < 128 %}
+{% set state = namespace(fast=false) %}
 {% macro at(r,n) %}
+ {% if state.fast and r == 'LR10' and n in [4,5,6,8,9,10] %}
+ SET {{ r }} LR{{ {4:4,5:5,6:6,8:1,9:2,10:3}[n] }} ;;
+ {% else %}
  SET {{ r }} CR0 ;;
  {% if n %}INC {{ r }} {{ n }} ;;{% endif %}
+ {% endif %}
 {% endmacro %}
 {% macro ld(n,src=cr.tmp,reg='R0') %}
  {{ at('LR10',n) }}
@@ -36,9 +41,9 @@
 {% endmacro %}
 {% macro wrap(i) %}
 wrap_{{ i }}:
- BLT.S LR1 {{ cr.plane_pair }}.L wrapped_{{ i }} ;;
+ BLT.S LR1 {{ cr.plane_pair }}.L {% if i != 'start' and stride == 1 and not packed_step %}gather_continue_{{ i }}{% else %}wrapped_{{ i }}{% endif %} ;;
  SUB LR1 LR1 {{ cr.plane_pair }}.H {% if packed_step + in0_d0 >= plane %}; B wrap_{{ i }}{% endif %} ;;
-wrapped_{{ i }}:
+{% if i != 'start' and stride == 1 and not packed_step %}gather_continue_{{ i }}:{% else %}wrapped_{{ i }}:{% endif %}
 {% endmacro %}
 {% macro gather(i,count) %}
  # Map the dense view offset to a channel plane (LR4) and packed (t,b) offset (LR1).
@@ -79,23 +84,23 @@ load_{{ i }}:
  {% endif %}
  {% if rem %}
  {% if not (split_lane or stride == 1) %}INC LR10 {{ rem }} ; ADD LR4 LR4 LR13 ;;{% endif %}
- {% if split_lane and packed_step %}INC LR8 {{ packed_step }} ; {% endif %}BLT.S LR10 LR11 wrap_{{ i }} ;;
+  {% if split_lane and packed_step %}INC LR8 {{ packed_step }} ; {% endif %}BLT.S LR10 LR11 {% if split_lane %}lane_check_{{ i }}{% elif stride == 1 and not packed_step %}gather_continue_{{ i }}{% else %}wrap_{{ i }}{% endif %} ;;
  SUB LR10 LR10 LR11 ; SUB LR4 LR4 {{ cr.span }} ; ADD LR1 LR1 LR14 ;;
  {% if split_lane %}ADD LR8 LR8 LR14 ;;{% endif %}
  {% endif %}
  {% if split_lane %}
  {% if not rem and packed_step %}INC LR8 {{ packed_step }} ;;{% endif %}
-wrap_{{ i }}:
- BLT.S LR1 {{ cr.plane_pair }}.L lane_check_{{ i }} ;;
- SUB LR1 LR1 {{ cr.plane_pair }}.H ; INC LR8 1 ; DEC LR4 {{ stride }} ;;
 lane_check_{{ i }}:
- BLT.S LR8 LR15 lane_ready_{{ i }} ;;
- DEC LR8 128 ; INC LR4 1 ;;
+  BLT.S LR8 LR15 lane_ready_{{ i }} ;;
+  BLT.S LR1 {{ cr.plane_pair }}.L lane_adjust_{{ i }} ;;
+  SUB LR1 LR1 {{ cr.plane_pair }}.H ; INC LR8 1 ; DEC LR4 {{ stride }} ;;
+lane_adjust_{{ i }}:
+  DEC LR8 128 ; INC LR4 1 ;;
 lane_ready_{{ i }}:
  {% else %}
  {{ wrap(i) }}
  {% endif %}
- ADDBI LRD2 1 {% if split_lane or stride == 1 %}; INC LR5 1 ; LD.MULT R0 LR4 {{ cr.in0 }}{% endif %} ; BLT.S LR5 LR6 gather_{{ i }} ;;
+  ADDBI LRD2 1 {% if split_lane or stride == 1 %}; INC LR5 1 ; LD.MULT R0 LR4 {{ cr.in0 }}{% endif %} ; BLT.S LR5 LR6 gather_{{ i }} ;;
 gather_done_{{ i }}:
  {{ save(2*i,2,tail if i == k-1 else full,'LR6') }}
 {% endmacro %}
@@ -158,7 +163,14 @@ start_group:
  {% else %}
  SET LR0 CR0 ;;
  {% endif %}
- {% for i in range(k) %}{{ gather(i,128 if not loop.last else channels-128*i) }}{% endfor %}
+  {% for i in range(k) %}{{ gather(i,128 if not loop.last else channels-128*i) }}{% endfor %}
+
+  # Frequently used scratch offsets, kept live only after the gather.
+  SET LR1 CR0 ; SET LR2 CR0 ; SET LR3 CR0 ;;
+  SET LR4 CR0 ; SET LR5 CR0 ; SET LR6 CR0 ;;
+  INC LR1 8 ; INC LR2 9 ; INC LR3 10 ;;
+  INC LR4 4 ; INC LR5 5 ; INC LR6 6 ;;
+  {% set state.fast = true %}
 
  # Gathered chunks and residuals have zero padding.
  {{ vec('ADD.FIRST','CR0') }} ;;
