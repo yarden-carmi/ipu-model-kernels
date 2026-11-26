@@ -1,0 +1,48 @@
+[kernel]
+op = "quarter_grid_expand"
+formats = ["e1", "e2"]
+
+[params]
+channels = { type = "int", min = 1, max = 65536, default = 1 }
+h = { type = "int", min = 1, max = 4096, default = 16 }
+w = { type = "int", min = 1, max = 128, default = 16 }
+in0_d0 = { type = "int", min = 1, max = 65536, default = 1 }
+in0_d1 = { type = "int", min = 1, max = 128, default = 64 }
+in0_d2 = { type = "int", min = 1, max = 4096, default = 16 }
+in0_d3 = { type = "int", min = 1, max = 128, default = 16 }
+out0_d0 = { type = "int", min = 1, max = 65536, default = 1 }
+out0_d1 = { type = "int", min = 1, max = 128, default = 64 }
+out0_d2 = { type = "int", min = 1, max = 16386, default = 66 }
+out0_d3 = { type = "int", min = 1, max = 514, default = 66 }
+
+[derived]
+input_ds = "ds(in0_d3)"
+output_ds = "ds(out0_d1)"
+four = "4"
+lane_step = "16777216"
+lane_end = "in0_d1 * 16777216"
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d2", "in0_d1", 128]
+range = [-2, 2]
+
+[outputs.out0]
+shape = ["out0_d0", "out0_d2", "out0_d3", 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+qf_in0 = "CR4"
+qf_out0 = "CR5"
+input_ds = "CR6"
+output_ds = "CR7"
+h = "CR8"
+w = "CR9"
+four = "CR10"
+out0_d3 = "CR11"
+in0_d0 = "CR12"
+in0_d1 = "CR13"
+lane_step = "CR14"
+lane_end = "CR15"
+
+[cases.default]
