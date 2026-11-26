@@ -49,13 +49,27 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.layer_norm.default(_v(ins[0], [1, 1500, 384], [576000, 1, 1500], 0), [384], module.weight, module.bias)
+    r0 = aten.layer_norm.default(_v(ins[0], [4, 256, 144], [1, 4, 1024], 0), [144], module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 1500, 384])}
+    return {"out0": _out(op0, [4, 256, 144])}
 # ---- end of the frozen reference ----
+
 
 def fold(module, **params):
     channels = params["channels"]
+    if channels <= 256:
+        def pad(t):
+            return torch.nn.functional.pad(t.flatten(), (0, 256 - channels))
+        def split_fork(t, mantissa=5):
+            residual = t.reshape(-1, 128)
+            peak = residual.abs().amax(1, keepdim=True).clamp_min(1e-30)
+            step = 2.0 ** (torch.floor(torch.log2(peak)) - mantissa)
+            part = torch.round(residual / step) * step
+            return torch.cat((part, residual - part))
+        return {"gamma": split_fork(pad(module.weight) * channels**0.5, 6),
+                "beta": split_fork(pad(module.bias)),
+                "crow": split_fork(torch.full((128,), 1 / channels)),
+                "epsilon": torch.full((1, 128), params["eps"] * channels)}
     def split(tensor):
         residual = tensor.reshape(-1, 128)
         parts = []
@@ -69,5 +83,6 @@ def fold(module, **params):
     def affine(tensor):
         return split(torch.nn.functional.pad(tensor.flatten(), (0, (-channels) % 128)))
     return {"gamma": affine(module.weight), "beta": affine(module.bias),
-            "scalars": torch.cat((split(torch.full((128,), 1 / channels)),
-                                  torch.full((1, 128), params["eps"]))) }
+            "crow": torch.cat((split(torch.full((128,), 1 / channels)),
+                                  torch.full((1, 128), params["eps"]))),
+            "epsilon": torch.zeros((1, 128))}

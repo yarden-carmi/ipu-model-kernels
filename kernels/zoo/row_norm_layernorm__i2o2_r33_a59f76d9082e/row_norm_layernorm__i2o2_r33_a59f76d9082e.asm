@@ -1,3 +1,7 @@
+{% if channels <= 256 %}
+{% include 'fork.asm' %}
+{% else %}
+{% set cr = dict(in0=cr.in0, out0=cr.out0, qf_in0=cr.qf_in0, qf_out0=cr.qf_out0, gamma=cr.gamma, beta=cr.beta, scalars=cr.crow, tmp=cr.tmp, qf_gamma=cr.c128, ds_pair=cr.ds1, M=cr.dsl, epsilon=cr.epsilon) %}
 {% set q = cr.qf_gamma ~ '.L' %}
 {% set iq = cr.qf_in0 ~ '.L' %}
 {% set full = cr.ds_pair ~ '.H' %}
@@ -45,7 +49,7 @@ load_elem:
  SUB LR13 LR13 LR15 ; INC LR10 1 ;;
 low_elem:
  LD.MULT R0 LR10 {{ cr.in0 }} ;;
- MULT.VE LR13 CR1 0 LR0 {{ full }} {{ iq }} ; ACC.RESHAPE LRD0 LRD2 7 ; INC LR5 1 ; ADD LR12 LR12 LR11 ;;
+ MULT.VE LR13 CR1 0 LR0 {{ full }} {{ iq }} ; ACC.RESHAPE LRD0 LRD2 7 ; INC LR5 1 ; ADD LR12 LR12 LR11 ; {% if rows // channels %}INC LR4 {{ k * (rows // channels) }} ;{% endif %} ;;
  ADDBI LRD2 1 ; BLT.S LR5 LR15 gather_elem ;;
  ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR6 ;;
  LD.MULT R0 LR6 {{ cr.tmp }} ;;
@@ -56,7 +60,7 @@ low_elem:
 {% endmacro %}
 {% macro average() %}
  {{ save(8,3) }}
- {% for i in range(3) %}{{ cy(i,'LR0',cr.scalars) }}
+{% for i in range(3) %}{{ cy(41+i,'LR0') }}
  {% for j in range(3) %}{{ ld(8+j) }}
  MULT.RC.VE LR0 LR0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if i == 0 and j == 0 %}.FIRST{% endif %} ;;
  {% endfor %}{% endfor %}
@@ -67,8 +71,21 @@ low_elem:
  {% if dest is not none %}{{ save(dest) }}{% endif %}
 {% endmacro %}
  SET LR0 CR0 ; SET LR1 CR0 ; SET LR7 CR0 ;;
- SET LR8 CR0 ; SET LR9 CR0 ; SET LR15 CR0 ;;
+ SET LR8 CR0 ; SET LR9 CR0 ;;
+ SET LR15 CR0 ; LD.MULT R0 LR0 {{ cr.epsilon }} ;;
  INC LR15 128 ;;
+ {% macro convert(name,src,count,start) %}
+ SET LR1 CR0 ; SET LR2 CR0 ; SET LR3 CR0 ;;
+ INC LR2 {{ start }} ; INC LR3 {{ count }} ;;
+ convert_{{ name }}:
+ LD.MULT R0 LR1 {{ src }} ;;
+ MULT.VE LR0 CR1 0 LR0 {{ full }} {{ iq }} ; ACC.ADD.FIRST ; INC LR1 1 ;;
+ ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR2 ; DEC LR3 1 ;;
+ INC LR2 1 ; BNE LR3 CR0 convert_{{ name }} ;;
+ {% endmacro %}
+ {{ convert('beta',cr.beta,3*k,32) }}
+ {{ convert('scalars',cr.scalars,4,41) }}
+ SET LR1 CR0 ;;
 row_loop:
  SET LR4 LR7 ; SET LR12 LR8 ;;
  {{ gather() }}
@@ -86,14 +103,14 @@ row_loop:
  {% for i in range(k) %}{% for a in range(2) %}{{ cy(24+2*i+a) }}{% for b in range(2) %}{{ ld(24+2*i+b) }}
  MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; AGG.SUM{% if i == 0 and a == 0 and b == 0 %}.FIRST{% endif %} LR0 {{ full }} ;;
  {% endfor %}{% endfor %}{% endfor %}
- {{ average() }}{{ ld(3,cr.scalars) }}{{ vec() }} ;;
+ {{ average() }}{{ ld(44) }}{{ vec() }} ;;
  {{ at('LR10',13) }} ACTIVATE.QUANTIZE rsqrt {{ full }} {{ q }} {{ cr.tmp }} LR10 ;;
  {{ ld(13) }}{{ vec('ADD.FIRST') }} ;; {{ save(22) }}
  {% for i in range(k) %}
  {{ cy(22) }}{{ cy(23,'LR15') }}
  {% for j in range(3) %}{{ ld(i+j*k,cr.gamma) }}{{ mac('LR0','ADD.FIRST' if j == 0 else 'ADD') }}{{ mac('LR15') }}{% endfor %}
  {{ save(8) }}{{ product(24+2*i,8) }}
- {% for j in range(3) %}{{ ld(i+j*k,cr.beta) }}{{ vec() }} ;;{% endfor %}
+ {% for j in range(3) %}{{ ld(32+i+j*k) }}{{ vec() }} ;;{% endfor %}
  ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ tail if loop.last else full }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR9 ;;
  INC LR9 1 ;;
  {% endfor %}
@@ -102,3 +119,4 @@ row_loop:
  SET LR8 CR0 ; INC LR7 {{ k }} ; B row_loop ;;
 finished:
  HALT ;;
+{% endif %}
