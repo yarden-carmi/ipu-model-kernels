@@ -58,19 +58,17 @@
  {% endfor %}
 {% endmacro %}
 
-{# Broadcast each K element across a tile of output channels. #}
+{# One coefficient row provides all output lanes for one K element. #}
 {% macro coeff() %}LD.MULT.CYCLIC LR5 {{ cr.coeff }} LR0 ; INC LR5 1{% endmacro %}
-{% macro kchunk(count,label) %}
+{% macro kchunk(limit,label) %}
  LD.MULT R0 LR7 {{ cr.in0 }} ; SET LR10 CR0 ;;
  {{ coeff() }} ;;
- {% if count > 1 %}
- {{ at('LR11',(count - 1) % 64) }}
- {% if count > 64 %}INC LR11 64 ;;{% endif %}
+ BEQ LR10 {{ limit }} {{ label }}_last ;;
 {{ label }}:
  MULT.RC.VE LR0 LR10 0 LR0 {{ full }} {{ iq }} ; ACC.ADD ; {{ coeff() }} ;;
  INC LR10 1 ;;
- BLT.S LR10 LR11 {{ label }} ;;
- {% endif %}
+ BLT.S LR10 {{ limit }} {{ label }} ;;
+{{ label }}_last:
  MULT.RC.VE LR0 LR10 0 LR0 {{ full }} {{ iq }} ; ACC.ADD ; INC LR7 1 ;;
 {% endmacro %}
 {% macro lut(i) %}
@@ -84,6 +82,8 @@
  SET LR13 CR0 ;;
  {{ at('LR3',64) }}
  INC LR3 64 ;;
+ {{ at('LR11',63) }}
+ INC LR11 64 ;;
  {% for i in range(5) %}{{ lut(i) }}{% endfor %}
 row:
  SET LR4 CR0 ; SET LR5 CR0 ;;
@@ -91,14 +91,14 @@ row:
 gemm_tile:
  SET LR7 LR2 ; {{ coeff() }} ;;
  MULT.RC.VE LR0 CR1 0 LR0 {{ full }} {{ iq }} ; ACC.ADD.FIRST ;;
- {% if s0_k > 128 %}
- {{ at('LR8',(s0_k - 1) // 128) }}
+ SET LR8 LR14 ;;
+ BEQ LR8 CR0 gemm_last_chunk ;;
 gemm_full_chunk:
- {{ kchunk(128,'gemm_full_mac') }}
+ {{ kchunk('LR11','gemm_full_mac') }}
  DEC LR8 1 ;;
  BNE LR8 CR0 gemm_full_chunk ;;
- {% endif %}
- {{ kchunk((s0_k - 1) % 128 + 1,'gemm_last_mac') }}
+gemm_last_chunk:
+ {{ kchunk('LR12','gemm_last_mac') }}
  ADD LR6 LR4 CR1 ;;
  BGE.S LR6 {{ cr.tiles }} gemm_last_tile ;;
  {{ gelu(full) }}

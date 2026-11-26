@@ -81,6 +81,8 @@ rows = "out0_d0 * out0_d1"
 work = "ds(128) + 65536 * qf(1, 4, 8, 0)"
 tail = "ds((out0_d2 - 1) % 128 + 1)"
 half = "1277440"
+chunks = "(s0_k - 1) // 128"
+last_k = "(s0_k - 1) % 128"
 
 [inputs.in0]
 shape = ["in0_d0 * in0_d1 * pitch", 128]
@@ -113,6 +115,8 @@ tiles = "CR12"
 work = "CR13"
 tail = "CR14"
 half = "CR15"
+last_k = "LR12"
+chunks = "LR14"
 rows = "LR15"
 
 [cases.default]
