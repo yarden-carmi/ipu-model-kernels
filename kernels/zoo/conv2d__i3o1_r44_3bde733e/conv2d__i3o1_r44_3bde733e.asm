@@ -17,10 +17,14 @@
  LD.MULT.CYCLIC LR7 {{cr.weights}} LR0 ;;
  INC LR7 1 ; MULT.RC.VE LR0 {{src}} 0 LR0 {{ds}} {{qi}} ; {{acc}} ;;
 {% endmacro %}
-{% macro tap_digit() %}
- LD.MULT.CYCLIC LR7 {{cr.weights}} LR0 ;;
- MULT.RC.VE LR0 LR12 0 LR0 {{ds}} {{qi}} ; ACC.ADD ; INC LR12 128 ;;
- MULT.RC.VE LR0 LR12 0 LR0 {{ds}} {{qi}} ; ACC.ADD ; DEC LR12 128 ; INC LR7 1 ;;
+{# R0 and R1 hold the two activation digits. Consume each weight twice,
+   replacing the cyclic slot on its last use. The tail must not prefetch
+   past the weight buffer. #}
+{% macro tap_channel(tag, prefetch) %}
+ MULT.RC.VE LR0 LR12 0 LR0 {{ds}} {{qi}} ; ACC.ADD ; DEC LR12 127 ;;
+ MULT.RC.VE LR0 LR12 0 LR0 {{ds}} {{qi}} ; ACC.ADD ; INC LR12 128 ; INC LR7 1 ; LD.MULT.CYCLIC LR7 {{cr.weights}} LR0 ;;
+ MULT.RC.VE LR0 LR12 0 LR0 {{ds}} {{qi}} ; ACC.ADD ; DEC LR12 128 ;;
+ MULT.RC.VE LR0 LR12 0 LR0 {{ds}} {{qi}} ; ACC.ADD ; INC LR12 128 ; INC LR7 1 {% if prefetch %}; LD.MULT.CYCLIC LR7 {{cr.weights}} LR0 ; BLT.S LR12 LR1 channel_{{tag}} {% endif %};;
 {% endmacro %}
 {% macro skip_tap() %}
  {% for i in range(0, 2 * cin, 255) %} INC LR7 {{[255, 2 * cin - i] | min}} ;; {% endfor %}
@@ -36,13 +40,12 @@ transpose_pixel:
  {% for b in range(ib) %}
  SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
  SET LR3 CR0 ; SET LR6 CR0 ;;
+ {{setnum('LR10', ([128, in0_d1 - b * 128] | min) - 1)}}
  MULT.EE LR0 CR0 0 LR0 {{ds}} {{qi}} ; ACC.ADD.FIRST ;;
  transpose_channel_{{b}}:
  LD.MULT R0 LR5 {{cr.in0}} ;;
  MULT.EE LR4 CR1 0 LR0 {{ds}} {{qi}} ; ACC.RESHAPE LRD0 LRD2 7 ;;
- ADDBI LRD2 1 ; ADD LR5 LR5 LR13 ; INC LR6 1 ;;
- {{setnum('LR10', [128, in0_d1 - b * 128] | min)}}
- BLT.S LR6 LR10 transpose_channel_{{b}} ;;
+ ADDBI LRD2 1 ; ADD LR5 LR5 LR13 ; INC LR6 1 ; BLT.S LR6 LR10 transpose_channel_{{b}} ;;
  ACTIVATE.QUANTIZE identity {{ds}} {{qi}} {{cr.transposed}} LR7 ;;
  LD.MULT R0 LR7 {{cr.transposed}} ;;
  MULT.VE LR0 CR1 0 LR0 {{ds}} {{qi}} ; ACC.SUB ;;
@@ -83,16 +86,19 @@ kx:
  BLT.S LR9 CR0 skip_column ;;
  BGE.S LR9 {{cr.in0_d3}} skip_column ;;
  {% for b in range(ib) %}
- LD.MULT R0 LR11 {{cr.transposed}} ; SET LR12 CR0 ;;
+ LD.MULT R0 LR11 {{cr.transposed}} ;;
  {{setnum('LR1', in0_d2 * in0_d3 * ib)}}
  ADD LR1 LR1 LR11 ;;
  LD.MULT R1 LR1 {{cr.transposed}} ;;
- {{setnum('LR1', [128, cin - b * 128] | min)}}
+ {% set count = [128, cin - b * 128] | min %}
+ {{setnum('LR12', 127)}}
+ LD.MULT.CYCLIC LR7 {{cr.weights}} LR0 ;;
+ {% if count > 1 %}
+ {{setnum('LR1', count - 2)}}
  channel_{{b}}:
- {{tap_digit()}}
- {{tap_digit()}}
- INC LR12 1 ;;
- BLT.S LR12 LR1 channel_{{b}} ;;
+ {{tap_channel(b, true)}}
+ {% endif %}
+ {{tap_channel(b, false)}}
  {% if not loop.last %} INC LR11 1 ;; {% endif %}
  {% endfor %}
  {% if ib > 1 %} DEC LR11 {{ib - 1}} ;; {% endif %}
