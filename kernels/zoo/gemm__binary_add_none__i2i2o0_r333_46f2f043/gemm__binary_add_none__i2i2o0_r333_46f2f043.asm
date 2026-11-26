@@ -58,7 +58,6 @@ channel:
     LD.MULT R0 LR4 {{cr.in1}} {% if fast %}; SET LR7 LR12 ; SET LR13 CR0{% endif %} ;;
     MULT.VE LR5 CR1 0 LR0 {{cr.full}}.L {{cr.qf_in1}}.L ; ACC.ADD.FIRST ; LD.MULT R0 LR3 {{cr.w}} ; INC LR3 1 {% if fast %}; DEC LR13 1{% endif %} ;;
 {% else %}
-    # Convert the residual view's linear address to padded storage rows.
     SET LR7 LR4 ; SET LR15 CR0 ; SET LR13 CR0 ;;
 {% for bit in range(7) %}
     ADD LR7 LR7 LR7 ;;
@@ -101,7 +100,6 @@ res_done:
     LD.MULT R0 LR3 {{cr.w}} ; INC LR3 1 ;;
 {% endif %}
 {% if fast %}
-    # Keep all weight chunks resident and stream input rows one ahead.
 {% for i in range(chunks) %}
     {% if i == 0 %}MULT.VE LR0 CR1 0 LR0 {{cr.full}}.L {{cr.qf_in0}}.L ; ACC.ADD ; {% endif %}LD.MULT.CYCLIC LR3 {{cr.w}} LR{{8+i}} ; INC LR3 1 ;;
 {% endfor %}
