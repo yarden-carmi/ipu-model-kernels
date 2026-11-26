@@ -1,0 +1,54 @@
+[kernel]
+op = "binary_add"
+formats = ["e2", "e3"]
+
+[params]
+broadcast = { type = "str", choices = ["none"], default = "none" }
+inner = { type = "int", min = 0, max = 0, default = 0 }
+op = { type = "str", choices = ["add"], default = "add" }
+numel = { type = "int", min = 1, max = 16777216, default = 49152 }
+in0_d0 = { type = "int", min = 1, max = 128, default = 4 }
+in0_d1 = { type = "int", min = 1, max = 1024, default = 64 }
+in0_d2 = { type = "int", min = 1, max = 4096, default = 192 }
+in1_d0 = { type = "int", min = 1, max = 128, default = 4 }
+in1_d1 = { type = "int", min = 1, max = 1024, default = 64 }
+in1_d2 = { type = "int", min = 1, max = 4096, default = 192 }
+out0_d0 = { type = "int", min = 1, max = 128, default = 4 }
+out0_d1 = { type = "int", min = 1, max = 1024, default = 64 }
+out0_d2 = { type = "int", min = 1, max = 4096, default = 192 }
+
+[derived]
+plane = "in0_d0 * in0_d1"
+src_width = "ceil(plane / 128)"
+src_rows = "src_width * in0_d2"
+batch_size = "out0_d1 * out0_d2"
+ds_pair = "ds(128) + 65536 * ds((batch_size - 1) % 128 + 1)"
+lanes = "128"
+column_ds = "in0_d2 + 65536 * ds(1)"
+
+[inputs.in0]
+shape = ["in0_d2", "src_width * 128"]
+range = [-2, 2]
+[inputs.in1]
+shape = ["in1_d0", "ceil(in1_d1 * in1_d2 / 128) * 128"]
+range = [-2, 2]
+[outputs.out0]
+shape = ["out0_d0", "ceil(batch_size / 128) * 128"]
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_in1 = "CR6"
+qf_out0 = "CR7"
+out0_d0 = "CR8"
+batch_size = "CR9"
+out0_d2 = "CR10"
+ds_pair = "CR11"
+column_ds = "CR12"
+plane = "CR13"
+lanes = "CR14"
+src_rows = "CR15"
+
+[cases.default]
