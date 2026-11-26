@@ -99,12 +99,13 @@ tail = "ds(out0_d1 - (blocks - 1) * 128)"
 ends = "out0_d3 * stride - padding + 65536 * (out0_d2 * stride - padding)"
 input_hw = "in0_d3 + 65536 * in0_d2"
 skip_y = "2 * kw * in0_d1"
+row_advance = "stride * in0_d1"
 
 [inputs.in0]
-shape = ["in0_d0 * in0_d1 * in0_d2", 128]
+shape = ["in0_d0 * in0_d2 * in0_d1", 128]
 range = [-2, 2]
 [inputs.weights]
-shape = ["blocks", "2 * (1 + kh * kw * in0_d1)", 128]
+shape = ["blocks", "1 + 2 * kh * kw * in0_d1", 128]
 range = [-1, 1]
 [outputs.out0]
 shape = ["out0_d0 * out0_d2 * out0_d3 * blocks", 128]
@@ -123,6 +124,7 @@ tail = "CR11"
 ends = "CR12"
 input_hw = "CR13"
 skip_y = "CR14"
+row_advance = "CR15"
 
 [golden]
 tolerance = {e1 = "NX8_STEP", e2 = "NX8_STEP"}

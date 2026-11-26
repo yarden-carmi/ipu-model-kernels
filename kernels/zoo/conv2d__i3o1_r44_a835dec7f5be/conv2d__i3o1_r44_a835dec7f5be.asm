@@ -1,7 +1,7 @@
 {% set qi = cr.qf_in0 ~ '.L' %}
 {% set qo = cr.qf_out0 ~ '.L' %}
 {% set ds = cr.full ~ '.L' %}
-{% set width = in0_d3 %}
+{% set width = in0_d1 %}
 
 {# Keep packed coordinates as a row index and a lane remainder. #}
 {% macro advance(row, lane, delta, tag) %}
@@ -24,8 +24,7 @@ no_wrap_{{ tag }}:
 channels_{{ tag }}:
     LD.MULT R0 LR12 {{ cr.in0 }} ;;
     LD.MULT.CYCLIC LR5 {{ cr.weights }} LR0 ; ADD LR12 LR12 {{ cr.plane }} ; INC LR14 1 ;;
-    MULT.RC.VE LR0 LR13 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ; INC LR5 1 ;;
-    LD.MULT.CYCLIC LR5 {{ cr.weights }} LR0 ;;
+    MULT.RC.VE LR0 LR13 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ; INC LR5 1 ; LD.MULT.CYCLIC LR5 {{ cr.weights }} LR0 ;;
     MULT.RC.VE LR0 LR13 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ; INC LR5 1 ; BLT.S LR14 {{ cr.in0_d1 }} channels_{{ tag }} ;;
     B end_{{ tag }} ;;
 skip_{{ tag }}:
@@ -53,8 +52,7 @@ end_y_{{ y }}:
 {% endmacro %}
 
     SET LR0 CR0 ; SET LR1 CR0 ; SET LR3 CR0 ;;
-    SET LR6 CR0 ; SET LR7 CR0 ; SET LR15 CR0 ;;
-    INC LR15 128 ;;
+    SET LR6 CR0 ; SET LR7 CR0 ;;
 {% if padding %}
     DEC LR1 {{ padding }} ; SUB LR6 LR6 {{ cr.in0_d1 }} ;;
 {% endif %}
@@ -66,8 +64,6 @@ ox:
 block:
     LD.MULT.CYCLIC LR5 {{ cr.weights }} LR0 ; SET LR8 LR1 ;;
     MULT.RC.VE LR0 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ; INC LR5 1 ; SET LR9 LR6 ; SET LR10 LR7 ;;
-    LD.MULT.CYCLIC LR5 {{ cr.weights }} LR0 ;;
-    MULT.RC.VE LR0 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ; INC LR5 1 ;;
 {% for y in range(kh) %}{{ tap_row(y) }}{% endfor %}
     INC LR4 1 ;;
     BLT.S LR4 {{ cr.blocks }} full_store ;;
@@ -80,6 +76,6 @@ next_pixel:
     INC LR2 {{ stride }} ;;
     BLT.S LR2 {{ cr.ends }}.L ox ;;
     INC LR1 {{ stride }} ;;
-{% for i in range(stride) %}    ADD LR6 LR6 {{ cr.in0_d1 }} ;;{% endfor %}
+    ADD LR6 LR6 {{ cr.row_advance }} ;;
     BLT.S LR1 {{ cr.ends }}.H oy ;;
     HALT ;;

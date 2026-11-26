@@ -49,11 +49,11 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 56, 56], [200704, 3136, 56, 1], 0), module.op0_weight, None, [1, 1], [1, 1])
+    r0 = aten.conv2d.default(_v(ins[0], [1, 128, 28, 28], [100352, 784, 28, 1], 0), module.op0_weight, None, [1, 1], [1, 1])
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 64, 56, 56], [200704, 3136, 56, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 128, 28, 28], [100352, 784, 28, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 64, 56, 56])}
+    return {"out0": _out(op1, [1, 128, 28, 28])}
 # ---- end of the frozen reference ----
 
 
@@ -64,14 +64,16 @@ def fold(module, **params):
     blocks = (cout + 127) // 128
     padded = weight.new_zeros((blocks * 128, cin, kh, kw))
     padded[:cout] = weight
-    rows = weight.new_zeros((blocks, 1 + kh * kw * cin, 128))
-    rows[:, 1:] = padded.reshape(blocks, 128, cin, kh, kw).permute(
+    rows = weight.new_zeros((blocks, 1 + 2 * kh * kw * cin, 128))
+    original = padded.reshape(blocks, 128, cin, kh, kw).permute(
         0, 3, 4, 2, 1
     ).reshape(blocks, kh * kw * cin, 128)
+    maximum = original.abs().amax(dim=-1, keepdim=True).clamp_min(1e-30)
+    step = torch.pow(2.0, torch.floor(torch.log2(maximum)) - 5)
+    high = torch.trunc(original / step) * step
+    rows[:, 1::2] = high
+    rows[:, 2::2] = original - high
     bias = weight.new_zeros(blocks * 128)
     bias[:cout] = module.op1_bias - module.op1_running_mean * scale
     rows[:, 0] = bias.reshape(blocks, 128)
-    _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
-    step = torch.ldexp(torch.ones_like(rows[..., :1]), exponent - 4)
-    coarse = torch.round(rows / step) * step
-    return {"weights": torch.stack((coarse, rows - coarse), dim=-2).reshape(blocks, -1, 128)}
+    return {"weights": rows}
