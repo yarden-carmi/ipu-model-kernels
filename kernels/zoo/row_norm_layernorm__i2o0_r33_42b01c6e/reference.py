@@ -56,7 +56,7 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    channels = int(params["channels"])
+    channels = params["channels"]
 
     def split(values, mantissa=5):
         values = values.reshape(-1, 1).expand(-1, 128)

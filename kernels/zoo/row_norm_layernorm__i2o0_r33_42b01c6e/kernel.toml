@@ -8,9 +8,9 @@ default = "layernorm"
 [params.channels]
 type = "int"
 min = 128
-max = 768
+max = 384
 multiple_of = 16
-default = 240
+default = 384
 [params.rows]
 type = "int"
 min = 64
@@ -24,39 +24,38 @@ max = 1.0
 default = 1e-5
 [params.in0_d0]
 type = "int"
-min = 4
+min = 1
 max = 4
 default = 4
 [params.in0_d1]
 type = "int"
 min = 16
-max = 1024
+max = 65536
 multiple_of = 16
 default = 16
 [params.in0_d2]
 type = "int"
 min = 128
-max = 768
+max = 384
 multiple_of = 16
-default = 240
+default = 384
 [params.out0_d0]
 type = "int"
-min = 4
+min = 1
 max = 4
 default = 4
 [params.out0_d1]
 type = "int"
 min = 16
-max = 1024
+max = 65536
 multiple_of = 16
 default = 16
 [params.out0_d2]
 type = "int"
 min = 128
-max = 768
+max = 384
 multiple_of = 16
-default = 240
-
+default = 384
 [derived]
 stat = "ds(min(rows,128)) + 65536 * qf(1, 1, 8, 0)"
 wide = "qf(1, 4, 8, 0) + 65536 * ds(64)"
@@ -64,7 +63,6 @@ tiles = "rows // 128"
 count = "channels // 2"
 [inputs.in0]
 shape = ["in0_d0 * ((in0_d1 * in0_d2 + 127) // 128)", 128]
-range = [-2.0, 2.0]
 [inputs.gamma]
 shape = ["2 * channels", 128]
 [inputs.beta]
@@ -79,19 +77,16 @@ shape = ["5 + 2 * channels", 128]
 shape = ["out0_d2 * ((out0_d0 * out0_d1 + 127) // 128)", 128]
 [abi]
 in0 = "CR2"
+out0 = "CR5"
+qf_in0 = "CR9"
+qf_out0 = "CR6"
 gamma = "CR3"
 beta = "CR4"
-out0 = "CR5"
-qf_out0 = "CR6"
 crow = "CR7"
 tmp = "CR8"
-qf_in0 = "CR9"
 tiles = "CR10"
 count = "CR11"
 epsilon = "CR12"
 stat = "CR13"
 wide = "CR14"
-[golden]
-tolerance = { e2 = "NX8_STEP" }
-
 [cases.default]

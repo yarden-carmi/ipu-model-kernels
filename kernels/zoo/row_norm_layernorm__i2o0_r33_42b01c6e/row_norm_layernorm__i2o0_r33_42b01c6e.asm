@@ -1,4 +1,4 @@
-{# A lane owns one logical row throughout the reduction and affine pass. #}
+{# Dense input planes, one independent normalization row per lane. #}
 {% set q = cr.qf_in0 ~ '.L' %}
 {% set s = cr.stat ~ '.H' %}
 {% set w = cr.wide ~ '.L' %}
@@ -22,7 +22,6 @@
  MULT.RC.{{ 'VE' if src == 'CR1' else 'VV' }} {{ reg }} {{ src }} 0 LR0 CR15.L {{ fmt }} ; ACC.{{ op }} {{ tail }} ;;
 {% endmacro %}
 {% macro variance(name,fmt) %}
- {# LR0 already holds channel zero. Load one ahead, with a separate drain. #}
  ADD LR6 LR6 LR6 ;;
  DEC LR6 2 ;;
  {{ label }}_{{ name }}:
@@ -49,7 +48,7 @@
  {{ sum_pair(p) }}
  {{ label }}_sum{{ p }}_end:
  {% endfor %}
- {# Split the mean before subtracting it in the accumulator. #}
+ {# Retain the residual of each quantized mean and centered value. #}
  {{ store('LR0',mean_q) }} ; SET LR5 LR3 ; SET LR6 {{ cr.count }} ; SET LR7 CR0 ;;
  LD.MULT R0 LR0 {{ cr.tmp }} ; INC LR7 1 ;;
  {{ v('LR0',mean_q,'SUB','; '~store('LR7',mean_q)) }}
@@ -70,8 +69,8 @@
  {% else %}
  {{ v('LR0',mean_q,'SUB','; '~store('LR7',center_q)) }}
  {% endif %}
- SET LR12 LR7 ; LD.MULT R0 LR12 {{ cr.tmp }} ; INC LR7 1 ;;
- {{ v('LR0',center_q,'SUB','; '~store('LR7',center_q)) }}
+ LD.MULT R0 LR7 {{ cr.tmp }} ;;
+ {{ v('LR0',center_q,'SUB','; INC LR7 1 ; '~store('LR7',center_q)) }}
  INC LR7 1 ; {% if i==1 %}DEC LR6 1 ;{% endif %} ;;
  {% endfor %}
  BNE LR6 CR0 {{ label }}_center ;;
@@ -79,7 +78,7 @@
  {{ v('LR0',w,'ADD.FIRST','; LD.MULT.CYCLIC LR7 '~cr.tmp~' LR0') }}
  {{ variance('variance',center_q) }}
  {% if refine %}
- {# Rescale before the narrow-format pass to retain small centered values. #}
+ {# Rescale before switching to fixed point so tiny rows are retained. #}
  {{ store('LR7',w,'rsqrt') }} ; SET LR10 CR0 ; SET LR6 {{ cr.count }} ;;
  LD.MULT R1 LR7 {{ cr.tmp }} ; INC LR10 4 ;;
  ADD LR6 LR6 LR6 ; INC LR7 3 ;;
