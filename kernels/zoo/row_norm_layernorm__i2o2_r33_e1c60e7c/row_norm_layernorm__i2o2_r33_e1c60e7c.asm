@@ -7,59 +7,22 @@
  {% for k in range((d|abs) // 255) %}{{ 'INC' if d > 0 else 'DEC' }} {{ reg }} 255 ;;{% endfor %}
  {% if (d|abs) % 255 %}{{ 'INC' if d > 0 else 'DEC' }} {{ reg }} {{ (d|abs) % 255 }} ;;{% endif %}
 {% endmacro %}
-{% macro load(n,cy=false) %}
- {% if n %}SET LR1 CR0 ;;{% endif %}
- {% if n %}INC LR1 {{ n }} ; {% endif %}
- {% if cy %}LD.MULT.CYCLIC {{ 'LR1' if n else 'LR0' }} {{ cr.tmp }} LR0 ;;
- {% else %}LD.MULT R0 {{ 'LR1' if n else 'LR0' }} {{ cr.tmp }} ;;{% endif %}
-{% endmacro %}
 {% macro scalar(op='ADD',first=false,imm='CR1',ds='CR15.L',tail='') %}
  MULT.VE LR0 {{ imm }} 0 LR0 {{ ds }} {{ q }} ; ACC.{{ op }}{% if first %}.FIRST{% endif %} {{ tail }} ;;
 {% endmacro %}
 {% macro mul(first=false,slot='LR0',op='ADD',tail='') %}
  MULT.RC.VV {{ slot }} R0 0 LR0 CR15.L {{ q }} ; ACC.{{ op }}{% if first %}.FIRST{% endif %} {{ tail }} ;;
 {% endmacro %}
-{% macro encode(reg,pieces,ds='CR15.L',setup='') %}
- {% for i in range(pieces) %}
- {% if loop.first %}{{ setup }}ACTIVATE.QUANTIZE identity {{ ds }} {{ q }} {{ cr.tmp }} {{ reg }} ;;{% endif %}
- {% if not loop.last %}
- LD.MULT R0 {{ reg }} {{ cr.tmp }} ;;
- {{ scalar('SUB',ds=ds,tail='; INC ' ~ reg ~ ' 1 ; ACTIVATE.QUANTIZE identity ' ~ ds ~ ' ' ~ q ~ ' ' ~ cr.tmp ~ ' ' ~ reg) }}
- {% endif %}
- {% endfor %}
-{% endmacro %}
-{% macro save(n,pieces=2) %}
- {% if n %}SET LR1 CR0 ;;{% endif %}
- {{ encode('LR1',pieces,setup=('INC LR1 ' ~ n ~ ' ; ' if n else 'SET LR1 CR0 ; ')) }}
-{% endmacro %}
-{% macro broadcast_sum(next_load='') %}
- {{ save(0,2) }}
- SET LR1 CR0 ; LD.MULT R0 LR0 {{ cr.tmp }} ;;
- {% for j in range(2) %}
- {% if not loop.last %}INC LR1 1 ; LD.MULT R0 LR1 {{ cr.tmp }} ; {% else %}{{ next_load }}{% endif %}MULT.EE LR0 CR1 0 LR0 CR15.L {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %} ;;
- {% endfor %}
-{% endmacro %}
-{% macro product(a,b,dest) %}
- SET LR1 CR0 ;;
- INC LR1 {{ b }} ; LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR3 ;;
- INC LR1 1 ; LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR4 ;;
- {{ 'INC' if a > b+1 else 'DEC' }} LR1 {{ (a-b-1)|abs }} ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
- {% for i in range(2) %}
- {{ mul(first=(i==0),slot='LR3') }}
- {{ mul(slot='LR4',tail='; INC LR1 1 ; LD.MULT R0 LR1 ' ~ cr.tmp if i==0 else '') }}
- {% endfor %}
- {% if a == 11 %}INC LR1 10 ; LD.MULT R0 LR1 {{ cr.tmp }} ;;{{ mul(slot='LR3') }}{% endif %}
- {{ save(dest) }}
-{% endmacro %}
 
 {# Packed storage lays out the strided view as contiguous channel planes.
    Take eight logical rows at a time from those planes. #}
 {{ at('LR10',40 + 2 * rows) }}{{ at('LR11',rows // 8) }}
 {{ at('LR15',120) }}
+{% if rows % 128 %}{{ at('LR6',64) }}{% endif %}
 SET LR12 CR0 ; SET LR13 CR0 ; SET LR7 CR0 ;;
 pack_tile:
  SET LR4 LR12 ; SET LR8 CR0 ;
- {% if rows % 128 %}BLT.S LR13 {{ cr.half }} pack_low ;{% endif %} ;;
+ {% if rows % 128 %}BLT.S LR13 LR6 pack_low ;{% endif %} ;;
 {% macro pack(half) %}
 pack_{{ half }}:
  INC LR8 {{ channels // 16 }} ;;
@@ -131,13 +94,13 @@ row_loop:
  {# Normalize while summing, rather than encoding and reloading the sum. #}
   SET LR1 CR0 ; LD.MULT.CYCLIC LR1 {{ cr.crow }} LR0 ; SET LR5 LR14 ;;
   DEC LR13 1 ; LD.MULT R0 LR5 {{ cr.tmp }} ;;
-  {% set slots = ['LR0','LR3','LR4'] %}
+   {% set slots = ['LR0','LR3','LR4'] %}
   {% set halves = ['CR15.L',cr.dsl ~ '.L'] %}
   {% for slot in slots %}
   {% set s = loop.index0 %}
   {% for i in range(2) %}
   {% set ds = halves[(s+i)%2] %}
-   {% if i == 0 %}{{ 'DEC' if s % 2 else 'INC' }} LR5 1 ; LD.MULT R0 LR5 {{ cr.tmp }} ; {% elif s < 2 %}INC LR1 1 ; LD.MULT.CYCLIC LR1 {{ cr.crow }} {{ slots[s+1] }} ; {% endif %}MULT.RC.VV {{ slot }} R0 0 LR0 {{ ds }} {{ q }} ; AGG.SUM{% if s == 0 and i == 0 %}.FIRST{% endif %} LR0 {{ ds }} {% if s == 2 and i == 1 %}; SET LR1 LR6 ; ACTIVATE.QUANTIZE identity CR15.L {{ q }} {{ cr.tmp }} LR1{% endif %} ;;
+    {% if i == 0 %}{{ 'DEC' if s % 2 else 'INC' }} LR5 1 ; LD.MULT R0 LR5 {{ cr.tmp }} ; {% elif s < 2 %}INC LR1 1 ; LD.MULT.CYCLIC LR1 {{ cr.crow }} {{ slots[s+1] }} ; {% endif %}MULT.RC.VV {{ slot }} R0 0 LR0 {{ ds }} {{ q }} ; AGG.SUM{% if s == 0 and i == 0 %}.FIRST{% endif %} LR0 {{ ds }} {% if s == 2 and i == 1 %}; SET LR1 LR6 ; ACTIVATE.QUANTIZE identity CR15.L {{ q }} {{ cr.tmp }} LR1{% endif %} ;;
  {% endfor %}
  {% endfor %}
   {# Keep the mean in lane zero and broadcast each piece at subtraction. #}
@@ -153,49 +116,43 @@ row_loop:
   {% if loop.first %}DEC LR9 1 ; SET LR1 LR6 ;;{% endif %}
  {% endfor %}
 
-   {{ scalar(first=true,imm='CR0',tail='; SET LR9 LR8') }}
+   SET LR9 LR8 ;;
   {% for h in range(2) %}
   {# Pipeline the two pieces; only the cross term needs Ra. #}
   INC LR9 2 ; LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR3 ;
   MULT.RC.VS LR0 0 LR0 CR15.L {{ q }} ; AGG.SUM{% if h == 0 %}.FIRST{% endif %} LR0 CR15.L ;;
   LD.MULT R0 LR9 {{ cr.tmp }} ; MULT.RC.VS LR3 0 LR0 CR15.L {{ q }} ; AGG.SUM LR0 CR15.L ;;
   {% for cross in range(2) %}
-  {% if loop.last and h == 0 %}DEC LR9 1 ; LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ; {% endif %}
+   {% if loop.last and h == 0 %}DEC LR9 1 ; LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ; {% elif loop.last %}LD.MULT R0 LR0 {{ cr.epsilon }} ; SET LR1 CR0 ; {% endif %}
   MULT.RC.VV LR0 R0 0 LR0 CR15.L {{ q }} ; AGG.SUM LR0 CR15.L ;;
   {% endfor %}
  {% endfor %}
  {# Work in sum-of-squares units: epsilon and gamma compensate in fold(). #}
- {{ broadcast_sum('LD.MULT R0 LR0 ' ~ cr.epsilon ~ ' ; ') }}
- {{ scalar(tail='; SET LR1 CR0') }}
- INC LR1 8 ; ACTIVATE.QUANTIZE rsqrt CR15.L {{ q }} {{ cr.tmp }} LR1 ;;
- {{ save(11) }}
- LD.MULT R0 LR1 {{ cr.tmp }} ;;
- {{ scalar('SUB') }}{{ save(22,1) }}
-
- {# Refine the approximate inverse standard deviation and keep two pieces. #}
-  SET LR1 CR0 ;;
-  INC LR1 8 ; LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
-  INC LR1 5 ; MULT.RC.VS LR0 0 LR0 CR15.L {{ q }} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity CR15.L {{ q }} {{ cr.tmp }} LR1 ;;
+  {# Refine in lane zero: with v = sum of squares plus epsilon and r
+     the quantized rsqrt, form r * (2 + (1 - v*r*r)). #}
+  {% set one = cr.ds1 ~ '.L' %}
+  {{ scalar(ds=one,tail='; INC LR1 8 ; ACTIVATE.QUANTIZE rsqrt ' ~ one ~ ' ' ~ q ~ ' ' ~ cr.tmp ~ ' LR1') }}
+  SET LR10 LR1 ; INC LR1 1 ; LD.MULT.CYCLIC LR10 {{ cr.tmp }} LR0 ; ACTIVATE.QUANTIZE identity {{ one }} {{ q }} {{ cr.tmp }} LR1 ;;
+  INC LR10 1 ; LD.MULT.CYCLIC LR10 {{ cr.tmp }} LR3 ; MULT.RC.VS LR0 0 LR0 {{ one }} {{ q }} ; ACC.ADD.FIRST ; INC LR1 1 ; ACTIVATE.QUANTIZE identity {{ one }} {{ q }} {{ cr.tmp }} LR1 ;;
+  SET LR10 CR1 ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
+  {{ scalar('SUB',ds=one,tail='; INC LR1 1 ; ACTIVATE.QUANTIZE identity ' ~ one ~ ' ' ~ q ~ ' ' ~ cr.tmp ~ ' LR1 ; LD.MULT R1 LR10 ' ~ cr.epsilon) }}
+  MULT.VE LR3 CR1 0 LR0 {{ one }} {{ q }} ; ACC.ADD.FIRST ;;
+  MULT.RC.VV LR3 R0 0 LR0 {{ one }} {{ q }} ; ACC.SUB ; LD.MULT R1 LR1 {{ cr.tmp }} ;;
+  MULT.RC.VV LR3 R1 0 LR0 {{ one }} {{ q }} ; ACC.SUB ; INC LR1 1 ; ACTIVATE.QUANTIZE identity {{ one }} {{ q }} {{ cr.tmp }} LR1 ;;
+  LD.MULT R0 LR1 {{ cr.tmp }} ; MULT.RC.VE LR0 CR1 0 LR0 {{ one }} {{ q }} ; ACC.ADD.FIRST ;;
+  MULT.RC.VE LR0 CR1 0 LR0 {{ one }} {{ q }} ; ACC.ADD ;;
+  MULT.RC.VV LR0 R0 0 LR0 {{ one }} {{ q }} ; ACC.ADD ; SET LR1 LR12 ; ACTIVATE.QUANTIZE identity {{ one }} {{ q }} {{ cr.tmp }} LR1 ;;
   LD.MULT R0 LR1 {{ cr.tmp }} ;;
-  {{ scalar('SUB',tail='; INC LR1 1 ; ACTIVATE.QUANTIZE identity CR15.L ' ~ q ~ ' ' ~ cr.tmp ~ ' LR1') }}
- {{ product(11,13,15) }}
-  {# Accumulate twice the Newton correction directly; gamma carries the factor 1/2. #}
-  {{ load(8,true) }}
-  MULT.RC.VE LR0 CR1 0 LR0 CR15.L {{ q }} ; ACC.ADD.FIRST ; INC LR1 7 ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
-  MULT.RC.VE LR0 CR1 0 LR0 CR15.L {{ q }} ; ACC.ADD ;;
-  MULT.RC.VE LR0 CR1 0 LR0 CR15.L {{ q }} ; ACC.ADD ;;
-  {{ mul(op='SUB',tail='; INC LR1 1 ; LD.MULT R0 LR1 ' ~ cr.tmp) }}
-  {{ mul(op='SUB') }}
-  {{ save(19,2) }}
+  {{ scalar('SUB',ds=one,tail='; INC LR1 1 ; ACTIVATE.QUANTIZE identity ' ~ one ~ ' ' ~ q ~ ' ' ~ cr.tmp ~ ' LR1') }}
 
  SET LR15 LR2 ; SET LR5 LR8 ; SET LR11 LR12 ;;
  {% for h in range(2) %}
- SET LR10 {{ 'CR0' if h == 0 else 'CR1' }} ; SET LR1 LR11 ; LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
- INC LR1 1 ; LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR3 ;;
- LD.MULT R0 LR10 {{ cr.gamma }} ;;
- {% for i in range(3) %}
-  {{ mul(first=i==0) }}
-  {{ mul(slot='LR3',tail='; INC LR10 2 ; LD.MULT R0 LR10 ' ~ cr.gamma if not loop.last else '; SET LR1 LR7 ; ACTIVATE.QUANTIZE identity CR15.L ' ~ q ~ ' ' ~ cr.tmp ~ ' LR1') }}
+ SET LR10 {{ 'CR0' if h == 0 else 'CR1' }} ; SET LR1 LR11 ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
+ INC LR1 1 ; LD.MULT R1 LR1 {{ cr.tmp }} ;;
+ LD.MULT.CYCLIC LR10 {{ cr.gamma }} LR0 ;;
+  {% for i in range(2) %}
+   MULT.RC.VE LR0 LR0 0 LR0 CR15.L {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %} ;;
+   MULT.RC.VE LR0 LR3 0 LR0 CR15.L {{ q }} ; ACC.ADD ; {% if not loop.last %}INC LR10 2 ; LD.MULT.CYCLIC LR10 {{ cr.gamma }} LR0{% else %}SET LR1 LR7 ; ACTIVATE.QUANTIZE identity CR15.L {{ q }} {{ cr.tmp }} LR1{% endif %} ;;
  {% endfor %}
  {# Encode the gain while replacing the inverse slots with centered input. #}
  LD.MULT R0 LR1 {{ cr.tmp }} ;;
@@ -212,7 +169,7 @@ row_loop:
   {{ mul(first=loop.first) }}
   {{ mul(slot='LR3',tail='; INC LR1 1 ; LD.MULT R0 LR1 ' ~ cr.tmp if not loop.last else '; SET LR10 ' ~ ('CR0' if h == 0 else 'CR1') ~ ' ; LD.MULT R0 LR10 ' ~ cr.beta) }}
  {% endfor %}
- {% for i in range(3) %}
+  {% for i in range(2) %}
  {{ scalar(tail='; INC LR10 2 ; LD.MULT R0 LR10 ' ~ cr.beta if not loop.last else '; INC LR15 1 ; DEC LR5 3 ; ACTIVATE.QUANTIZE ' ~ (act_out0 | default('identity')) ~ ' CR15.L ' ~ cr.qf_out0 ~ '.L ' ~ cr.out0 ~ ' LR15') }}
  {% endfor %}
  {% endfor %}
