@@ -1,0 +1,106 @@
+[kernel]
+op = "quarter_grid_average"
+formats = ["e1"]
+
+[params.h]
+type = "int"
+min = 4
+max = 4096
+default = 66
+
+[params.w]
+type = "int"
+min = 4
+max = 258
+default = 66
+
+[params.in0_d0]
+type = "int"
+min = 1
+max = 64
+default = 1
+
+[params.in0_d1]
+type = "int"
+min = 1
+max = 128
+default = 64
+
+[params.in0_d2]
+type = "int"
+min = 4
+max = 4096
+default = 66
+
+[params.in0_d3]
+type = "int"
+min = 4
+max = 258
+default = 66
+
+[params.out0_d0]
+type = "int"
+min = 1
+max = 64
+default = 1
+
+[params.out0_d1]
+type = "int"
+min = 1
+max = 128
+default = 64
+
+[params.out0_d2]
+type = "int"
+min = 1
+max = 2048
+default = 32
+
+[params.out0_d3]
+type = "int"
+min = 1
+max = 128
+default = 32
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d2", "in0_d3", 128]
+range = [-1.0, 1.0]
+
+[outputs.out0]
+shape = ["out0_d0", "out0_d1", "out0_d2 // pack", 128]
+
+[scratch.pooled]
+shape = ["spatial", 128]
+
+[derived]
+pack_limit = "min(out0_d2, 128 // out0_d3)"
+pack = "1 + (pack_limit - 1) * (1 - min(1, out0_d2 % pack_limit))"
+active = "pack * out0_d3"
+spatial = "out0_d2 * out0_d3"
+vertical_step = "2 * w"
+batch_skip = "h * w - vertical_step * out0_d2"
+input_ds = "ds(in0_d1)"
+output_ds = "ds(active)"
+weight = "19 * 65536 + 123 * 256"
+weight_fp32 = "123 * 8388608"
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+pooled = "CR4"
+w = "CR5"
+out0_d3 = "CR6"
+out0_d2 = "CR7"
+out0_d1 = "CR8"
+out0_d0 = "CR9"
+weight_fp32 = "CR10"
+input_ds = "CR11"
+output_ds = "CR12"
+qf_in0 = "CR13"
+qf_out0 = "CR14"
+weight = "CR15"
+spatial = "LR13"
+active = "LR14"
+batch_skip = "LR15"
+
+[cases.default]
