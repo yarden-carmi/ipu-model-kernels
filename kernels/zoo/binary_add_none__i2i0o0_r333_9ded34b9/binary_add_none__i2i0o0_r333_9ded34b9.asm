@@ -1,11 +1,8 @@
-// The strided view gives each logical column a contiguous A*B span
-// in in0. in1 and out0 store that same span on lanes, padded per column.
 {% macro add_row(mask) %}
     MULT.VE LR4 CR1 0 LR0 {{ mask }} {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; LD.MULT R0 LR1 {{ cr.in1 }} ;;
     MULT.VE LR0 CR1 0 LR0 {{ mask }} {{ cr.qf_in1 }}.L ; ACC.ADD ;
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ mask }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;;
 {% endmacro %}
-
     SET LR3 {{ cr.width }} ; INC LR6 128 ;;
 row:
     LD.MULT R0 LR2 {{ cr.in0 }} ; ADD LR7 LR2 CR1 ; BEQ LR3 CR1 tail ;;
