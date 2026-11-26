@@ -15,9 +15,12 @@ origin:
     BLT.S LR5 {{ cr.span }}.L row ;;
     SUB LR5 LR5 {{ cr.span }}.L ; ADD LR4 LR4 {{ cr.span }}.H ; B origin ;;
 row:
-    SET LR6 LR4 ; SET LR7 LR5 ; SET LR12 {{ cr.out0_d2 }} ;;
+    SET LR6 LR4 ; SET LR7 LR5 ; ADD LR12 LR3 {{ cr.out0_d2 }} ;;
+run:
+    SET LR2 LR12 ; BLT.S LR12 LR11 gather ;;
+    SET LR2 LR11 ;;
 gather:
-    // Advance the zero-based slot while checking the source coordinate.
+    // End each run at the logical-row boundary or the packed-row boundary.
     INC LR3 1 ; BLT.S LR7 {{ cr.span }}.L locate ;;
     SUB LR7 LR7 {{ cr.span }}.L ; ADD LR6 LR6 {{ cr.span }}.H ;;
 locate:
@@ -36,11 +39,11 @@ load:
     LD.MULT R0 LR10 {{ cr.in0 }} ;;
 {% endif %}
     MULT.EE LR9 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; AGG.SUM.FIRST LR3 {{ cr.scalar }}.L ;
-    ADD LR6 LR6 {{ cr.step_row }} ; ADD LR7 LR7 {{ cr.step_lane }} ; DEC LR12 1 ;
-    BNE LR3 LR11 next_lane ;;
+    ADD LR6 LR6 {{ cr.step_row }} ; ADD LR7 LR7 {{ cr.step_lane }} ; BLT.S LR3 LR2 gather ;;
+    BNE LR3 LR11 next_row ;;
     {{ store('CR15.L') }}
-next_lane:
-    BNE LR12 CR0 gather ;;
+    DEC LR12 128 ; BNE LR12 LR11 run ;;
+next_row:
     DEC LR15 1 ; ADD LR5 LR5 {{ cr.dims }}.L ;;
     BNE LR15 CR0 origin ;;
     BEQ LR3 LR8 next_batch ;;
