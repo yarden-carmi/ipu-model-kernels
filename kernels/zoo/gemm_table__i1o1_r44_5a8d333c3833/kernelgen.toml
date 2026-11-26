@@ -1,0 +1,24 @@
+chain = ["gemm"]
+chain_in = ["in0"]
+chain_out = ["out0"]
+
+[layout.in0]
+lanes = 1
+rows = [0, 2, 3]
+pack = "1 + min(1, 64 // d1) * min(1, (d1 - 1) // 16) * (1 - (d0 * d2 * d3) % 2)"
+
+[prefer.in0]
+lanes = 1
+rows = [0, 2, 3]
+pack = "1 + min(1, 64 // d1) * min(1, (d1 - 1) // 16) * (1 - (d0 * d2 * d3) % 2)"
+
+[view.in0]
+kind = "whole"
+
+[layout.out0]
+lanes = 1
+rows = [0, 2, 3]
+
+[lut.out0]
+range_mode = 2
+range_exp = 40

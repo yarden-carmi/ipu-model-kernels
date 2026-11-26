@@ -1,0 +1,113 @@
+[kernel]
+op = "gemm_table"
+formats = ["e1", "e2"]
+
+[params.act_out0]
+type = "str"
+choices = ["silu", "hardsigmoid", "hardswish"]
+default = "silu"
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 4096
+default = 32
+[params.n]
+type = "int"
+min = 1
+max = 4096
+default = 128
+[params.m]
+type = "int"
+min = 1
+max = 65535
+default = 64
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 32
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65535
+default = 8
+[params.in0_d3]
+type = "int"
+min = 1
+max = 128
+default = 8
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 128
+[params.out0_d2]
+type = "int"
+min = 1
+max = 65535
+default = 8
+[params.out0_d3]
+type = "int"
+min = 1
+max = 128
+default = 8
+
+[derived]
+tiles = "(n + 127) // 128"
+blocks = "(k - 1) // 128"
+active = "ds(128)"
+group = "2 + 3 * min(1, (k - 1) // 32) + 3 * min(1, (k - 1) // 64)"
+short = "1 - min(1, (k - 1) // 16)"
+pack = "1 + min(1, 64 // k) * min(1, (k - 1) // 16) * (1 - m % 2)"
+groups = "min(k // group, 12 + (pack - 1) * (1 - min(1, (n - 1) // 128)) + 20 * min(1, (k - 1) // 32)) * (1 - min(1, blocks)) * (1 - short)"
+split = "short * k"
+group_ds = "ds(group)"
+sliding = "1 - min(1, (k - 1) // 64)"
+input_sites = "m // pack"
+sum_ds = "ds(max(1, sliding * (pack * k - group + 1) + (1 - sliding) * groups))"
+
+[inputs.in0]
+shape = ["input_sites * ((k + 127) // 128)", 128]
+range = [-2, 2]
+[inputs.coeff]
+shape = ["tiles * (k + 2 + groups + split) + min(1, (n - 1) // 128) * (1 - min(1, blocks))", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[outputs.out0]
+shape = ["m * tiles", 128]
+[scratch.sums]
+shape = ["input_sites", 128]
+
+[abi]
+in0 = "CR2"
+coeff = "CR3"
+out0 = "CR4"
+lut = "CR5"
+qf_in0 = "CR6"
+qf_out0 = "CR7"
+input_sites = "CR8"
+k = "LR3"
+tiles = "CR9"
+blocks = "CR10"
+active = "CR11"
+sums = "CR12"
+group_ds = "CR13"
+sum_ds = "CR14"
+group = "CR15"
+
+[cases.default]
