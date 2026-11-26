@@ -20,16 +20,6 @@ def _l(res, k, shape, stride, offset):
     return _v(t, shape, stride, offset)
 
 
-def _p(t, shape):
-    """A parameter read at the shape its record read it (a view of it: reshaped, or expanded)."""
-    if list(t.shape) == list(shape):
-        return t
-    n = 1
-    for d in shape:
-        n *= int(d)
-    return t.reshape(tuple(shape)) if t.numel() == n else t.expand(tuple(shape))
-
-
 def _pick(res, k):
     """Result k of a record (one tensor, or a tuple of them)."""
     return res[k] if isinstance(res, (tuple, list)) else res
@@ -49,10 +39,11 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.softmax.int(_v(ins[0], [1, 12, 50, 50], [30000, 2500, 50, 1], 0), -1, torch.float32)
+    r0 = aten.softmax.int(_v(ins[0], [1, 12, 256, 256], [786432, 65536, 256, 1], 0), -1)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 12, 50, 50])}
+    return {"out0": _out(op0, [1, 12, 256, 256])}
 # ---- end of the frozen reference ----
+
 
 def fold(module, **params):
     return {}
