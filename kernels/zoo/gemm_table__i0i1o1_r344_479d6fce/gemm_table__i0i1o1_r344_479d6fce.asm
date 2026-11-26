@@ -54,13 +54,13 @@ gemm_block:
 # LR8 is the packed row, LR9 the lane of the first slab and LR15 the
 # inner coordinate of the flat view index within a slab. Taps at equal
 # indices in different slabs share the row and occupy consecutive lanes.
+    LD.MULT R0 LR8 {{ cr.in0 }} ;;
 tap:
-    LD.MULT R0 LR8 {{ cr.in0 }} ; DEC LR10 1 ;;
 {% for g in range(groups) %}
-    MULT.RC.VE LR0 LR9 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR6 1{% if not loop.first %} ; INC LR9 1{% endif %} ; LD.MULT.CYCLIC LR6 {{ cr.w }} LR11 ;;
+    MULT.RC.VE LR0 LR9 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR6 1{% if loop.first %} ; DEC LR10 1{% else %} ; INC LR9 1{% endif %} ; LD.MULT.CYCLIC LR6 {{ cr.w }} LR11 ;;
     MULT.RC.VE LR11 LR9 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{% if not loop.last %} ; INC LR6 1 ; LD.MULT.CYCLIC LR6 {{ cr.w }} LR0{% else %} ; BEQ LR10 CR0 taps_done{% endif %}{% if fast and loop.index == 1 %} ; INC LR15 {{ dy }}{% endif %}{% if fast and loop.index == 2 and dx // pack + dy * chunks %} ; ADD LR8 LR8 {{ cr.pixel_step }}.H{% endif %} ;;
 {% endfor %}
-    INC LR6 1 ; LD.MULT.CYCLIC LR6 {{ cr.w }} LR0{% if fast and dx % pack * groups - (groups - 1) %} ; INC LR9 {{ dx % pack * groups - (groups - 1) }}{% endif %} ;;
+    INC LR6 1 ; LD.MULT.CYCLIC LR6 {{ cr.w }} LR0{% if fast and dx % pack * groups - (groups - 1) %} ; INC LR9 {{ dx % pack * groups - (groups - 1) }}{% endif %}{% if fast %} ; BLT.S LR15 {{ cr.row_period }}.L tap_lane{% endif %} ;;
 {% if groups > 1 and not fast %}
     DEC LR9 {{ groups - 1 }} ;;
 {% endif %}
@@ -74,12 +74,12 @@ tap:
     {% for i in range(0 if fast else (dy + 254) // 255) %}
     INC LR15 {{ [255, dy - i * 255] | min }} ;;
     {% endfor %}
-    BLT.S LR15 {{ cr.row_period }}.L tap_lane ;;
+    {% if not fast %}BLT.S LR15 {{ cr.row_period }}.L tap_lane ;;{% endif %}
     SUB LR15 LR15 {{ cr.row_period }}.L ; SUB LR8 LR8 {{ cr.row_period }}.H ; INC LR9 {{ groups }} ;;
 tap_lane:
 {% endif %}
-    BLT.S LR9 LR12 tap ;;
-    SUB LR9 LR9 LR12 ; INC LR8 1 ; BEQ LR0 CR0 tap ;;
+    LD.MULT R0 LR8 {{ cr.in0 }} ; BLT.S LR9 LR12 tap ;;
+    SUB LR9 LR9 LR12 ; INC LR8 1 ; LD.MULT R0 LR8 {{ cr.in0 }} ; BEQ LR0 CR0 tap ;;
 
 taps_done:
 {% if n % 128 %}
