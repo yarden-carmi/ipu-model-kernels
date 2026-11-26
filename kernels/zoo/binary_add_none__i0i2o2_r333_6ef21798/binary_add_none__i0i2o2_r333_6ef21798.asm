@@ -3,10 +3,6 @@
     MULT.VE LR0 CR1 0 LR0 {{ mask }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ; ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ mask }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR4 ;;
     INC LR4 1 ;;
 {% endmacro %}
-
-# For output (a,b,c), the input view addresses a + A*b + A*B*c.
-# LR7 and LR6 track the quotient and remainder modulo B*C:
-# the lane and physical row. LR9 tracks the start of the logical row.
     SET LR0 CR0 ; SET LR1 CR0 ; SET LR4 CR0 ;;
     SET LR9 CR0 ; SET LR11 CR0 ; SET LR12 CR0 ;;
 row:

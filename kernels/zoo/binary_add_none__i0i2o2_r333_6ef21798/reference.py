@@ -49,11 +49,10 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.add.Tensor(_v(ins[0], [4, 256, 144], [1, 4, 1024], 0), _v(ins[1], [4, 256, 144], [36864, 144, 1], 0))
+    r0 = aten.add.Tensor(_v(ins[0], [4, 64, 192], [1, 4, 256], 0), _v(ins[1], [4, 64, 192], [12288, 192, 1], 0))
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [4, 256, 144])}
+    return {"out0": _out(op0, [4, 64, 192])}
 # ---- end of the frozen reference ----
-
 
 def fold(module, **params):
     return {}
