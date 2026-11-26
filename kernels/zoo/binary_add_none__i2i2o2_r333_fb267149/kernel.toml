@@ -6,32 +6,28 @@ formats = ["e2", "e3"]
 broadcast = { type = "str", choices = ["none"], default = "none" }
 inner = { type = "int", min = 0, max = 0, default = 0 }
 op = { type = "str", choices = ["add"], default = "add" }
-numel = { type = "int", min = 1, max = 16777216, default = 15360 }
-in0_d0 = { type = "int", min = 1, max = 4096, default = 4 }
-in0_d1 = { type = "int", min = 1, max = 4096, default = 16 }
-in0_d2 = { type = "int", min = 1, max = 4096, default = 240 }
-in1_d0 = { type = "int", min = 1, max = 4096, default = 4 }
-in1_d1 = { type = "int", min = 1, max = 4096, default = 16 }
-in1_d2 = { type = "int", min = 1, max = 4096, default = 240 }
-out0_d0 = { type = "int", min = 1, max = 4096, default = 4 }
-out0_d1 = { type = "int", min = 1, max = 4096, default = 16 }
-out0_d2 = { type = "int", min = 1, max = 4096, default = 240 }
+numel = { type = "int", min = 128, max = 16777216, default = 15360 }
+in0_d0 = { type = "int", min = 1, max = 128, default = 4 }
+in0_d1 = { type = "int", min = 8, max = 16384, multiple_of = 8, default = 16 }
+in0_d2 = { type = "int", min = 16, max = 16384, multiple_of = 16, default = 240 }
+in1_d0 = { type = "int", min = 1, max = 128, default = 4 }
+in1_d1 = { type = "int", min = 8, max = 16384, multiple_of = 8, default = 16 }
+in1_d2 = { type = "int", min = 16, max = 16384, multiple_of = 16, default = 240 }
+out0_d0 = { type = "int", min = 1, max = 128, default = 4 }
+out0_d1 = { type = "int", min = 8, max = 16384, multiple_of = 8, default = 16 }
+out0_d2 = { type = "int", min = 16, max = 16384, multiple_of = 16, default = 240 }
 
 [derived]
-plane = "in0_d1 * in0_d2"
-pad = "(-plane) % 128"
-stride = "out0_d0 * out0_d1"
-rowstep = "stride // 128"
-lanestep = "stride % 128"
-tail = "ds((out0_d1 * out0_d2 - 1) % 128 + 1)"
-single = "ds(1)"
+stride_rows = "(out0_d0 * out0_d1) // 128"
+stride_lanes = "(out0_d0 * out0_d1) % 128"
+scalar = "ds(1)"
 
 [inputs.in0]
-shape = ["in0_d0 * ceil(plane / 128)", 128]
+shape = ["in0_d0", "in0_d1 * in0_d2"]
 [inputs.in1]
-shape = ["in1_d0 * ceil(in1_d1 * in1_d2 / 128)", 128]
+shape = ["in1_d0", "in1_d1 * in1_d2"]
 [outputs.out0]
-shape = ["out0_d0 * ceil(out0_d1 * out0_d2 / 128)", 128]
+shape = ["out0_d0", "out0_d1 * out0_d2"]
 
 [abi]
 in0 = "CR2"
@@ -43,12 +39,8 @@ qf_out0 = "CR7"
 out0_d0 = "CR8"
 out0_d1 = "CR9"
 out0_d2 = "CR10"
-rowstep = "CR11"
-lanestep = "CR12"
-tail = "CR13"
-single = "CR14"
-plane = "LR13"
-stride = "LR14"
-pad = "LR15"
+stride_rows = "CR11"
+stride_lanes = "CR12"
+scalar = "CR13"
 
 [cases.default]
