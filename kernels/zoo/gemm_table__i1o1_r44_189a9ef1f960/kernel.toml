@@ -1,0 +1,115 @@
+[kernel]
+op = "gemm_table"
+formats = ["e1", "e2"]
+
+[params.act_out0]
+type = "str"
+choices = ["silu"]
+default = "silu"
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 4096
+default = 16
+[params.m]
+type = "int"
+min = 1
+max = 65536
+default = 16384
+[params.n]
+type = "int"
+min = 1
+max = 4096
+default = 64
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 16
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 128
+[params.in0_d3]
+type = "int"
+min = 1
+max = 65536
+default = 128
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 64
+[params.out0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 128
+[params.out0_d3]
+type = "int"
+min = 1
+max = 65536
+default = 128
+
+[derived]
+chunks = "ceil(k / 128)"
+tiles = "ceil(n / 128)"
+full_chunks = "(k - 1) // 128"
+last_k = "(k - 1) % 128"
+full_ds = "ds(128)"
+tail_ds = "ds((n - 1) % 128 + 1)"
+full_k = "127"
+group = "2 + min(1, max(0, k - 31)) * (1 - min(1, k // 128))"
+precise_tail = "8 * (1 - min(1, max(k - 32, 32 - k)))"
+corrections = "((k - precise_tail) // group + precise_tail) * (1 - min(1, k // 129)) + k * min(1, k // 129)"
+sum_ds = "ds(128 - (group - 1))"
+scalar_base = "128 - group"
+
+[inputs.in0]
+shape = ["m * chunks", 128]
+range = [-2, 2]
+[inputs.coeff]
+shape = ["tiles * (k + 2 + corrections) + 1", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[outputs.out0]
+shape = ["m * tiles", 128]
+[scratch.sums]
+shape = ["1 + (m - 1) * (1 - min(1, k // 129))", 128]
+
+[abi]
+in0 = "CR2"
+coeff = "CR3"
+out0 = "CR4"
+lut = "CR5"
+qf_in0 = "CR6"
+qf_out0 = "CR7"
+full_ds = "CR8"
+tail_ds = "CR9"
+m = "CR10"
+tiles = "CR11"
+chunks = "CR12"
+full_chunks = "LR13"
+last_k = "LR14"
+full_k = "LR15"
+sums = "CR13"
+sum_ds = "CR14"
+scalar_base = "CR15"
+
+[cases.default]
