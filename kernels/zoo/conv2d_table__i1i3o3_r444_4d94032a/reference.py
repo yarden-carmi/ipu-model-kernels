@@ -81,74 +81,60 @@ def fold(module, **params):
         return np.sign(v) * np.minimum(np.floor(np.abs(v) / step + .5), 63) * step
 
     w, b = weight.numpy().reshape(cout, cin, 9), bias.numpy()
-    height, width = params['in1_d2'], params['in1_d3']
-    area = height * width
+    width = params['in1_d3']
     lanes = np.arange(128)
-    if area <= 64:
+    height = params['in1_d2']
+    if height * width <= 64:
         y, x = (lanes % 64) // width, lanes % width
-        masks = [((y + dy >= 0) & (y + dy < height) & (y < height)
-                  & (x + dx >= 0) & (x + dx < width))
-                 for dy in (-1, 0, 1) for dx in (-1, 0, 1)]
-        rows = [lanes < 64, lanes >= 64]
-        norm = np.exp2(np.frexp(np.maximum(np.maximum(np.linalg.norm(w, axis=(1, 2)), np.abs(b)), 1e-30))[1] - 1)
-        # Choose exactly representable de-normalizers that minimize the
-        # coefficient error of the single-product taps for each pair.
+        masks = np.array([((y + dy >= 0) & (y + dy < height) & (y < height)
+                           & (x + dx >= 0) & (x + dx < width))
+                          for dy in (-1, 0, 1) for dx in (-1, 0, 1)])
+        w = np.pad(w, ((0, cout % 2), (0, cin % 2), (0, 0)))
+        b = np.pad(b, (0, cout % 2))
+        channels = np.arange(w.shape[1])
+        stagger = (channels + 1) % len(channels)
+        w[1::2] = w[1::2, stagger]
+        base = np.exp2(np.frexp(np.maximum(np.maximum(np.linalg.norm(w, axis=(1, 2)), np.abs(b)), 1e-30))[1] - 1)
         factors = np.arange(32, 64) / 32
-        pair_count = cout // 2
-        single = w[:2*pair_count, :, (0, 1, 2, 4, 5, 6, 7, 8)]
-        for pair in range(pair_count):
-            sl = slice(2 * pair, 2 * pair + 2)
-            candidates = norm[sl, None] * factors
-            a = single[2*pair][None, None] / candidates[0, :, None, None, None]
-            d = single[2*pair+1][None, None] / candidates[1, None, :, None, None]
+        rows = []
+        for o in range(0, len(b), 2):
+            candidates = base[o:o+2, None] * factors
+            a = w[o][None, None] / candidates[0, :, None, None, None]
+            d = w[o+1][None, None] / candidates[1, None, :, None, None]
             block_exp = np.frexp(np.maximum(abs(a), abs(d)))[1] - 1
+
             def error(v):
                 exp = np.frexp(abs(v))[1] - 1
                 step = np.exp2(np.maximum(exp, block_exp - 3) - 5.)
-                rounded = np.minimum(np.floor(abs(v) / step + .5) * step,
-                                     np.exp2(block_exp) * (63 / 32))
-                return rounded - abs(v)
+                return np.minimum(np.floor(abs(v) / step + .5) * step,
+                                  np.exp2(block_exp) * (63 / 32)) - abs(v)
+
             score = (np.sum(error(a)**2, axis=(-2, -1)) * candidates[0, :, None]**2
                      + np.sum(error(d)**2, axis=(-2, -1)) * candidates[1, None, :]**2)
             i, j = np.unravel_index(np.argmin(score), score.shape)
-            norm[sl] = candidates[[0, 1], [i, j]]
-        w = w / norm[:, None, None]
-        b = b / norm
-        if cout % 2:
-            w = np.pad(w, ((0, 1), (0, 0), (0, 0)))
-            b = np.pad(b, (0, 1))
-            norm = np.pad(norm, (0, 1), constant_values=1)
-        for o in range(0, cout, 2):
-            bw = b[o:o+2]
-            hi = leading(bw)
-            rows.extend(np.repeat(v, 64) for v in (hi, bw - hi))
-            for c in range(cin):
-                for t in range(9):
-                    v = w[o:o+2, c, t]
-                    hi = leading(v)
-                    rows.extend(np.repeat(a, 64) * masks[t] for a in
-                                 ((hi, v - hi) if t in (3,) else (v,)))
-            rows.extend(np.full(128, v) for v in norm[o:o+2])
-        rows.append(np.zeros(128))
+            norm = candidates[[0, 1], [i, j]]
+            bv = b[o:o+2] / norm
+            hi = leading(bv)
+            rows.extend(np.repeat(v, 64) for v in (hi, bv - hi))
+            pair = (w[o:o+2] / norm[:, None, None]).transpose(1, 2, 0)
+            rows.extend((np.repeat(pair, 64, axis=-1) * masks).reshape(-1, 128))
+            rows.extend(np.full(128, v) for v in norm)
         return {'weights': np.asarray(rows)}
 
     rows = [lanes % width != 0, lanes % width != width - 1]
     for bv, taps in zip(b, w):
-        block = 3 if area >= 512 else 14
-        def residual(t):
-            return np.isin(t, (1, 3, 4) if area >= 512 else (3,))
-        # Search the coefficient grid. Mid-size planes use a two-piece
-        # de-normalizer to preserve accuracy with fewer residual MACs.
+        block = 14
+        # Search the coefficient grid for a shared output-channel scale.
+        # Restore the scale with a two-piece de-normalizer after the MACs.
         factors = np.arange(1024, 2017) / 1024
         score = np.zeros(len(factors))
         for c in range(0, cin, block):
             v = taps[c:c+block].flatten()[None, :] / factors[:, None]
-            keep = residual(np.arange(v.shape[1]) % 9)
             a = np.abs(v)
             expo = np.frexp(a.max(axis=1, keepdims=True))[1] - 1
             step = np.exp2(np.maximum(np.frexp(a)[1] - 1, expo - 3) - 5.)
             decoded = np.minimum(np.floor(a / step + .5) * step, np.exp2(expo) * (63 / 32))
-            score += ((decoded[:, ~keep] - a[:, ~keep])**2).sum(axis=1) * factors**2
+            score += ((decoded - a)**2).sum(axis=1) * factors**2
         norm = factors[np.argmin(score)]
         bv, taps = bv / norm, taps / norm
         hi = leading(bv)
@@ -158,15 +144,7 @@ def fold(module, **params):
             rows.append(row)
         for c in range(0, cin, block):
             v = taps[c:c+block].flatten()
-            keep = residual(np.arange(len(v)) % 9)
-            a = np.abs(v)
-            expo = np.frexp(a.max())[1] - 1
-            step = np.exp2(np.maximum(np.frexp(a)[1] - 1, expo - 3) - 5.)
-            rounded = np.sign(v) * np.minimum(np.floor(a / step + .5) * step,
-                                               np.exp2(float(expo)) * (63 / 32))
-            hi = np.where(keep, rounded, v)
-            lo = (v - hi)[keep]
-            rows.extend((np.pad(hi, (0, 128-len(v))), np.pad(lo, (0, 128-len(lo)))))
+            rows.append(np.pad(v, (0, 128-len(v))))
         high = leading(norm)
         rows.append(np.full(128, high))
         rows.append(np.full(128, norm - high))
