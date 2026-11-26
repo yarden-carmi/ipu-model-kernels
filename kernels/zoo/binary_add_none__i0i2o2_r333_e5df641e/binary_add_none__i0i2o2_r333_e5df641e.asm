@@ -36,11 +36,12 @@ got_b:
 next_pack_row:
     DEC LR7 128 ; INC LR11 1 ; INC LR6 1 ;;
 normalize_lane:
-    BGE.S LR7 {{ cr.pack_dims }}.H next_pack_row ;;
+    // Issue the gather load alongside the lane check. If the lane is
+    // outside this row, the next pass replaces the speculative load.
+    LD.MULT R0 LR11 {{ cr.in0 }} ; BGE.S LR7 {{ cr.pack_dims }}.H next_pack_row ;;
 element:
-    LD.MULT R0 LR11 {{ cr.in0 }} ; INC LR13 1 ;;
-    MULT.EE LR7 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.RESHAPE LRD0 LRD2 7 ; BEQ LR13 {{ cr.in0_d2 }} last_chunk ;;
-    ADDBI LRD2 1 ;;
+    MULT.EE LR7 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.RESHAPE LRD0 LRD2 7 ; INC LR13 1 ;;
+    ADDBI LRD2 1 ; BEQ LR13 {{ cr.in0_d2 }} last_chunk ;;
     BLT.S LR2 CR0 full_chunk ;;
 advance:
 {% if step_c %}
