@@ -1,0 +1,48 @@
+[kernel]
+op = "unary_builtin"
+formats = ["e1", "e2"]
+
+[params.act_out0]
+type = "str"
+choices = ["relu"]
+default = "relu"
+
+[params.numel]
+type = "int"
+default = 16384
+
+[params.in0_d2]
+type = "int"
+default = 16
+
+[params.in0_d3]
+type = "int"
+default = 16
+
+[derived]
+capacity = "max(1, 128 // in0_d3)"
+pack = "2"
+rows = "numel // (pack * in0_d3) * ((in0_d3 + 127) // 128)"
+last_row = "rows - 1"
+penultimate = "rows - 2"
+minus_one = "-1"
+active = "ds(min(128, pack * in0_d3))"
+
+[inputs.in0]
+shape = ["rows", 128]
+range = [-1.0, 1.0]
+
+[outputs.out0]
+shape = ["rows", 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+last_row = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+active = "CR7"
+penultimate = "CR8"
+minus_one = "CR9"
+
+[cases.default]
