@@ -53,13 +53,13 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 96, 32, 32], [98304, 1024, 32, 1], 0), module.op0_weight)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 32, 128, 128], [524288, 16384, 128, 1], 0), module.op0_weight)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 384, 32, 32], [393216, 1024, 32, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 128, 128, 128], [2097152, 16384, 128, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.silu_.default(_v(op1, [1, 384, 32, 32], [393216, 1024, 32, 1], 0))
+    r0 = aten.silu_.default(_v(op1, [1, 128, 128, 128], [2097152, 16384, 128, 1], 0))
     op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 384, 32, 32])}
+    return {"out0": _out(op2, [1, 128, 128, 128])}
 # ---- end of the frozen reference ----
 
 
@@ -81,11 +81,22 @@ def fold(module, **params):
     _, exponent = torch.frexp(rows.abs().amax(dim=1, keepdim=True))
     step = torch.ldexp(torch.ones_like(exponent, dtype=rows.dtype), exponent - 4)
     coarse = torch.round(rows / step) * step
+    pairs = torch.stack((coarse, rows - coarse), dim=1)
     if n <= 64 and k <= 64 and k % 2 == 0:
         taps = rows[1:, :64].reshape(-1, 128)
-        _, exponent = torch.frexp(taps.abs().amax(dim=1, keepdim=True))
-        step = torch.ldexp(torch.ones_like(exponent, dtype=rows.dtype), exponent - 4)
+        _, exp = torch.frexp(taps.abs().amax(dim=-1, keepdim=True))
+        step = torch.ldexp(torch.ones_like(exp, dtype=taps.dtype), exp - 4)
         high = torch.round(taps / step) * step
-        bias_pair = torch.cat((coarse[:1], rows[:1] - coarse[:1]))
-        return {"coeff": torch.cat((bias_pair, torch.stack((high, taps - high), dim=1).flatten(0, 1)))}
-    return {"coeff": torch.stack((coarse, rows - coarse), dim=1).reshape(-1, 128)}
+        return {"coeff": torch.cat((pairs[0], torch.stack((high, taps - high), dim=1).flatten(0, 1)))}
+    width, height = params["in0_d3"], params["in0_d2"]
+    limit = min(height, 128 // width)
+    pixels = width * (1 if height % limit else limit)
+    if k % 16 == 0 and pixels % 8 == 0:
+        # Keep residuals for most taps; encode the rest directly.
+        index = torch.arange(rows.shape[0], device=rows.device) % (k + 1)
+        single = (index > 0) & ((index - 1) % 16 >= (16 if n <= 64 else 12))
+        if k == 96 and n > 64:
+            single = (index > 0) & ((index - 1) % 16 < 4)
+        pairs[single, 0] = rows[single]
+        return {"coeff": pairs[torch.stack((torch.ones_like(single), ~single), dim=1)]}
+    return {"coeff": pairs.reshape(-1, 128)}

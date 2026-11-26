@@ -15,20 +15,19 @@
 {% endfor %}
 
 {% if narrow_pair %}
-{# Keep the bias in two cyclic slots. The other two slots each hold
-   both adjacent taps, so all input loads fit alongside MACs. #}
+{# Each coefficient row carries two adjacent 64-lane taps. Keep the two
+   input rows in R0/R1 so the narrow case never requantizes input pixels. #}
 {% macro pair_mac(slot, src, op='ACC.ADD') %}
     MULT.RC.VE {{ slot }} {{ src }} 0 LR0 {{ cr.full_ds }}.L {{ cr.qf_in0 }}.L ; {{ op }}
 {% endmacro %}
 {% macro pair_coeff(slot) %}
     INC LR8 1 ; LD.MULT.CYCLIC LR8 {{ cr.coeff }} {{ slot }}
 {% endmacro %}
-    SET LR1 CR0 ; SET LR7 CR0 ; SET LR11 CR0 ;;
-    INC LR1 128 ; INC LR7 64 ; INC LR11 192 ;;
-    ADD LR4 LR1 LR1 ; SET LR14 {{ cr.pixels }} ;;
+    INC LR1 128 ; INC LR7 64 ; SET LR11 CR0 ;;
+    ADD LR4 LR1 LR1 ; SET LR14 {{ cr.pixels }} ; INC LR11 192 ;;
     ADD LR6 LR4 LR1 ; DEC LR14 1 ; LD.MULT.CYCLIC LR0 {{ cr.coeff }} LR4 ;;
     SET LR8 CR1 ; LD.MULT.CYCLIC LR8 {{ cr.coeff }} LR6 ;;
-pair_stripe:
+pair_group:
     SET LR9 CR0 ;;
 pair_pixel:
     SET LR8 CR1 ; SET LR2 LR5 ; LD.MULT R0 LR2 {{ cr.in0 }} ;;
@@ -41,74 +40,94 @@ pair_pixel:
     {{ pair_mac('LR11', 'LR15') }} ; {% if loop.last %}{{ store(cr.tail_ds) }} ; INC LR9 1 ; BLT.S LR9 LR14 pair_pixel{% else %}{{ pair_coeff('LR1') }}{% endif %} ;;
 {% endfor %}
     INC LR5 1 ; DEC LR10 1 ; DEC LR12 1 ; BEQ LR10 CR1 pair_end ;;
-    BNE LR12 CR0 pair_stripe ;;
-    ADD LR5 LR5 {{ cr.batch_skip }} ; SET LR12 {{ cr.plane }} ; B pair_stripe ;;
+    BNE LR12 CR0 pair_group ;;
+    ADD LR5 LR5 {{ cr.batch_skip }} ; SET LR12 {{ cr.plane }} ; B pair_group ;;
 pair_end:
     HALT ;;
-{% elif k % 16 == 0 and pixels % 8 == 0 %}
-{# Transpose eight pixels from sixteen channel rows into a scratch row.
-   Reuse the panel across all eight pixels and every output block. #}
-{% macro gather_panel() %}
-{% for tap in range(16) %}
-    MULT.VE LR0 CR1 0 LR0 {{ cr.full_ds }}.L {{ cr.qf_in0 }}.L ; ACC.RESHAPE LRD4 LRD6 0
-    {% if not loop.first %}; ADDBI LRD6 8{% endif %}
+{% elif n <= 64 and k <= 32 and not packed %}
+{# Keep both bias components in cyclic slots and stream the original input
+   rows. This avoids a second quantization for the narrow output tile. #}
+{% macro bias_mac(slot, op) %}
+    MULT.RC.VE {{ slot }} CR1 0 LR0 {{ cr.full_ds }}.L {{ cr.qf_in0 }}.L ; {{ op }}
+{% endmacro %}
+    INC LR1 128 ; SET LR14 {{ cr.pixels }} ;;
+    DEC LR14 1 ; ADD LR4 LR1 LR1 ; LD.MULT.CYCLIC LR0 {{ cr.coeff }} LR1 ;;
+    SET LR8 CR1 ; LD.MULT.CYCLIC LR8 {{ cr.coeff }} LR4 ;;
+narrow_group:
+    SET LR9 CR0 ;;
+narrow_pixel:
+    {{ bias_mac('LR1', 'ACC.ADD.FIRST') }} ; SET LR2 LR5 ; SET LR8 CR1 ; SET LR13 LR9 ; LD.MULT R0 LR2 {{ cr.in0 }} ;;
+    {{ bias_mac('LR4', 'ACC.ADD') }} ; {{ next_coeff() }} ;;
+{% for tap in range(k) %}
+    {{ mac('LR13') }} ; {{ next_coeff() }} ;;
     {% if not loop.last %}
-    ; ADD LR2 LR2 {{ cr.plane }} ; LD.MULT R0 LR2 {{ cr.in0 }}
+    {{ mac('LR13') }} ; ADD LR2 LR2 {{ cr.plane }} ; LD.MULT R0 LR2 {{ cr.in0 }} ;;
+    {{ next_coeff() }} ;;
     {% else %}
-    ; ACTIVATE.QUANTIZE identity {{ cr.full_ds }}.L {{ cr.qf_in0 }}.L {{ cr.panel }} LR11
-    {% endif %} ;;
+    {{ mac('LR13') }} ; {{ store(cr.tail_ds) }} ; INC LR9 1 ; BLT.S LR9 LR14 narrow_pixel ;;
+    {% endif %}
 {% endfor %}
+    INC LR5 1 ; DEC LR10 1 ; DEC LR12 1 ; BEQ LR10 CR1 narrow_end ;;
+    BNE LR12 CR0 narrow_group ;;
+    ADD LR5 LR5 {{ cr.batch_skip }} ; SET LR12 {{ cr.plane }} ; B narrow_group ;;
+narrow_end:
+    HALT ;;
+{% elif packed %}
+{# Pack eight consecutive pixels across sixteen input channels into each
+   scratch row. The original tensor and output traversal remain unchanged. #}
+{% macro gather_next() %}
+    ADD LR2 LR2 {{ cr.plane }} ; LD.MULT R0 LR2 {{ cr.in0 }}
 {% endmacro %}
-{% macro panel_macs(final=false) %}
-    LD.MULT R0 LR11 {{ cr.panel }} ; INC LR11 1 ; SET LR4 LR13 ; DEC LR7 16 ;;
-{% for tap in range(16) %}
-    {{ mac('LR4') }} ; {{ next_coeff() }} ; SET LR5 LR4 ;;
-    {{ mac('LR5') }}
-    {% if not loop.last %}; {{ next_coeff() }} ; INC LR4 8
-    {% elif not final %}; {{ next_coeff() }} ; BNE LR7 CR0 accumulate_panel
-    {% endif %} ;;
-{% endfor %}
-{% endmacro %}
-    SET LR12 CR0 ; SET LR1 {{ cr.plane }} ;;
+    INC LR1 7 ; SET LR13 CR0 ;;
 packed_group:
     SET LR9 CR0 ;;
 packed_tile:
-    SET LR4 LR14 ; SET LR5 LR15 ; SET LR8 CR0 ;;
-    SET LR2 LR12 ; SET LR11 CR0 ; LD.MULT R0 LR2 {{ cr.in0 }} ;;
-    ADDB LRD4 LR9 ;;
+    SET LR4 LR14 ; SET LR5 LR15 ; SET LR2 LR13 ;;
+    ADDB LRD4 LR9 ; SET LR11 CR0 ; SET LR8 {{ cr.k }} ; LD.MULT R0 LR2 {{ cr.in0 }} ;;
 gather_group:
     SET LR6 LR14 ; SET LR7 LR15 ;;
-    {{ gather_panel() }}
-    INC LR11 1 ; INC LR8 16 ;;
-    BEQ LR8 {{ cr.k }} gather_end ;;
-    ADD LR2 LR2 {{ cr.plane }} ; LD.MULT R0 LR2 {{ cr.in0 }} ; B gather_group ;;
+{% for tap in range(16) %}
+    MULT.VE LR0 CR1 0 LR0 {{ cr.full_ds }}.L {{ cr.qf_in0 }}.L ; ACC.RESHAPE LRD4 LRD6 0 ;
+    {% if loop.last %}ADDBI LRD6 8 ; ACTIVATE.QUANTIZE identity {{ cr.full_ds }}.L {{ cr.qf_in0 }}.L {{ cr.panel }} LR11{% else %}{{ gather_next() }}{% if not loop.first %} ; ADDBI LRD6 8{% endif %}{% endif %} ;;
+{% endfor %}
+    INC LR11 1 ; DEC LR8 16 ;;
+    BEQ LR8 CR0 gather_end ;;
+    {{ gather_next() }} ; B gather_group ;;
 gather_end:
-    SET LR13 CR0 ; SET LR2 CR0 ;;
-    INC LR2 8 ;;
+    SET LR2 CR0 ;;
 packed_pixel:
-    SET LR8 CR0 ; SET LR6 {{ cr.blocks }} ;;
+    SET LR6 {{ cr.blocks }} ; SET LR8 CR0 ;;
     DEC LR8 1 ;;
 packed_block:
     SET LR11 CR0 ; SET LR7 {{ cr.k }} ; {{ next_coeff() }} ;;
-    {{ mac('CR1', 'ACC.ADD.FIRST') }} ; {{ next_coeff() }} ; DEC LR7 16 ; DEC LR11 1 ;;
-    {{ mac('CR1') }} ; {{ next_coeff() }} ; BEQ LR7 CR0 accumulate_final ;;
-accumulate_panel:
-    {{ panel_macs() }}
-accumulate_final:
-    {{ panel_macs(true) }}
-    DEC LR6 1 ; BNE LR6 CR1 packed_full ;;
-    {{ store(cr.tail_ds) }} ; INC LR13 1 ;;
-    BLT.S LR13 LR2 packed_pixel ;;
-    INC LR9 8 ; SET LR8 CR0 ;;
+    {{ mac('CR1', 'ACC.ADD.FIRST') }} ; {{ next_coeff() }} ; DEC LR6 1 ;;
+    {{ mac('CR1') }} ; LD.MULT R0 LR11 {{ cr.panel }} ; SET LR4 LR2 ;;
+panel_taps:
+    {{ next_coeff() }} ; INC LR11 1 ; DEC LR7 16 ;;
+{% for tap in range(16) %}
+    {% if (tap >= 16 - split_taps if k == 96 else tap < split_taps) %}
+    {{ mac('LR4') }} ; {{ next_coeff() }} ;;
+    {% endif %}
+    {% if not loop.last %}
+    {{ mac('LR5') }} ; {{ next_coeff() }} ; SET LR5 LR4 ; INC LR4 8 ;;
+    {% else %}
+    {{ mac('LR4') }} ; BEQ LR7 CR0 packed_store ;;
+    LD.MULT R0 LR11 {{ cr.panel }} ; SET LR4 LR2 ; B panel_taps ;;
+    {% endif %}
+{% endfor %}
+packed_store:
+    BNE LR6 CR0 packed_full_store ;;
+    {{ store(cr.tail_ds) }} ; INC LR2 1 ; BLT.S LR2 LR1 packed_pixel ;;
+    INC LR9 8 ;;
     BLT.S LR9 {{ cr.pixels }} packed_tile ;;
-    INC LR12 1 ; DEC LR10 1 ; DEC LR1 1 ;;
+    INC LR13 1 ; DEC LR10 1 ; DEC LR12 1 ;;
     BEQ LR10 CR0 packed_end ;;
-    BNE LR1 CR0 packed_group ;;
-    ADD LR12 LR12 {{ cr.batch_skip }} ; SET LR1 {{ cr.plane }} ; B packed_group ;;
-packed_full:
-    {{ store(cr.full_ds) }} ; B packed_block ;;
+    BNE LR12 CR0 packed_group ;;
+    ADD LR13 LR13 {{ cr.batch_skip }} ; SET LR12 {{ cr.plane }} ; B packed_group ;;
 packed_end:
     HALT ;;
+packed_full_store:
+    {{ store(cr.full_ds) }} ; B packed_block ;;
 {% else %}
 group:
     SET LR9 CR0 ;;
