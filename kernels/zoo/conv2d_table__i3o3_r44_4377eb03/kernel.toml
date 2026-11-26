@@ -1,0 +1,78 @@
+[kernel]
+op = "conv2d_table"
+formats = ["e1", "e2"]
+
+[params]
+act_out0 = {type = "str", choices = ["hardswish"], default = "hardswish"}
+bias = {type = "bool", default = true}
+cin = {type = "int", min = 1, max = 640, default = 96}
+cout = {type = "int", min = 1, max = 640, default = 96}
+groups = {type = "int", min = 1, max = 640, default = 96}
+h = {type = "int", min = 1, max = 3000, default = 28}
+w = {type = "int", min = 1, max = 256, default = 28}
+kh = {type = "int", min = 1, max = 5, default = 5}
+kw = {type = "int", min = 1, max = 5, default = 5}
+padding = {type = "int", min = 0, max = 2, default = 2}
+stride = {type = "int", min = 1, max = 2, default = 2}
+in0_d0 = {type = "int", choices = [1], default = 1}
+in0_d1 = {type = "int", min = 1, max = 640, default = 96}
+in0_d2 = {type = "int", min = 1, max = 3000, default = 28}
+in0_d3 = {type = "int", min = 1, max = 256, default = 28}
+out0_d0 = {type = "int", choices = [1], default = 1}
+out0_d1 = {type = "int", min = 1, max = 640, default = 96}
+out0_d2 = {type = "int", min = 1, max = 3004, default = 14}
+out0_d3 = {type = "int", min = 1, max = 256, default = 14}
+
+[derived]
+it = "ceil(in0_d3 / 128)"
+ot = "ceil(out0_d3 / 128)"
+plane = "(in0_d2 + 2 * padding) * kw * ot"
+group_plane = "plane * (cin // groups)"
+output_plane = "out0_d2 * ot"
+weight_rows = "3 * (1 + (cin // groups) * kh * kw)"
+sizes = "ds(128) + 65536 * ds(1 + (out0_d3 - 1) % 128)"
+ih_last = "in0_d2 - 1"
+oh_last = "out0_d2 - 1"
+gc_last = "cin // groups - 1"
+go_last = "cout // groups - 1"
+cin_last = "cin - 1"
+cout_last = "cout - 1"
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d1 * in0_d2 * it", 128]
+range = [-2, 2]
+[inputs.weights]
+shape = ["cout * ot * weight_rows", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[scratch.stencil]
+shape = ["cin * plane", 128]
+[outputs.out0]
+shape = ["out0_d0 * out0_d1 * output_plane", 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+weights = "CR4"
+lut = "CR5"
+stencil = "CR6"
+qf_in0 = "CR7"
+qf_weights = "CR8"
+qf_out0 = "CR9"
+sizes = "CR10"
+plane = "CR11"
+group_plane = "CR12"
+output_plane = "CR13"
+ih_last = "CR14"
+oh_last = "CR15"
+cin_last = "LR11"
+cout_last = "LR12"
+gc_last = "LR13"
+go_last = "LR14"
+
+[golden]
+tolerance = {e1 = "NX8_STEP", e2 = "NX8_STEP"}
+
+[cases.default]
