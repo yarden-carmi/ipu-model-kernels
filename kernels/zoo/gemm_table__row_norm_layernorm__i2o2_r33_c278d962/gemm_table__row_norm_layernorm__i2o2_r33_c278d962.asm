@@ -58,7 +58,7 @@
  {% endfor %}
 {% endmacro %}
 
-{# One coefficient row provides all output lanes for one K element. #}
+{# Each coefficient row provides the output lanes for one K element. #}
 {% macro coeff() %}LD.MULT.CYCLIC LR5 {{ cr.coeff }} LR0 ; INC LR5 1{% endmacro %}
 {% macro kchunk(limit,label) %}
  LD.MULT R0 LR7 {{ cr.in0 }} ; SET LR10 CR0 ;;
