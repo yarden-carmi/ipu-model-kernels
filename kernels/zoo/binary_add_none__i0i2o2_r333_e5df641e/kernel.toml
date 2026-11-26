@@ -18,12 +18,13 @@ out0_d1 = { type = "int", min = 1, max = 1024, default = 16 }
 out0_d2 = { type = "int", min = 1, max = 4096, default = 240 }
 
 [derived]
-stride = "4 * in0_d1"
+column_span = "in0_d2 * ceil(in0_d1 / 64) * 2"
+batch_lanes = "4 * in0_d1"
 rows = "out0_d0 * out0_d1 * ceil(out0_d2 / 128)"
 tail = "ds(out0_d2 - (ceil(out0_d2 / 128) - 1) * 128)"
 full = "ds(128)"
-sixtyfour = "64"
-onetwentyeight = "128"
+pack_dims = "128 * 65536 + in0_d1"
+step = "(4 * in0_d1) % in0_d2 + 65536 * 4 * (ceil((4 * in0_d1 + 1) / in0_d2) - 1)"
 
 [inputs.in0]
 shape = ["in0_d2 * ceil(in0_d1 / 64) * 2", 128]
@@ -42,10 +43,10 @@ qf_in0 = "CR5"
 qf_in1 = "CR6"
 qf_out0 = "CR7"
 in0_d2 = "CR8"
-in0_d1 = "CR9"
-sixtyfour = "CR10"
-onetwentyeight = "CR11"
-stride = "CR12"
+pack_dims = "CR9"
+column_span = "CR10"
+step = "CR11"
+batch_lanes = "CR12"
 rows = "CR13"
 tail = "CR14"
 full = "CR15"
