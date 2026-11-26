@@ -9,7 +9,7 @@ op = { type = "str", choices = ["add"], default = "add" }
 numel = { type = "int", min = 1, max = 16777216, default = 49152 }
 in0_d0 = { type = "int", min = 1, max = 4096, default = 4 }
 in0_d1 = { type = "int", min = 8, max = 16384, multiple_of = 8, default = 64 }
-in0_d2 = { type = "int", min = 16, max = 16384, multiple_of = 16, default = 192 }
+in0_d2 = { type = "int", min = 16, max = 256, multiple_of = 16, default = 192 }
 in1_d0 = { type = "int", min = 1, max = 4096, default = 4 }
 in1_d1 = { type = "int", min = 1, max = 16384, default = 64 }
 in1_d2 = { type = "int", min = 1, max = 256, default = 192 }
@@ -19,8 +19,9 @@ out0_d2 = { type = "int", min = 1, max = 256, default = 192 }
 
 [derived]
 width = "ceil(out0_d0 * out0_d1 / 128)"
-last_row = "out0_d2 * width - 1"
-tail = "ds((out0_d0 * out0_d1 - 1) % 128 + 1)"
+rows = "out0_d2 * width"
+valid = "(out0_d0 * out0_d1 - 1) % 128 + 1"
+tail = "ds(valid)"
 
 [inputs.in0]
 shape = ["in0_d0", "in0_d1 * in0_d2"]
@@ -38,8 +39,9 @@ out0 = "CR4"
 qf_in0 = "CR5"
 qf_in1 = "CR6"
 qf_out0 = "CR7"
-last_row = "CR8"
+rows = "CR8"
 width = "CR9"
-tail = "CR10"
+valid = "CR10"
+tail = "CR11"
 
 [cases.default]
