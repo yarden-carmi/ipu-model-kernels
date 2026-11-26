@@ -1,0 +1,129 @@
+[kernel]
+op = "gemm_binary_add"
+formats = ["e2", "e3"]
+
+[params.s0_bias]
+type = "bool"
+default = true
+[params.s0_m]
+type = "int"
+min = 8
+max = 65536
+multiple_of = 8
+default = 256
+[params.s0_k]
+type = "int"
+min = 1
+max = 16384
+default = 384
+[params.s0_n]
+type = "int"
+min = 16
+max = 16384
+multiple_of = 16
+default = 192
+[params.s1_broadcast]
+type = "str"
+choices = ["none"]
+default = "none"
+[params.s1_inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.s1_numel]
+type = "int"
+min = 128
+max = 1073741824
+multiple_of = 128
+default = 49152
+[params.s1_op]
+type = "str"
+choices = ["add"]
+default = "add"
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 4
+[params.in0_d1]
+type = "int"
+min = 8
+max = 65536
+multiple_of = 8
+default = 64
+[params.in0_d2]
+type = "int"
+min = 1
+max = 16384
+default = 384
+[params.in1_d0]
+type = "int"
+min = 1
+max = 65536
+default = 4
+[params.in1_d1]
+type = "int"
+min = 8
+max = 65536
+multiple_of = 8
+default = 64
+[params.in1_d2]
+type = "int"
+min = 16
+max = 16384
+multiple_of = 16
+default = 192
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 4
+[params.out0_d1]
+type = "int"
+min = 8
+max = 65536
+multiple_of = 8
+default = 64
+[params.out0_d2]
+type = "int"
+min = 16
+max = 16384
+multiple_of = 16
+default = 192
+
+[derived]
+chunks = "ceil(in0_d2 / 128)"
+full = "ds(128) + 65536 * ds(1)"
+end = "(s0_k - 1) % 128 - 2"
+period = "s0_n // 16"
+splits = "((s0_n % 128 + 127) // 128) + (((2 * s0_n) % 128 + 127) // 128) + (((3 * s0_n) % 128 + 127) // 128) + (((4 * s0_n) % 128 + 127) // 128) + (((5 * s0_n) % 128 + 127) // 128) + (((6 * s0_n) % 128 + 127) // 128) + (((7 * s0_n) % 128 + 127) // 128)"
+rows = "out0_d0 * out0_d1 * out0_d2 // 128"
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d1 * chunks", 128]
+range = [-2, 2]
+[inputs.in1]
+shape = ["in1_d0 * in1_d1 * in1_d2 // 128", 128]
+range = [-2, 2]
+[inputs.w]
+shape = ["period + (period + splits) * s0_k", 128]
+[outputs.out0]
+shape = ["rows", 128]
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+w = "CR4"
+out0 = "CR5"
+qf_in0 = "CR6"
+qf_in1 = "CR7"
+qf_out0 = "CR8"
+full = "CR9"
+chunks = "CR10"
+s0_n = "CR11"
+period = "CR12"
+rows = "CR13"
+end = "CR14"
+
+[cases.default]
