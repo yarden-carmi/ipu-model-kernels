@@ -1,0 +1,74 @@
+[kernel]
+op = "conv2d_table"
+formats = ["e1", "e2"]
+
+[params]
+act_out0 = {type = "str", choices = ["hardswish"], default = "hardswish"}
+bias = {type = "bool", default = true}
+cin = {type = "int", min = 1, max = 640, default = 144}
+cout = {type = "int", min = 1, max = 640, default = 144}
+groups = {type = "int", min = 1, max = 640, default = 144}
+h = {type = "int", min = 1, max = 256, default = 14}
+w = {type = "int", min = 1, max = 256, default = 14}
+kh = {type = "int", min = 1, max = 5, default = 5}
+kw = {type = "int", min = 1, max = 5, default = 5}
+padding = {type = "int", min = 0, max = 2, default = 2}
+stride = {type = "int", min = 1, max = 2, default = 1}
+in0_d0 = {type = "int", choices = [1], default = 1}
+in0_d1 = {type = "int", min = 1, max = 640, default = 144}
+in0_d2 = {type = "int", min = 1, max = 256, default = 14}
+in0_d3 = {type = "int", min = 1, max = 256, default = 14}
+out0_d0 = {type = "int", choices = [1], default = 1}
+out0_d1 = {type = "int", min = 1, max = 640, default = 144}
+out0_d2 = {type = "int", min = 1, max = 260, default = 14}
+out0_d3 = {type = "int", min = 1, max = 128, default = 14}
+
+[derived]
+it = "ceil(in0_d3 / 128)"
+pmax = "min(out0_d2, 128 // out0_d3)"
+pack = "max(1 + (pmax - 1) * (1 - min(1, out0_d2 % pmax)), 1 + min(1, 256 // (out0_d2 * out0_d3)) * (1 - out0_d2 % 2) * min(1, out0_d2 - pmax) * (out0_d2 // 2 - 1))"
+tiles = "out0_d2 // pack"
+taps = "kh * kw"
+plane = "out0_d2 * taps"
+gc = "cin // groups"
+ds = "ds(128) + 65536 * ds(pack * out0_d3)"
+tail_in = "ds(1 + (in0_d3 - 1) % 128)"
+start = "max(0, 8 - out0_d3)"
+dlo = "max(0, 0 - start) + 256 * max(0, 1 - start) + 65536 * max(0, 2 - start) + 16777216 * max(0, 3 - start)"
+dhi = "max(0, 4 - start) + 256 * max(0, 5 - start) + 65536 * max(0, 6 - start) + 16777216 * max(0, 7 - start)"
+slo = "stride * dlo"
+shi = "stride * dhi"
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d1", "in0_d2", "it", 128]
+range = [-2, 2]
+[inputs.weights]
+shape = ["cout * (3 + 3 * gc)", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[scratch.stencil]
+shape = ["1 + cin * plane + cin * in0_d2 * it", 128]
+[outputs.out0]
+shape = ["out0_d0", "out0_d1", "tiles", 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+weights = "CR4"
+lut = "CR5"
+stencil = "CR6"
+qf_in0 = "CR7"
+qf_weights = "CR8"
+qf_out0 = "CR9"
+ds = "CR10"
+slo = "CR11"
+shi = "CR12"
+dlo = "CR13"
+dhi = "CR14"
+tail_in = "CR15"
+
+[golden]
+tolerance = {e1 = "NX8_STEP", e2 = "NX8_STEP"}
+[cases.default]
