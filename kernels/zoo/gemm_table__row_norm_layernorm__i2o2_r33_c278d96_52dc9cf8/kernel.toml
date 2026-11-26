@@ -10,7 +10,7 @@ default = 768
 type = "int"
 min = 1
 max = 4096
-default = 768
+default = 128
 [params.s0_m]
 type = "int"
 min = 1
@@ -22,7 +22,7 @@ default = true
 [params.act_s0]
 type = "str"
 choices = ["gelu", "gelu_tanh"]
-default = "gelu"
+default = "gelu_tanh"
 [params.s1_kind]
 type = "str"
 choices = ["layernorm"]
@@ -31,7 +31,7 @@ default = "layernorm"
 type = "int"
 min = 1
 max = 4096
-default = 768
+default = 128
 [params.s1_rows]
 type = "int"
 min = 1
@@ -71,7 +71,7 @@ default = 256
 type = "int"
 min = 1
 max = 4096
-default = 768
+default = 128
 [derived]
 pitch = "ceil(in0_d2 / 128)"
 tiles = "ceil(s1_channels / 128)"

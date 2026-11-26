@@ -87,8 +87,6 @@
  LD.LUT {{ i }} {{ cr.lut }} LR1 ;;
  INC LR1 1 ;;
  {% endfor %}
-
-// Keep a single activated row in scratch; stream K for each output tile.
 row:
  SET LR4 CR0 ; SET LR5 CR0 ;;
  DEC LR5 1 ;;
@@ -109,8 +107,6 @@ gemm_last_chunk:
  SET LR4 LR6 ; B gemm_tile ;;
 gemm_last_tile:
  {{ gelu(tail) }}
-
-// Reduce only the valid channels and compute variance on centered values.
  SET LR5 CR0 ;;
  {{ vec(first=true,s='CR0') }}
 sum:
@@ -151,8 +147,6 @@ variance_tail:
  {{ at('LR1',13) }}{{ vec(first=true,s='CR0') }}
  ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
  {{ at('LR4',2) }}
-
-// Recover precision lost at the rsqrt store with Newton refinement.
 refine:
  {{ product(12,12,2,2) }}{{ save(14) }}
  {{ product(9,14,3,2) }}{{ save(16) }}
