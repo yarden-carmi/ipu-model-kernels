@@ -162,13 +162,15 @@ refine:
  SET LR5 CR0 ;;
  {{ at('LR9',32) }}{{ at('LR7',3) }}{{ at('LR10',4) }}
 normalize:
- SET LR4 CR0 ;;
  {{ vec(first=true,s='CR0') }}
-weight:
- LD.MULT.CYCLIC LR10 {{ cr.norm }} LR0 ;;
- {% for n in [12,13] %}{{ load(n) }}{{ mul() }}{% endfor %}
- INC LR10 1 ; INC LR4 1 ;;
- BLT.S LR4 LR7 weight ;;
+ {{ load(12,true) }}
+ {{ at('LR1',13) }}
+ LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR3 ;;
+ {% for i in range(3) %}
+ LD.MULT R0 LR10 {{ cr.norm }} ;;
+ {{ mul() }}{{ mul(slot='LR3') }}
+ INC LR10 1 ;;
+ {% endfor %}
  {{ save(20,3) }}
  LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;
  INC LR9 1 ;;
