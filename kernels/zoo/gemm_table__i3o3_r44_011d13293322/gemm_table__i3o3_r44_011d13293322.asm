@@ -19,6 +19,7 @@ MULT.RC.VV LR15 R0 0 LR15 {{ ds }} {{ qi }} ; ACC.ADD
     {% if segment %}INC LR4 1 ; {% endif %}LD.LUT {{ segment }} {{ cr.lut }} LR4 ;;
 {% endfor %}
 {% if p > 1 %}
+{# Replicate one spatial stripe into the lane slices for all packed channels. #}
     SET LR4 CR0 ; SET LR9 {{ cr.input_rows }} ;;
 broadcast_row:
     LD.MULT R0 LR4 {{ cr.in0 }} ; SET LR2 {{ cr.index_lo }} ; SET LR3 {{ cr.index_hi }} ;;

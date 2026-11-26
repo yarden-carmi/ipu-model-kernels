@@ -64,15 +64,20 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    """Fold batch normalization and emit two coefficient planes per tap."""
+    """Fold batch norm and pack coarse and residual coefficient rows per tap."""
     n, k = params['n'], params['k']
     width = params['out0_d3']
     pack = 128 // width
-    scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
-    weights = module.op0_weight.double().reshape(n, k) * scale[:, None]
-    bias = module.op1_bias.double() - module.op1_running_mean.double() * scale
-    if not params['bias']:
-        bias = torch.zeros_like(bias)
+    if hasattr(module, 'op0_weight'):
+        scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
+        weights = module.op0_weight.double().reshape(n, k) * scale[:, None]
+        bias = module.op1_bias.double() - module.op1_running_mean.double() * scale
+        if getattr(module, 'op0_bias', None) is not None:
+            bias = bias + module.op0_bias.double() * scale
+    else:
+        weights = module.weight.double().reshape(n, k)
+        bias = getattr(module, 'bias', None)
+    bias = weights.new_zeros(n) if bias is None or not params['bias'] else bias.double()
     channels = torch.cat((bias[:, None], weights), dim=1)
     rows = channels.reshape(n // pack, pack, k + 1).transpose(1, 2).repeat_interleave(width, dim=-1)
     _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
