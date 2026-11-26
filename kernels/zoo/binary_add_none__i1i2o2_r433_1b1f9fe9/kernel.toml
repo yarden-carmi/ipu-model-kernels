@@ -22,6 +22,8 @@ out0_d2 = { type = "int", min = 1, max = 16384, default = 192 }
 blocks = "ceil(out0_d2 / 128)"
 patch_step = "out0_d0 * blocks"
 plane_step = "out0_d1 * blocks"
+ramp_lo = "50462976"
+ramp_hi = "117835012"
 positions_blocks = "out0_d1 + 65536 * blocks"
 channels_phases = "out0_d2 + 65536 * out0_d0"
 # Unsigned e1 scalars: 2^9, 2^-9, and zero in NX8 respectively.
@@ -31,7 +33,7 @@ scale_correction = "55 * 16777216 + 65536 + 128"
 pack = "1 + (out0_d1 - 1) * min(1, max(0, out0_d2 - 144))"
 width = "ceil(out0_d2 * pack / 128)"
 rows = "out0_d0 * (out0_d1 // pack) * width"
-tail = "ds((out0_d2 * pack - 1) % 128 + 1)"
+tail = "ds((out0_d2 * pack - 1) % 128 + 1) + 128 * 65536"
 
 [inputs.in0]
 shape = ["in0_d0", "in0_d2", "in0_d3", "ceil(in0_d1 / 128) * 128"]
@@ -60,5 +62,7 @@ parts = "CR13"
 tail = "CR14"
 patch_step = "LR14"
 plane_step = "LR15"
+ramp_lo = "LR0"
+ramp_hi = "LR1"
 
 [cases.default]
