@@ -1,0 +1,94 @@
+[kernel]
+op = "unary_builtin"
+formats = ["e1", "e2"]
+
+[params.act_out0]
+type = "str"
+choices = ["relu"]
+default = "relu"
+
+[params.numel]
+type = "int"
+min = 1
+default = 262144
+
+[params.in0_d0]
+type = "int"
+min = 1
+default = 1
+
+[params.in0_d1]
+type = "int"
+min = 1
+default = 64
+
+[params.in0_d2]
+type = "int"
+min = 4
+multiple_of = 4
+default = 64
+
+[params.in0_d3]
+type = "int"
+choices = [2, 4, 8, 16, 32, 64, 128]
+default = 64
+
+[params.out0_d0]
+type = "int"
+min = 1
+default = 1
+
+[params.out0_d1]
+type = "int"
+min = 1
+default = 64
+
+[params.out0_d2]
+type = "int"
+min = 4
+multiple_of = 4
+default = 64
+
+[params.out0_d3]
+type = "int"
+choices = [2, 4, 8, 16, 32, 64, 128]
+default = 64
+
+[derived]
+pack = "1 + min(1, max(0, 65 - in0_d3)) + 2 * min(1, max(0, 33 - in0_d3))"
+input_plane = "in0_d2 // pack"
+input_batch = "in0_d1 * input_plane"
+output_plane = "ceil(out0_d2 * out0_d3 / 128)"
+payload = "pack * in0_d3"
+input_ds = "ds(payload)"
+full_ds = "ds(128)"
+tail_ds = "ds((out0_d2 * out0_d3 - 1) % 128 + 1)"
+lanes = "128"
+map_lo = "50462976"
+map_hi = "117835012"
+
+[inputs.in0]
+shape = ["in0_d0", "input_batch", 128]
+range = [-1, 1]
+
+[outputs.out0]
+shape = ["out0_d1", "out0_d0", "output_plane", 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+qf_in0 = "CR4"
+qf_out0 = "CR5"
+input_plane = "CR6"
+input_batch = "CR7"
+in0_d0 = "CR8"
+in0_d1 = "CR9"
+input_ds = "CR10"
+full_ds = "CR11"
+map_lo = "CR12"
+map_hi = "CR13"
+lanes = "CR14"
+tail_ds = "CR15"
+payload = "LR6"
+
+[cases.default]
