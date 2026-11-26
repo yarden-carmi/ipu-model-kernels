@@ -6,7 +6,7 @@
     LD.MULT.CYCLIC LR2 {{ cr.in0 }} LR0 ; BLT.S {{ cr.penultimate }} CR0 tail ;;
 row:
     {{ store_row() }}
-    {# The load uses the incremented row; the branch compares the old row. #}
+    {# The load uses the incremented index; the branch compares the old index. #}
     INC LR2 1 ; LD.MULT.CYCLIC LR2 {{ cr.in0 }} LR0 ; BLT.S LR2 {{ cr.penultimate }} row ;;
 tail:
     {{ store_row() }}
