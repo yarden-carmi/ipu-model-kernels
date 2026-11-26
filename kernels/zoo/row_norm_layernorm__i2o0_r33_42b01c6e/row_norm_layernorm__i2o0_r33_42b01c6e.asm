@@ -1,4 +1,4 @@
-{# One lane per logical row; adjacent input channel planes are rows elements apart. #}
+{# Rows occupy lanes, and channels run through memory rows. #}
 {% set q = cr.qf_in0 ~ '.L' %}
 {% set s = cr.stat ~ '.H' %}
 {% set w = cr.wide ~ '.L' %}
@@ -78,8 +78,6 @@
 {{ label }}_variance_end:
  SET LR7 CR0 ;; INC LR7 2 ;;
  {% if refine %}
- {# A wide-exponent seed handles tiles containing both zero and high-energy rows.
-    Pre-scale centered values, then recompute their energy to correct the seed. #}
  {{ store('LR7',w,'rsqrt') }} ; SET LR10 CR0 ; SET LR6 {{ cr.count }} ;;
  LD.MULT R1 LR7 {{ cr.tmp }} ; INC LR10 4 ;;
  ADD LR6 LR6 LR6 ; INC LR7 3 ;;
