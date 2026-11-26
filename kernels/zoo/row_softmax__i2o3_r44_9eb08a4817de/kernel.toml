@@ -1,0 +1,57 @@
+[kernel]
+op = "row_softmax"
+formats = ["e2"]
+[params]
+n = {type="int", min=1, max=128, default=50}
+rows = {type="int", min=1, default=600}
+in0_d0 = {type="int", min=1, default=1}
+in0_d1 = {type="int", min=1, default=12}
+in0_d2 = {type="int", min=1, default=50}
+in0_d3 = {type="int", min=1, max=128, default=50}
+out0_d0 = {type="int", min=1, default=1}
+out0_d1 = {type="int", min=1, default=12}
+out0_d2 = {type="int", min=1, default=50}
+out0_d3 = {type="int", min=1, max=128, default=50}
+[derived]
+groups = "in0_d0 * in0_d1"
+tiles = "ceil(in0_d2 / 128)"
+span = "in0_d3 * tiles"
+full = "ds(128)"
+tail = "ds(n)"
+scalar = "ds(1) * 65536"
+scratch_qf = "40 + 65536 * 56"
+e3 = "312"
+[inputs.in0]
+shape = ["in0_d0", "in0_d1", "in0_d3", "ceil(in0_d2 / 128)", 128]
+range = [-2, 2]
+[outputs.out0]
+shape = ["out0_d0", "out0_d1", "out0_d2", "ceil(out0_d3 / 128)", 128]
+[scratch.trans]
+shape = ["rows", 128]
+[scratch.tmp]
+shape = [12, 128]
+[scratch.roots]
+shape = [8, 128]
+[scratch.exps]
+shape = [2, 128]
+[abi]
+trans = "CR2"
+out0 = "CR3"
+scratch_qf = "CR4"
+tmp = "CR5"
+qf_in0 = "CR6"
+rows = "CR8"
+exps = "CR9"
+qf_out0 = "CR10"
+roots = "CR11"
+e3 = "CR12"
+scalar = "CR13"
+tail = "CR14"
+full = "CR15"
+in0 = "LR12"
+in0_d2 = "LR14"
+in0_d3 = "LR15"
+groups = "LR13"
+tiles = "LR10"
+span = "LR11"
+[cases.default]
