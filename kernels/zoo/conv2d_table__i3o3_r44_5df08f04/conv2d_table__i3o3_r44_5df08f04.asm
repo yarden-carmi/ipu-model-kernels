@@ -7,7 +7,8 @@
 {% set gc = cin//groups %}
 {% set first = (-w-1)//128 %}
 {% set parts = 2 %}
-{% set wk = 3+parts*gc*kh*kw %}
+{% set short_bias = stride == 1 and w == 64 and gc == 1 %}
+{% set wk = 3-short_bias+parts*gc*kh*kw %}
 {% set dw_window = window and gc==1 %}
 {% set fused_store = dw_window and (out0_d2*out0_d3)%128 == 0 %}
 {% macro bump(r,n) %}
@@ -48,7 +49,7 @@ MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ;
 ACTIVATE.QUANTIZE identity {{ active }} {{ qi }} {{ cr.guard }} LR3 ; INC LR3 1 ;
 {% endmacro %}
 copy_channel:
-{{ guard('copy_top',4) }}
+{{ guard('copy_top',2 if dw_window and w == 64 else 4) }}
 SET LR8 CR0 ;;
 copy_row:
 {% if (in0_d2*w)%128 %}BEQ LR8 LR6 copy_last ;;{% endif %}
@@ -57,7 +58,7 @@ copy_row:
 copy_last:
 {{ copy(cr.input_tail ~ '.H') }} ;;
 {% endif %}
-{{ guard('copy_bottom',6) }}
+{{ guard('copy_bottom',2 if dw_window and w == 64 else 6) }}
 INC LR4 1 ; BLT.S LR4 LR5 copy_channel ;;
 
 # Compact stride-two input taps into the output's spatial lane order.
@@ -95,41 +96,12 @@ MULT.RC.VE LR7 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.STRIDE {{ [16,[w,64]|min]|max }
 {% endfor %}
 {% endif %}
 {% endmacro %}
-{% macro stage_packed64() %}
-# Each stride result keeps only 32 even lanes. The top three taps
-# therefore share four source rows, even when the discarded lanes wrap.
-{% set banks = ['LR0','LR1','LR10','LR11'] %}
-{% for p in range(4) %}
-LD.MULT.CYCLIC LR6 {{ cr.guard }} {{ banks[p] }} ; {% if p %}INC LR6 1 ;{% endif %} {% if p==0 %}SET LR7 CR0 ;{% elif p==1 %}INC LR7 63 ;{% endif %} ;;
-{% endfor %}
-{% for t in range(9) %}
-{% set d = (t//3-1)*64+t%3-1 %}
-{% set start = d%128 + (128 if d>=0 else 0) %}
-{% set prev = ((t-1)//3-1)*64+(t-1)%3-1 %}
-{% set prior = prev%128 + (128 if prev>=0 else 0) + 384 %}
-{% for p in range(4) %}
-MULT.RC.VE LR7 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.STRIDE 64 on on LR9 ; INC LR9 1 ;
-{% if p %}INC LR7 128 ;{% elif t %}{{ bump('LR7',(start-prior+256)%512-256) }}{% endif %}
-{# After t3's first pair, recycle bank zero for the new bottom row. #}
-{% if t==3 and p==2 %}LD.MULT.CYCLIC LR6 {{ cr.guard }} LR0 ; INC LR6 1 ;{% endif %}
-{% if p==3 %}ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.stencil }} LR2 ; INC LR2 1 ;{% endif %}
-;;
-{% endfor %}
-{% endfor %}
-INC LR8 1 ; BLT.S LR8 {{ cr.sr_last }} stage_row ;;
-{% endmacro %}
 stage_channel:
 SET LR3 LR13 ; SET LR6 LR13 ; SET LR8 CR0 ;;
-{% if w != 64 %}
 SET LR7 CR0 ;;
-{% endif %}
 stage_row:
-{% if w == 64 %}
-{{ stage_packed64() }}
-{% else %}
 {% for t in range(kh*kw) %}{{ stage_tap(t) }}{% endfor %}
 SET LR7 CR0 ; INC LR8 1 ; BLT.S LR8 {{ cr.sr_last }} stage_row ;;
-{% endif %}
 ADD LR13 LR13 LR14 ; INC LR4 1 ; BLT.S LR4 LR5 stage_channel ;;
 {% endif %}
 
@@ -137,8 +109,37 @@ ADD LR13 LR13 LR14 ; INC LR4 1 ; BLT.S LR4 LR5 stage_channel ;;
 {% for i in range(5) %}
 LD.LUT {{ i }} {{ cr.lut }} LR2 ; INC LR2 1 ;;
 {% endfor %}
+{% if short_bias %}
 {{ imm('LR2',-1) }}
-{{ imm('LR3',4 if stride == 1 else -1) }}
+{{ imm('LR3',2) }}
+{{ imm('LR4',0) }}
+{{ imm('LR5',cout-1) }}
+{{ imm('LR7',-1) }}
+{{ imm('LR12',128) }}
+short_channel:
+SET LR6 CR0 ; SET LR9 LR3 ; SET LR11 LR12 ;;
+DEC LR9 2 ;;
+LD.MULT.CYCLIC LR9 {{ cr.guard }} LR0 ; INC LR9 1 ;;
+LD.MULT.CYCLIC LR9 {{ cr.guard }} LR12 ; INC LR9 1 ;;
+SET LR1 LR12 ;;
+INC LR1 128 ;;
+LD.MULT.CYCLIC LR9 {{ cr.guard }} LR1 ; INC LR9 1 ;;
+SET LR13 LR1 ;;
+short_row:
+SET LR8 LR7 ;;
+LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;;
+LD.MULT R1 LR8 {{ cr.weights }} ; INC LR8 1 ;;
+MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD.FIRST ; SET LR1 LR11 ; LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;;
+MULT.VE LR12 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; DEC LR1 65 ; LD.MULT R1 LR8 {{ cr.weights }} ; INC LR8 1 ;;
+{% for t in range(9) %}
+MULT.RC.VV LR1 R0 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; {% if t < 8 %}LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;{% endif %} {% if t %}INC LR1 {{ 1 if t%3 else 62 }} ;{% endif %} {% if t == 7 %}INC LR9 1 ;{% elif t == 0 %}INC.MODP2 LR13 LR12 9 ;{% endif %} ;;
+MULT.RC.VV LR1 R1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; {% if t < 8 %}LD.MULT R1 LR8 {{ cr.weights }} ; INC LR8 1 ; {% if t == 7 %}INC.MODP2 LR11 LR12 9 ;{% endif %}{% else %}LD.MULT.CYCLIC LR9 {{ cr.guard }} LR13 ; {{ store(ds) }} INC LR6 1 ; BLT.S LR6 {{ cr.sr_last }} short_row ;{% endif %} ;;
+{% endfor %}
+SET LR7 LR8 ; ADD LR3 LR3 LR15 ; INC LR4 1 ; BLT.S LR4 LR5 short_channel ;;
+HALT ;;
+{% else %}
+{{ imm('LR2',-1) }}
+{{ imm('LR3',(2 if dw_window and w == 64 else 4) if stride == 1 else -1) }}
 {{ imm('LR4',0) }}
 {{ imm('LR5',cout-1) }}
 {{ imm('LR7',-1) }}
@@ -161,9 +162,13 @@ bias_load:
 {% endif %}
 LD.MULT.CYCLIC LR8 {{ cr.weights }} LR0 ; INC LR8 1 ;;
 LD.MULT.CYCLIC LR8 {{ cr.weights }} LR12 ; INC LR8 1 ;;
-MULT.RC.VE LR0 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD.FIRST ; SET LR9 LR10 ; LD.MULT.CYCLIC LR8 {{ cr.weights }} LR0 ; INC LR8 1 ;;
+MULT.RC.VE LR0 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD.FIRST ; SET LR9 LR10 ; {% if short_bias %}LD.MULT R0 LR8 {{ cr.weights }} ;{% else %}LD.MULT.CYCLIC LR8 {{ cr.weights }} LR0 ;{% endif %} INC LR8 1 ;;
+{% if short_bias %}
+MULT.RC.VE LR12 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; SET LR11 CR0 ; LD.MULT.CYCLIC LR9 {{ cr.guard }} LR0 ; {{ bump('LR9',first) }} ;;
+{% else %}
 MULT.RC.VE LR12 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; SET LR11 {{ 'CR1' if fast else 'CR0' }} ; {% if dw_window %}LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;{% elif fast %}LD.MULT.CYCLIC LR9 {{ cr.stencil }} LR12 ; INC LR9 3 ; SET LR14 LR12 ;{% endif %} ;;
 MULT.RC.VE LR0 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; {% if dw_window %}LD.MULT.CYCLIC LR9 {{ cr.guard }} LR0 ; {{ bump('LR9',first) }}{% else %}LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;{% endif %} ;;
+{% endif %}
 {% if fast %}
 {% for ch in range(cin) %}
 {% if loop.first %}LD.MULT R1 LR8 {{ cr.weights }} ; INC LR8 1 ; SET LR1 LR9 ; SET LR13 CR0 ;;{% endif %}
@@ -253,4 +258,5 @@ HALT ;;
 {% if not window and not fast and gc > 1 and not (stride == 2 and gc <= 3) %}
 next_input_channel:
 LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ; BEQ LR0 CR0 input_channel ;;
+{% endif %}
 {% endif %}
