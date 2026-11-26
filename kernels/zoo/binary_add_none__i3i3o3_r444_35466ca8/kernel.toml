@@ -1,0 +1,52 @@
+[kernel]
+op = "binary_add"
+formats = ["e1", "e2"]
+
+[params]
+broadcast = { type = "str", choices = ["none"], default = "none" }
+inner = { type = "int", min = 0, max = 0, default = 0 }
+op = { type = "str", choices = ["add"], default = "add" }
+numel = { type = "int", min = 1, default = 18816 }
+in0_d0 = { type = "int", min = 1, default = 1 }
+in0_d1 = { type = "int", min = 1, default = 24 }
+in0_d2 = { type = "int", min = 4, multiple_of = 4, default = 28 }
+in0_d3 = { type = "int", min = 1, max = 32, default = 28 }
+in1_d0 = { type = "int", min = 1, default = 1 }
+in1_d1 = { type = "int", min = 1, default = 24 }
+in1_d2 = { type = "int", min = 4, multiple_of = 4, default = 28 }
+in1_d3 = { type = "int", min = 1, max = 32, default = 28 }
+out0_d0 = { type = "int", min = 1, default = 1 }
+out0_d1 = { type = "int", min = 1, default = 24 }
+out0_d2 = { type = "int", min = 4, multiple_of = 4, default = 28 }
+out0_d3 = { type = "int", min = 1, max = 32, default = 28 }
+
+[derived]
+width_ds = "ds(out0_d3)"
+channel_step = "in1_d2 / 4"
+batch_step = "in1_d1 * in1_d2 / 4"
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d2 * in0_d1", 128]
+range = [-2, 2]
+[inputs.in1]
+shape = ["in1_d0 * in1_d1 * in1_d2 / 4", 128]
+range = [-2, 2]
+[outputs.out0]
+shape = ["out0_d0 * out0_d2 * out0_d1", 128]
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_in1 = "CR6"
+qf_out0 = "CR7"
+out0_d0 = "CR8"
+out0_d1 = "CR9"
+out0_d2 = "CR10"
+out0_d3 = "CR11"
+width_ds = "CR12"
+channel_step = "CR13"
+batch_step = "CR14"
+
+[cases.default]
