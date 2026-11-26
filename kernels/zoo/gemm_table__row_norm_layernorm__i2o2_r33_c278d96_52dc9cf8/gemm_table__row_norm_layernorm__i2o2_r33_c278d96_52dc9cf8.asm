@@ -28,20 +28,23 @@
  {% endfor %}
 {% endmacro %}
 {% macro save(n,count=2,dec=false) %}{{ at('LR1',n) }}{{ split('LR1',count,dec) }}{% endmacro %}
-{% macro average(label) %}
+{% macro norm_products(offsets) %}
+ {% for _ in range(3) %}
+ LD.MULT.CYCLIC LR10 {{ cr.norm }} LR0 ;;
+ {% for p in offsets %}{{ load(p) }}{{ mul() }}{% endfor %}
+ INC LR10 1 ;;
+ {% endfor %}
+{% endmacro %}
+{% macro average() %}
  {{ save(0,3) }}
  {% for p in range(3) %}
  {{ load(p) }}
  MULT.EE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %} ;;
  {% endfor %}
  {{ save(3,3) }}
- {{ at('LR10') }}{{ at('LR7',3) }}
+ {{ at('LR10') }}
  {{ vec(first=true,s='CR0') }}
-{{ label }}:
- LD.MULT.CYCLIC LR10 {{ cr.norm }} LR0 ;;
- {% for p in range(3,6) %}{{ load(p) }}{{ mul() }}{% endfor %}
- INC LR10 1 ;;
- BLT.S LR10 LR7 {{ label }} ;;
+ {{ norm_products([3,4,5]) }}
 {% endmacro %}
 {% macro squares(ds) %}
  LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;
@@ -59,15 +62,17 @@
  {% endfor %}
 {% endmacro %}
 {% macro coeff() %}LD.MULT.CYCLIC LR5 {{ cr.coeff }} LR0 ; INC LR5 1{% endmacro %}
-{% macro kchunk(limit,label) %}
+{% macro kchunk(limit,label,full_chunk=false) %}
  LD.MULT R0 LR7 {{ cr.in0 }} ; SET LR10 CR0 ;;
  {{ coeff() }} ;;
+ {% if not full_chunk %}
  BEQ LR10 {{ limit }} {{ label }}_last ;;
  SET LR1 {{ limit }} ;;
  DEC LR1 1 ;;
+ {% endif %}
 {{ label }}:
  // Both SET and BLT see the pre-increment lane; MULT sees the snapshot.
- MULT.RC.VE LR0 LR6 0 LR0 {{ full }} {{ iq }} ; ACC.ADD ; {{ coeff() }} ; INC LR10 1 ; SET LR6 LR10 ; BLT.S LR10 LR1 {{ label }} ;;
+ MULT.RC.VE LR0 LR6 0 LR0 {{ full }} {{ iq }} ; ACC.ADD ; {{ coeff() }} ; INC LR10 1 ; SET LR6 LR10 ; BLT.S LR10 {% if full_chunk %}LR11{% else %}LR1{% endif %} {{ label }} ;;
 {{ label }}_last:
  MULT.RC.VE LR0 LR10 0 LR0 {{ full }} {{ iq }} ; ACC.ADD ; INC LR7 1 ;;
 {% endmacro %}
@@ -82,7 +87,8 @@
  SET LR13 CR0 ;;
  {{ at('LR3',64) }}
  INC LR3 64 ;;
- {{ at('LR11',63) }}
+ // Full chunks always issue 127 pipelined MACs followed by the drain MAC.
+ {{ at('LR11',62) }}
  INC LR11 64 ;;
  {% for i in range(5) %}{{ lut(i) }}{% endfor %}
 
@@ -96,7 +102,7 @@ gemm_tile:
  SET LR8 LR14 ;;
  BEQ LR8 CR0 gemm_last_chunk ;;
 gemm_full_chunk:
- {{ kchunk('LR11','gemm_full_mac') }}
+ {{ kchunk('LR11','gemm_full_mac',true) }}
  DEC LR8 1 ;;
  BNE LR8 CR0 gemm_full_chunk ;;
 gemm_last_chunk:
@@ -116,7 +122,7 @@ sum:
  MULT.VE LR0 CR1 0 LR0 {{ full }} {{ oq }} ; AGG.SUM LR0 {{ full }} ; B sum ;;
 sum_tail:
  MULT.VE LR0 CR1 0 LR0 {{ full }} {{ oq }} ; AGG.SUM LR0 {{ tail }} ;;
- {{ average('mean') }}{{ save(6,3) }}
+ {{ average() }}{{ save(6,3) }}
  SET LR5 CR0 ;;
  {{ at('LR9',32) }}
 center:
@@ -136,7 +142,7 @@ variance:
  BLT.S LR5 {{ cr.tiles }} variance ;;
 variance_tail:
  {{ squares(tail) }}
- {{ average('variance_scale') }}
+ {{ average() }}
  {{ at('LR1',3) }}
  LD.MULT R0 LR1 {{ cr.norm }} ;;
  {{ vec() }}
@@ -159,15 +165,10 @@ refine:
  {{ save(12,2,true) }}
  BNE LR4 CR0 refine ;;
  SET LR5 CR0 ;;
- {{ at('LR9',32) }}{{ at('LR7',3) }}{{ at('LR10',4) }}
+ {{ at('LR9',32) }}{{ at('LR10',4) }}
 normalize:
- SET LR4 CR0 ;;
  {{ vec(first=true,s='CR0') }}
-weight:
- LD.MULT.CYCLIC LR10 {{ cr.norm }} LR0 ;;
- {% for n in [12,13] %}{{ load(n) }}{{ mul() }}{% endfor %}
- INC LR10 1 ; INC LR4 1 ;;
- BLT.S LR4 LR7 weight ;;
+ {{ norm_products([12,13]) }}
  {{ save(20,3) }}
  LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;
  INC LR9 1 ;;
