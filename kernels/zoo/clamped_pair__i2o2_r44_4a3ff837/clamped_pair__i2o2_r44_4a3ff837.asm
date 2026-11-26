@@ -61,7 +61,6 @@ skip_batch_{{ tag }}:
 {% endif %}
 {% endmacro %}
 
-{# Generate binary coefficients, keeping a rounded high part and residual. #}
 {% macro coefficient(tag) %}
     SET LR12 CR0 ; SET LR15 LR8 ; MULT.VE LR0 CR0 0 LR0 {{ one }} {{ qi }} ; ACC.ADD.FIRST ;;
 weight_{{ tag }}:
@@ -129,7 +128,6 @@ exponent:
 {% endfor %}
 rounded:
     SUB LR13 LR3 LR10 ;;
-    {# 1-t rounds to an even multiple of 2 fixed-point ticks above 0.5. #}
     BLT.S LR13 LR4 weight_a_ready ;;
     SET LR9 LR13 ;;
     INC.MODP2 LR9 CR0 2 ;;

@@ -120,6 +120,5 @@ def reference(module, *ins, _round=None, **params):
     return {"out0": _out(op0, [1, 32, 224, 224])}
 # ---- end of the frozen reference ----
 
-
 def fold(module, **params):
     return {}
