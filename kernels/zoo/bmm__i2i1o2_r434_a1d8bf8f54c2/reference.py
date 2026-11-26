@@ -49,9 +49,9 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.matmul.default(_v(ins[0], [4, 4, 64, 64], [16384, 4096, 64, 1], 0), _v(ins[1], [4, 4, 64, 48], [36864, 48, 576, 1], 384))
+    r0 = aten.matmul.default(_v(ins[0], [4, 4, 256, 256], [262144, 65536, 256, 1], 0), _v(ins[1], [4, 4, 256, 36], [110592, 36, 432, 1], 288))
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [4, 4, 64, 48])}
+    return {"out0": _out(op0, [4, 4, 256, 36])}
 # ---- end of the frozen reference ----
 
 

@@ -1,7 +1,6 @@
 [kernel]
 op = "bmm"
 formats = ["e2", "e3"]
-
 [params]
 b = {type="int", min=1, max=65535, default=16}
 k = {type="int", min=1, max=65535, default=64}
@@ -18,7 +17,6 @@ out0_d0 = {type="int", min=1, max=65535, default=4}
 out0_d1 = {type="int", min=1, max=65535, default=4}
 out0_d2 = {type="int", min=1, max=65535, default=64}
 out0_d3 = {type="int", min=1, max=65535, default=48}
-
 [inputs.in0]
 shape = ["in0_d0*in0_d1*in0_d3*astride", 128]
 range = [0, 1]
@@ -27,7 +25,6 @@ shape = ["in1_d0", "in1_d2", "bc*128"]
 range = [-1, 1]
 [outputs.out0]
 shape = ["out0_d0", "out0_d1", "out0_d3", "ceil(out0_d2/128)*128"]
-
 [derived]
 astride = "ceil(in0_d2/128)"
 bc = "ceil(in1_d1/128)"
@@ -39,7 +36,6 @@ correction = "(in1_d2*min(in1_d0-1,1)-heads*n)*bc"
 ds = "ds(128)+65536*ds((m-1)%128+1)"
 stride = "bc+65536*astride"
 a_head_rows = "in0_d3*astride"
-
 [abi]
 in0 = "CR2"
 in1 = "CR3"
@@ -58,5 +54,4 @@ heads = "CR15"
 groups = "LR11"
 correction = "LR1"
 head_offset = "LR7"
-
 [cases.default]
