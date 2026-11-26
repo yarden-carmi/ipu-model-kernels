@@ -19,15 +19,15 @@
  MULT.RC.VV {{ slot }} R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if first %}.FIRST{% endif %} ;;
 {% endmacro %}
 // Preserve accumulator precision across scratch stores by saving residuals.
-{% macro split(reg,count) %}
+{% macro split(reg,count,dec=false) %}
  ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} {{ reg }} ;;
  {% for p in range(count-1) %}
  LD.MULT R0 {{ reg }} {{ cr.tmp }} ;;
  MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB ; INC {{ reg }} 1 ;;
- ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} {{ reg }} ;;
+ ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} {{ reg }}{% if dec and loop.last %} ; DEC LR4 1{% endif %} ;;
  {% endfor %}
 {% endmacro %}
-{% macro save(n,count=2) %}{{ at('LR1',n) }}{{ split('LR1',count) }}{% endmacro %}
+{% macro save(n,count=2,dec=false) %}{{ at('LR1',n) }}{{ split('LR1',count,dec) }}{% endmacro %}
 {% macro average(label) %}
  {{ save(0,3) }}
  {% for p in range(3) %}
@@ -156,21 +156,18 @@ refine:
  {{ vec(first=loop.first) }}{{ vec(s=cr.half) }}
  {% endfor %}
  {% for n in [18,19] %}{{ load(n) }}{{ vec('SUB',s=cr.half) }}{% endfor %}
- {{ save(12) }}
- DEC LR4 1 ;;
+ {{ save(12,2,true) }}
  BNE LR4 CR0 refine ;;
  SET LR5 CR0 ;;
  {{ at('LR9',32) }}{{ at('LR7',3) }}{{ at('LR10',4) }}
 normalize:
+ SET LR4 CR0 ;;
  {{ vec(first=true,s='CR0') }}
- {{ load(12,true) }}
- {{ at('LR1',13) }}
- LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR3 ;;
- {% for i in range(3) %}
- LD.MULT R0 LR10 {{ cr.norm }} ;;
- {{ mul() }}{{ mul(slot='LR3') }}
- INC LR10 1 ;;
- {% endfor %}
+weight:
+ LD.MULT.CYCLIC LR10 {{ cr.norm }} LR0 ;;
+ {% for n in [12,13] %}{{ load(n) }}{{ mul() }}{% endfor %}
+ INC LR10 1 ; INC LR4 1 ;;
+ BLT.S LR4 LR7 weight ;;
  {{ save(20,3) }}
  LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;
  INC LR9 1 ;;
