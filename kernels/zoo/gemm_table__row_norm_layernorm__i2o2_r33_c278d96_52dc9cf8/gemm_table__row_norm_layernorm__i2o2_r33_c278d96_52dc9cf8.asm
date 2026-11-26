@@ -54,12 +54,8 @@
 {% endmacro %}
 {% macro product(a,b,na,nb) %}
  {% for i in range(na) %}
-  {{ load(a+i,true) }}
-  {{ at('LR1',b) }}
-  {% for j in range(nb) %}
-  LD.MULT R0 LR1 {{ cr.tmp }} ;;
-  MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if i==0 and j==0 %}.FIRST{% endif %}{% if not loop.last %} ; INC LR1 1{% endif %} ;;
- {% endfor %}
+ {{ load(a+i,true) }}
+ {% for j in range(nb) %}{{ load(b+j) }}{{ mul(i==0 and j==0) }}{% endfor %}
  {% endfor %}
 {% endmacro %}
 {% macro coeff() %}LD.MULT.CYCLIC LR5 {{ cr.coeff }} LR0 ; INC LR5 1{% endmacro %}
@@ -149,7 +145,9 @@ variance_tail:
  {{ save(9,3) }}
  {{ at('LR1',13) }}{{ vec(first=true,s='CR0') }}
  ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
+ {{ at('LR4',2) }}
 // Newton refinement: y <- 1.5*y - 0.5*v*y^3.
+refine:
  {{ product(12,12,2,2) }}{{ save(14) }}
  {{ product(9,14,3,2) }}{{ save(16) }}
  {{ product(12,16,2,2) }}{{ save(18) }}
@@ -159,6 +157,8 @@ variance_tail:
  {% endfor %}
  {% for n in [18,19] %}{{ load(n) }}{{ vec('SUB',s=cr.half) }}{% endfor %}
  {{ save(12) }}
+ DEC LR4 1 ;;
+ BNE LR4 CR0 refine ;;
  SET LR5 CR0 ;;
  {{ at('LR9',32) }}{{ at('LR7',3) }}{{ at('LR10',4) }}
 normalize:
