@@ -138,20 +138,14 @@ transpose_tile:
  SET LR12 CR0 ; SET LR13 CR0 ; SET LR14 CR0 ;;
  SET LR15 CR0 ;;
  SET LR7 CR0 ; SET LR8 CR0 ;;
- INC LR8 128 ;;
+ {% set n = [128,out0_d2*out0_d3]|min %}
+ {{ step('LR8',n) }}
  MULT.VE LR0 CR0 0 LR14 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ;;
 transpose_lane_{{ name }}:
  LD.MULT R0 LR5 {{ base }} ;;
- MULT.EE LR1 CR1 0 LR14 {{ ds }} {{ qi }} ; ACC.RESHAPE LRD14 LRD12 0 ;;
- ADDBI LRD12 1 ; INC LR5 {{ oc }} ; INC LR4 1 ;;
- INC LR7 1 ;;
- {% if out0_d2 * out0_d3 < 128 %}
- SET LR6 CR0 ;;
- {{ step('LR6',out0_d2 * out0_d3) }}
- BLT.S LR4 LR6 transpose_lane_{{ name }} ;;
- {% else %}
- BLT.S LR7 LR8 transpose_lane_{{ name }} ;;
- {% endif %}
+ MULT.EE LR1 CR1 0 LR14 {{ ds }} {{ qi }} ; ACC.RESHAPE LRD14 LRD12 0 ; INC LR5 {{ oc }} ; INC LR7 1 ;;
+ ADDBI LRD12 1 ; BLT.S LR7 LR8 transpose_lane_{{ name }} ;;
+ {{ step('LR4',n) }}
 {% endmacro %}
  {{ scatter('high',cr.tmp) }}
  SET LR6 CR0 ;;
