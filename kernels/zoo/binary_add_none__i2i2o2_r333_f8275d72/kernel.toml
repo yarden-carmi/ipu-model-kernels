@@ -74,6 +74,7 @@ step_lane = "out0_d0 * out0_d1 % in0_d2"
 dims = "out0_d0 + 65536 * out0_d1"
 scalar = "ds(1) + 65536 * ds(0)"
 tail = "ds(((out0_d1 * out0_d2 - 1) % 128) + 1) + 65536 * (ceil(out0_d1 / 256) * 2 * out0_d2 - ceil(out0_d1 * out0_d2 / 128))"
+outdim = "out0_d2 + 65536 * 127"
 
 [inputs.in0]
 shape = ["in0_d0", "in0_d1", "ceil(in0_d2 / 128) * 128"]
@@ -96,7 +97,7 @@ step_row = "CR9"
 step_lane = "CR10"
 dims = "CR11"
 tail = "CR12"
-out0_d2 = "CR13"
+outdim = "CR13"
 scalar = "CR14"
 
 [cases.default]

@@ -12,15 +12,15 @@ origin:
     BLT.S LR5 {{ cr.span }}.L row ;;
     SUB LR5 LR5 {{ cr.span }}.L ; ADD LR4 LR4 {{ cr.span }}.H ; B origin ;;
 row:
-    SET LR6 LR4 ; SET LR7 LR5 ; SET LR12 {{ cr.out0_d2 }} ;;
+    SET LR6 LR4 ; SET LR7 LR5 ; SET LR12 {{ cr.outdim }}.L ;;
 chunk:
     INC LR3 1 ; SET LR11 LR13 ;;
     LD.MULT R1 LR3 {{ cr.in1 }} ; ADD LR8 LR13 LR13 ;;
 gather:
-    BLT.S LR7 {{ cr.span }}.L locate ;;
+    SET LR9 LR7 ; SET LR10 LR6 ; BLT.S LR7 {{ cr.span }}.L locate ;;
     SUB LR7 LR7 {{ cr.span }}.L ; ADD LR6 LR6 {{ cr.span }}.H ;;
-locate:
     SET LR9 LR7 ; SET LR10 LR6 ;;
+locate:
 {% set input_blocks = (in0_d2 + 127) // 128 %}
 {% if input_blocks <= 32 %}
     {% for b in range(input_blocks - 1) %}
@@ -37,8 +37,7 @@ load:
     MULT.EE LR9 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; AGG.SUM.FIRST LR2 {{ cr.scalar }}.L ;;
     MULT.EE LR11 CR1 0 LR0 CR15.L {{ cr.qf_in1 }}.L ; AGG.SUM LR2 {{ cr.scalar }}.L ;
     ADD LR6 LR6 {{ cr.step_row }} ; ADD LR7 LR7 {{ cr.step_lane }} ; DEC LR12 1 ;;
-    INC LR2 1 ; INC LR11 1 ;;
-    BNE LR2 LR13 advance ;;
+    INC LR2 1 ; INC LR11 1 ; BNE LR2 {{ cr.outdim }}.H advance ;;
     {{ flush('CR15.L') }}
 advance:
     BEQ LR12 CR0 end_row ;;
