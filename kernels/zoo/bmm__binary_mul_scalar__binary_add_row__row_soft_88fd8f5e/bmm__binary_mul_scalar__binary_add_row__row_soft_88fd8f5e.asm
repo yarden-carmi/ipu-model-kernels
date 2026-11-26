@@ -2,7 +2,7 @@
 {% set d = cr.dot_and_row ~ '.H' %}
 {% set s = cr.single_and_work ~ '.L' %}
 {% set w = cr.single_and_work ~ '.H' %}
-{% set q = cr.qf_operand ~ '.L' %}
+{% set q = cr.qf_out0 ~ '.L' %}
 {% set t = cr.tmp %}
 
 {% macro next_head(label) %}
@@ -11,6 +11,11 @@
     DEC LR2 128 ; INC LR1 1 ; B {{ label }} ;;
 {% endmacro %}
 
+    SET LR0 CR0 ; SET LR4 CR0 ;;
+convert_loop:
+    LD.MULT R0 LR4 {{ cr.operand }} ;;
+    MULT.VE LR0 CR1 0 LR0 {{ d }} {{ cr.qf_operand }}.L ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ d }} {{ q }} {{ cr.converted }} LR4 ;;
+    INC LR4 1 ; BNE LR4 LR5 convert_loop ;;
     SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
     SET LR6 CR0 ; SET LR9 LR3 ; SET LR13 CR0 ;;
     INC LR13 128 ;;
@@ -19,8 +24,8 @@ pack_head:
     SET LR4 LR1 ; SET LR5 {{ cr.s0_n }} ;;
 pack_row:
     LD.MULT.CYCLIC LR4 {{ cr.in1 }} LR0 ;;
-    MULT.RC.VE LR2 CR1 0 LR0 {{ kd }} {{ cr.qf_in1 }}.L ; ACC.ADD.FIRST ;
-    ACTIVATE.QUANTIZE identity {{ kd }} {{ cr.qf_in1 }}.L {{ cr.packed }} LR6 ;;
+    MULT.RC.VE LR2 CR1 0 LR0 {{ kd }} {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;
+    ACTIVATE.QUANTIZE identity {{ kd }} {{ cr.qf_in0 }}.L {{ cr.packed }} LR6 ;;
     INC LR6 1 ; ADD LR4 LR4 LR7 ; DEC LR5 1 ; BNE LR5 CR1 pack_row ;;
     {{ next_head('pack_head') }}
 pack_head_done:
@@ -28,8 +33,8 @@ pack_head_done:
     SET LR6 CR0 ; SET LR5 LR8 ; SET LR9 CR0 ;;
     SET LR4 LR14 ;;
     INC LR4 128 ;;
-    LD.MULT.CYCLIC LR0 {{ cr.operand }} LR13 ;;
-    SET LR12 CR1 ; LD.MULT.CYCLIC LR12 {{ cr.operand }} LR14 ;;
+    LD.MULT.CYCLIC LR0 {{ cr.converted }} LR13 ;;
+    SET LR12 CR1 ; LD.MULT.CYCLIC LR12 {{ cr.converted }} LR14 ;;
 
 compute_head:
     SET LR7 LR1 ; SET LR8 LR5 ; SET LR12 CR1 ;;
@@ -44,8 +49,10 @@ dot_loop:
     ACTIVATE.QUANTIZE identity {{ d }} {{ q }} {{ t }} LR0 ;;
 
     LD.MULT R0 LR0 {{ t }} ; SET LR10 CR1 ;;
-    INC LR10 1 ; LD.MULT.CYCLIC LR10 {{ cr.operand }} LR4 ;;
-    MULT.RC.VV LR4 R0 0 LR0 {{ d }} {{ q }} ; ACC.ADD.FIRST ; LD.MULT R0 LR12 {{ cr.operand }} ;;
+    INC LR10 1 ; LD.MULT.CYCLIC LR10 {{ cr.converted }} LR4 ;;
+    MULT.RC.VV LR4 R0 0 LR0 {{ d }} {{ q }} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ d }} {{ q }} {{ t }} LR0 ;;
+    LD.MULT R0 LR0 {{ t }} ;;
+    MULT.VE LR0 CR1 0 LR0 {{ d }} {{ q }} ; ACC.ADD.FIRST ; LD.MULT R0 LR12 {{ cr.converted }} ;;
     MULT.VE LR0 CR1 0 LR0 {{ d }} {{ q }} ; ACC.ADD ; ACTIVATE.QUANTIZE identity {{ d }} {{ q }} {{ t }} LR0 ;;
 
     LD.MULT R0 LR0 {{ t }} ;;

@@ -45,12 +45,15 @@ shape = ["out0_d0", "out0_d1", "out0_d2", "ceil(out0_d3/128)*128"]
 shape = ["s0_b*s0_n", 128]
 [scratch.tmp]
 shape = [1, 128]
+[scratch.converted]
+shape = ["3+s2_inner//s3_n", 128]
 
 [derived]
 dot_and_row = "ds(s0_k) + 65536*ds(s3_n)"
-single_and_work = "ds(1) + 65536*40"
+single_and_work = "ds(1) + 65536*56"
 arows = "ceil(in0_d2/128)"
 brows = "ceil(in1_d2/128)"
+operand_rows = "2+s2_inner//s3_n"
 
 [abi]
 in0 = "CR2"
@@ -60,7 +63,7 @@ out0 = "CR5"
 packed = "CR6"
 tmp = "CR7"
 qf_in0 = "CR8"
-qf_in1 = "CR9"
+converted = "CR9"
 qf_operand = "CR10"
 qf_out0 = "CR11"
 dot_and_row = "CR12"
@@ -71,5 +74,6 @@ s0_b = "LR3"
 s0_m = "LR8"
 arows = "LR15"
 brows = "LR7"
+operand_rows = "LR5"
 
 [cases.default]
