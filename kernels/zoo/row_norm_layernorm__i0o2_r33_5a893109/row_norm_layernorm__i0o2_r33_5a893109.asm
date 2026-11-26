@@ -44,13 +44,13 @@ wrapped_{{ i }}:
  # Map the dense view offset to a channel plane (LR4) and packed (t,b) offset (LR1).
  SET LR2 CR0 ; SET LR3 CR0 ; SET LR5 CR0 ;;
  SET LR6 CR0 ;;
- {{ vec('ADD.FIRST','CR0',iq) }} ; INC LR6 {{ count }} ;;
+ {{ vec('ADD.FIRST','CR0',iq) }} ; INC LR6 {{ count - 1 if (split_lane or stride == 1) else count }} ;;
+ {% if split_lane or stride == 1 %}LD.MULT R0 LR4 {{ cr.in0 }} ;;{% endif %}
 gather_{{ i }}:
  {% if split_lane or stride == 1 %}
  # LR4 already includes the packed row group. Broadcast the selected
  # input lane so the reshape source index can stay zero throughout.
- LD.MULT R0 LR4 {{ cr.in0 }} ; INC LR5 1 {% if rem %}; INC LR10 {{ rem }}{% endif %} ;;
- MULT.EE {{ 'LR8' if split_lane else 'LR1' }} CR1 0 LR0 {{ full }} {{ iq }} ; ACC.RESHAPE LRD0 LRD2 7 {% if packed_step and (split_lane or rem) %}; INC LR1 {{ packed_step }}{% endif %} {% if rem %}; ADD LR4 LR4 LR13{% endif %} ;;
+ MULT.EE {{ 'LR8' if split_lane else 'LR1' }} CR1 0 LR0 {{ full }} {{ iq }} ; ACC.RESHAPE LRD0 LRD2 7 {% if packed_step and (split_lane or rem) %}; INC LR1 {{ packed_step }}{% endif %} {% if rem %}; ADD LR4 LR4 LR13 ; INC LR10 {{ rem }}{% endif %} ;;
  {% if packed_step and not split_lane and not rem %}INC LR1 {{ packed_step }} ;;{% endif %}
  {% else %}
  SET LR8 LR1 ; SET LR0 LR4 ;;
@@ -95,7 +95,7 @@ lane_ready_{{ i }}:
  {% else %}
  {{ wrap(i) }}
  {% endif %}
- ADDBI LRD2 1 ; BLT.S LR5 LR6 gather_{{ i }} ;;
+ ADDBI LRD2 1 {% if split_lane or stride == 1 %}; INC LR5 1 ; LD.MULT R0 LR4 {{ cr.in0 }}{% endif %} ; BLT.S LR5 LR6 gather_{{ i }} ;;
 gather_done_{{ i }}:
  {{ save(2*i,2,tail if i == k-1 else full,'LR6') }}
 {% endmacro %}
