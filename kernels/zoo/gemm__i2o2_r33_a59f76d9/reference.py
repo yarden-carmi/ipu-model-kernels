@@ -49,17 +49,17 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.linear.default(_v(ins[0], [2, 512, 32], [16384, 1, 512], 0), module.weight, module.bias)
+    r0 = aten.linear.default(_v(ins[0], [2, 512, 256], [131072, 1, 512], 0), module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [2, 512, 64])}
+    return {"out0": _out(op0, [2, 512, 256])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    """Pack bias and feature coefficients into three signed radix-16 planes."""
-    weight = module.weight.detach().double()
-    n, k = weight.shape
-    bias = module.bias.detach().double() if params["bias"] else weight.new_zeros(n)
+    """Tile output channels and split coefficients into scaled radix-16 planes."""
+    n, k = int(params["n"]), int(params["k"])
+    weight = module.weight.detach().reshape(n, k).double()
+    bias = module.bias.detach().reshape(n).double() if params["bias"] else weight.new_zeros(n)
     rows = torch.cat((bias[None], weight.T), dim=0)
     rows = torch.nn.functional.pad(rows, (0, (-n) % 128))
     rows = rows.reshape(k + 1, -1, 128).transpose(0, 1)
@@ -68,5 +68,4 @@ def fold(module, **params):
     planes = [torch.ldexp(((code >> shift) & 15) * rows.sign(), exp + shift - 12)
               for shift in (8, 4, 0)]
     packed = torch.stack(planes, dim=2).reshape(-1, 128).float()
-    # The final MAC prefetches a guard row.
     return {"w": torch.nn.functional.pad(packed, (0, 0, 0, 1))}
