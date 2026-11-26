@@ -1,41 +1,52 @@
-{# Each key-channel row holds a vector of output columns. #}
+{# A row holds query features; each B row holds a tile of key tokens
+   for one feature. Broadcast from A and accumulate across features. #}
 {% macro product(first=false) %}
-    LD.MULT.CYCLIC LR7 {{ cr.in1 }} LR11 ;;
-    MULT.RC.VE LR11 LR9 0 LR11 {{ cr.ds_main }}.L {{ cr.qf_in1 }}.L ; ACC.ADD{{ '.FIRST' if first else '' }} ;;
-    INC LR9 1 ; ADD LR7 LR7 {{ cr.strides }}.H ; DEC LR10 1 ;;
+    LD.MULT.CYCLIC LR9 {{ cr.in1 }} LR0 ;;
+    MULT.RC.VE LR0 LR15 0 LR0 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD{{ '.FIRST' if first else '' }} ; DEC LR12 1 ; ADD LR9 LR9 {{ cr.brows }} ;;
 {% endmacro %}
-{% macro output(ds) %}
-    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR0 ;;
-    INC LR0 1 ;;
+{% macro store(half) %}
+    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.ds }}.{{ half }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR4 ;;
+    INC LR4 1 ;;
 {% endmacro %}
     SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
-    SET LR11 CR0 ; SET LR12 CR0 ;;
-    INC LR12 128 ;;
-group:
-    SET LR3 CR0 ; SET LR4 {{ cr.heads }}.H ;;
+    SET LR3 CR0 ; SET LR4 CR0 ; SET LR5 CR0 ;;
+    SET LR6 CR0 ;;
 head:
-    SET LR5 {{ cr.sizes }}.L ; SET LR6 LR1 ;;
+    SET LR7 LR1 ; SET LR8 {{ cr.m }} ;;
 row:
-    LD.MULT R0 LR6 {{ cr.in0 }} ;;
-    SET LR8 {{ cr.sizes }}.H ; SET LR14 LR2 ;;
+    SET LR10 CR0 ;;
 tile:
-    SET LR7 LR14 ; SET LR9 LR3 ; SET LR10 {{ cr.heads }}.L ;;
+    ADD LR9 LR3 LR10 ; SET LR11 LR7 ; SET LR12 {{ cr.k }} ;;
+    SET LR15 LR2 ; LD.MULT R0 LR11 {{ cr.in0 }} ;;
     {{ product(true) }}
-    BEQ LR10 CR0 store ;;
-channel:
+    B advance ;;
+inner:
     {{ product() }}
-    BNE LR10 CR0 channel ;;
-store:
-    BLE.S LR8 LR12 tail ;;
-    {{ output(cr.ds_main ~ '.L') }}
-    DEC LR8 128 ; INC LR14 1 ; B tile ;;
-tail:
-    {{ output(cr.ds_tail ~ '.L') }}
-    ADD LR6 LR6 {{ cr.strides }}.L ; DEC LR5 1 ; BNE LR5 CR1 row ;;
-    ADD LR2 LR2 {{ cr.key_head }} ; ADD LR3 LR3 {{ cr.heads }}.L ;;
-    BLT.S LR3 LR12 next_head ;;
-    DEC LR3 128 ; INC LR1 1 ;;
-next_head:
-    DEC LR4 1 ; BNE LR4 CR1 head ;;
-    ADD LR1 LR1 {{ cr.a_gap }} ; ADD LR2 LR2 {{ cr.b_gap }} ; DEC LR13 1 ; BNE LR13 CR1 group ;;
+advance:
+    BEQ LR12 CR0 store_tile ; INC.MODP2 LR15 CR1 7 ;;
+    BNE LR15 CR0 inner ;;
+    INC LR11 1 ;;
+    LD.MULT R0 LR11 {{ cr.in0 }} ;;
+    B inner ;;
+store_tile:
+    INC LR10 1 ;;
+    BLT.S LR10 {{ cr.tiles }} full ;;
+    {{ store('H') }}
+    ADD LR7 LR7 {{ cr.arows }} ; DEC LR8 1 ; BNE LR8 CR1 row ;;
+    INC LR5 1 ;;
+    BEQ LR5 {{ cr.heads }} done ;;
+    SUB LR3 LR9 LR10 ; INC LR6 1 ; ADD LR2 LR2 {{ cr.k }} ;;
+    INC LR3 1 ; SET LR11 CR0 ;;
+    INC LR11 128 ;;
+normalize:
+    BLT.S LR2 LR11 normalized ;;
+    SUB LR2 LR2 LR11 ; INC LR1 1 ; B normalize ;;
+normalized:
+    BLT.S LR6 {{ cr.out0_d1 }} head ;;
+    ADD LR1 LR1 LR14 ; ADD LR3 LR3 LR13 ; SET LR6 CR0 ;;
+    SET LR2 CR0 ; B head ;;
+full:
+    {{ store('L') }}
+    B tile ;;
+done:
     HALT ;;
