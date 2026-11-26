@@ -7,7 +7,6 @@
 
     SET LR0 CR0 ; SET LR5 CR0 ; BEQ {{ cr.tail_lanes }} CR0 uniform ;;
     BEQ {{ cr.full_chunks }} CR0 uniform ;;
-// Mixed-width pixels: complete channel chunks, then one padded chunk.
 pixel:
     SET LR6 {{ cr.full_chunks }} ;;
 full:
@@ -17,8 +16,6 @@ full:
     {{ add_row(cr.tail_mask) }}
     BLT.S LR5 {{ cr.rows }} pixel ;;
     HALT ;;
-
-// All rows use the same mask, including exact multiples of 128.
 uniform:
     {{ add_row(cr.tail_mask) }}
     BLT.S LR5 {{ cr.rows }} uniform ;;
