@@ -62,6 +62,7 @@ def reference(module, *ins, _round=None, **params):
     return {"out0": _out(op2, [1, 96, 32, 32])}
 # ---- end of the frozen reference ----
 
+
 def fold(module, **params):
     import numpy as np
     w = module.op0_weight.double()
@@ -88,4 +89,15 @@ def fold(module, **params):
     rows = rows.reshape(-1, chunks, 128).transpose(1, 0, 2)
     step = np.exp2(np.frexp(np.max(np.abs(rows), axis=-1, keepdims=True))[1] - 6.)
     hi = np.sign(rows) * np.minimum(np.floor(np.abs(rows) / step + 0.5), 63) * step
+    if groups != cin or groups != cout:
+        parts = [hi[:, :1], rows[:, :1] - hi[:, :1]]
+        for t in range(kh * kw):
+            for c in range((cin + 127)//128):
+                n = min(128, cin - 128*c)
+                single = (3*n)//4 if t % kw == kw - 1 else 0
+                start = 1 + t*cin + 128*c
+                parts.append(rows[:, start:start+single])
+                sl = slice(start+single, start+n)
+                parts.append(np.stack((hi[:, sl], rows[:, sl] - hi[:, sl]), axis=2).reshape(chunks, -1, 128))
+        return {'weights': np.concatenate(parts, axis=1).reshape(-1, 128)}
     return {'weights': np.stack((hi, rows - hi), axis=-2).reshape(-1, 128)}

@@ -71,21 +71,38 @@ pixel:
  MULT.RC.VE LR1 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; SET LR9 CR0 ; SET LR12 CR0 ;;
  INC LR12 {{ kh }} ;;
 kernel_y:
-{% macro dense_tap(x,c) %}
- {% set lanes = [128,cin-128*c]|min %}
- SET LR14 CR0 ; SET LR15 CR0 ; LD.MULT R0 LR4 {{ cr.pad }} ; INC LR4 1 ;;
- DEC LR14 1 ; INC LR15 {{ lanes }} ; LD.MULT.CYCLIC LR13 {{ cr.weights }} LR0 ;;
- LD.MULT.CYCLIC LR13 {{ cr.weights }} LR1 ; INC LR13 1 ;;
- {% if lanes > 1 %}
- DEC LR15 2 ;;
-scalar_{{ x }}_{{ c }}:
- MULT.RC.VE LR0 LR14 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; INC LR14 1 ; LD.MULT.CYCLIC LR13 {{ cr.weights }} LR0 ; INC LR13 1 ;;
- MULT.RC.VE LR1 LR14 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; LD.MULT.CYCLIC LR13 {{ cr.weights }} LR1 ; INC LR13 1 ; BLT.S LR14 LR15 scalar_{{ x }}_{{ c }} ;;
- {% endif %}
- MULT.RC.VE LR0 LR14 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; INC LR14 1 ; INC LR13 1 ;;
- MULT.RC.VE LR1 LR14 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ;;
+{% macro dense_tap(x,c,start,lanes,single) %}
+  {% if not single %}
+  SET LR14 CR0 ; SET LR15 CR0 ; LD.MULT R0 LR4 {{ cr.pad }} ; INC LR4 1 ;;
+  {% if start %} INC LR14 {{ start }} ;; {% endif %}
+  DEC LR14 1 ; INC LR15 {{ start+lanes }} ; LD.MULT.CYCLIC LR13 {{ cr.weights }} LR0 ;;
+  LD.MULT.CYCLIC LR13 {{ cr.weights }} LR1 ; INC LR13 1 ;;
+  {% if lanes > 1 %}
+  DEC LR15 2 ;;
+scalar_{{ x }}_{{ c }}_dual:
+  MULT.RC.VE LR0 LR14 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; INC LR14 1 ; LD.MULT.CYCLIC LR13 {{ cr.weights }} LR0 ; INC LR13 1 ;;
+  MULT.RC.VE LR1 LR14 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; LD.MULT.CYCLIC LR13 {{ cr.weights }} LR1 ; INC LR13 1 ; BLT.S LR14 LR15 scalar_{{ x }}_{{ c }}_dual ;;
+  {% endif %}
+  MULT.RC.VE LR0 LR14 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; INC LR14 1 ; INC LR13 1 ;;
+  MULT.RC.VE LR1 LR14 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ;;
+  {% else %}
+  SET LR14 CR0 ; SET LR15 CR0 ; LD.MULT R0 LR4 {{ cr.pad }} ; INC LR4 1 ;;
+  {% if start %} INC LR14 {{ start }} ;; {% endif %}
+  DEC LR14 1 ; INC LR15 {{ start+lanes }} ; DEC LR13 1 ;;
+  DEC LR15 3 ; LD.MULT.CYCLIC LR13 {{ cr.weights }} LR0 ; INC LR13 1 ;;
+  {% if lanes > 1 %}
+scalar_{{ x }}_{{ c }}_single:
+  MULT.RC.VE LR0 LR14 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; LD.MULT.CYCLIC LR13 {{ cr.weights }} LR0 ; INC LR13 1 ; INC LR14 1 ; BLT.S LR14 LR15 scalar_{{ x }}_{{ c }}_single ;;
+  {% endif %}
+  MULT.RC.VE LR0 LR14 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; INC LR13 1 ; INC LR14 1 ;;
+  {% endif %}
 {% endmacro %}
-{% for x in range(kw) %}{% for c in range(ic) %}{{ dense_tap(x,c) }}{% endfor %}{% endfor %}
+{% for x in range(kw) %}{% for c in range(ic) %}
+{% set n = [128,cin-128*c]|min %}
+{% set s = (3*n)//4 if x == kw-1 else 0 %}
+{% if s %}{{ dense_tap(x,c,0,s,true) }} DEC LR4 1 ;;{% endif %}
+{% if n-s %}{{ dense_tap(x,c,s,n-s,false) }}{% endif %}
+{% endfor %}{% endfor %}
  ADD LR4 LR4 {{ cr.window_jump }} ; INC LR9 1 ;;
  BLT.S LR9 LR12 kernel_y ;;
 {% endif %}
