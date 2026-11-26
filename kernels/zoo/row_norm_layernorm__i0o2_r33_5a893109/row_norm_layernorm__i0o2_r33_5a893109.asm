@@ -37,7 +37,11 @@
 wrap_{{ i }}:
  BLT.S LR1 {{ cr.plane }} wrapped_{{ i }} ;;
  SUB LR1 LR1 {{ cr.plane }} ;;
+ {% if packed_step + in0_d0 < plane %}
+ INC LR1 1 ;;
+ {% else %}
  INC LR1 1 ; B wrap_{{ i }} ;;
+ {% endif %}
 wrapped_{{ i }}:
 {% endmacro %}
 {% macro gather(i,count) %}
@@ -47,17 +51,28 @@ wrapped_{{ i }}:
  {{ vec('ADD.FIRST','CR0',iq) }} ;;
 gather_{{ i }}:
  SET LR8 LR1 ; SET LR0 LR4 ;;
+ {% if stride <= 8 %}
+ {% for group in range(stride-1) %}
+ BLT.S LR8 LR15 load_{{ i }} ;;
+ DEC LR8 128 ; INC LR0 1 ;;
+ {% endfor %}
+ {% else %}
 group_{{ i }}:
  BLT.S LR8 LR15 load_{{ i }} ;;
  DEC LR8 128 ; INC LR0 1 ; B group_{{ i }} ;;
+ {% endif %}
 load_{{ i }}:
- LD.MULT R0 LR0 {{ cr.in0 }} ;;
- SET LR0 CR0 ;;
- MULT.VE LR8 CR1 0 LR0 {{ full }} {{ iq }} ; ACC.RESHAPE LRD0 LRD2 7 ; INC LR5 1 ;;
- {% if i == k-1 %}BEQ LR5 LR6 gather_done_{{ i }} ;;{% endif %}
+ LD.MULT R0 LR0 {{ cr.in0 }} ; INC LR5 1 ;;
+ {% if packed_step <= 1023 %}
+ MULT.VE LR8 CR1 0 LR0 {{ full }} {{ iq }} ; ACC.RESHAPE LRD0 LRD2 7 ; SET LR0 CR0 ; INC LR1 {{ packed_step }} ;;
+ {% else %}
+ MULT.VE LR8 CR1 0 LR0 {{ full }} {{ iq }} ; ACC.RESHAPE LRD0 LRD2 7 ; SET LR0 CR0 ;;
+ {% endif %}
+ {% if packed_step > 1023 %}
  {% for offset in range(0, packed_step, 1023) %}
  INC LR1 {{ [packed_step - offset, 1023] | min }} ;;
  {% endfor %}
+ {% endif %}
  {% if rem %}
  INC LR10 {{ rem }} ; ADD LR4 LR4 LR13 ;;
  BLT.S LR10 LR11 wrap_{{ i }} ;;
