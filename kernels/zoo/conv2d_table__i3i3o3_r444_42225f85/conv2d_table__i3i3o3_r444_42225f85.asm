@@ -164,7 +164,7 @@ stage_taps:
  LD.MULT R1 LR2 {{ cr.weights }} ; INC LR2 1 ; DEC LR3 1 ; INC LR15 127 ;;
  {% for k in range(n) %}
  {% for t in range(9) %}
- {% if t in ([1, 3, 4] if area >= 512 else [3]) %}
+{% if t == 3 %}
  MULT.RC.VE LR0 LR15 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ; INC LR15 1 ;;
  {% endif %}
  MULT.RC.VE LR0 LR3 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ; INC LR3 1 ; LD.MULT.CYCLIC LR1 {{ cr.pad }} LR0 ; INC LR1 1{% if again and k == n-1 and t == 8 %} ; INC LR8 1 ; BLT.S LR8 LR9 coeff_block{% endif %} ;;

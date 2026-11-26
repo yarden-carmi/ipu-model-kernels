@@ -128,7 +128,7 @@ def fold(module, **params):
     block = 3 if area >= 512 else 14
 
     def residual(t):
-        return np.isin(t, (1, 3, 4) if area >= 512 else (3,))
+        return t == 3
 
     factors = np.arange(1024, 2017) / 1024
     for bv, taps in zip(b, w):
