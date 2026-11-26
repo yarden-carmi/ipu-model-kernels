@@ -32,7 +32,7 @@ stage_plane:
  DEC LR9 1 ;;
  {{ zeros('left',padding*pc) }}
  SET LR6 CR0 ; SET LR11 CR0 ; LD.MULT R0 LR10 {{ cr.in0 }} ;;
- {{ step('LR11',in0_d2*pc-2) }}
+ SET LR11 {{ cr.copy_end }} ;;
 {% if in0_d2*pc > 1 %}
 copy_x:
  {{ pad_store('CR1') }} ; LD.MULT R0 LR10 {{ cr.in0 }} ; INC LR6 1 ; INC LR10 {{ ic if dw else 1 }} ; BLT.S LR6 LR11 copy_x ;;
@@ -43,7 +43,7 @@ output_chunk:
  SET LR5 CR0 ; SET LR6 CR0 ; SET LR10 CR0 ;;
  SET LR8 LR2 ;;
  DEC LR5 1 ; DEC LR8 {{ oc }} ;;
- {{ step('LR10',out0_d2-1) }}
+ SET LR10 {{ cr.pixel_end }} ;;
 pixel:
  SET LR4 LR5 ; SET LR13 LR3 ; LD.MULT.CYCLIC LR13 {{ cr.weights }} LR0 ;;
  LD.MULT.CYCLIC LR13 {{ cr.weights }} LR1 ; INC LR13 1 ;;

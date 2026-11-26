@@ -26,6 +26,8 @@ dw = "1 - min(1, max(cin - groups, groups - cin, cout - groups, groups - cout))"
 pc = "dw + (1 - dw) * ic"
 weight_block = "2 + 2 * kw * (dw + (1 - dw) * cin)"
 ds128 = "ds(128)"
+copy_end = "in0_d2 * pc - 2"
+pixel_end = "out0_d2 - 1"
 [inputs.in0]
 shape = ["in0_d0", "in0_d2", "ic", 128]
 range = [-2, 2]
@@ -50,6 +52,8 @@ qf_weights = "CR8"
 qf_out0 = "CR9"
 ds128 = "CR10"
 weight_block = "CR14"
+copy_end = "CR11"
+pixel_end = "CR12"
 [golden]
 tolerance = {e1="NX8_STEP", e2="NX8_STEP"}
 [cases.default]
