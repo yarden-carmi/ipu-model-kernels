@@ -1,7 +1,6 @@
 {% set rem = m % 128 %}
 {% set aligned = rem == 0 or m == 64 %}
 {% set act = 'generic' if act_out0 == 'silu' else act_out0 %}
-
 {% macro store(fn, ds) %}
     ACTIVATE.QUANTIZE {{ fn }} {{ ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR2
 {%- endmacro %}
@@ -10,9 +9,6 @@
     MULT.VE LR0 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in1 }}.L ; ACC.ADD.FIRST ; {{ store('identity', ds) }} {% if full_tile %}; DEC LR4 1{% endif %} ;;
     INC LR2 1 {% if full_tile %}; BNE LR4 CR0 copy_tile{% endif %} ;;
 {% endmacro %}
-
-# Keep the coarse and residual coefficients for 16 taps resident
-# while streaming spatial windows through the cyclic register.
 {% macro group(tag, count, repeat) %}
 {{ tag }}_group:
     LD.MULT R0 LR3 {{ cr.coeff }} ; SET LR8 LR0 ; SET LR9 LR11 ;;
@@ -51,7 +47,6 @@
 {% endif %}
 {% endfor %}
 {% endmacro %}
-
     SET LR0 CR0 ; SET LR2 CR0 ; SET LR7 CR0 ;;
     SET LR11 CR0 ; SET LR12 CR0 ; SET LR15 {{ cr.n }} ;;
     INC LR11 128 ; INC LR12 64 ;;
@@ -60,7 +55,6 @@
     INC LR0 1 ;;
 {% endfor %}
     SET LR0 CR0 ;;
-
 copy_feature:
     SET LR4 {{ cr.tiles }} ;;
 {% if m >= 128 %}
