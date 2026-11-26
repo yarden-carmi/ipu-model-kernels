@@ -55,7 +55,9 @@ gather_{{ i }}:
  {% if split_lane or stride == 1 %}
  # LR4 already includes the packed row group. Broadcast the selected
  # input lane so the reshape source index can stay zero throughout.
- MULT.EE {{ 'LR8' if split_lane else 'LR1' }} CR1 0 LR0 {{ full }} {{ iq }} ; ACC.RESHAPE LRD0 LRD2 7 {% if packed_step and (split_lane or rem) %}; INC LR1 {{ packed_step }}{% endif %} {% if rem %}; ADD LR4 LR4 LR13 ; INC LR10 {{ rem }}{% endif %} ;;
+  # LR10 carries the channel remainder one step ahead so the branch can
+  # test the crossing while this word gathers the current element.
+  MULT.EE {{ 'LR8' if split_lane else 'LR1' }} CR1 0 LR0 {{ full }} {{ iq }} ; ACC.RESHAPE LRD0 LRD2 7 {% if packed_step and (split_lane or rem) %}; INC LR1 {{ packed_step }}{% endif %} {% if rem %}; ADD LR4 LR4 LR13 ; INC LR10 {{ rem }} ; BLT.S LR10 LR11 {% if split_lane %}lane_step_{{ i }}{% elif not packed_step %}gather_continue_{{ i }}{% else %}wrap_{{ i }}{% endif %}{% endif %} ;;
  {% if packed_step and not split_lane and not rem %}INC LR1 {{ packed_step }} ;;{% endif %}
  {% else %}
  SET LR8 LR1 ; SET LR0 LR4 ;;
@@ -83,15 +85,16 @@ load_{{ i }}:
  {% endif %}
  {% endif %}
  {% if rem %}
- {% if not (split_lane or stride == 1) %}INC LR10 {{ rem }} ; ADD LR4 LR4 LR13 ;;{% endif %}
-  {% if split_lane and packed_step %}INC LR8 {{ packed_step }} ; {% endif %}BLT.S LR10 LR11 {% if split_lane %}lane_check_{{ i }}{% elif stride == 1 and not packed_step %}gather_continue_{{ i }}{% else %}wrap_{{ i }}{% endif %} ;;
+  {% if not (split_lane or stride == 1) %}
+  INC LR10 {{ rem }} ; ADD LR4 LR4 LR13 ;;
+  BLT.S LR10 LR11 wrap_{{ i }} ;;
+  {% endif %}
  SUB LR10 LR10 LR11 ; SUB LR4 LR4 {{ cr.span }} ; ADD LR1 LR1 LR14 ;;
  {% if split_lane %}ADD LR8 LR8 LR14 ;;{% endif %}
- {% endif %}
- {% if split_lane %}
- {% if not rem and packed_step %}INC LR8 {{ packed_step }} ;;{% endif %}
-lane_check_{{ i }}:
-  BLT.S LR8 LR15 lane_ready_{{ i }} ;;
+  {% endif %}
+  {% if split_lane %}
+ lane_step_{{ i }}:
+   {% if packed_step %}INC LR8 {{ packed_step }} ; {% endif %}BLT.S LR8 LR15 lane_ready_{{ i }} ;;
   BLT.S LR1 {{ cr.plane_pair }}.L lane_adjust_{{ i }} ;;
   SUB LR1 LR1 {{ cr.plane_pair }}.H ; INC LR8 1 ; DEC LR4 {{ stride }} ;;
 lane_adjust_{{ i }}:
@@ -160,10 +163,15 @@ start_group:
  BLT.S LR8 LR15 start_group_done ;;
  DEC LR8 128 ; INC LR4 1 ; B start_group ;;
  start_group_done:
+  # Test the old lane against a reduced bound in the same word that
+  # advances it. Restore the full bound before the normalization pass.
+  {% if packed_step %}DEC LR15 {{ packed_step }} ;;{% endif %}
  {% else %}
  SET LR0 CR0 ;;
  {% endif %}
-  {% for i in range(k) %}{{ gather(i,128 if not loop.last else channels-128*i) }}{% endfor %}
+   {% if rem and (split_lane or stride == 1) %}INC LR10 {{ rem }} ;;{% endif %}
+   {% for i in range(k) %}{{ gather(i,128 if not loop.last else channels-128*i) }}{% endfor %}
+   {% if split_lane and packed_step %}INC LR15 {{ packed_step }} ;;{% endif %}
 
   # Frequently used scratch offsets, kept live only after the gather.
   SET LR1 CR0 ; SET LR2 CR0 ; SET LR3 CR0 ;;
