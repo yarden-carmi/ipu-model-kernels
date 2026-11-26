@@ -66,6 +66,7 @@ def reference(module, *ins, _round=None, **params):
     return {"out0": _out(op2, [1, 256, 128])}
 # ---- end of the frozen reference ----
 
+
 def fold(module, **params):
     n, k = params['s0_n'], params['s0_k']
     w = module.op0_weight.detach().reshape(n, k)
