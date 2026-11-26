@@ -47,15 +47,19 @@ element:
     BLT.S LR2 CR0 full_chunk {% if step_c %}; ADD LR8 LR8 {{ cr.step }}.L ; {% if step_c * pitch <= 255 %} INC LR11 {{ step_c * pitch }} {% else %} ADD LR11 LR11 LR1 {% endif %}{% endif %} ;;
 advance:
 {% if step_c %}
-    BLT.S LR8 {{ cr.in0_d2 }} step_b ;;
+    BLT.S LR8 {{ cr.in0_d2 }} step_b {% if step_lane %}; ADD LR7 LR7 {{ cr.step }}.H ; ADD LR9 LR9 {{ cr.step }}.H {% endif %} ;;
     SUB LR8 LR8 {{ cr.in0_d2 }} ; SUB LR11 LR11 {{ cr.column_span }} ; INC LR7 4 ;;
     INC LR9 4 ;;
 step_b:
 {% endif %}
-{% if step_lane %}
+{% if step_lane and not step_c %}
     ADD LR7 LR7 {{ cr.step }}.H ; ADD LR9 LR9 {{ cr.step }}.H ;;
 {% endif %}
+{% if in0_d1 <= 32 %}
+    LD.MULT R0 LR11 {{ cr.in0 }} ; BLT.S LR9 {{ cr.batch_lanes }} element ;;
+{% else %}
     BLT.S LR9 {{ cr.batch_lanes }} normalize_lane ;;
+{% endif %}
 next_batch:
     SUB LR9 LR9 {{ cr.batch_lanes }} ; SUB LR11 LR11 LR6 ; SET LR6 CR0 ;;
     INC LR9 1 ;;
