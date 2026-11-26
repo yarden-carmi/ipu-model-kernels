@@ -52,10 +52,10 @@ pair:
  {% for j in range(2) %}
  LD.MULT R0 LR3 {{ cr.weights }} ; MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD{{ '.FIRST' if j == 0 else '' }} ; INC LR3 1 ;;
  {% endfor %}
- {% macro pair_channel(extra=false, branch=false) %}
+  {% macro pair_channel(branch=false) %}
   LD.MULT.CYCLIC LR13 {{ cr.pad }} LR0 ; INC LR13 1 ; SET LR2 LR1 ;;
   {% for t in range(9) %}
-  {% for j in range(1 if t in [0, 2, 6, 8] and not (extra and t == 8) else 2) %}
+   {% for j in range(2 if t in [1, 3, 4] else 1) %}
   LD.MULT R0 LR3 {{ cr.weights }} ; MULT.RC.VV LR2 R0 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ; INC LR3 1{% if j == 0 and t %} ; INC LR2 {{ width-2 if t % 3 == 0 else 1 }}{% endif %}{% if branch and t == 8 and loop.last %} ; INC LR14 4 ; BLT.S LR14 LR10 channel{% endif %} ;;
   {% endfor %}
   {% endfor %}
@@ -63,7 +63,7 @@ pair:
  {% if cin >= 4 %}
  channel:
  {% for c in range(4) %}
- {{ pair_channel(c == 3, loop.last) }}
+  {{ pair_channel(loop.last) }}
  {% endfor %}
  {% endif %}
  {% for c in range(cin % 4) %}
@@ -108,10 +108,16 @@ finish:
  {{ num('LR9', 0) }}
  {{ num('LR10', cin - 1) }}
  {{ num('LR11', tiles - 1) }}
-stage_tile:
+ {% macro stage(suffix='', edge=-1) %}
+ stage_tile{{ suffix }}:
  SET LR5 LR6 ; SET LR8 CR0 ;;
-stage_channel:
- {% if tiles > 1 %}
+ stage_channel{{ suffix }}:
+ {% if edge == 0 %}
+ LD.MULT.CYCLIC LR4 {{ cr.pad }} LR0 ;;
+ {% elif edge == 1 %}
+ DEC LR5 1 ;;
+ LD.MULT.CYCLIC LR5 {{ cr.in1 }} LR0 ; INC LR5 1 ;;
+ {% elif tiles > 1 %}
  BEQ LR7 CR0 top_guard ; DEC LR5 1 ;;
  LD.MULT.CYCLIC LR5 {{ cr.in1 }} LR0 ; INC LR5 1 ; BEQ CR0 CR0 center ;;
 top_guard:
@@ -119,24 +125,39 @@ top_guard:
  {% else %}
  LD.MULT.CYCLIC LR4 {{ cr.pad }} LR0 ;;
  {% endif %}
+ {% if edge >= 0 %}
+ LD.MULT.CYCLIC LR5 {{ cr.in1 }} LR1 ; INC LR5 1 ; SET LR3 LR1 ;;
+ LD.MULT.CYCLIC {{ 'LR5 ' ~ cr.in1 if edge == 0 else 'LR4 ' ~ cr.pad }} LR2 ; INC LR5 1 ; DEC LR3 {{ width + 2 }} ;;
+ {% else %}
  center:
  LD.MULT.CYCLIC LR5 {{ cr.in1 }} LR1 ; INC LR5 1 ; SET LR3 LR1 ; BEQ LR7 LR11 bottom_guard ;;
  LD.MULT.CYCLIC LR5 {{ cr.in1 }} LR2 ; INC LR5 1 ; DEC LR3 {{ width + 2 }} ; BEQ CR0 CR0 stage_taps ;;
 bottom_guard:
  LD.MULT.CYCLIC LR4 {{ cr.pad }} LR2 ; INC LR5 1 ; DEC LR3 {{ width + 2 }} ;;
-stage_taps:
+ stage_taps:
+ {% endif %}
  {% for t in range(9) %}
  {% set x = t % 3 %}
-  MULT.RC.{{ 'VE' if x == 1 else 'VV' }} LR3 {{ ['R0','CR1','R1'][x] }} 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.pad }} LR9 ; INC LR9 1 ; INC LR3 {{ width-2 if t and not x else 1 }} ;;
+   MULT.RC.{{ 'VE' if x == 1 else 'VV' }} LR3 {{ ['R0','CR1','R1'][x] }} 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.pad }} LR9 ; INC LR9 1 ; INC LR3 {{ width-2 if t and not x else 1 }} ;{% if loop.last and tiles == 2 %}INC LR8 1 ; BLT.S LR8 LR10 stage_channel{{ suffix }} ;{% endif %} ;;
  {% endfor %}
  {# The three source loads leave LR5 two rows ahead. For two-tile
     planes it is already at the next channel, so no correction is needed. #}
  {% if tiles != 2 %}
  ADD LR5 LR5 {{ cr.tiles }} ;;
- DEC LR5 2 ;
- {% endif %}
- INC LR8 1 ; BLT.S LR8 LR10 stage_channel ;;
- INC LR6 1 ; INC LR7 1 ; BLT.S LR7 LR11 stage_tile ;;
+  DEC LR5 2 ; INC LR8 1 ; BLT.S LR8 LR10 stage_channel ;;
+  {% endif %}
+  {% if edge == 0 %}
+  INC LR6 1 ;;
+  {% elif edge < 0 %}
+  INC LR6 1 ; INC LR7 1 ; BLT.S LR7 LR11 stage_tile ;;
+  {% endif %}
+  {% endmacro %}
+  {% if tiles == 2 %}
+  {{ stage('_top', 0) }}
+  {{ stage('_bottom', 1) }}
+  {% else %}
+  {{ stage() }}
+  {% endif %}
   MULT.VE LR0 CR0 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.pad }} LR9 ; INC LR9 1 ;;
   SET LR6 LR9 ;;
   INC LR6 1 ;;
@@ -148,7 +169,7 @@ stage_taps:
  {% for k in range(n) %}
  {% for t in range(9) %}
  {% set last = k == n-1 and t == 8 %}
-  {% if (area >= 512 and t not in [0, 8]) or (area < 512 and (t in [1, 3, 4, 5] or (t == 7 and k % 3 == 0))) %}
+   {% if t in ([1, 3, 4, 5, 7] if area >= 512 else [3, 4, 5]) %}
  MULT.RC.VE LR0 LR15 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ; INC LR15 1 ;;
  {% endif %}
  MULT.RC.VE LR0 LR3 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ; INC LR3 1 ; LD.MULT.CYCLIC LR1 {{ cr.pad }} LR0 ; INC LR1 1{% if again and last %} ; INC LR8 1 ; BLT.S LR8 LR9 coeff_block{% endif %} ;;
@@ -172,16 +193,23 @@ output_tile:
 coeff_block:
  {{ macs(block, true) }}
  {% endif %}
-  {% if cin % block %}
-  {{ macs(cin % block) }}
-  {% endif %}
-  ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.pad }} LR0 ; LD.MULT R0 LR2 {{ cr.weights }} ; INC LR2 1 ;;
-  LD.MULT.CYCLIC LR0 {{ cr.pad }} LR0 ;;
-  MULT.RC.VE LR0 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.SUB ; ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.pad }} LR6 ;;
-  SET LR7 LR0 ;;
-  LD.MULT.CYCLIC LR6 {{ cr.pad }} LR7 ; INC LR7 128 ; MULT.RC.VV LR0 R0 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ;;
-  MULT.RC.VV LR7 R0 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ;;
+   {% if cin % block %}
+   {{ macs(cin % block) }}
+   {% endif %}
+   ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.pad }} LR0 ; LD.MULT R0 LR2 {{ cr.weights }} ; INC LR2 1 ;;
+   LD.MULT.CYCLIC LR0 {{ cr.pad }} LR0 ;;
+   MULT.RC.VE LR0 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.SUB ; ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.pad }} LR6 ;;
+   SET LR7 LR0 ;{% if area < 512 %}LD.MULT R1 LR2 {{ cr.weights }} ; INC LR2 1 ;{% endif %} ;;
+   LD.MULT.CYCLIC LR6 {{ cr.pad }} LR7 ; INC LR7 128 ; MULT.RC.VV LR0 R0 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ;;
+   {% if area < 512 %}
+   MULT.RC.VV LR7 R0 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ;;
+   MULT.RC.VV LR0 R1 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ;;
+   MULT.RC.VV LR7 R1 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ;
+   {% else %}
+   MULT.RC.VV LR7 R0 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ;
+   {% endif %}
  {% if area % 128 and tiles > 1 %}
+ ;;
  BEQ LR13 LR11 tail_store ;;
  {% endif %}
  ACTIVATE.QUANTIZE generic {{ cr.ds_tail ~ '.L' if tiles == 1 else ds }} {{ qo }} {{ cr.out0 }} LR14 ; INC LR14 1 ; INC LR13 1 ; ADD LR12 LR12 {{ cr.tstep }} ; BLT.S LR13 LR11 output_tile ;;
