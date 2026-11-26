@@ -1,0 +1,116 @@
+[kernel]
+op = "gemm_table__row_norm_layernorm"
+formats = ["e2"]
+[params.s0_k]
+type = "int"
+min = 1
+max = 4096
+default = 768
+[params.s0_n]
+type = "int"
+min = 1
+max = 4096
+default = 128
+[params.s0_m]
+type = "int"
+min = 1
+max = 65535
+default = 256
+[params.s0_bias]
+type = "bool"
+default = true
+[params.act_s0]
+type = "str"
+choices = ["gelu", "gelu_tanh"]
+default = "gelu_tanh"
+[params.s1_kind]
+type = "str"
+choices = ["layernorm"]
+default = "layernorm"
+[params.s1_channels]
+type = "int"
+min = 1
+max = 4096
+default = 128
+[params.s1_rows]
+type = "int"
+min = 1
+max = 65535
+default = 256
+[params.s1_eps]
+type = "float"
+min = 0.0
+max = 1.0
+default = 1e-12
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 65535
+default = 256
+[params.in0_d2]
+type = "int"
+min = 1
+max = 4096
+default = 768
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 65535
+default = 256
+[params.out0_d2]
+type = "int"
+min = 1
+max = 4096
+default = 128
+[derived]
+pitch = "ceil(in0_d2 / 128)"
+tiles = "ceil(s1_channels / 128)"
+rows = "out0_d0 * out0_d1"
+work = "ds(128) + 65536 * qf(1, 4, 8, 0)"
+tail = "ds((out0_d2 - 1) % 128 + 1)"
+half = "1277440"
+chunks = "(s0_k - 1) // 128"
+last_k = "(s0_k - 1) % 128"
+[inputs.in0]
+shape = ["in0_d0 * in0_d1 * pitch", 128]
+[inputs.coeff]
+shape = ["tiles * (s0_k + 1)", 128]
+[inputs.lut]
+shape = [5, 128]
+[inputs.norm]
+shape = ["4 + 6 * tiles", 128]
+[scratch.tmp]
+shape = ["32 + 2 * tiles", 128]
+[scratch.hidden]
+shape = ["tiles", 128]
+[outputs.out0]
+shape = ["rows * tiles", 128]
+[abi]
+in0 = "CR2"
+coeff = "CR3"
+lut = "CR4"
+out0 = "CR5"
+tmp = "CR6"
+hidden = "CR7"
+norm = "CR8"
+qf_in0 = "CR9"
+qf_out0 = "CR10"
+pitch = "CR11"
+tiles = "CR12"
+work = "CR13"
+tail = "CR14"
+half = "CR15"
+last_k = "LR12"
+chunks = "LR14"
+rows = "LR15"
+[cases.default]
