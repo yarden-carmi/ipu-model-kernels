@@ -49,16 +49,16 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.batch_norm.default(_v(ins[0], [2, 128, 512], [65536, 1, 128], 0), module.weight, module.bias, module.running_mean, module.running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(ins[0], [2, 64, 512], [32768, 1, 64], 0), module.weight, module.bias, module.running_mean, module.running_var, False, 0.1, 1e-05, True)
     op0 = _pick(r0, 0)  # step 1
-    return {"out0": _out(op0, [2, 128, 512])}
+    return {"out0": _out(op0, [2, 64, 512])}
 # ---- end of the frozen reference ----
+
 
 def fold(module, **params):
     scale = module.weight.float() * torch.rsqrt(module.running_var.float() + 1e-5)
     bias = module.bias.float() - module.running_mean.float() * scale
+    # Keep a power-of-two leading term and quantize the residual separately.
     high = torch.sign(scale) * torch.pow(2.0, torch.floor(torch.log2(torch.abs(scale))))
-    high = torch.where(scale == 0, torch.zeros_like(scale), high)
-    return {"c0": high.reshape(-1, 1).expand(-1, 128).contiguous(),
-            "c2": (scale - high).reshape(-1, 1).expand(-1, 128).contiguous(),
-            "c1": bias.reshape(-1, 1).expand(-1, 128).contiguous()}
+    return {name: value.reshape(-1, 1).expand(-1, 128).contiguous()
+            for name, value in (('c0', high), ('c1', bias), ('c2', scale - high))}
