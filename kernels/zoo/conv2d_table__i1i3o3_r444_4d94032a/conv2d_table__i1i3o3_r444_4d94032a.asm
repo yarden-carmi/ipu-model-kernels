@@ -1,7 +1,7 @@
 {% set width = in1_d3 %}
 {% set area = in1_d2 * width %}
 {% set tiles = (area + 127) // 128 %}
-{% set block = 7 if area >= 512 else 14 %}
+{% set block = 3 if area >= 512 else 14 %}
 {% set qi = cr.qf_in1 ~ '.L' %}
 {% set qo = cr.qf_out0 ~ '.L' %}
 {% set ds = cr.ds128 ~ '.L' %}
@@ -55,7 +55,7 @@ pair:
   {% macro pair_channel(branch=false) %}
   LD.MULT.CYCLIC LR13 {{ cr.pad }} LR0 ; INC LR13 1 ; SET LR2 LR1 ;;
   {% for t in range(9) %}
-   {% for j in range(2 if t in [1, 3, 4] else 1) %}
+   {% for j in range(2 if t in [3] else 1) %}
   LD.MULT R0 LR3 {{ cr.weights }} ; MULT.RC.VV LR2 R0 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ; INC LR3 1{% if j == 0 and t %} ; INC LR2 {{ width-2 if t % 3 == 0 else 1 }}{% endif %}{% if branch and t == 8 and loop.last %} ; INC LR14 4 ; BLT.S LR14 LR10 channel{% endif %} ;;
   {% endfor %}
   {% endfor %}
@@ -169,7 +169,7 @@ bottom_guard:
  {% for k in range(n) %}
  {% for t in range(9) %}
  {% set last = k == n-1 and t == 8 %}
-   {% if t in ([1, 3, 4, 5, 7] if area >= 512 else [3, 4, 5]) %}
+    {% if t in ([1, 3, 4] if area >= 512 else [3]) %}
  MULT.RC.VE LR0 LR15 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ; INC LR15 1 ;;
  {% endif %}
  MULT.RC.VE LR0 LR3 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ; INC LR3 1 ; LD.MULT.CYCLIC LR1 {{ cr.pad }} LR0 ; INC LR1 1{% if again and last %} ; INC LR8 1 ; BLT.S LR8 LR9 coeff_block{% endif %} ;;
@@ -199,15 +199,11 @@ coeff_block:
    ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.pad }} LR0 ; LD.MULT R0 LR2 {{ cr.weights }} ; INC LR2 1 ;;
    LD.MULT.CYCLIC LR0 {{ cr.pad }} LR0 ;;
    MULT.RC.VE LR0 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.SUB ; ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.pad }} LR6 ;;
-   SET LR7 LR0 ;{% if area < 512 %}LD.MULT R1 LR2 {{ cr.weights }} ; INC LR2 1 ;{% endif %} ;;
+   SET LR7 LR0 ; LD.MULT R1 LR2 {{ cr.weights }} ; INC LR2 1 ;;
    LD.MULT.CYCLIC LR6 {{ cr.pad }} LR7 ; INC LR7 128 ; MULT.RC.VV LR0 R0 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ;;
-   {% if area < 512 %}
    MULT.RC.VV LR7 R0 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ;;
    MULT.RC.VV LR0 R1 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ;;
    MULT.RC.VV LR7 R1 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ;
-   {% else %}
-   MULT.RC.VV LR7 R0 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ;
-   {% endif %}
  {% if area % 128 and tiles > 1 %}
  ;;
  BEQ LR13 LR11 tail_store ;;

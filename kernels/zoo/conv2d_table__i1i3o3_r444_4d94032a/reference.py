@@ -95,7 +95,7 @@ def fold(module, **params):
         # coefficient error of the single-product taps for each pair.
         factors = np.arange(32, 64) / 32
         pair_count = cout // 2
-        single = w[:2*pair_count, :, (0, 2, 5, 6, 7, 8)]
+        single = w[:2*pair_count, :, (0, 1, 2, 4, 5, 6, 7, 8)]
         for pair in range(pair_count):
             sl = slice(2 * pair, 2 * pair + 2)
             candidates = norm[sl, None] * factors
@@ -127,20 +127,19 @@ def fold(module, **params):
                     v = w[o:o+2, c, t]
                     hi = leading(v)
                     rows.extend(np.repeat(a, 64) * masks[t] for a in
-                                 ((hi, v - hi) if t in (1, 3, 4) else (v,)))
+                                 ((hi, v - hi) if t in (3,) else (v,)))
             rows.extend(np.full(128, v) for v in norm[o:o+2])
         rows.append(np.zeros(128))
         return {'weights': np.asarray(rows)}
 
     rows = [lanes % width != 0, lanes % width != width - 1]
     for bv, taps in zip(b, w):
-        block = 7 if area >= 512 else 14
+        block = 3 if area >= 512 else 14
         def residual(t):
-            return np.isin(t, (1, 3, 4, 5, 7) if area >= 512 else (3, 4, 5))
+            return np.isin(t, (1, 3, 4) if area >= 512 else (3,))
         # Search the coefficient grid. Mid-size planes use a two-piece
         # de-normalizer to preserve accuracy with fewer residual MACs.
-        factors = (np.arange(1024, 2017) / 1024 if area < 512
-                   else np.arange(32, 64) / 32)
+        factors = np.arange(1024, 2017) / 1024
         score = np.zeros(len(factors))
         for c in range(0, cin, block):
             v = taps[c:c+block].flatten()[None, :] / factors[:, None]
@@ -168,8 +167,7 @@ def fold(module, **params):
             hi = np.where(keep, rounded, v)
             lo = (v - hi)[keep]
             rows.extend((np.pad(hi, (0, 128-len(v))), np.pad(lo, (0, 128-len(lo)))))
-        high = leading(norm) if area < 512 else norm
+        high = leading(norm)
         rows.append(np.full(128, high))
-        if area < 512:
-            rows.append(np.full(128, norm - high))
+        rows.append(np.full(128, norm - high))
     return {'weights': np.asarray(rows)}
