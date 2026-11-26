@@ -25,6 +25,7 @@ out0_d3 = { type = "int", min = 1, max = 16777216, default = 28 }
 rows = "out0_d0 * out0_d1 * ceil(out0_d2 * out0_d3 / 128)"
 full_rows = "ceil(out0_d2 * out0_d3 / 128) - 1"
 full_limit = "ceil(out0_d2 * out0_d3 / 128) - 2"
+loop_bound = "(out0_d0 * out0_d1 - 2) * ceil(out0_d2 * out0_d3 / 128)"
 full_mask = "ds(128)"
 tail_mask = "ds((out0_d2 * out0_d3 - 1) % 128 + 1)"
 
@@ -49,5 +50,6 @@ full_limit = "CR9"
 full_mask = "CR10"
 tail_mask = "CR11"
 rows = "CR12"
+loop_bound = "CR13"
 
 [cases.default]
