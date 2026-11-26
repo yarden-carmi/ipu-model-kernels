@@ -2,12 +2,19 @@
 {% set qw = cr.qf_weights ~ '.L' %}
 {% set ds = cr.input_tail ~ '.L' %}
 {% set ir = (in0_d2*w+127)//128 %}
-{% set parts = 2 %}
-{% set wk = 3+parts*(cin//groups)*kh*kw %}
 {% set window = stride == 1 and w <= 128 %}
 {% set fast = stride == 2 and w == 256 and groups == 1 and cin <= 3 %}
+{% set gc = cin//groups %}
+{% set first = (-w-1)//128 %}
+{% set parts = 2 %}
+{% set wk = 3+parts*gc*kh*kw %}
+{% set dw_window = window and gc==1 %}
+{% set fused_store = dw_window and (out0_d2*out0_d3)%128 == 0 %}
 {% macro bump(r,n) %}
 {% if n>0 %}INC {{ r }} {{ n }} ;{% elif n<0 %}DEC {{ r }} {{ -n }} ;{% endif %}
+{% endmacro %}
+{% macro store(active) %}
+ACTIVATE.QUANTIZE {{ 'generic' if act_out0 == 'silu' else act_out0 }} {{ active }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR2 ; INC LR2 1 ;
 {% endmacro %}
 {% macro imm(r,n) %}
 SET {{ r }} CR0 ;;
@@ -57,36 +64,41 @@ INC LR4 1 ; BLT.S LR4 LR5 copy_channel ;;
 {% if stride == 2 %}
 {{ imm('LR2',-1) }}
 {{ imm('LR4',0) }}
-{{ imm('LR13',4) }}
+{{ imm('LR13',4+(-w-1)//128+(1 if w==128 else 0)) }}
 {{ imm('LR14',ir+10) }}
-{% macro piece(d,acc,last,step) %}
-{% if d%128 %}
-LD.MULT.CYCLIC LR6 {{ cr.guard }} LR1 ; INC LR6 1 ;;
-{% endif %}
-MULT.RC.VE LR7 CR1 0 LR0 {{ ds }} {{ qi }} ; {{ acc }} ;
-INC LR9 {{ 1 if w <= 64 else 2 }} ;
-{% if last %}ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.stencil }} LR2 ; INC LR2 1 ; SET LR6 LR3 ;
-{% else %}LD.MULT.CYCLIC LR6 {{ cr.guard }} LR0 ; {{ bump('LR6',step-(1 if d%128 else 0)) }}{% endif %} ;;
-{% endmacro %}
+{{ imm('LR9',-1 if w <= 64 else -2) }}
+{{ imm('LR10',256) }}
+{{ imm('LR11',384) }}
 {% macro stage_tap(t) %}
-{% set d = (t//kw-padding)*w+t%kw-padding %}
-{% if t == 0 %}SET LR6 LR3 ; SET LR7 LR0 ; SET LR9 LR0 ;;{% endif %}
-{% set prev = ((t-1)//kw-padding)*w+(t-1)%kw-padding %}
-{{ bump('LR6',d//128) }} {{ bump('LR7',d%128 if t == 0 else d%128-prev%128) }} DEC LR9 {{ (1 if w <= 64 else 2) if t == 0 else 4 }} ; LD.MULT.CYCLIC LR6 {{ cr.guard }} LR0 ;;
-{% if w <= 64 %}
-{% for p in range(4) %}
-{{ piece(d,'ACC.STRIDE '~([16,w]|max)~' on on LR9',p==3,1) }}
-{% endfor %}
+{% set right = w >= 128 and t%kw == 2 %}
+{% set d = (t//kw-padding)*w+(0 if right else t%kw-padding) %}
+{% set next = (t+1)%(kh*kw) %}
+{% set nd = (next//kw-padding)*w+(0 if w>=128 and next%kw==2 else next%kw-padding) %}
+{% set n = 4 if w <= 64 else 2 %}
+{% set step = 2 if w == 128 else 1 %}
+{% set overlap = d%128 and w != 128 %}
+{% set start = 1 if d%128 and w == 128 else 0 %}
+{% set banks = ['LR0','LR1','LR10','LR11'] %}
+{% set pd = ((t-1)//kw-padding)*w+(0 if w>=128 and (t-1)%kw==2 else (t-1)%kw-padding) %}
+{% set delta = (d%128-128-(pd%128+128*(n-1) if t else 0)+256)%512-256 %}
+{% if fast and t%kw==0 %}
+INC LR2 1 ; INC LR3 1 ; {{ bump('LR7', (d%128+128-(pd%128+128 if t else 0)+256)%512-256) }} ;;
 {% else %}
-{{ piece(d,'ACC.STRIDE 64 on off LR9',false,2 if w==128 else 1) }}
-{{ piece(d,'ACC.STRIDE 64 on off LR9',true,1) }}
+LD.MULT.CYCLIC LR6 {{ cr.guard }} {{ banks[start] }} ; SET LR6 LR3 ; {% if delta == -256 %}ADD LR7 LR7 LR10 ;{% else %}{{ bump('LR7',delta) }}{% endif %} {{ bump('LR3',nd//128+(1 if nd%128 and w==128 else 0)-d//128-start+(4 if not next else 0)) }} ;;
+{% if overlap %}LD.MULT.CYCLIC LR6 {{ cr.guard }} LR1 ; INC LR6 1 ;;{% endif %}
+{% for p in range(n) %}
+MULT.RC.VE LR7 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.STRIDE {{ [16,[w,64]|min]|max }} {{ 'on_inv' if right else 'on' }} {{ 'on' if w <= 64 else 'off' }} LR9 ; INC LR7 128 ; INC LR9 {{ 1 if w <= 64 else 2 }} ;
+{% if loop.last %}ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.stencil }} LR2 ; INC LR2 1 ;
+{% else %}LD.MULT.CYCLIC LR6 {{ cr.guard }} {{ banks[(p+1+(1 if overlap else 0)+start)%4] }} ; INC LR6 {{ step }} ;{% endif %} ;;
+{% endfor %}
 {% endif %}
 {% endmacro %}
 stage_channel:
-SET LR3 LR13 ; SET LR8 CR0 ;;
+SET LR3 LR13 ; SET LR6 LR13 ; SET LR8 CR0 ;;
+SET LR7 CR0 ;;
 stage_row:
 {% for t in range(kh*kw) %}{{ stage_tap(t) }}{% endfor %}
-INC LR3 4 ; INC LR8 1 ; BLT.S LR8 {{ cr.sr_last }} stage_row ;;
+SET LR7 CR0 ; INC LR8 1 ; BLT.S LR8 {{ cr.sr_last }} stage_row ;;
 ADD LR13 LR13 LR14 ; INC LR4 1 ; BLT.S LR4 LR5 stage_channel ;;
 {% endif %}
 
@@ -102,6 +114,7 @@ LD.LUT {{ i }} {{ cr.lut }} LR2 ; INC LR2 1 ;;
 {{ imm('LR13',cout//groups-1) }}
 {{ imm('LR14',0) }}
 {{ imm('LR12',128) }}
+{% if fast %}{{ imm('LR15',256) }}{% endif %}
 
 output_channel:
 SET LR6 CR0 ; SET LR10 LR3 ;;
@@ -118,17 +131,22 @@ bias_load:
 LD.MULT.CYCLIC LR8 {{ cr.weights }} LR0 ; INC LR8 1 ;;
 LD.MULT.CYCLIC LR8 {{ cr.weights }} LR12 ; INC LR8 1 ;;
 MULT.RC.VE LR0 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD.FIRST ; SET LR9 LR10 ; LD.MULT.CYCLIC LR8 {{ cr.weights }} LR0 ; INC LR8 1 ;;
-MULT.RC.VE LR12 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; SET LR11 {{ 'CR1' if fast else 'CR0' }} ;;
-MULT.RC.VE LR0 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;;
+MULT.RC.VE LR12 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; SET LR11 {{ 'CR1' if fast else 'CR0' }} ; {% if dw_window %}LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;{% elif fast %}LD.MULT.CYCLIC LR9 {{ cr.stencil }} LR12 ; INC LR9 3 ; SET LR14 LR12 ;{% endif %} ;;
+MULT.RC.VE LR0 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; {% if dw_window %}LD.MULT.CYCLIC LR9 {{ cr.guard }} LR0 ; {{ bump('LR9',first) }}{% else %}LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;{% endif %} ;;
 {% if fast %}
 {% for ch in range(cin) %}
-LD.MULT R1 LR8 {{ cr.weights }} ; INC LR8 1 ; SET LR1 LR9 ; SET LR13 CR0 ;;
-LD.MULT.CYCLIC LR1 {{ cr.stencil }} LR0 ; INC LR1 1 ;;
+{% if loop.first %}LD.MULT R1 LR8 {{ cr.weights }} ; INC LR8 1 ; SET LR1 LR9 ; SET LR13 CR0 ;;{% endif %}
 {% for t in range(kh*kw) %}
-MULT.RC.VE LR0 LR13 0 {{ 'LR11' if t%kw == 0 else 'LR0' }} {{ ds }} {{ qw }} ; ACC.ADD ; {% if t %}DEC LR13 127 ;{% endif %} ;;
-MULT.RC.VE LR0 LR13 0 {{ 'LR11' if t%kw == 0 else 'LR0' }} {{ ds }} {{ qw }} ; ACC.ADD ; INC LR13 128 ;
-{% if not loop.last %}LD.MULT.CYCLIC LR1 {{ cr.stencil }} LR0 ; INC LR1 1 ;
-{% elif ch < cin-1 %}LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ; ADD LR9 LR9 {{ cr.plane }} ;{% endif %} ;;
+{% set rc = 'LR14' if t%kw==0 else (('LR15' if ch and t==2 else 'LR12') if t%kw==2 else 'LR0') %}
+MULT.RC.VE {{ rc }} LR13 0 {{ 'LR11' if t%kw == 0 else 'LR0' }} {{ ds }} {{ qw }} ; ACC.ADD ; {% if t %}DEC LR13 127 ;{% elif ch %}DEC LR13 {{ 128+kh*kw-1 }} ;{% endif %}
+{% if t==0 %}{{ bump('LR14',128 if ch else -1) }}{% elif t==1 and ch %}DEC LR14 128 ;{% endif %}
+{% if t==6 and ch<cin-1 %}ADD LR9 LR9 {{ cr.plane }} ;{% endif %}
+{% if t==7 and ch<cin-1 %}LD.MULT.CYCLIC LR9 {{ cr.stencil }} LR15 ;;{% else %}
+{% if loop.last and ch<cin-1 %}LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;{% endif %} ;;
+{% endif %}
+MULT.RC.VE {{ rc }} LR13 0 {{ 'LR11' if t%kw == 0 else 'LR0' }} {{ ds }} {{ qw }} ; ACC.ADD ;
+{% if not loop.last %}INC LR13 128 ;{% if t%kw == 0 %}LD.MULT.CYCLIC LR1 {{ cr.stencil }} LR0 ; DEC LR1 1 ;{% elif t%kw == 2 %}LD.MULT.CYCLIC LR1 {{ cr.stencil }} LR12 ; INC LR1 4 ;{% endif %}
+{% else %}INC LR13 128 ;{% if ch < cin-1 %}LD.MULT R1 LR8 {{ cr.weights }} ; INC LR8 1 ; SET LR1 LR9 ;{% endif %}{% endif %} ;;
 {% endfor %}
 {% endfor %}
 {% else %}
@@ -137,13 +155,10 @@ MULT.RC.VE LR0 LR13 0 {{ 'LR11' if t%kw == 0 else 'LR0' }} {{ ds }} {{ qw }} ; A
 {% if stride == 2 %}SET LR1 LR9 ;;{% endif %}
 {% if window %}
 # Keep the contiguous spatial window resident across all nine taps.
-{% set first = (-w-1)//128 %}
 {% set last = 1 %}
-{{ bump('LR9',first-1) }} SET LR1 CR0 ;;
 {% for bank in range(last-first+1) %}
-LD.MULT.CYCLIC LR9 {{ cr.guard }} LR1 ; INC LR9 1 ; {{ bump('LR1',128 if bank else 0) }} ;;
+{% if bank or not dw_window %}LD.MULT.CYCLIC LR9 {{ cr.guard }} {{ 'LR0' if not bank else 'LR1' }} ; {{ bump('LR9',1 if bank else first) }} {% if bank==1 %}SET LR1 LR12 ;{% elif bank %}INC LR1 128 ;{% endif %} ;;{% endif %}
 {% endfor %}
-SET LR1 CR0 ; {{ bump('LR9',-last) }} ;;
 {% endif %}
 {% macro product(t) %}
 {% if window %}
@@ -168,24 +183,23 @@ LD.MULT.CYCLIC LR1 {{ cr.guard }} LR12 ; INC LR1 1 ;;
 LD.MULT.CYCLIC LR1 {{ cr.stencil }} LR0 ; INC LR1 1 ;;
 {% set rc = 'LR0' %}
 {% endif %}
-MULT.RC.VV {{ rc }} R0 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; LD.MULT R1 LR8 {{ cr.weights }} ; INC LR8 1 ;
-{% if window %}INC LR1 {{ (t%kw and 1) or (w-2 if t else -w-1-128*((-w-1)//128)) }} ;{% endif %} ;;
+MULT.RC.VV {{ rc }} R0 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; {% if parts > 1 %}LD.MULT R1 LR8 {{ cr.weights }} ; INC LR8 1 ;{% endif %}
+{% if window %}{% if not t %}DEC LR9 1 ; {{ bump('LR1',255 if w==128 else -129-w) }}{% else %}INC LR1 {{ 1 if t%kw else w-2 }} ;{% endif %}{% endif %} {% if parts > 1 %};;{% endif %}
 {% if parts == 3 %}
 MULT.RC.VV {{ rc }} R1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;;
 MULT.RC.VV {{ rc }} R0 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ;
-{% else %}
+{% elif parts == 2 %}
 MULT.RC.VV {{ rc }} R1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ;
 {% endif %}
-{% if t+1 < kh*kw %}LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;{% endif %}
+{% if t+1 < kh*kw or (window and gc>1) %}LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;{% endif %}
 {% endmacro %}
 {% for t in range(kh*kw) %}
-{{ product(t) }} {% if loop.last %}{% if stride == 2 and 1 < cin//groups <= 3 %}{% if ch < cin//groups-1 %}ADD LR9 LR9 {{ cr.plane }} ; LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;{% endif %}{% else %}ADD LR9 LR9 {{ cr.plane }} ; INC LR11 1 ; BLT.S LR11 {{ cr.gc_last }} next_input_channel ;{% endif %}{% endif %} ;;
+{{ product(t) }} {% if loop.last %}{% if fused_store %}{{ store(ds) }} INC LR10 1 ; INC LR6 1 ; BLT.S LR6 {{ cr.sr_last }} output_row ;{% elif stride == 2 and 1 < gc <= 3 %}{% if ch < gc-1 %}ADD LR9 LR9 {{ cr.plane }} ; LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;{% endif %}{% elif gc > 1 %}ADD LR9 LR9 {{ cr.plane }} ; INC LR11 1 ; BLT.S LR11 {{ cr.gc_last }} {{ 'input_channel' if window else 'next_input_channel' }} ;{% endif %}{% endif %} ;;
 {% endfor %}
 {% endfor %}
 {% endif %}
-{% macro store(active) %}
-ACTIVATE.QUANTIZE {{ 'generic' if act_out0 == 'silu' else act_out0 }} {{ active }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR2 ; INC LR2 1 ;
-{% endmacro %}
+{% if window and gc>1 %}DEC LR8 1 ;;{% endif %}
+{% if not fused_store %}
 {% if (out0_d2*out0_d3)%128 %}BEQ LR6 {{ cr.sr_last }} store_tail ;;{% endif %}
 {{ store(ds) }} INC LR10 {{ 1 if stride == 1 else kh*kw }} ; INC LR6 1 ; BLT.S LR6 {{ cr.sr_last }} output_row ;;
 {% if (out0_d2*out0_d3)%128 %}
@@ -194,14 +208,18 @@ store_tail:
 {{ store(cr.tail ~ '.L') }} ;;
 next_channel:
 {% endif %}
-{% if fast %}{{ imm('LR13',cout//groups-1) }}{% endif %}
+{% endif %}
+{% if fast %}
+SET LR7 LR8 ; INC LR4 1 ; BLT.S LR4 LR5 output_channel ;;
+{% else %}
 SET LR7 LR8 ; INC LR14 1 ; BLT.S LR14 LR13 same_group ;;
 ADD LR3 LR3 LR15 ; SET LR14 CR0 ;;
 same_group:
 INC LR4 1 ; BLT.S LR4 LR5 output_channel ;;
+{% endif %}
 HALT ;;
 
-{% if not fast %}
+{% if not window and not fast and gc > 1 and not (stride == 2 and gc <= 3) %}
 next_input_channel:
 LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ; BEQ LR0 CR0 input_channel ;;
 {% endif %}
