@@ -54,6 +54,7 @@ def reference(module, *ins, _round=None, **params):
     return {"out0": _out(op0, [4, 256, 144])}
 # ---- end of the frozen reference ----
 
+
 def fold(module, **params):
     channels = params["channels"]
 

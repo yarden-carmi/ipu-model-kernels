@@ -41,6 +41,12 @@
 row_loop:
  # Convert output row index to the offset of the strided input view.
  SET LR10 LR9 ; SET LR7 CR0 ;;
+ {% if k > 1 and rows > 128 %}
+ {{ at('LR8',k*128) }}
+divide_k_block:
+ BLT.S LR10 LR8 divide_k ;;
+ SUB LR10 LR10 LR8 ; INC LR7 128 ; B divide_k_block ;;
+ {% endif %}
 divide_k:
  {% if k == 1 %}SET LR7 LR10 ; B divided_k ;;
  {% else %}{{ at('LR8',k) }} BLT.S LR10 LR8 divided_k ;;
