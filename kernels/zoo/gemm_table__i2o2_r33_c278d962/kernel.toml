@@ -1,0 +1,98 @@
+[kernel]
+op = "gemm_table"
+formats = ["e2", "e3"]
+
+[params.k]
+type = "int"
+min = 1
+max = 4096
+default = 192
+[params.n]
+type = "int"
+min = 1
+max = 4096
+default = 384
+[params.m]
+type = "int"
+min = 1
+max = 65535
+default = 256
+[params.bias]
+type = "bool"
+default = true
+[params.act_out0]
+type = "str"
+choices = ["gelu_tanh", "silu"]
+default = "gelu_tanh"
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 4
+[params.in0_d1]
+type = "int"
+min = 1
+max = 65535
+default = 64
+[params.in0_d2]
+type = "int"
+min = 1
+max = 4096
+default = 192
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 4
+[params.out0_d1]
+type = "int"
+min = 1
+max = 65535
+default = 64
+[params.out0_d2]
+type = "int"
+min = 1
+max = 4096
+default = 384
+
+[derived]
+chunks = "ceil(k / 128)"
+tiles = "ceil(n / 128)"
+width = "(n - 1) % 128 + 1"
+coeff_rows = "tiles * (k + 1) + (1 - min(1, max(0, chunks - 2))) * min(0, chunks * width - k)"
+full = "ds(128)"
+tail = "ds(width)"
+partial = "ds((k - 1) % 128 + 1)"
+first_bound = "min(k, 128) - 3"
+last_bound = "(k - 1) % 128 - 2 + 128 * min(1, max(0, k - 128)) * (1 - min(1, max(0, k - 256)))"
+dot_bound = "width - 2 - (1 - min(1, max(0, chunks - 1)))"
+
+[inputs.in0]
+shape = ["m * chunks", 128]
+range = [-2, 2]
+[inputs.coeff]
+shape = ["coeff_rows", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[outputs.out0]
+shape = ["m * tiles", 128]
+
+[abi]
+in0 = "CR2"
+coeff = "CR3"
+lut = "CR4"
+out0 = "CR5"
+qf_in0 = "CR6"
+qf_out0 = "CR7"
+m = "CR8"
+tiles = "CR9"
+first_bound = "CR10"
+full = "CR11"
+tail = "CR12"
+last_bound = "CR13"
+chunks = "CR14"
+partial = "CR15"
+
+[cases.default]
