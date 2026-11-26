@@ -94,9 +94,14 @@ def fold(module, **params):
     remainder = rows - hi
     mid = leading(remainder)
     parts = np.stack((hi, mid, remainder - mid), axis=-2)
-    if stride == 2 and w >= 256:
-        return {'weights': np.concatenate((
-            parts[:, :, 0].reshape(cout, tiles, 3, 128),
-            np.stack((hi[:, :, 1:], remainder[:, :, 1:]), axis=-2).reshape(cout, tiles, -1, 128),
-        ), axis=2).reshape(-1, 128)}
-    return {'weights': parts.reshape(-1, 128)}
+    if stride == 2 and w == 256 and params['groups'] == 1 and gc <= 3:
+        values = rows[:, 0, 1:, 1].reshape(cout, gc, kh * kw)
+        hi_values = leading(values)
+        packed = np.zeros((cout, gc, 2, 128), dtype=np.float64)
+        packed[:, :, 0, :kh * kw] = hi_values
+        packed[:, :, 1, :kh * kw] = values - hi_values
+        return {'weights': np.concatenate((parts[:, 0, 0], packed.reshape(cout, 2 * gc, 128)), axis=1).reshape(-1, 128)}
+    return {'weights': np.concatenate((
+        parts[:, :, 0].reshape(cout, tiles, 3, 128),
+        np.stack((hi[:, :, 1:], remainder[:, :, 1:]), axis=-2).reshape(cout, tiles, -1, 128),
+    ), axis=2).reshape(-1, 128)}
