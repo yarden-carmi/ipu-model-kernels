@@ -2,9 +2,21 @@
 {% set full_copy = n // 128 %}
 {% set blocks = (out0_d1 + 127) // 128 - full_copy %}
 {% set groups = in0_d0 %}
+{% set mixed = (k // groups) % 8 == 4 %}
 
 {% macro store(fn, base, row) %}
     ACTIVATE.QUANTIZE {{ fn }} {{ cr.full }}.L {{ cr.qf_out0 }}.L {{ base }} {{ row }} ;;
+{% endmacro %}
+{% macro mixed_group(single=false, last=false) %}
+    LD.MULT R0 LR8 {{ cr.in0 }} ; SET LR9 LR5{% if last %} ; DEC LR10 1{% endif %} ;;
+{% for i in range(groups) %}
+{% if not single %}
+    MULT.RC.VE LR0 LR9 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR6 1{% if not loop.first %} ; INC LR9 1{% endif %} ; LD.MULT.CYCLIC LR6 {{ cr.w }} LR11 ;;
+    MULT.RC.VE LR11 LR9 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR6 1 ; LD.MULT.CYCLIC LR6 {{ cr.w }} LR0{% if loop.last %} ; INC LR8 {{ m // 8 }}{% if last %} ; BNE LR10 CR0 k_loop{% endif %}{% endif %} ;;
+{% else %}
+    MULT.RC.VE LR0 LR9 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{% if not loop.first %} ; INC LR9 1{% endif %} ; INC LR6 1 ; LD.MULT.CYCLIC LR6 {{ cr.w }} LR0{% if loop.last %} ; INC LR8 {{ m // 8 }}{% if last %} ; BNE LR10 CR0 k_loop{% endif %}{% endif %} ;;
+{% endif %}
+{% endfor %}
 {% endmacro %}
 {% macro copy_add(acc) %}
     LD.MULT R0 LR2 {{ cr.in1 }} ;;
@@ -12,11 +24,15 @@
 {% endmacro %}
 # Each packed input item contains one tap from each leading-dimension slab.
 # Read it once and stream both weight components for every tap in the item.
-{% macro tap_group(final) %}
+{% macro tap_group(final, single=false) %}
     LD.MULT R0 LR8 {{ cr.in0 }} ; SET LR9 LR5{% if not final %} ; DEC LR10 1{% endif %} ;;
 {% for i in range(groups) %}
+{% if not single %}
     MULT.RC.VE LR0 LR9 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR6 1{% if not loop.first %} ; INC LR9 1{% endif %} ; LD.MULT.CYCLIC LR6 {{ cr.w }} LR11 ;;
     MULT.RC.VE LR11 LR9 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{% if not final or not loop.last %} ; INC LR6 1 ; LD.MULT.CYCLIC LR6 {{ cr.w }} LR0{% endif %}{% if loop.last and not final %} ; INC LR8 {{ m // 8 }} ; BNE LR10 CR0 k_loop{% endif %} ;;
+{% else %}
+    MULT.RC.VE LR0 LR9 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{% if not loop.first %} ; INC LR9 1{% endif %}{% if not final or not loop.last %} ; INC LR6 1 ; LD.MULT.CYCLIC LR6 {{ cr.w }} LR0{% endif %}{% if loop.last and not final %} ; INC LR8 {{ m // 8 }} ; BNE LR10 CR0 k_loop{% endif %} ;;
+{% endif %}
 {% endfor %}
 {% endmacro %}
 {% macro bias_add(index, acc) %}
@@ -47,7 +63,7 @@ copy_block:
     INC LR13 {{ blocks }} ; DEC LR6 1 ;;
 gemm_block:
     SET LR8 LR4 ; SET LR10 {{ cr.ki }} ;;
-    DEC LR10 1 ; INC LR6 1 ; LD.MULT.CYCLIC LR6 {{ cr.w }} LR0 ;;
+    {% if not mixed %}DEC LR10 1 ; {% endif %}INC LR6 1 ; LD.MULT.CYCLIC LR6 {{ cr.w }} LR0 ;;
 {% if bias %}
     {{ bias_add(0, 'ACC.ADD.FIRST') }}
     {{ bias_add(1, 'ACC.ADD') }}
@@ -55,10 +71,17 @@ gemm_block:
     MULT.EE LR0 CR0 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
 {% endif %}
 k_loop:
+{% if mixed %}
+    {{ mixed_group() }}
+    {{ mixed_group() }}
+    {{ mixed_group() }}
+    {{ mixed_group(true, true) }}
+{% else %}
 {% if k // groups > 1 %}
     {{ tap_group(false) }}
 {% endif %}
     {{ tap_group(true) }}
+{% endif %}
 {% if n % 128 %}
     SET LR12 CR0 ;;
     INC LR12 {{ blocks }} ;;
