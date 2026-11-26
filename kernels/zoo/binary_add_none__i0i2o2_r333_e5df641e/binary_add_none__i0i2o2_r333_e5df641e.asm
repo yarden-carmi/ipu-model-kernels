@@ -8,6 +8,9 @@
 {% endmacro %}
     SET LR0 CR0 ; SET LR1 CR0 ; SET LR4 CR0 ;;
     SET LR5 CR0 ; SET LR14 CR0 ; SET LR15 CR0 ;;
+    SET LR12 CR0 ; SET LR13 CR0 ;;
+    ADDBI LRD12 127 ;;
+    SET LR13 CR0 ;;
 {% if step_c * pitch > 255 %}
 {% for i in range(pitch) %}
     ADD LR1 LR1 {{ cr.step }}.L ;;
@@ -40,11 +43,10 @@ normalize_lane:
     // outside this row, the next pass replaces the speculative load.
     LD.MULT R0 LR11 {{ cr.in0 }} ; BGE.S LR7 {{ cr.pack_dims }}.H next_pack_row ;;
 element:
-    MULT.EE LR7 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.RESHAPE LRD0 LRD2 7 ; INC LR13 1 ;;
-    ADDBI LRD2 1 ; BEQ LR13 {{ cr.in0_d2 }} last_chunk ;;
+    MULT.EE LR7 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.RESHAPE LRD0 LRD2 7 ; INC LR13 1 ; BEQ LR13 {{ cr.full }}.H last_chunk ;;
     // Both paths need the next input address. Do that work in the
     // chunk-check word, even when the branch takes us to a store first.
-    BLT.S LR2 CR0 full_chunk {% if step_c %}; ADD LR8 LR8 {{ cr.step }}.L ; {% if step_c * pitch <= 255 %} INC LR11 {{ step_c * pitch }} {% else %} ADD LR11 LR11 LR1 {% endif %}{% endif %} ;;
+    ADDBI LRD2 1 ; BGE.S LR2 LR12 full_chunk {% if step_c %}; ADD LR8 LR8 {{ cr.step }}.L ; {% if step_c * pitch <= 255 %} INC LR11 {{ step_c * pitch }} {% else %} ADD LR11 LR11 LR1 {% endif %}{% endif %} ;;
 advance:
 {% if step_c %}
     BLT.S LR8 {{ cr.in0_d2 }} step_b {% if step_lane %}; ADD LR7 LR7 {{ cr.step }}.H ; ADD LR9 LR9 {{ cr.step }}.H {% endif %} ;;
