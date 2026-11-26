@@ -55,7 +55,11 @@
 {% macro product(a,b,na,nb) %}
  {% for i in range(na) %}
  {{ load(a+i,true) }}
- {% for j in range(nb) %}{{ load(b+j) }}{{ mul(i==0 and j==0) }}{% endfor %}
+ {{ at('LR1',b) }}
+ {% for j in range(nb) %}
+ LD.MULT R0 LR1 {{ cr.tmp }} ;;
+ MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if i==0 and j==0 %}.FIRST{% endif %}{% if not loop.last %} ; INC LR1 1{% endif %} ;;
+ {% endfor %}
  {% endfor %}
 {% endmacro %}
 {% macro coeff() %}LD.MULT.CYCLIC LR5 {{ cr.coeff }} LR0 ; INC LR5 1{% endmacro %}
