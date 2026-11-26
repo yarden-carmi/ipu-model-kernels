@@ -125,10 +125,10 @@ def fold(module, **params):
         return {'weights': np.asarray(rows)}
 
     rows = [lanes % width != 0, lanes % width != width - 1]
-    block = 3 if area >= 512 else 14
+    block = 12 if area >= 512 else 14
 
     def residual(t):
-        return t == 3
+        return (t == 3) & (area < 512)
 
     factors = np.arange(1024, 2017) / 1024
     for bv, taps in zip(b, w):
@@ -153,7 +153,9 @@ def fold(module, **params):
             rounded = np.sign(v) * quant_abs(a, float(np.frexp(a.max())[1] - 1))
             hi = np.where(keep, rounded, v)
             lo = (v - hi)[keep]
-            rows.extend((np.pad(hi, (0, 128-len(v))), np.pad(lo, (0, 128-len(lo)))))
+            rows.append(np.pad(hi, (0, 128-len(v))))
+            if area < 512:
+                rows.append(np.pad(lo, (0, 128-len(lo))))
         high = leading(norm)
         rows.append(np.full(128, high))
         rows.append(np.full(128, norm - high))

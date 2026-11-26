@@ -1,7 +1,7 @@
 {% set width = in1_d3 %}
 {% set area = in1_d2 * width %}
 {% set tiles = (area + 127) // 128 %}
-{% set block = 3 if area >= 512 else 14 %}
+{% set block = 12 if area >= 512 else 14 %}
 {% set qi = cr.qf_in1 ~ '.L' %}
 {% set qo = cr.qf_out0 ~ '.L' %}
 {% set ds = cr.ds128 ~ '.L' %}
@@ -161,10 +161,14 @@ stage_taps:
  {# Prefetch the next spatial row alongside each leading coefficient MAC. #}
  {% macro macs(n, again=false) %}
  LD.MULT R0 LR2 {{ cr.weights }} ; INC LR2 1 ; SET LR3 CR0 ; SET LR15 CR0 ;;
+ {% if area < 512 %}
  LD.MULT R1 LR2 {{ cr.weights }} ; INC LR2 1 ; DEC LR3 1 ; INC LR15 127 ;;
+ {% else %}
+ DEC LR3 1 ;;
+ {% endif %}
  {% for k in range(n) %}
  {% for t in range(9) %}
-{% if t == 3 %}
+{% if t == 3 and area < 512 %}
  MULT.RC.VE LR0 LR15 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ; INC LR15 1 ;;
  {% endif %}
  MULT.RC.VE LR0 LR3 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ; INC LR3 1 ; LD.MULT.CYCLIC LR1 {{ cr.pad }} LR0 ; INC LR1 1{% if again and k == n-1 and t == 8 %} ; INC LR8 1 ; BLT.S LR8 LR9 coeff_block{% endif %} ;;
