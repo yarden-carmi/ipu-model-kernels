@@ -1,0 +1,44 @@
+[kernel]
+op = "row_softmax"
+formats = ["e2"]
+
+[params]
+n = {type="int", min=1, max=64, default=50}
+rows = {type="int", min=1, default=600}
+in0_d0 = {type="int", min=1, default=1}
+in0_d1 = {type="int", min=1, default=12}
+in0_d2 = {type="int", min=1, default=50}
+in0_d3 = {type="int", min=1, max=64, default=50}
+out0_d0 = {type="int", min=1, default=1}
+out0_d1 = {type="int", min=1, default=12}
+out0_d2 = {type="int", min=1, default=50}
+out0_d3 = {type="int", min=1, max=64, default=50}
+
+[derived]
+lanes = "ds(n) + 65536*ds(1)"
+full = "ds(128)"
+work = "40"
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d1", "in0_d2", "ceil(in0_d3/128)*128"]
+range = [-2, 2]
+
+[outputs.out0]
+shape = ["out0_d0", "out0_d1", "out0_d2", "ceil(out0_d3/128)*128"]
+
+[scratch.tmp]
+shape = [6, 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+tmp = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+lanes = "CR7"
+full = "CR8"
+work = "CR9"
+n = "CR10"
+rows = "CR11"
+
+[cases.default]
