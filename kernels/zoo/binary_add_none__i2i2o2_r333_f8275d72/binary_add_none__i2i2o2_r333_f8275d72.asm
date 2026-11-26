@@ -24,7 +24,7 @@ locate:
 {% set input_blocks = (in0_d2 + 127) // 128 %}
 {% if input_blocks <= 32 %}
     {% for b in range(input_blocks - 1) %}
-    BLT.S LR9 LR13 load ;;
+    LD.MULT R0 LR10 {{ cr.in0 }} ; BLT.S LR9 LR13 loaded ;;
     DEC LR9 128 ; INC LR10 1 ;;
     {% endfor %}
 {% else %}
@@ -34,6 +34,7 @@ block:
 {% endif %}
 load:
     LD.MULT R0 LR10 {{ cr.in0 }} ;;
+loaded:
     MULT.EE LR9 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; AGG.SUM.FIRST LR2 {{ cr.scalar }}.L ;;
     MULT.EE LR11 CR1 0 LR0 CR15.L {{ cr.qf_in1 }}.L ; AGG.SUM LR2 {{ cr.scalar }}.L ;
     ADD LR6 LR6 {{ cr.step_row }} ; ADD LR7 LR7 {{ cr.step_lane }} ; DEC LR12 1 ;;
