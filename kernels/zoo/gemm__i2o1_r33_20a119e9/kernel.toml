@@ -1,0 +1,90 @@
+[kernel]
+op = "gemm"
+formats = ["e1", "e2"]
+
+[params.bias]
+type = "bool"
+default = true
+[params.m]
+type = "int"
+min = 256
+max = 65536
+multiple_of = 256
+default = 512
+[params.k]
+type = "int"
+min = 1
+max = 256
+default = 32
+[params.n]
+type = "int"
+min = 1
+max = 16384
+default = 64
+[params.in0_d0]
+type = "int"
+min = 1
+max = 256
+default = 1
+[params.in0_d1]
+type = "int"
+min = 256
+max = 65536
+multiple_of = 256
+default = 512
+[params.in0_d2]
+type = "int"
+min = 1
+max = 256
+choices = [1, 2, 4, 8, 16, 32, 64, 128, 256]
+default = 32
+[params.out0_d0]
+type = "int"
+min = 1
+max = 256
+default = 1
+[params.out0_d1]
+type = "int"
+min = 256
+max = 65536
+multiple_of = 256
+default = 512
+[params.out0_d2]
+type = "int"
+min = 1
+max = 16384
+default = 64
+[derived]
+chunks = "ceil(in0_d2 / 128)"
+batch_rows = "in0_d1 * chunks"
+pitch = "(in0_d1 // in0_d2) * chunks"
+tiles = "out0_d1 // 128"
+segment = "min(in0_d2, 128)"
+panels = "ceil(k / 128)"
+coeff_stride = "1 + 2 * panels"
+full = "ds(128)"
+
+[inputs.in0]
+shape = ["in0_d0 * batch_rows", 128]
+range = [-2, 2]
+[inputs.coeff]
+shape = ["2 + n * coeff_stride", 128]
+[outputs.out0]
+shape = ["out0_d0 * out0_d2 * tiles", 128]
+
+[abi]
+in0 = "CR2"
+coeff = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+full = "CR7"
+pitch = "CR8"
+tiles = "CR9"
+segment = "CR10"
+batch_rows = "CR11"
+out0_d0 = "CR12"
+out0_d2 = "CR13"
+coeff_stride = "CR14"
+
+[cases.default]
