@@ -95,12 +95,41 @@ MULT.RC.VE LR7 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.STRIDE {{ [16,[w,64]|min]|max }
 {% endfor %}
 {% endif %}
 {% endmacro %}
+{% macro stage_packed64() %}
+# Each stride result keeps only 32 even lanes. The top three taps
+# therefore share four source rows, even when the discarded lanes wrap.
+{% set banks = ['LR0','LR1','LR10','LR11'] %}
+{% for p in range(4) %}
+LD.MULT.CYCLIC LR6 {{ cr.guard }} {{ banks[p] }} ; {% if p %}INC LR6 1 ;{% endif %} {% if p==0 %}SET LR7 CR0 ;{% elif p==1 %}INC LR7 63 ;{% endif %} ;;
+{% endfor %}
+{% for t in range(9) %}
+{% set d = (t//3-1)*64+t%3-1 %}
+{% set start = d%128 + (128 if d>=0 else 0) %}
+{% set prev = ((t-1)//3-1)*64+(t-1)%3-1 %}
+{% set prior = prev%128 + (128 if prev>=0 else 0) + 384 %}
+{% for p in range(4) %}
+MULT.RC.VE LR7 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.STRIDE 64 on on LR9 ; INC LR9 1 ;
+{% if p %}INC LR7 128 ;{% elif t %}{{ bump('LR7',(start-prior+256)%512-256) }}{% endif %}
+{# After t3's first pair, recycle bank zero for the new bottom row. #}
+{% if t==3 and p==2 %}LD.MULT.CYCLIC LR6 {{ cr.guard }} LR0 ; INC LR6 1 ;{% endif %}
+{% if p==3 %}ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.stencil }} LR2 ; INC LR2 1 ;{% endif %}
+;;
+{% endfor %}
+{% endfor %}
+INC LR8 1 ; BLT.S LR8 {{ cr.sr_last }} stage_row ;;
+{% endmacro %}
 stage_channel:
 SET LR3 LR13 ; SET LR6 LR13 ; SET LR8 CR0 ;;
+{% if w != 64 %}
 SET LR7 CR0 ;;
+{% endif %}
 stage_row:
+{% if w == 64 %}
+{{ stage_packed64() }}
+{% else %}
 {% for t in range(kh*kw) %}{{ stage_tap(t) }}{% endfor %}
 SET LR7 CR0 ; INC LR8 1 ; BLT.S LR8 {{ cr.sr_last }} stage_row ;;
+{% endif %}
 ADD LR13 LR13 LR14 ; INC LR4 1 ; BLT.S LR4 LR5 stage_channel ;;
 {% endif %}
 
