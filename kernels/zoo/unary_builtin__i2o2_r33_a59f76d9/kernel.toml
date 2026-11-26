@@ -1,0 +1,76 @@
+[kernel]
+op = "unary_builtin"
+formats = ["e1", "e2"]
+
+[params.act_out0]
+type = "str"
+choices = ["relu"]
+default = "relu"
+
+[params.numel]
+type = "int"
+min = 1
+default = 32768
+
+[params.in0_d0]
+type = "int"
+min = 1
+default = 2
+[params.in0_d1]
+type = "int"
+min = 32
+multiple_of = 32
+default = 32
+[params.in0_d2]
+type = "int"
+min = 128
+multiple_of = 128
+default = 512
+[params.out0_d0]
+type = "int"
+min = 1
+default = 2
+[params.out0_d1]
+type = "int"
+min = 128
+multiple_of = 128
+default = 512
+[params.out0_d2]
+type = "int"
+min = 32
+multiple_of = 32
+default = 32
+
+[derived]
+stride = "in0_d2 // 128"
+batch_stride = "in0_d1 * stride"
+chunk_stride = "128 * stride"
+chunks = "ceil(in0_d1 / 128)"
+width = "min(in0_d1, 128)"
+active = "ds(width)"
+full = "ds(128)"
+lanes = "128"
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d1", "stride", 128]
+range = [-1.0, 1.0]
+[outputs.out0]
+shape = ["out0_d0", "out0_d1", "ceil(out0_d2 / 128)", 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+qf_in0 = "CR4"
+qf_out0 = "CR5"
+stride = "CR6"
+batch_stride = "CR7"
+chunk_stride = "CR8"
+chunks = "CR9"
+width = "CR10"
+active = "CR11"
+full = "CR12"
+in0_d0 = "CR13"
+in0_d2 = "CR14"
+lanes = "CR15"
+
+[cases.default]
