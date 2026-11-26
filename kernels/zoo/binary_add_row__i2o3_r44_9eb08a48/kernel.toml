@@ -1,0 +1,54 @@
+[kernel]
+op = "binary_add_row"
+formats = ["e1", "e2"]
+
+[params]
+broadcast = { type = "str", choices = ["row"], default = "row" }
+const = { type = "int", min = 1, max = 1, default = 1 }
+op = { type = "str", choices = ["add"], default = "add" }
+inner = { type = "int", min = 1, default = 4096 }
+numel = { type = "int", min = 1, default = 32768 }
+in0_d0 = { type = "int", min = 1, default = 1 }
+in0_d1 = { type = "int", min = 1, default = 8 }
+in0_d2 = { type = "int", min = 1, default = 64 }
+in0_d3 = { type = "int", min = 1, default = 64 }
+out0_d0 = { type = "int", min = 1, default = 1 }
+out0_d1 = { type = "int", min = 1, default = 8 }
+out0_d2 = { type = "int", min = 1, default = 64 }
+out0_d3 = { type = "int", min = 1, max = 4194176, default = 64 }
+
+[derived]
+input_tiles = "ceil(in0_d2 / 128)"
+output_tiles = "ceil(out0_d3 / 128)"
+logical_rows = "out0_d0 * out0_d1 * out0_d2"
+operand_rows = "min(logical_rows, inner // out0_d3 + logical_rows * min(1, inner % out0_d3)) * output_tiles"
+planes = "in0_d0 * in0_d1"
+plane_stride = "in0_d3 * input_tiles"
+count = "(out0_d3 - 1) % 128 + 1 + 65536 * output_tiles"
+mask = "ds((out0_d3 - 1) % 128 + 1) + 65536 * ds(128)"
+scalar = "ds(1)"
+
+[inputs.in0]
+shape = ["planes * plane_stride", 128]
+[inputs.operand]
+shape = ["operand_rows", 128]
+[outputs.out0]
+shape = ["logical_rows * output_tiles", 128]
+
+[abi]
+in0 = "CR2"
+operand = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_operand = "CR6"
+qf_out0 = "CR7"
+planes = "CR8"
+input_tiles = "CR9"
+plane_stride = "CR10"
+scalar = "CR11"
+count = "CR12"
+mask = "CR13"
+operand_rows = "CR14"
+out0_d2 = "CR15"
+
+[cases.default]
