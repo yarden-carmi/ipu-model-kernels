@@ -1,0 +1,73 @@
+[kernel]
+op = "conv2d_table"
+formats = ["e1", "e2"]
+
+[params]
+act_out0 = {type = "str", choices = ["hardswish"], default = "hardswish"}
+bias = {type = "bool", default = true}
+cin = {type = "int", min = 1, max = 1024, default = 240}
+cout = {type = "int", min = 1, max = 1024, default = 240}
+groups = {type = "int", min = 1, max = 1024, default = 240}
+h = {type = "int", min = 1, max = 3000, default = 14}
+w = {type = "int", min = 1, max = 256, default = 14}
+kh = {type = "int", min = 1, max = 5, default = 5}
+kw = {type = "int", min = 1, max = 5, default = 5}
+padding = {type = "int", min = 0, max = 2, default = 2}
+stride = {type = "int", choices = [1, 2], default = 1}
+in0_d0 = {type = "int", choices = [1], default = 1}
+in0_d1 = {type = "int", min = 1, max = 1024, default = 240}
+in0_d2 = {type = "int", min = 1, max = 3000, default = 14}
+in0_d3 = {type = "int", min = 1, max = 256, default = 14}
+out0_d0 = {type = "int", choices = [1], default = 1}
+out0_d1 = {type = "int", min = 1, max = 1024, default = 240}
+out0_d2 = {type = "int", min = 1, max = 3004, default = 14}
+out0_d3 = {type = "int", min = 1, max = 128, default = 14}
+
+[derived]
+pack = "1 + min(1, 64 // out0_d3) * (1 - out0_d2 % 2)"
+direct = "(2 - stride) * (1 - min(1, max(2 * padding - kh + 1, kh - 1 - 2 * padding))) * (1 - min(1, max(2 * padding - kw + 1, kw - 1 - 2 * padding)))"
+ipack = "1 + direct * (pack - 1)"
+blocks = "out0_d2 // pack"
+tiles = "ceil(in0_d3 / 128)"
+gc = "cin // groups"
+taps = "kh * kw"
+plane = "blocks * taps"
+ds_pair = "ds(128) + 65536 * ds(pack * out0_d3)"
+src_lo = "direct * blocks + (1 - direct) * stride * 50462976"
+src_hi = "direct * (pack * out0_d3) + (1 - direct) * stride * 117835012"
+dst_lo = "direct * gc + (1 - direct) * (max(0, 1 - max(0, 8 - out0_d3)) * 256 + max(0, 2 - max(0, 8 - out0_d3)) * 65536 + max(0, 3 - max(0, 8 - out0_d3)) * 16777216)"
+dst_hi = "direct * (cout // groups) + (1 - direct) * (max(0, 4 - max(0, 8 - out0_d3)) + max(0, 5 - max(0, 8 - out0_d3)) * 256 + max(0, 6 - max(0, 8 - out0_d3)) * 65536 + max(0, 7 - max(0, 8 - out0_d3)) * 16777216)"
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d1 * (in0_d2 // ipack) * tiles", 128]
+range = [-2, 2]
+[inputs.weights]
+shape = ["cout * (3 + (1 + direct) * 3 * gc * taps)", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[scratch.stencil]
+shape = ["1 + (1 - direct) * cin * plane", 128]
+[outputs.out0]
+shape = ["out0_d0 * out0_d1 * blocks", 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+weights = "CR4"
+lut = "CR5"
+stencil = "CR6"
+qf_in0 = "CR7"
+qf_weights = "CR8"
+qf_out0 = "CR9"
+ds_pair = "CR10"
+src_lo = "CR11"
+src_hi = "CR12"
+dst_lo = "CR13"
+dst_hi = "CR14"
+in0_d2 = "CR15"
+
+[golden]
+tolerance = {e1 = "NX8_STEP", e2 = "NX8_STEP"}
+[cases.default]
