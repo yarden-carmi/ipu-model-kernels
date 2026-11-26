@@ -1,5 +1,4 @@
-// The strided view takes consecutive elements of dense in0 storage
-// for each logical column, with axis 0 varying first.
+// The strided input view is a dense stream for each logical column.
 {% set valid = (out0_d0 * out0_d1 - 1) % 128 + 1 %}
 {% set full = 'CR15.L' %}
 {% set tail = cr.tail ~ '.L' %}
@@ -19,8 +18,6 @@ stream:
 drain:
     {{ right('LR8', full) }} HALT ;;
 {% else %}
-    // Partial columns are padded only on in1 and out0. LR4 tracks
-    // the offset of the next vector in the unpadded in0 stream.
     INC LR6 128 ; SET LR3 {{ cr.width }} ;;
 next_row:
     LD.MULT R0 LR2 {{ cr.in0 }} ; ADD LR7 LR2 CR1 ; BEQ LR3 CR1 column_tail ;;
