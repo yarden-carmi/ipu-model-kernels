@@ -7,14 +7,14 @@ choices = ["layernorm"]
 default = "layernorm"
 [params.channels]
 type = "int"
-min = 129
-max = 256
+min = 128
+max = 768
 multiple_of = 16
 default = 240
 [params.rows]
 type = "int"
 min = 64
-max = 1024
+max = 4096
 multiple_of = 64
 default = 64
 [params.eps]
@@ -30,13 +30,14 @@ default = 4
 [params.in0_d1]
 type = "int"
 min = 16
-max = 256
+max = 1024
 multiple_of = 16
 default = 16
 [params.in0_d2]
 type = "int"
-min = 129
-max = 256
+min = 128
+max = 768
+multiple_of = 16
 default = 240
 [params.out0_d0]
 type = "int"
@@ -46,19 +47,20 @@ default = 4
 [params.out0_d1]
 type = "int"
 min = 16
-max = 256
+max = 1024
 multiple_of = 16
 default = 16
 [params.out0_d2]
 type = "int"
-min = 129
-max = 256
+min = 128
+max = 768
+multiple_of = 16
 default = 240
 
 [derived]
 stat = "ds(min(rows,128)) + 65536 * qf(1, 1, 8, 0)"
 wide = "qf(1, 4, 8, 0) + 65536 * ds(64)"
-tiles = "(rows + 127) // 128"
+tiles = "rows // 128"
 count = "channels // 2"
 [inputs.in0]
 shape = ["in0_d0 * ((in0_d1 * in0_d2 + 127) // 128)", 128]

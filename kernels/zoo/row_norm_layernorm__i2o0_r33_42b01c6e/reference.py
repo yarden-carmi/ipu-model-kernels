@@ -58,23 +58,16 @@ def reference(module, *ins, _round=None, **params):
 def fold(module, **params):
     channels = int(params["channels"])
 
-    def split(t, mantissa=5):
-        residual = t.reshape(-1, 128)
-        parts = []
-        for _ in range(1):
-            peak = residual.abs().amax(1, keepdim=True).clamp_min(1e-30)
-            step = 2.0 ** (torch.floor(torch.log2(peak)) - mantissa)
-            part = torch.round(residual / step) * step
-            parts.append(part)
-            residual = residual - part
-        return torch.stack([*parts, residual], dim=1).flatten(0, 1)
-
-    def broadcast(t):
-        return t.reshape(-1, 1).repeat(1, 128)
+    def split(values, mantissa=5):
+        values = values.reshape(-1, 1).expand(-1, 128)
+        peak = values.abs().amax(1, keepdim=True).clamp_min(1e-30)
+        step = 2.0 ** (torch.floor(torch.log2(peak)) - mantissa)
+        coarse = torch.round(values / step) * step
+        return torch.stack((coarse, values - coarse), dim=1).flatten(0, 1)
 
     return {
-        "gamma": split(broadcast(module.weight) * channels**0.5, mantissa=6),
-        "beta": split(broadcast(module.bias)),
-        "crow": split(torch.full((128,), 1 / channels)),
+        "gamma": split(module.weight * channels**0.5, mantissa=6),
+        "beta": split(module.bias),
+        "crow": split(torch.tensor([1 / channels])),
         "epsilon": torch.full((1, 128), params["eps"] * channels),
     }

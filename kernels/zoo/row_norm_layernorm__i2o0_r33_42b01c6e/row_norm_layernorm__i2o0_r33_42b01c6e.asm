@@ -1,4 +1,4 @@
-{# Rows occupy lanes, and channels run through memory rows. #}
+{# A lane owns one logical row throughout the reduction and affine pass. #}
 {% set q = cr.qf_in0 ~ '.L' %}
 {% set s = cr.stat ~ '.H' %}
 {% set w = cr.wide ~ '.L' %}
@@ -21,6 +21,15 @@
 {% macro rc(reg,src,fmt,op='ADD',tail='') %}
  MULT.RC.{{ 'VE' if src == 'CR1' else 'VV' }} {{ reg }} {{ src }} 0 LR0 CR15.L {{ fmt }} ; ACC.{{ op }} {{ tail }} ;;
 {% endmacro %}
+{% macro variance(name,fmt) %}
+ {# LR0 already holds channel zero. Load one ahead, with a separate drain. #}
+ ADD LR6 LR6 LR6 ;;
+ DEC LR6 2 ;;
+ {{ label }}_{{ name }}:
+ MULT.RC.VS LR0 0 LR0 CR15.L {{ fmt }} ; ACC.ADD ; LD.MULT.CYCLIC LR7 {{ cr.tmp }} LR0 ; INC LR7 2 ; DEC LR6 1 ; BNE LR6 CR0 {{ label }}_{{ name }} ;;
+ MULT.RC.VS LR0 0 LR0 CR15.L {{ fmt }} ; ACC.ADD ; SET LR7 CR0 ;;
+ INC LR7 2 ;;
+{% endmacro %}
 {{ label }}:
  SET LR5 LR3 ; SET LR6 {{ cr.count }} ; SET LR7 CR0 ;;
  LD.MULT R0 LR0 {{ cr.crow }} ;; {{ loadx(0) }} ;;
@@ -40,6 +49,7 @@
  {{ sum_pair(p) }}
  {{ label }}_sum{{ p }}_end:
  {% endfor %}
+ {# Split the mean before subtracting it in the accumulator. #}
  {{ store('LR0',mean_q) }} ; SET LR5 LR3 ; SET LR6 {{ cr.count }} ; SET LR7 CR0 ;;
  LD.MULT R0 LR0 {{ cr.tmp }} ; INC LR7 1 ;;
  {{ v('LR0',mean_q,'SUB','; '~store('LR7',mean_q)) }}
@@ -67,17 +77,9 @@
  BNE LR6 CR0 {{ label }}_center ;;
  SET LR7 CR0 ; SET LR6 {{ cr.count }} ; LD.MULT R0 LR0 {{ cr.epsilon }} ;; INC LR7 5 ;;
  {{ v('LR0',w,'ADD.FIRST','; LD.MULT.CYCLIC LR7 '~cr.tmp~' LR0') }}
-{{ label }}_variance:
- INC LR7 2 ;;
- MULT.RC.VS LR0 0 LR0 CR15.L {{ center_q }} ; ACC.ADD ; LD.MULT.CYCLIC LR7 {{ cr.tmp }} LR0 ; DEC LR6 1 ;;
- INC LR7 2 ;;
- MULT.RC.VS LR0 0 LR0 CR15.L {{ center_q }} ; ACC.ADD ; BNE LR6 CR0 {{ label }}_variance_next ;;
- B {{ label }}_variance_end ;;
-{{ label }}_variance_next:
- LD.MULT.CYCLIC LR7 {{ cr.tmp }} LR0 ; B {{ label }}_variance ;;
-{{ label }}_variance_end:
- SET LR7 CR0 ;; INC LR7 2 ;;
+ {{ variance('variance',center_q) }}
  {% if refine %}
+ {# Rescale before the narrow-format pass to retain small centered values. #}
  {{ store('LR7',w,'rsqrt') }} ; SET LR10 CR0 ; SET LR6 {{ cr.count }} ;;
  LD.MULT R1 LR7 {{ cr.tmp }} ; INC LR10 4 ;;
  ADD LR6 LR6 LR6 ; INC LR7 3 ;;
@@ -93,16 +95,7 @@
  LD.MULT.CYCLIC LR10 {{ cr.tmp }} LR0 ;;
  LD.MULT R0 LR0 {{ cr.epsilon }} ; SET LR7 CR0 ;;
  {{ rc('LR0','R0',w,'ADD.FIRST','; INC LR7 5 ; LD.MULT.CYCLIC LR7 '~cr.tmp~' LR0 ; SET LR6 '~cr.count) }}
- {{ label }}_corrected_variance:
- INC LR7 2 ;;
- MULT.RC.VS LR0 0 LR0 CR15.L {{ s }} ; ACC.ADD ; LD.MULT.CYCLIC LR7 {{ cr.tmp }} LR0 ; DEC LR6 1 ;;
- INC LR7 2 ;;
- MULT.RC.VS LR0 0 LR0 CR15.L {{ s }} ; ACC.ADD ; BNE LR6 CR0 {{ label }}_corrected_next ;;
- B {{ label }}_corrected_end ;;
- {{ label }}_corrected_next:
- LD.MULT.CYCLIC LR7 {{ cr.tmp }} LR0 ; B {{ label }}_corrected_variance ;;
- {{ label }}_corrected_end:
- SET LR7 CR0 ;; INC LR7 2 ;;
+ {{ variance('corrected',s) }}
  {% endif %}
  {{ store('LR7',s,'rsqrt') }} ; SET LR8 LR3 ; SET LR9 CR0 ;;
  LD.MULT.CYCLIC LR7 {{ cr.tmp }} LR0 ; SET LR10 CR0 ; SET LR11 CR0 ;;
@@ -126,12 +119,7 @@
  {% if rows >= 128 %}
  {{ tile_body('tile',cr.stat~'.L',false) }}
  INC LR3 1 ;;
- {% if half %}
- SET LR12 {{ cr.tiles }} ;; DEC LR12 1 ;;
- BLT.S LR3 LR12 tile ;;
- {% else %}
  BLT.S LR3 {{ cr.tiles }} tile ;;
- {% endif %}
  {% endif %}
  {% if half %}{{ tile_body('tail',cr.wide~'.H',true) }}{% endif %}
  HALT ;;
