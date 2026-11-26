@@ -8,7 +8,7 @@
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ mask }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;
 {% endmacro %}
 
-// Flattening the first two view axes makes in0 a dense stream in storage order.
+// Flatten the first two view axes: the strided input is now in storage order.
 {% if valid == 128 %}
     LD.MULT R0 LR2 {{ cr.in0 }} ; INC LR8 128 ;;
 stream:
@@ -16,8 +16,20 @@ stream:
     {{ second('LR8', 'CR15.L') }} LD.MULT R0 LR2 {{ cr.in0 }} ; INC LR2 1 ; B stream ;;
 final:
     {{ second('LR8', 'CR15.L') }} HALT ;;
+{% elif out0_d0 * out0_d1 == 64 %}
+// Two half-width slices share one dense input row. Replace only R1 between them.
+    LD.MULT R0 LR2 {{ cr.in0 }} ; INC LR8 64 ; INC LR9 128 ;;
+pair:
+    {{ first('LR0', tail_mask) }} LD.MULT R1 LR3 {{ cr.in1 }} ; SET LR1 LR3 ;;
+    {{ second('LR9', tail_mask) }} INC LR3 1 ; BEQ LR3 {{ cr.last_row }} finish ;;
+    {{ first('LR8', tail_mask) }} LD.MULT R1 LR3 {{ cr.in1 }} ; SET LR1 LR3 ; BEQ LR3 {{ cr.last_row }} last_half ;;
+    {{ second('LR9', tail_mask) }} LD.MULT R0 LR2 {{ cr.in0 }} ; INC LR2 1 ; INC LR3 1 ; B pair ;;
+last_half:
+    {{ second('LR9', tail_mask) }} HALT ;;
+finish:
+    HALT ;;
 {% else %}
-// Only in1 and out0 are padded per d2 slice. Track the dense in0 lane offset.
+// The dense input may straddle a physical row; only in1 and out0 pad each slice.
     INC LR6 128 ; SET LR3 {{ cr.width }} ;;
 row:
     LD.MULT R0 LR2 {{ cr.in0 }} ; ADD LR7 LR2 CR1 ; BEQ LR3 CR1 tail ;;
