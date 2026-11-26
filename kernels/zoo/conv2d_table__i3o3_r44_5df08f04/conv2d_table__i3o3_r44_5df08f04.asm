@@ -80,16 +80,18 @@ INC LR4 1 ; BLT.S LR4 LR5 copy_channel ;;
 {% set start = 1 if d%128 and w == 128 else 0 %}
 {% set banks = ['LR0','LR1','LR10','LR11'] %}
 {% set pd = ((t-1)//kw-padding)*w+(0 if w>=128 and (t-1)%kw==2 else (t-1)%kw-padding) %}
+{% set opt = w == 128 and not fast %}
 {% set delta = (d%128-128-(pd%128+128*(n-1) if t else 0)+256)%512-256 %}
+{% set advance = nd//128+(1 if nd%128 and w==128 else 0)-d//128-start+(4 if not next else 0) %}
 {% if fast and t%kw==0 %}
 INC LR2 1 ; INC LR3 1 ; {{ bump('LR7', (d%128+128-(pd%128+128 if t else 0)+256)%512-256) }} ;;
 {% else %}
-LD.MULT.CYCLIC LR6 {{ cr.guard }} {{ banks[start] }} ; SET LR6 LR3 ; {% if delta == -256 %}ADD LR7 LR7 LR10 ;{% else %}{{ bump('LR7',delta) }}{% endif %} {{ bump('LR3',nd//128+(1 if nd%128 and w==128 else 0)-d//128-start+(4 if not next else 0)) }} ;;
+LD.MULT.CYCLIC LR6 {{ cr.guard }} {{ banks[start] }} ; SET LR6 LR3 ; {% if not opt %}{% if delta == -256 %}ADD LR7 LR7 LR10 ;{% else %}{{ bump('LR7',delta) }}{% endif %} {{ bump('LR3',advance) }}{% endif %} ;;
 {% if overlap %}LD.MULT.CYCLIC LR6 {{ cr.guard }} LR1 ; INC LR6 1 ;;{% endif %}
 {% for p in range(n) %}
-MULT.RC.VE LR7 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.STRIDE {{ [16,[w,64]|min]|max }} {{ 'on_inv' if right else 'on' }} {{ 'on' if w <= 64 else 'off' }} LR9 ; INC LR7 128 ; INC LR9 {{ 1 if w <= 64 else 2 }} ;
+MULT.RC.VE LR7 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.STRIDE {{ [16,[w,64]|min]|max }} {{ 'on_inv' if right else 'on' }} {{ 'on' if w <= 64 else 'off' }} {{ ('LR0' if p == 0 else 'LR9') if opt else 'LR9' }} ; {% if opt and loop.first %}{% set change = (delta+128+256)%512-256 %}{% if change == -256 %}ADD LR7 LR7 LR10 ;{% else %}{{ bump('LR7',change) }}{% endif %} {{ bump('LR3',advance) }}{% else %}INC LR7 128 ;{% endif %} {% if not opt %}INC LR9 {{ 1 if w <= 64 else 2 }} ;{% endif %}
 {% if loop.last %}ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.stencil }} LR2 ; INC LR2 1 ;
-{% else %}LD.MULT.CYCLIC LR6 {{ cr.guard }} {{ banks[(p+1+(1 if overlap else 0)+start)%4] }} ; INC LR6 {{ step }} ;{% endif %} ;;
+{% else %}LD.MULT.CYCLIC LR6 {{ cr.guard }} {{ banks[(p+1+(1 if overlap else 0)+start)%4] }} ; INC LR6 {{ step }} ;{% endif %} {% if not (opt and loop.last and t < kh*kw-1) %};;{% endif %}
 {% endfor %}
 {% endif %}
 {% endmacro %}
