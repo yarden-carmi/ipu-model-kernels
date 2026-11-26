@@ -1,0 +1,86 @@
+[kernel]
+op = "gemm"
+formats = ["e2"]
+
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+default = 192
+[params.m]
+type = "int"
+min = 1
+default = 256
+[params.n]
+type = "int"
+min = 1
+default = 192
+[params.in0_d0]
+type = "int"
+choices = [1, 2, 4, 8, 16, 32, 64, 128]
+default = 4
+[params.in0_d1]
+type = "int"
+min = 1
+multiple_of = 2
+default = 4
+[params.in0_d2]
+type = "int"
+min = 2
+multiple_of = 2
+default = 64
+[params.in0_d3]
+type = "int"
+min = 1
+max = 64
+default = 48
+[params.out0_d0]
+type = "int"
+min = 1
+default = 4
+[params.out0_d1]
+type = "int"
+min = 1
+default = 64
+[params.out0_d2]
+type = "int"
+min = 1
+default = 192
+
+[derived]
+full = "ds(128)"
+tail = "ds((out0_d0 * out0_d1 - 1) % 128 + 1)"
+pitch = "in0_d2 // 2"
+batch_stride = "in0_d1 * pitch"
+weight_stride = "2 + 2 * in0_d1"
+pair_count = "in0_d1 // 2"
+out_rows = "ceil(out0_d0 * out0_d1 / 128)"
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d1 * pitch", 128]
+range = [-2, 2]
+[inputs.coeff]
+shape = ["n * weight_stride", 128]
+range = [-1, 1]
+[outputs.out0]
+shape = ["n * out_rows", 128]
+
+[abi]
+in0 = "CR2"
+coeff = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+full = "CR7"
+tail = "CR8"
+n = "CR9"
+in0_d0 = "CR10"
+pair_count = "CR11"
+in0_d2 = "CR12"
+pitch = "CR13"
+batch_stride = "CR14"
+weight_stride = "CR15"
+
+[cases.default]
