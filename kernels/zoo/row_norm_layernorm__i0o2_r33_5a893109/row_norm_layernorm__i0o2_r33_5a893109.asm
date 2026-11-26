@@ -43,14 +43,14 @@ wrapped_{{ i }}:
 {% macro gather(i,count) %}
  # Map the dense view offset to a channel plane (LR4) and packed (t,b) offset (LR1).
  SET LR2 CR0 ; SET LR3 CR0 ; SET LR5 CR0 ;;
- {{ at('LR6',count) }}
- {{ vec('ADD.FIRST','CR0',iq) }} ;;
+ SET LR6 CR0 ;;
+ {{ vec('ADD.FIRST','CR0',iq) }} ; INC LR6 {{ count }} ;;
 gather_{{ i }}:
  {% if split_lane or stride == 1 %}
  # LR4 already includes the packed row group. Broadcast the selected
  # input lane so the reshape source index can stay zero throughout.
- LD.MULT R0 LR4 {{ cr.in0 }} ; INC LR5 1 ;;
- MULT.EE {{ 'LR8' if split_lane else 'LR1' }} CR1 0 LR0 {{ full }} {{ iq }} ; ACC.RESHAPE LRD0 LRD2 7 {% if packed_step and (split_lane or rem) %}; INC LR1 {{ packed_step }}{% endif %} ;;
+ LD.MULT R0 LR4 {{ cr.in0 }} ; INC LR5 1 {% if rem %}; INC LR10 {{ rem }}{% endif %} ;;
+ MULT.EE {{ 'LR8' if split_lane else 'LR1' }} CR1 0 LR0 {{ full }} {{ iq }} ; ACC.RESHAPE LRD0 LRD2 7 {% if packed_step and (split_lane or rem) %}; INC LR1 {{ packed_step }}{% endif %} {% if rem %}; ADD LR4 LR4 LR13{% endif %} ;;
  {% if packed_step and not split_lane and not rem %}INC LR1 {{ packed_step }} ;;{% endif %}
  {% else %}
  SET LR8 LR1 ; SET LR0 LR4 ;;
@@ -78,8 +78,8 @@ load_{{ i }}:
  {% endif %}
  {% endif %}
  {% if rem %}
- INC LR10 {{ rem }} ; ADD LR4 LR4 LR13 {% if split_lane and packed_step %}; INC LR8 {{ packed_step }}{% endif %} ;;
- BLT.S LR10 LR11 wrap_{{ i }} ;;
+ {% if not (split_lane or stride == 1) %}INC LR10 {{ rem }} ; ADD LR4 LR4 LR13 ;;{% endif %}
+ {% if split_lane and packed_step %}INC LR8 {{ packed_step }} ; {% endif %}BLT.S LR10 LR11 wrap_{{ i }} ;;
  SUB LR10 LR10 LR11 ; SUB LR4 LR4 {{ cr.span }} ; ADD LR1 LR1 LR14 ;;
  {% if split_lane %}ADD LR8 LR8 LR14 ;;{% endif %}
  {% endif %}
@@ -130,7 +130,7 @@ start_divide:
  SUB LR10 LR10 LR11 ; ADD LR1 LR1 LR14 ; B start_divide ;;
  {{ wrap('start') }}
  SET LR8 LR10 ;;
- {% if stride <= 7 %}
+ {% if stride <= 8 %}
  # Decode the initial channel-plane address in logarithmic time.
  {% for bit in [128,64,32,16,8,4,2] if bit < in0_d2 %}
  {{ at('LR6',bit) }}
@@ -149,13 +149,14 @@ start_plane:
  DEC LR8 1 ; INC LR4 {{ stride }} ; B start_plane ;;
  {% endif %}
 start_ready:
- SET LR0 CR0 ;;
  {% if split_lane %}
- SET LR8 LR1 ;;
+ SET LR0 CR0 ; SET LR8 LR1 ;;
 start_group:
  BLT.S LR8 LR15 start_group_done ;;
  DEC LR8 128 ; INC LR4 1 ; B start_group ;;
-start_group_done:
+ start_group_done:
+ {% else %}
+ SET LR0 CR0 ;;
  {% endif %}
  {% for i in range(k) %}{{ gather(i,128 if not loop.last else channels-128*i) }}{% endfor %}
 
