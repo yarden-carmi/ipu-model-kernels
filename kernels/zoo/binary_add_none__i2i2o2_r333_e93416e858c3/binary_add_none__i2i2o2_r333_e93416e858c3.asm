@@ -5,11 +5,14 @@
                 16 if in0_d2 % 16 == 0 and stride % 16 == 0 else
                  8 if in0_d2 % 8 == 0 and stride % 8 == 0 else 1 %}
 {% set phases = in0_d2 // group %}
-{% set periodic = in0_d2 <= 256 and phases <= 32 and out0_d0 * out0_d1 <= 32767 and (out0_d2 % 128 == 0 or out0_d2 % 128 >= 2) %}
+{% set periodic = in0_d2 <= 256 and phases <= 32 and out0_d0 * out0_d1 <= 32767 and out0_d2 % 128 != 1 %}
 {% macro advance(reg, delta) %}
 {% if delta > 0 %} INC {{ reg }} {{ delta }} ;
 {% elif delta < 0 %} DEC {{ reg }} {{ -delta }} ;
 {% endif %}
+{% endmacro %}
+{% macro gather_scalar() %}
+    MULT.EE LR9 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; AGG.SUM.FIRST LR2 {{ cr.scalar }}.L ;
 {% endmacro %}
 {% macro store(mask) %}
     LD.MULT R0 LR1 {{ cr.in1 }} ; SET LR2 CR0 ; SET LR3 CR0 ;;
@@ -42,7 +45,7 @@ start_gather:
     SET LR10 CR0 ;;
     INC LR10 {{ group }} ;;
 {% for p in range(phases) %}
-{% set target = 'setup_' ~ p %}
+    {% set target = 'prime_' ~ p %}
     {% if not loop.last %}
     BLT.S LR7 LR10 {{ target }} ; INC LR10 {{ group }} ;;
     {% else %}
@@ -53,19 +56,19 @@ start_gather:
     {% set col = p * group %}
     {% set next_col = (col + stride) % in0_d2 %}
     {% set dr = ((out0_d0 * out0_d1 + col) // in0_d2) * ((in0_d2 + 127) // 128) + next_col // 128 - col // 128 %}
-setup_{{ p }}:
-    {% if col >= 128 %} INC LR6 1 ; DEC LR7 128 ;; {% endif %}
-    LD.MULT R0 LR6 {{ cr.in0 }} ; SET LR9 LR7 ;;
     {% set prev_col = (col - stride) % in0_d2 %}
-    {{ advance('LR9', prev_col % 128 - col % 128) }}
-    B phase_{{ p }} ;;
-phase_{{ p }}:
     {% set next2_col = (next_col + stride) % in0_d2 %}
     {% set dr2 = ((out0_d0 * out0_d1 + next_col) // in0_d2) * ((in0_d2 + 127) // 128) + next2_col // 128 - next_col // 128 %}
-    {% set prev_col = (col - stride) % in0_d2 %}
-    MULT.EE LR9 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; AGG.SUM.FIRST LR2 {{ cr.scalar }}.L ; LD.MULT R0 LR6 {{ cr.in0 }} ;
+prime_{{ p }}:
+    {% if col >= 128 %} INC LR6 1 ; DEC LR7 128 ;; {% endif %}
+    LD.MULT R0 LR6 {{ cr.in0 }} ; SET LR9 LR7 ;;
+    {{ advance('LR9', prev_col % 128 - col % 128) }} B phase_{{ p }} ;;
+phase_{{ p }}:
+    // Consume the primed row while loading its successor using the updated LR6.
+    {{ gather_scalar() }} LD.MULT R0 LR6 {{ cr.in0 }} ;
     {{ advance('LR6', dr) }} {{ advance('LR9', col % 128 - prev_col % 128) }} INC LR2 1 ; BNE LR2 LR11 phase_{{ next_col // group }} ;;
-    MULT.EE LR9 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; AGG.SUM.FIRST LR2 {{ cr.scalar }}.L ; INC LR2 1 ; {{ advance('LR9', next_col % 128 - col % 128) }} {{ advance('LR6', dr2) }} ;;
+    // Drain without loading past the chunk, then restore the logical cursor.
+    {{ gather_scalar() }} INC LR2 1 ; {{ advance('LR9', next_col % 128 - col % 128) }} {{ advance('LR6', dr2) }} ;;
     SET LR7 LR9 ;;
     {{ advance('LR7', next2_col - next_col % 128) }} {% if next2_col >= 128 %} DEC LR6 1 ; {% endif %} B gathered ;;
 {% endfor %}
@@ -89,7 +92,7 @@ physical_chunk:
 load:
     LD.MULT R0 LR10 {{ cr.in0 }} ;;
 {% endif %}
-    MULT.EE LR9 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; AGG.SUM.FIRST LR2 {{ cr.scalar }}.L ;
+    {{ gather_scalar() }}
     ADD LR6 LR6 {{ cr.step_row }} ; ADD LR7 LR7 {{ cr.step_lane }} ; INC LR2 1 ; BNE LR2 LR11 gather ;;
 {% endif %}
     BEQ LR12 CR0 end_row ;;
