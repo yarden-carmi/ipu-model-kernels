@@ -1,0 +1,71 @@
+[kernel]
+op = "multiplicity_pool_resize"
+formats = ["e2"]
+
+[params.in0_d0]
+type = "int"
+default = 1
+[params.in0_d1]
+type = "int"
+default = 64
+[params.in0_d2]
+type = "int"
+default = 64
+[params.in0_d3]
+type = "int"
+max = 64
+default = 64
+[params.out0_d0]
+type = "int"
+default = 1
+[params.out0_d1]
+type = "int"
+default = 64
+[params.out0_d2]
+type = "int"
+default = 128
+[params.out0_d3]
+type = "int"
+max = 128
+default = 128
+[params.oh]
+type = "int"
+default = 128
+[params.ow]
+type = "int"
+default = 128
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d2", "in0_d1", 128]
+[outputs.out0]
+shape = ["out0_d0", "out0_d2", "out0_d1", 128]
+[scratch.weights]
+shape = [5, 128]
+
+[derived]
+nx = "min(1, case_qf)"
+center = "(1 - nx) * 0x3f100000 + nx * 0x017e10"
+side = "(1 - nx) * 0x3e400000 + nx * 0x017c40"
+corner = "(1 - nx) * 0x3d800000 + nx * 0x017b00"
+active = "ds(out0_d3)"
+three_quarters = "(1 - nx) * 0x3f400000 + nx * 0x017e40"
+one_quarter = "(1 - nx) * 0x3e800000 + nx * 0x017d00"
+tap_ds = "ds(1) + 65536 * ds(2)"
+input_rows = "in0_d0 * in0_d2 * in0_d1"
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+weights = "CR4"
+qf_in0 = "CR6"
+qf_out0 = "CR7"
+center = "CR8"
+side = "CR9"
+corner = "CR10"
+active = "CR11"
+three_quarters = "CR12"
+one_quarter = "CR13"
+tap_ds = "CR14"
+input_rows = "CR15"
+
+[cases.default]
