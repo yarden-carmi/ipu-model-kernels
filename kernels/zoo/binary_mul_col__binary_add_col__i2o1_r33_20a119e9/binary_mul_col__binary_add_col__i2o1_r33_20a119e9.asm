@@ -1,5 +1,4 @@
-{# LR6 selects the channel chunk in both constant tensors. Input and output
-   share the same physical row order despite the logical input view. #}
+{# LR6 selects the channel chunk in both constants. #}
 {% macro row(ds, advance, branch) %}
     LD.MULT R0 LR2 {{ cr.in0 }} ; INC LR3 1 ;;
     LD.MULT.CYCLIC LR6 {{ cr.c0 }} LR0 ; INC LR2 1 ;;

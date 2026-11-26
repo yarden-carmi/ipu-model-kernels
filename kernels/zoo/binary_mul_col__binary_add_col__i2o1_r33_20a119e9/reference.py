@@ -56,14 +56,14 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    """Fold inference batch normalization into lane-aligned affine constants."""
-    inner = int(params["in0_d2"])
+    """Fold inference batch normalization into channel-aligned scale and bias."""
+    channels = int(params["in0_d2"])
     scale = module.weight.reshape(-1).float() * torch.rsqrt(
         module.running_var.reshape(-1).float() + 1e-5
     )
     bias = module.bias.reshape(-1).float() - module.running_mean.reshape(-1).float() * scale
 
     def pack(values):
-        return torch.nn.functional.pad(values[:inner], (0, (-inner) % 128)).reshape(-1, 128)
+        return torch.nn.functional.pad(values[:channels], (0, (-channels) % 128)).reshape(-1, 128)
 
     return {"c0": pack(scale), "c1": pack(bias)}
