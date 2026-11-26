@@ -99,9 +99,14 @@ scalar_{{ x }}_{{ c }}_single:
 {% endmacro %}
 {% for x in range(kw) %}{% for c in range(ic) %}
 {% set n = [128,cin-128*c]|min %}
-{% set s = (3*n)//4 if x == kw-1 else 0 %}
-{% if s %}{{ dense_tap(x,c,0,s,true) }} DEC LR4 1 ;;{% endif %}
-{% if n-s %}{{ dense_tap(x,c,s,n-s,false) }}{% endif %}
+{% set s = (15*n)//32 if in1_d2*in1_d3 >= 512 else n//2 %}
+{% if x == 0 or in1_d2*in1_d3 >= 512 %}
+{{ dense_tap(x,c,0,s,true) }} DEC LR4 1 ;;
+{{ dense_tap(x,c,s,n-s,false) }}
+{% else %}
+{{ dense_tap(x,c,0,n-s,false) }} DEC LR4 1 ;;
+{{ dense_tap(x,c,n-s,s,true) }}
+{% endif %}
 {% endfor %}{% endfor %}
  ADD LR4 LR4 {{ cr.window_jump }} ; INC LR9 1 ;;
  BLT.S LR9 LR12 kernel_y ;;

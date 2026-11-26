@@ -30,7 +30,7 @@ ic = "ceil(in1_d1 / 128)"
 oc = "ceil(out0_d1 / 128)"
 dw = "1 - min(1, max(cin - groups, groups - cin, cout - groups, groups - cout))"
 pc = "dw + (1 - dw) * ic"
-weight_block = "2 + 2 * kh * kw * dw + kh * (1 - dw) * (2 * kw * cin - 96 * (cin // 128) - (3 * (cin % 128)) // 4)"
+weight_block = "2 + 2 * kh * kw * dw + kh * kw * (1 - dw) * (2 * cin - 64 * (cin // 128) - (cin % 128) // 2 + min(1, (in1_d2 * in1_d3) // 512) * (4 * (cin // 128) + (cin % 128) // 2 - (15 * (cin % 128)) // 32))"
 ds128 = "ds(128)"
 window_jump = "(in1_d3 + 2 * padding - kw) * pc"
 [inputs.in0]

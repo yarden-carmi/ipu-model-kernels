@@ -53,13 +53,13 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[1], [1, 192, 32, 32], [196608, 1024, 32, 1], 0), module.op0_weight, None, [1, 1], [1, 1])
+    r0 = aten.conv2d.default(_v(ins[1], [1, 256, 16, 16], [65536, 256, 16, 1], 0), module.op0_weight, None, [1, 1], [1, 1])
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 96, 32, 32], [98304, 1024, 32, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 128, 16, 16], [32768, 256, 16, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.silu_.default(_v(op1, [1, 96, 32, 32], [98304, 1024, 32, 1], 0))
+    r0 = aten.silu_.default(_v(op1, [1, 128, 16, 16], [32768, 256, 16, 1], 0))
     op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 96, 32, 32])}
+    return {"out0": _out(op2, [1, 128, 16, 16])}
 # ---- end of the frozen reference ----
 
 
@@ -94,10 +94,15 @@ def fold(module, **params):
         for t in range(kh * kw):
             for c in range((cin + 127)//128):
                 n = min(128, cin - 128*c)
-                single = (3*n)//4 if t % kw == kw - 1 else 0
+                single = (15*n)//32 if params['in1_d2']*params['in1_d3'] >= 512 else n//2
                 start = 1 + t*cin + 128*c
-                parts.append(rows[:, start:start+single])
-                sl = slice(start+single, start+n)
-                parts.append(np.stack((hi[:, sl], rows[:, sl] - hi[:, sl]), axis=2).reshape(chunks, -1, 128))
+                if t % kw == 0 or params['in1_d2']*params['in1_d3'] >= 512:
+                    parts.append(rows[:, start:start+single])
+                    sl = slice(start+single, start+n)
+                    parts.append(np.stack((hi[:, sl], rows[:, sl] - hi[:, sl]), axis=2).reshape(chunks, -1, 128))
+                else:
+                    sl = slice(start, start+n-single)
+                    parts.append(np.stack((hi[:, sl], rows[:, sl] - hi[:, sl]), axis=2).reshape(chunks, -1, 128))
+                    parts.append(rows[:, start+n-single:start+n])
         return {'weights': np.concatenate(parts, axis=1).reshape(-1, 128)}
     return {'weights': np.stack((hi, rows - hi), axis=-2).reshape(-1, 128)}
