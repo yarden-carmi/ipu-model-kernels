@@ -1,3 +1,16 @@
+{% set stride = out0_d0 * out0_d1 % in0_d2 %}
+{% set group = 128 if in0_d2 % 128 == 0 and stride % 128 == 0 else
+                64 if in0_d2 % 64 == 0 and stride % 64 == 0 else
+                32 if in0_d2 % 32 == 0 and stride % 32 == 0 else
+                16 if in0_d2 % 16 == 0 and stride % 16 == 0 else
+                 8 if in0_d2 % 8 == 0 and stride % 8 == 0 else 1 %}
+{% set phases = in0_d2 // group %}
+{% set periodic = in0_d2 <= 256 and phases <= 32 and out0_d0 * out0_d1 <= 32767 %}
+{% macro advance(reg, delta) %}
+{% if delta > 0 %} INC {{ reg }} {{ delta }} ;
+{% elif delta < 0 %} DEC {{ reg }} {{ -delta }} ;
+{% endif %}
+{% endmacro %}
 {% macro store(mask) %}
     LD.MULT R0 LR1 {{ cr.in1 }} ; SET LR2 CR0 ; SET LR3 CR0 ;;
     MULT.VE LR0 CR1 0 LR0 {{ mask }} {{ cr.qf_in1 }}.L ; ACC.ADD ; ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ mask }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;;
@@ -23,6 +36,39 @@ tail_chunk:
 start_gather:
 // AGG sees the incremented destination; the branch sees the old cursor.
     DEC LR2 1 ; DEC LR11 2 ;;
+{% if periodic %}
+// The stride preserves the remainder within each group. Dispatch once per
+// output chunk, then walk a fixed cycle of physical row/lane deltas.
+    SET LR10 CR0 ;;
+    INC LR10 {{ group }} ;;
+{% for p in range(phases) %}
+    {% set target = ('high_' if p * group >= 128 else 'phase_') ~ p %}
+    {% if not loop.last %}
+    BLT.S LR7 LR10 {{ target }} ; INC LR10 {{ group }} ;;
+    {% else %}
+    B {{ target }} ;;
+    {% endif %}
+{% endfor %}
+{% for p in range(phases) %}
+    {% set col = p * group %}
+    {% set next_col = (col + stride) % in0_d2 %}
+    {% set dr = ((out0_d0 * out0_d1 + col) // in0_d2) * ((in0_d2 + 127) // 128) + next_col // 128 - col // 128 %}
+    {% if col >= 128 %}
+high_{{ p }}:
+    INC LR6 1 ; DEC LR7 128 ;;
+    {% endif %}
+phase_{{ p }}:
+    LD.MULT R0 LR6 {{ cr.in0 }} ; SET LR9 LR7 ;;
+    MULT.EE LR9 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; AGG.SUM.FIRST LR2 {{ cr.scalar }}.L ;
+    {{ advance('LR6', dr) }} {{ advance('LR7', next_col % 128 - col % 128) }} INC LR2 1 ; BNE LR2 LR11 phase_{{ next_col // group }} ;;
+    B {{ 'exit_high' if next_col >= 128 else 'gathered' }} ;;
+{% endfor %}
+{% if in0_d2 > 128 %}
+exit_high:
+    DEC LR6 1 ; INC LR7 128 ;;
+{% endif %}
+gathered:
+{% else %}
 gather:
     BLT.S LR7 {{ cr.span }}.L locate ;;
     SUB LR7 LR7 {{ cr.span }}.L ; ADD LR6 LR6 {{ cr.span }}.H ;;
@@ -43,6 +89,7 @@ load:
 {% endif %}
     MULT.EE LR9 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; AGG.SUM.FIRST LR2 {{ cr.scalar }}.L ;
     ADD LR6 LR6 {{ cr.step_row }} ; ADD LR7 LR7 {{ cr.step_lane }} ; INC LR2 1 ; BNE LR2 LR11 gather ;;
+{% endif %}
     BEQ LR12 CR0 end_row ;;
     {{ store('CR15.L') }}
     B chunk ;;
