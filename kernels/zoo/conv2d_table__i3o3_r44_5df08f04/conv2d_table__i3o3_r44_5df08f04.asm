@@ -18,7 +18,7 @@ SET {{ r }} CR0 ;;
 {% endif %}
 {% endmacro %}
 
-# Copy input planes between zero guards for cyclic reads at the top and bottom.
+# Copy the spatial planes between zero guards for cyclic tap reads.
 {{ imm('LR0',0) }}
 {{ imm('LR1',128) }}
 {{ imm('LR2',-1) }}
@@ -50,7 +50,7 @@ copy_last:
 {{ guard('copy_bottom',6) }}
 INC LR4 1 ; BLT.S LR4 LR5 copy_channel ;;
 
-# Compact stride-two input taps into the output's spatial lane order.
+# Compact each stride-two tap into the output spatial lane order.
 {% if stride == 2 %}
 {{ imm('LR2',-1) }}
 {{ imm('LR4',0) }}

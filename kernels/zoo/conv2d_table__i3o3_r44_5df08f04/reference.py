@@ -64,7 +64,7 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    """Fold inference BN and encode the horizontally masked taps in three parts."""
+    """Fold inference BN, mask horizontal borders, and split constants for FP8."""
     import numpy as np
 
     weight = module.op0_weight.double()
