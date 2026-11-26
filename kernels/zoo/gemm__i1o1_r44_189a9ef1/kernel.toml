@@ -1,0 +1,107 @@
+[kernel]
+op = "gemm"
+formats = ["e1", "e2"]
+
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 4096
+default = 64
+[params.m]
+type = "int"
+min = 1
+max = 2147483647
+default = 256
+[params.n]
+type = "int"
+min = 1
+max = 4096
+default = 64
+[params.in0_d0]
+type = "int"
+min = 1
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 64
+[params.in0_d2]
+type = "int"
+min = 1
+default = 16
+[params.in0_d3]
+type = "int"
+min = 1
+default = 16
+[params.out0_d0]
+type = "int"
+min = 1
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 64
+[params.out0_d2]
+type = "int"
+min = 1
+default = 16
+[params.out0_d3]
+type = "int"
+min = 1
+default = 16
+[derived]
+input_points = "in0_d0 * in0_d2 * in0_d3"
+points = "out0_d0 * out0_d2 * out0_d3"
+input_chunks = "ceil(in0_d1 / 128)"
+tiles = "ceil(out0_d1 / 128)"
+full = "ds(128)"
+tail = "ds((out0_d1 - 1) % 128 + 1)"
+tail_count = "(out0_d1 - 1) % 128 + 1"
+lanes128 = "128"
+chunks = "ceil(k / 128)"
+outer = "min(1, max(0, 2 * chunks * n // ceil(n / 128) - 3 * k - 8))"
+outer_rows = "2 * tiles * (k + 1)"
+dot_rows = "2 * chunks * n"
+single = "min(1, max(0, n - 24)) * min(1, max(0, 33 - n)) * min(1, max(0, 65 - k))"
+special = "min(1, max(0, k - 95)) * min(1, max(0, 97 - k)) * min(1, max(0, n - 143)) * min(1, max(0, 145 - n))"
+
+[inputs.in0]
+shape = ["input_points * input_chunks", 128]
+range = [-2, 2]
+[inputs.w]
+shape = ["single * (n + 3) + (1 - single) * (outer * outer_rows + (1 - outer) * (dot_rows + 2 * tiles))", 128]
+range = [-1, 1]
+when = "bias"
+[inputs.w_unbiased]
+shape = ["outer * outer_rows + (1 - outer) * dot_rows - 32 * special", 128]
+range = [-1, 1]
+when = "not bias"
+[outputs.out0]
+shape = ["points * tiles", 128]
+[scratch.packed]
+shape = ["max(1, single * points)", 128]
+when = "bias"
+
+[abi]
+in0 = "CR2"
+w = "CR3"
+w_unbiased = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+full = "CR7"
+tail = "CR8"
+points = "CR9"
+tiles = "CR10"
+k = "CR11"
+input_chunks = "CR12"
+packed = "CR13"
+lanes128 = "CR14"
+tail_count = "CR15"
+
+[cases.default]
