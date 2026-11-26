@@ -42,7 +42,9 @@ duplicate:
  {{ num('LR1', -width-1) }}
  {{ num('LR7', -1) }}
  {{ num('LR8', (cout+1)//2 - 1) }}
- {{ num('LR9', 0) }}
+  {{ num('LR9', 0) }}
+  {{ num('LR11', 128) }}
+  {{ num('LR10', (cin // 4 - 1) * 4) }}
  LD.MULT R0 LR3 {{ cr.weights }} ; INC LR3 1 ;;
 pair:
  {{ num('LR13', -1) }}
@@ -50,22 +52,44 @@ pair:
  {% for j in range(2) %}
  LD.MULT R0 LR3 {{ cr.weights }} ; MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD{{ '.FIRST' if j == 0 else '' }} ; INC LR3 1 ;;
  {% endfor %}
-channel:
- LD.MULT.CYCLIC LR13 {{ cr.pad }} LR0 ; INC LR13 1 ; SET LR2 LR1 ;;
- {% for t in range(9) %}
- {% for j in range(1 if t in [0, 4] else 2) %}
- LD.MULT R0 LR3 {{ cr.weights }} ; MULT.RC.VV LR2 R0 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ; INC LR3 1{% if j == 0 and t %} ; INC LR2 {{ width-2 if t % 3 == 0 else 1 }}{% endif %}{% if t == 8 and loop.last %} ; INC LR14 1 ; BLT.S LR14 LR5 channel{% endif %} ;;
+ {% macro pair_channel(extra=false, branch=false) %}
+  LD.MULT.CYCLIC LR13 {{ cr.pad }} LR0 ; INC LR13 1 ; SET LR2 LR1 ;;
+  {% for t in range(9) %}
+  {% for j in range(1 if t in [0, 2, 6, 8] and not (extra and t == 8) else 2) %}
+  LD.MULT R0 LR3 {{ cr.weights }} ; MULT.RC.VV LR2 R0 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ; INC LR3 1{% if j == 0 and t %} ; INC LR2 {{ width-2 if t % 3 == 0 else 1 }}{% endif %}{% if branch and t == 8 and loop.last %} ; INC LR14 4 ; BLT.S LR14 LR10 channel{% endif %} ;;
+  {% endfor %}
+  {% endfor %}
+ {% endmacro %}
+ {% if cin >= 4 %}
+ channel:
+ {% for c in range(4) %}
+ {{ pair_channel(c == 3, loop.last) }}
  {% endfor %}
+ {% endif %}
+ {% for c in range(cin % 4) %}
+ {{ pair_channel() }}
  {% endfor %}
- ACTIVATE.QUANTIZE identity {{ ds }} {{ qo }} {{ cr.pad }} LR6 ;;
- LD.MULT.CYCLIC LR6 {{ cr.pad }} LR0 ;;
- {% for j in range(2) %}
+  ACTIVATE.QUANTIZE identity {{ ds }} {{ qo }} {{ cr.pad }} LR6 ;;
+  LD.MULT.CYCLIC LR6 {{ cr.pad }} LR0 ; SET LR12 LR6 ;;
+  INC LR12 3 ;;
+  MULT.RC.VE LR0 CR1 0 LR0 {{ ds }} {{ qo }} ; ACC.SUB ; ACTIVATE.QUANTIZE identity {{ ds }} {{ qo }} {{ cr.pad }} LR12 ;;
+  LD.MULT R1 LR3 {{ cr.weights }} ; INC LR3 1 ; SET LR12 LR6 ;;
+  MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ ds }} {{ qo }} {{ cr.pad }} LR12 ; INC LR12 1 ;;
+  MULT.VE LR11 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ ds }} {{ qo }} {{ cr.pad }} LR12 ; INC LR12 1 ;;
+  DEC LR12 1 ; LD.MULT R0 LR12 {{ cr.pad }} ;;
+  INC LR12 1 ; LD.MULT R1 LR12 {{ cr.pad }} ;;
+  {% for j in range(2) %}
  {% if j == 1 %}
  {% if cout % 2 %} BEQ LR9 LR8 finish ;; {% endif %}
  {{ num('LR2', 64) }}
  {% endif %}
- {% if j == 0 %} LD.MULT R1 LR3 {{ cr.weights }} ; INC LR3 1 ;; {% endif %}
- MULT.RC.VV {{ 'LR0 R0' if j == 0 else 'LR2 R1' }} 0 LR0 {{ ds }} {{ qo }} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE generic {{ cr.ds_tail }}.L {{ qo }} {{ cr.out0 }} LR7 ; INC LR7 1{% if j == 0 %} ; LD.MULT R0 LR3 {{ cr.weights }} ; INC LR3 1{% else %} ; INC LR9 1 ; BLT.S LR9 LR8 pair{% endif %} ;;
+  {% set pos = 'LR0' if j == 0 else 'LR2' %}
+  {% set reg = 'R0' if j == 0 else 'R1' %}
+  {% if j == 0 %}
+  INC LR12 1 ; LD.MULT.CYCLIC LR12 {{ cr.pad }} LR11 ;;
+  {% endif %}
+  MULT.RC.VV {{ pos }} {{ reg }} 0 LR0 {{ ds }} {{ qo }} ; ACC.ADD.FIRST ; ADD LR12 {{ pos }} LR11 ;;
+  MULT.RC.VV LR12 {{ reg }} 0 LR0 {{ ds }} {{ qo }} ; ACC.ADD ; ACTIVATE.QUANTIZE generic {{ cr.ds_tail }}.L {{ qo }} {{ cr.out0 }} LR7 ; INC LR7 1{% if j == 0 %} ; LD.MULT R0 LR3 {{ cr.weights }} ; INC LR3 1{% else %} ; INC LR9 1 ; BLT.S LR9 LR8 pair{% endif %} ;;
  {% endfor %}
 finish:
  HALT ;;
@@ -113,7 +137,9 @@ stage_taps:
  {% endif %}
  INC LR8 1 ; BLT.S LR8 LR10 stage_channel ;;
  INC LR6 1 ; INC LR7 1 ; BLT.S LR7 LR11 stage_tile ;;
- MULT.VE LR0 CR0 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.pad }} LR9 ; INC LR9 1 ;;
+  MULT.VE LR0 CR0 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.pad }} LR9 ; INC LR9 1 ;;
+  SET LR6 LR9 ;;
+  INC LR6 1 ;;
 
 {# Prefetch the next spatial row in the same word as the leading MAC. #}
 {% macro macs(n, again=false) %}
@@ -122,7 +148,7 @@ stage_taps:
  {% for k in range(n) %}
  {% for t in range(9) %}
  {% set last = k == n-1 and t == 8 %}
- {% if area >= 512 or t % 2 or t == 4 or (k != 12 and t == 6) %}
+  {% if (area >= 512 and t not in [0, 8]) or (area < 512 and (t in [1, 3, 4, 5] or (t == 7 and k % 3 == 0))) %}
  MULT.RC.VE LR0 LR15 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ; INC LR15 1 ;;
  {% endif %}
  MULT.RC.VE LR0 LR3 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ; INC LR3 1 ; LD.MULT.CYCLIC LR1 {{ cr.pad }} LR0 ; INC LR1 1{% if again and last %} ; INC LR8 1 ; BLT.S LR8 LR9 coeff_block{% endif %} ;;
@@ -146,9 +172,15 @@ output_tile:
 coeff_block:
  {{ macs(block, true) }}
  {% endif %}
- {% if cin % block %}
- {{ macs(cin % block) }}
- {% endif %}
+  {% if cin % block %}
+  {{ macs(cin % block) }}
+  {% endif %}
+  ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.pad }} LR0 ; LD.MULT R0 LR2 {{ cr.weights }} ; INC LR2 1 ;;
+  LD.MULT.CYCLIC LR0 {{ cr.pad }} LR0 ;;
+  MULT.RC.VE LR0 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.SUB ; ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.pad }} LR6 ;;
+  SET LR7 LR0 ;;
+  LD.MULT.CYCLIC LR6 {{ cr.pad }} LR7 ; INC LR7 128 ; MULT.RC.VV LR0 R0 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ;;
+  MULT.RC.VV LR7 R0 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD ;;
  {% if area % 128 and tiles > 1 %}
  BEQ LR13 LR11 tail_store ;;
  {% endif %}

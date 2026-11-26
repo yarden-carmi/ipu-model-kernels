@@ -91,6 +91,27 @@ def fold(module, **params):
                  for dy in (-1, 0, 1) for dx in (-1, 0, 1)]
         rows = [lanes < 64, lanes >= 64]
         norm = np.exp2(np.frexp(np.maximum(np.maximum(np.linalg.norm(w, axis=(1, 2)), np.abs(b)), 1e-30))[1] - 1)
+        # Choose exactly representable de-normalizers that minimize the
+        # coefficient error of the one-product corner taps for each pair.
+        factors = np.arange(32, 64) / 32
+        pair_count = cout // 2
+        corners = w[:2*pair_count, :, (0, 2, 6, 8)]
+        for pair in range(pair_count):
+            sl = slice(2 * pair, 2 * pair + 2)
+            candidates = norm[sl, None] * factors
+            a = corners[2*pair][None, None] / candidates[0, :, None, None, None]
+            d = corners[2*pair+1][None, None] / candidates[1, None, :, None, None]
+            block_exp = np.frexp(np.maximum(abs(a), abs(d)))[1] - 1
+            def error(v):
+                exp = np.frexp(abs(v))[1] - 1
+                step = np.exp2(np.maximum(exp, block_exp - 3) - 5.)
+                rounded = np.minimum(np.floor(abs(v) / step + .5) * step,
+                                     np.exp2(block_exp) * (63 / 32))
+                return rounded - abs(v)
+            score = (np.sum(error(a)**2, axis=(-2, -1)) * candidates[0, :, None]**2
+                     + np.sum(error(d)**2, axis=(-2, -1)) * candidates[1, None, :]**2)
+            i, j = np.unravel_index(np.argmin(score), score.shape)
+            norm[sl] = candidates[[0, 1], [i, j]]
         w = w / norm[:, None, None]
         b = b / norm
         if cout % 2:
@@ -106,25 +127,43 @@ def fold(module, **params):
                     v = w[o:o+2, c, t]
                     hi = leading(v)
                     rows.extend(np.repeat(a, 64) * masks[t] for a in
-                                 ((v,) if t in (0, 4) else (hi, v - hi)))
+                                 ((v,) if t in (0, 2, 6, 8) and not (t == 8 and c % 4 == 3)
+                                  else (hi, v - hi)))
             rows.extend(np.full(128, v) for v in norm[o:o+2])
         rows.append(np.zeros(128))
         return {'weights': np.asarray(rows)}
 
     rows = [lanes % width != 0, lanes % width != width - 1]
     for bv, taps in zip(b, w):
+        block = 7 if area >= 512 else 14
+        def residual(k, t):
+            return (~np.isin(t, (0, 8)) if area >= 512 else
+                    np.isin(t, (1, 3, 4, 5)) | ((t == 7) & (k % 3 == 0)))
+        # Search representable de-normalizers against the coefficient grid.
+        factors = np.arange(32, 64) / 32
+        score = np.zeros(len(factors))
+        for c in range(0, cin, block):
+            v = taps[c:c+block].flatten()[None, :] / factors[:, None]
+            k, t = np.divmod(np.arange(v.shape[1]), 9)
+            keep = residual(k, t)
+            a = np.abs(v)
+            expo = np.frexp(a.max(axis=1, keepdims=True))[1] - 1
+            step = np.exp2(np.maximum(np.frexp(a)[1] - 1, expo - 3) - 5.)
+            decoded = np.minimum(np.floor(a / step + .5) * step, np.exp2(expo) * (63 / 32))
+            score += ((decoded[:, ~keep] - a[:, ~keep])**2).sum(axis=1) * factors**2
+        norm = factors[np.argmin(score)]
+        bv, taps = bv / norm, taps / norm
         hi = leading(bv)
         for v in (hi, bv - hi):
             row = np.zeros(128)
             row[0] = v
             rows.append(row)
-        block = 7 if area >= 512 else 14
         for c in range(0, cin, block):
             v = taps[c:c+block].flatten()
             k, t = np.divmod(np.arange(len(v)), 9)
-            keep = ((area >= 512) | (t % 2 != 0) | (t == 4)
-                    | ((k != 12) & (t == 6)))
+            keep = residual(k, t)
             hi = np.where(keep, leading(v), v)
             lo = (v - hi)[keep]
             rows.extend((np.pad(hi, (0, 128-len(v))), np.pad(lo, (0, 128-len(lo)))))
+        rows.append(np.full(128, norm))
     return {'weights': np.asarray(rows)}
