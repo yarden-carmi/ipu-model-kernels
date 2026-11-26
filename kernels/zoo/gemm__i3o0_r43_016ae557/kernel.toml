@@ -1,0 +1,92 @@
+[kernel]
+op = "gemm"
+formats = ["e1", "e2"]
+
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 4096
+default = 192
+[params.m]
+type = "int"
+min = 1
+max = 65536
+default = 256
+[params.n]
+type = "int"
+min = 1
+max = 4096
+default = 192
+[params.in0_d0]
+type = "int"
+min = 1
+max = 128
+default = 4
+[params.in0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 4
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 64
+[params.in0_d3]
+type = "int"
+min = 1
+max = 128
+default = 48
+[params.out0_d0]
+type = "int"
+min = 1
+max = 128
+default = 4
+[params.out0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 64
+[params.out0_d2]
+type = "int"
+min = 1
+max = 4096
+default = 192
+
+[derived]
+candidate = "min(in0_d2, max(1, 128 // in0_d3))"
+pack = "1 + (candidate - 1) * (1 - min(1, in0_d2 % candidate))"
+width = "pack * in0_d3"
+pitch = "ceil(in0_d2 / pack)"
+batch_stride = "in0_d1 * pitch"
+chunks = "ceil(k / width)"
+coeff_stride = "2 * (chunks + 1)"
+full = "ds(128)"
+active = "ds(out0_d0)"
+
+[inputs.in0]
+shape = ["in0_d0 * batch_stride", 128]
+[inputs.coeff]
+shape = ["n * coeff_stride", 128]
+[outputs.out0]
+shape = ["out0_d1 * out0_d2", 128]
+
+[abi]
+in0 = "CR2"
+coeff = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+full = "CR7"
+active = "CR8"
+chunks = "CR9"
+batch_stride = "CR10"
+coeff_stride = "CR11"
+n = "CR12"
+out0_d1 = "CR13"
+out0_d0 = "CR14"
+
+[cases.default]
