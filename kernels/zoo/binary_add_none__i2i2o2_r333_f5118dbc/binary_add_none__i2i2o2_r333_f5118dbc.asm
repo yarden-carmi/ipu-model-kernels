@@ -1,13 +1,14 @@
 {% macro store(mask) %}
-    LD.MULT R0 LR1 {{ cr.in1 }} ; SET LR3 CR0 ;;
+    LD.MULT R0 LR1 {{ cr.in1 }} ;;
     MULT.VE LR0 CR1 0 LR0 {{ mask }} {{ cr.qf_in1 }}.L ; ACC.ADD ; ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ mask }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;;
-    INC LR1 1 ; SET LR3 CR0 ;;
+    INC LR1 1 ; SET LR3 LR8 ;;
 {% endmacro %}
 
 // The in0 view begins logical row (a,b) at flat offset a + A*b.
     SET LR0 CR0 ; SET LR1 CR0 ; SET LR14 CR0 ;;
-    SET LR13 CR0 ; SET LR2 CR0 ; SET LR3 CR0 ;;
-    INC LR13 128 ;;
+    SET LR13 CR0 ; SET LR11 CR0 ; SET LR8 CR0 ;;
+    INC LR13 128 ; INC LR11 127 ; DEC LR8 1 ;;
+    SET LR3 LR8 ;;
 batch:
     SET LR4 CR0 ; SET LR5 LR14 ; SET LR15 {{ cr.dims }}.H ;;
 origin:
@@ -16,7 +17,8 @@ origin:
 row:
     SET LR6 LR4 ; SET LR7 LR5 ; SET LR12 {{ cr.out0_d2 }} ;;
 gather:
-    BLT.S LR7 {{ cr.span }}.L locate ;;
+    // Advance the zero-based slot while checking the source coordinate.
+    INC LR3 1 ; BLT.S LR7 {{ cr.span }}.L locate ;;
     SUB LR7 LR7 {{ cr.span }}.L ; ADD LR6 LR6 {{ cr.span }}.H ;;
 locate:
 {% if in0_d2 <= 128 %}
@@ -34,15 +36,14 @@ load:
     LD.MULT R0 LR10 {{ cr.in0 }} ;;
 {% endif %}
     MULT.EE LR9 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; AGG.SUM.FIRST LR3 {{ cr.scalar }}.L ;
-    ADD LR6 LR6 {{ cr.step_row }} ; ADD LR7 LR7 {{ cr.step_lane }} ; DEC LR12 1 ;;
-    INC LR3 1 ;;
-    BNE LR3 LR13 next_lane ;;
+    ADD LR6 LR6 {{ cr.step_row }} ; ADD LR7 LR7 {{ cr.step_lane }} ; DEC LR12 1 ;
+    BNE LR3 LR11 next_lane ;;
     {{ store('CR15.L') }}
 next_lane:
     BNE LR12 CR0 gather ;;
     DEC LR15 1 ; ADD LR5 LR5 {{ cr.dims }}.L ;;
     BNE LR15 CR0 origin ;;
-    BEQ LR3 CR0 next_batch ;;
+    BEQ LR3 LR8 next_batch ;;
     {{ store(cr.tail ~ '.L') }}
 next_batch:
     INC LR14 1 ;;
