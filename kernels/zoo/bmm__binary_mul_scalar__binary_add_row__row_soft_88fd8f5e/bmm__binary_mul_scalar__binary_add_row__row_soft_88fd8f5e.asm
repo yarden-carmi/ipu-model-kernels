@@ -52,8 +52,8 @@ dot_loop:
     INC LR10 1 ; LD.MULT.CYCLIC LR10 {{ cr.converted }} LR4 ;;
     MULT.RC.VV LR4 R0 0 LR0 {{ d }} {{ q }} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ d }} {{ q }} {{ t }} LR0 ;;
     LD.MULT R0 LR0 {{ t }} ;;
-    MULT.VE LR0 CR1 0 LR0 {{ d }} {{ q }} ; ACC.ADD.FIRST ; LD.MULT R0 LR12 {{ cr.converted }} ;;
-    MULT.VE LR0 CR1 0 LR0 {{ d }} {{ q }} ; ACC.ADD ; ACTIVATE.QUANTIZE identity {{ d }} {{ q }} {{ t }} LR0 ;;
+    MULT.VE LR0 CR1 0 LR0 {{ d }} {{ q }} ; ACC.ADD.FIRST ; LD.MULT R0 LR12 {{ cr.operand }} ;;
+    MULT.VE LR0 CR1 0 LR0 {{ d }} {{ cr.qf_operand }}.L ; ACC.ADD ; ACTIVATE.QUANTIZE identity {{ d }} {{ q }} {{ t }} LR0 ;;
 
     LD.MULT R0 LR0 {{ t }} ;;
     MULT.VE LR0 CR1 0 LR0 {{ d }} {{ q }} ; AGG.MAX.FIRST LR0 {{ d }} ; ACTIVATE.QUANTIZE identity {{ s }} {{ q }} {{ t }} LR0 ;;
