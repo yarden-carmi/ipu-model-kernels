@@ -42,10 +42,11 @@ normalize_lane:
 element:
     MULT.EE LR7 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.RESHAPE LRD0 LRD2 7 ; INC LR13 1 ;;
     ADDBI LRD2 1 ; BEQ LR13 {{ cr.in0_d2 }} last_chunk ;;
-    BLT.S LR2 CR0 full_chunk ;;
+    // Both paths need the next input address. Do that work in the
+    // chunk-check word, even when the branch takes us to a store first.
+    BLT.S LR2 CR0 full_chunk {% if step_c %}; ADD LR8 LR8 {{ cr.step }}.L ; {% if step_c * pitch <= 255 %} INC LR11 {{ step_c * pitch }} {% else %} ADD LR11 LR11 LR1 {% endif %}{% endif %} ;;
 advance:
 {% if step_c %}
-    ADD LR8 LR8 {{ cr.step }}.L ; {% if step_c * pitch <= 255 %} INC LR11 {{ step_c * pitch }} {% else %} ADD LR11 LR11 LR1 {% endif %} ;;
     BLT.S LR8 {{ cr.in0_d2 }} step_b ;;
     SUB LR8 LR8 {{ cr.in0_d2 }} ; SUB LR11 LR11 {{ cr.column_span }} ; INC LR7 4 ;;
     INC LR9 4 ;;
