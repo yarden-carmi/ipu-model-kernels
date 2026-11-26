@@ -1,0 +1,59 @@
+[kernel]
+op = "gemm_table"
+formats = ["e1", "e2"]
+[params]
+act_out0 = {type = "str", choices = ["silu"], default = "silu"}
+bias = {type = "bool", default = true}
+k = {type = "int", min = 1, max = 65535, default = 64}
+m = {type = "int", min = 1, max = 65535, default = 4096}
+n = {type = "int", min = 1, max = 65535, default = 256}
+in0_d0 = {type = "int", min = 1, max = 65535, default = 1}
+in0_d1 = {type = "int", min = 1, max = 65535, default = 64}
+in0_d2 = {type = "int", min = 1, max = 65535, default = 64}
+in0_d3 = {type = "int", min = 1, max = 128, default = 64}
+out0_d0 = {type = "int", min = 1, max = 65535, default = 1}
+out0_d1 = {type = "int", min = 1, max = 65535, default = 256}
+out0_d2 = {type = "int", min = 1, max = 65535, default = 64}
+out0_d3 = {type = "int", min = 1, max = 128, default = 64}
+[derived]
+chunks = "ceil(k / 128)"
+ipack = "max(1, 128 // in0_d1)"
+ilimit = "ipack * in0_d1"
+pitch = "ceil(in0_d1 / 128)"
+coeff_rows = "2 * chunks + 2"
+stripes = "out0_d0 * out0_d2"
+pack = "128 // out0_d3"
+items = "stripes * out0_d1"
+slot_end = "pack * out0_d3"
+full = "ds(128)"
+packed = "ds(slot_end)"
+tail = "ds(max(1, (items % pack) * out0_d3))"
+[inputs.in0]
+shape = ["ceil(in0_d0 * in0_d2 * in0_d3 / ipack) * pitch", 128]
+range = [-2, 2]
+[inputs.coeff]
+shape = ["n * coeff_rows", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[outputs.out0]
+shape = ["ceil(items / pack)", 128]
+[abi]
+in0 = "CR2"
+coeff = "CR3"
+lut = "CR4"
+out0 = "CR5"
+qf_in0 = "CR6"
+qf_out0 = "CR7"
+full = "CR8"
+packed = "CR9"
+tail = "CR10"
+n = "CR11"
+out0_d3 = "CR12"
+stripes = "CR13"
+chunks = "CR14"
+slot_end = "CR15"
+pitch = "LR13"
+ilimit = "LR15"
+[cases.default]
