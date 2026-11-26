@@ -19,7 +19,7 @@ group:
     LD.MULT.CYCLIC LR4 {{ cr.in0 }} LR0 ; DEC LR6 1 ;;
     LD.MULT R0 LR5 {{ cr.coeff }} ; INC LR4 1 ;;
     # Each multiply consumes the previous coefficient while loading the next digit.
-{% for digit in range(3) %}
+{% for digit in range(1) %}
     MULT.RC.VV LR0 R0 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; AGG.SUM LR2 {{ cr.full }}.L ; INC LR5 1 ; LD.MULT R0 LR5 {{ cr.coeff }} ;;
 {% endfor %}
     MULT.RC.VV LR0 R0 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; AGG.SUM LR2 {{ cr.full }}.L ; INC LR5 1 ; BNE LR6 CR0 group ;;

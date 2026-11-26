@@ -64,11 +64,11 @@ def fold(module, **params):
         step = torch.ldexp(torch.ones_like(x[..., :1]), exponent - 4)
         coarse = torch.round(x / step) * step
         return torch.stack((coarse, x - coarse), dim=-2)
-    rows = weights.new_zeros((n, 2 + 2 * groups, 128))
+    rows = weights.new_zeros((n, 2 + groups, 128))
     rows[:, :2] = digits(bias[:, None].expand(-1, 128))
-    for g in range(groups):
-        p = g % 2
+    for g in range(0, groups, 2):
         x = weights.new_zeros((n, 128))
-        x[:, p * width:(p + 1) * width] = weights[:, g]
-        rows[:, 2 + 2 * g:4 + 2 * g] = digits(x)
+        x[:, :width] = weights[:, g]
+        x[:, width:2 * width] = weights[:, g + 1]
+        rows[:, 2 + g:4 + g] = digits(x)
     return {'coeff': rows.reshape(-1, 128)}
