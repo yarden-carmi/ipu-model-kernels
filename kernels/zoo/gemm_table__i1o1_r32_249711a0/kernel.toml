@@ -1,0 +1,48 @@
+[kernel]
+op = "gemm_table"
+formats = ["e1", "e2"]
+
+[params]
+act_out0 = {type = "str", choices = ["tanh"], default = "tanh"}
+bias = {type = "bool", default = true}
+m = {type = "int", min = 1, max = 1, default = 1}
+k = {type = "int", min = 1, max = 4096, default = 384}
+n = {type = "int", min = 1, max = 4096, default = 384}
+in0_d0 = {type = "int", min = 1, max = 65535, default = 1}
+in0_d1 = {type = "int", min = 1, max = 4096, default = 256}
+in0_d2 = {type = "int", min = 1, max = 65535, default = 384}
+out0_d0 = {type = "int", min = 1, max = 1, default = 1}
+out0_d1 = {type = "int", min = 1, max = 4096, default = 384}
+
+[derived]
+tiles = "(n + 127) // 128"
+stride = "(in0_d1 + 127) // 128"
+full = "ds(128)"
+tail = "ds((n - 1) % 128 + 1)"
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d2 * ((in0_d1 + 127) // 128)", 128]
+range = [-2, 2]
+[inputs.coeff]
+shape = ["tiles * (2 + 2 * k)", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[outputs.out0]
+shape = ["out0_d0 * ((out0_d1 + 127) // 128)", 128]
+
+[abi]
+in0 = "CR2"
+coeff = "CR3"
+out0 = "CR4"
+lut = "CR5"
+qf_in0 = "CR6"
+qf_out0 = "CR7"
+tiles = "CR8"
+stride = "CR9"
+k = "CR10"
+full = "CR11"
+tail = "CR12"
+
+[cases.default]
