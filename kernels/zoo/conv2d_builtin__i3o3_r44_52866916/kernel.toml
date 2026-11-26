@@ -1,0 +1,128 @@
+[kernel]
+op = "conv2d_builtin"
+formats = ["e1"]
+
+[params.act_out0]
+type = "str"
+choices = ["relu"]
+default = "relu"
+[params.bias]
+type = "bool"
+default = true
+[params.cin]
+type = "int"
+min = 1
+max = 512
+default = 88
+[params.cout]
+type = "int"
+min = 1
+max = 512
+default = 88
+[params.groups]
+type = "int"
+min = 1
+max = 512
+default = 88
+[params.h]
+type = "int"
+min = 1
+max = 224
+default = 28
+[params.w]
+type = "int"
+min = 1
+max = 224
+default = 28
+[params.kh]
+type = "int"
+choices = [3]
+default = 3
+[params.kw]
+type = "int"
+choices = [3]
+default = 3
+[params.padding]
+type = "int"
+choices = [1]
+default = 1
+[params.stride]
+type = "int"
+choices = [1]
+default = 1
+[params.in0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 512
+default = 88
+[params.in0_d2]
+type = "int"
+min = 1
+max = 224
+default = 28
+[params.in0_d3]
+type = "int"
+min = 1
+max = 224
+default = 28
+[params.out0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 512
+default = 88
+[params.out0_d2]
+type = "int"
+min = 1
+max = 224
+default = 28
+[params.out0_d3]
+type = "int"
+min = 1
+max = 224
+default = 28
+
+[derived]
+in_chunks = "ceil(in0_d2 * in0_d3 / 128)"
+out_chunks = "ceil(out0_d2 * out0_d3 / 128)"
+group_in = "cin // groups"
+group_out = "cout // groups"
+group_span = "group_in * in_chunks"
+weight_rows = "out0_d1 * out_chunks * 3 * (1 + group_in * kh * kw)"
+full = "ds(128)"
+tail = "ds((out0_d2 * out0_d3 - 1) % 128 + 1)"
+last_block = "out_chunks - 1"
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d1", "in_chunks", 128]
+range = [-1, 1]
+[inputs.weights]
+shape = ["weight_rows", 128]
+range = [-1, 1]
+[outputs.out0]
+shape = ["out0_d0", "out0_d1", "out_chunks", 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+weights = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+full = "CR7"
+in_chunks = "CR8"
+out_chunks = "CR9"
+group_in = "CR10"
+group_out = "CR11"
+group_span = "CR12"
+groups = "CR13"
+tail = "CR14"
+last_block = "CR15"
+
+[cases.default]
