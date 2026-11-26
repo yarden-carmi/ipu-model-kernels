@@ -1,0 +1,44 @@
+[kernel]
+op = "binary_add_row"
+formats = ["e1", "e2"]
+
+[params]
+broadcast = { type = "str", choices = ["row"], default = "row" }
+const = { type = "int", min = 1, max = 1, default = 1 }
+op = { type = "str", choices = ["add"], default = "add" }
+inner = { type = "int", min = 1, default = 4096 }
+numel = { type = "int", min = 1, default = 32768 }
+in0_d0 = { type = "int", min = 1, default = 1 }
+in0_d1 = { type = "int", min = 1, default = 8 }
+in0_d2 = { type = "int", min = 1, max = 128, default = 64 }
+in0_d3 = { type = "int", min = 1, default = 64 }
+out0_d0 = { type = "int", min = 1, default = 1 }
+out0_d1 = { type = "int", min = 1, default = 8 }
+out0_d2 = { type = "int", min = 1, max = 128, default = 64 }
+out0_d3 = { type = "int", min = 1, default = 64 }
+
+[derived]
+rows = "out0_d0 * out0_d3 * out0_d1"
+input_rows = "in0_d0 * in0_d3 * in0_d1"
+operand_rows = "out0_d3 * out0_d1"
+active = "ds(out0_d2)"
+
+[inputs.in0]
+shape = ["input_rows", 128]
+[inputs.operand]
+shape = ["operand_rows", 128]
+[outputs.out0]
+shape = ["rows", 128]
+
+[abi]
+in0 = "CR2"
+operand = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_operand = "CR6"
+qf_out0 = "CR7"
+rows = "CR8"
+operand_rows = "CR9"
+active = "CR10"
+
+[cases.default]
