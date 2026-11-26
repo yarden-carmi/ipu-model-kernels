@@ -1,0 +1,129 @@
+[kernel]
+op = "conv2d_builtin"
+formats = ["e1", "e2"]
+
+[params.act_out0]
+type = "str"
+choices = ["relu"]
+default = "relu"
+[params.bias]
+type = "bool"
+default = true
+[params.cin]
+type = "int"
+min = 1
+max = 128
+default = 8
+[params.cout]
+type = "int"
+min = 1
+max = 128
+default = 8
+[params.groups]
+type = "int"
+min = 1
+max = 128
+default = 1
+[params.h]
+type = "int"
+min = 1
+max = 1024
+default = 8
+[params.w]
+type = "int"
+min = 1
+max = 1024
+default = 8
+[params.kh]
+type = "int"
+min = 1
+max = 15
+default = 3
+[params.kw]
+type = "int"
+min = 1
+max = 15
+default = 3
+[params.padding]
+type = "int"
+min = 0
+max = 7
+default = 1
+[params.stride]
+type = "int"
+min = 1
+max = 8
+default = 1
+[params.in0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 128
+default = 8
+[params.in0_d2]
+type = "int"
+min = 1
+max = 1024
+default = 8
+[params.in0_d3]
+type = "int"
+min = 1
+max = 1024
+default = 8
+[params.out0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 128
+default = 8
+[params.out0_d2]
+type = "int"
+min = 1
+max = 1038
+default = 8
+[params.out0_d3]
+type = "int"
+min = 1
+max = 1038
+default = 8
+
+[derived]
+origin = "-padding * (in0_d3 + 1)"
+row_delta = "stride * (in0_d3 - out0_d3)"
+yend = "out0_d2 * stride - padding"
+xend = "out0_d3 * stride - padding"
+hw = "in0_d3 + 65536 * in0_d2"
+panel = "2 * cin + 65536 * 2 * cin * kw"
+ds = "ds(128) + 65536 * ds(out0_d1)"
+
+[inputs.in0]
+shape = ["in0_d2 * in0_d3", 128]
+range = [-2, 2]
+[inputs.weights]
+shape = ["2 + 2 * kh * kw * cin", 128]
+range = [-1, 1]
+[outputs.out0]
+shape = ["out0_d2 * out0_d3", 128]
+
+[abi]
+in0 = "CR2"
+weights = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+origin = "CR7"
+row_delta = "CR8"
+yend = "CR9"
+xend = "CR10"
+hw = "CR11"
+panel = "CR12"
+ds = "CR13"
+cin = "CR14"
+
+[cases.default]
