@@ -51,12 +51,19 @@ def reference(module, *ins, _round=None, **params):
     r_ = _round or (lambda t, where: t)
     r0 = aten.linear.default(_v(ins[0], [1, 256, 768], [196608, 768, 1], 0), module.op0_weight, module.op0_bias)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.gelu.default(_v(op0, [1, 256, 768], [196608, 768, 1], 0))
-    op1 = _pick(r0, 0)  # step 0
+    r0 = aten.mul.Tensor(_v(op0, [1, 256, 128], [32768, 128, 1], 0), 0.5)
+    r1 = aten.pow.Tensor_Scalar(_v(op0, [1, 256, 128], [32768, 128, 1], 0), 3.0)
+    r2 = aten.mul.Tensor(_l(r1, 0, [1, 256, 128], [32768, 128, 1], 0), 0.044715)
+    r3 = aten.add.Tensor(_v(op0, [1, 256, 128], [32768, 128, 1], 0), _l(r2, 0, [1, 256, 128], [32768, 128, 1], 0))
+    r4 = aten.mul.Tensor(_l(r3, 0, [1, 256, 128], [32768, 128, 1], 0), 0.7978845608028654)
+    r5 = aten.tanh.default(_l(r4, 0, [1, 256, 128], [32768, 128, 1], 0))
+    r6 = aten.add.Tensor(_l(r5, 0, [1, 256, 128], [32768, 128, 1], 0), 1.0)
+    r7 = aten.mul.Tensor(_l(r0, 0, [1, 256, 128], [32768, 128, 1], 0), _l(r6, 0, [1, 256, 128], [32768, 128, 1], 0))
+    op1 = _pick(r7, 0)  # step 0
     op1 = r_(op1, "s0")  # stored
-    r0 = aten.layer_norm.default(_v(op1, [1, 256, 768], [196608, 768, 1], 0), [768], module.op2_weight, module.op2_bias, 1e-12)
+    r0 = aten.layer_norm.default(_v(op1, [1, 256, 128], [32768, 128, 1], 0), [128], module.op2_weight, module.op2_bias, 1e-12)
     op2 = _pick(r0, 0)  # step 1
-    return {"out0": _out(op2, [1, 256, 768])}
+    return {"out0": _out(op2, [1, 256, 128])}
 # ---- end of the frozen reference ----
 
 
