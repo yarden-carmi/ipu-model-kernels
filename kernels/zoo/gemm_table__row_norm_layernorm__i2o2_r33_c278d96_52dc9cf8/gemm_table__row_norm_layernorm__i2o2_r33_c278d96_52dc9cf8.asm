@@ -71,11 +71,10 @@
 {% macro squares(ds) %}
  LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;
  LD.MULT R0 LR9 {{ cr.tmp }} ;;
- MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ ds }} ; INC LR9 1 ;;
- LD.MULT R0 LR9 {{ cr.tmp }} ;;
- {% for _ in range(2) %}MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ ds }} ;;{% endfor %}
- LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;
- MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ ds }} ; INC LR9 1 ;;
+  {% for term in range(4) %}
+  MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ ds }}{% if term == 0 or term == 3 %} ; INC LR9 1{% elif term == 2 %} ; LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0{% endif %} ;;
+  {% if term == 0 %}LD.MULT R0 LR9 {{ cr.tmp }} ;;{% endif %}
+  {% endfor %}
 {% endmacro %}
 {% macro product(a,b,na) %}
  // Keep both right-hand residual parts live across the left-hand parts.
