@@ -1,0 +1,96 @@
+[kernel]
+op = "deadzone_phase_shuffle"
+formats = ["e2"]
+
+[params.channels]
+type = "int"
+default = 96
+min = 1
+[params.h]
+type = "int"
+default = 16
+min = 1
+[params.w]
+type = "int"
+default = 16
+min = 1
+[params.in0_d0]
+type = "int"
+default = 1
+min = 1
+[params.in0_d1]
+type = "int"
+default = 384
+min = 1
+[params.in0_d2]
+type = "int"
+default = 16
+min = 1
+[params.in0_d3]
+type = "int"
+default = 16
+min = 1
+[params.out0_d0]
+type = "int"
+default = 1
+min = 1
+[params.out0_d1]
+type = "int"
+default = 96
+min = 1
+[params.out0_d2]
+type = "int"
+default = 32
+min = 1
+[params.out0_d3]
+type = "int"
+default = 32
+min = 1
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d2", "in0_d3", "ceil(in0_d1 / 128) * 128"]
+[outputs.out0]
+shape = ["ceil(out0_d0 * out0_d1 * out0_d2 / 4)", 128]
+[scratch.temp]
+shape = [8, 128]
+
+[derived]
+chunks = "ceil(in0_d1 / 128)"
+height = "in0_d2"
+total_channels = "out0_d0 * out0_d1"
+rowstep = "in0_d3 * ceil(in0_d1 / 128)"
+byte = "16777216"
+limit = "128"
+width = "out0_d3"
+gain_nx = "0x139700"
+gain_f32 = "0x50000000"
+threshold_nx = "0x12901f"
+threshold_f32 = "0x4cffffff"
+sixth_nx = "0x137c05"
+sixth_f32 = "0x3e2aaaab"
+qf_in0 = "case_qf"
+qf_out0 = "case_qf"
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+chunks = "CR4"
+height = "LR11"
+total_channels = "LR12"
+rowstep = "LR13"
+byte = "LR14"
+limit = "LR15"
+temp = "CR9"
+qf_in0 = "CR6"
+qf_out0 = "CR7"
+gain_nx = "CR8"
+gain_f32 = "CR14"
+threshold_nx = "CR10"
+threshold_f32 = "CR13"
+sixth_nx = "CR11"
+sixth_f32 = "CR5"
+width = "CR12"
+
+[cases.default]
+[golden]
+tolerance = { e2 = "NX8_STEP" }
