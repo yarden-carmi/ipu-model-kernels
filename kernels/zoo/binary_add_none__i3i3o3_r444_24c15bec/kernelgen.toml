@@ -1,0 +1,19 @@
+chain = ["binary"]
+chain_in = ["in0", "in1"]
+chain_out = ["out0"]
+[layout.in0]
+lanes = 3
+rows = [1, 0, 2]
+pack = "1 + (min(d2, max(1, 128 // d3)) - 1) * (1 - min(1, d2 % min(d2, max(1, 128 // d3))))"
+[view.in0]
+kind = "whole"
+[layout.in1]
+lanes = 3
+rows = [1, 0, 2]
+pack = "1 + (min(d2, max(1, 128 // d3)) - 1) * (1 - min(1, d2 % min(d2, max(1, 128 // d3))))"
+[view.in1]
+kind = "whole"
+[layout.out0]
+lanes = 3
+rows = [0, 1, 2]
+pack = "1 + (min(d2, max(1, 128 // d3)) - 1) * (1 - min(1, d2 % min(d2, max(1, 128 // d3))))"
