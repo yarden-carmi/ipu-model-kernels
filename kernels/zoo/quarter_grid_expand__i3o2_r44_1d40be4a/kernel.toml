@@ -1,0 +1,53 @@
+[kernel]
+op = "quarter_grid_expand"
+formats = ["e1", "e2"]
+
+[params]
+channels = { type = "int", min = 1, max = 65536, default = 1 }
+h = { type = "int", min = 1, max = 31, default = 16 }
+w = { type = "int", min = 1, max = 16, default = 16 }
+in0_d0 = { type = "int", min = 1, max = 65536, default = 1 }
+in0_d1 = { type = "int", min = 1, max = 65536, default = 64 }
+in0_d2 = { type = "int", min = 1, max = 31, default = 16 }
+in0_d3 = { type = "int", min = 1, max = 16, default = 16 }
+out0_d0 = { type = "int", min = 1, max = 65536, default = 1 }
+out0_d1 = { type = "int", min = 1, max = 65536, default = 64 }
+out0_d2 = { type = "int", min = 1, max = 126, default = 66 }
+out0_d3 = { type = "int", min = 1, max = 126, default = 66 }
+
+[derived]
+input_rows = "in0_d0 * in0_d1 * ceil(in0_d2 / 8)"
+output_rows = "out0_d0 * out0_d1 * ceil(out0_d3 / 2) * 2"
+planes = "in0_d0 * in0_d1"
+stride = "ceil(in0_d2 / 8)"
+full = "ds(128)"
+last = "ds((2 * out0_d2) % 128)"
+four = "4"
+eight_w = "8 * w"
+lanes = "128"
+last_x = "w - 1"
+
+[inputs.in0]
+shape = ["input_rows", 128]
+range = [-2, 2]
+[outputs.out0]
+shape = ["output_rows", 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+qf_in0 = "CR4"
+qf_out0 = "CR5"
+full = "CR6"
+last = "CR7"
+h = "CR8"
+w = "CR9"
+planes = "CR10"
+stride = "CR11"
+four = "CR12"
+eight_w = "CR13"
+out0_d3 = "CR14"
+lanes = "CR15"
+last_x = "LR5"
+
+[cases.default]
