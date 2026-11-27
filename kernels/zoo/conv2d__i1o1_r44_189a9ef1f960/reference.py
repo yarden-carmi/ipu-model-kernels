@@ -70,9 +70,7 @@ def fold(module, **params):
     padded = weight.new_zeros((blocks * 128, cin, kh, kw))
     padded[:cout] = weight
     rows = weight.new_zeros((blocks, 1 + kh * kw * cin, 128))
-    rows[:, 1:] = padded.reshape(blocks, 128, cin, kh, kw).permute(
-        0, 3, 4, 2, 1
-    ).reshape(blocks, kh * kw * cin, 128)
+    rows[:, 1:] = padded.reshape(blocks, 128, cin, kh, kw).permute(0, 3, 4, 2, 1).reshape(blocks, kh * kw * cin, 128)
     bias = weight.new_zeros(blocks * 128)
     bias[:cout] = bias_value
     rows[:, 0] = bias.reshape(blocks, 128)
