@@ -1,0 +1,89 @@
+[kernel]
+op = "binary_add"
+formats = ["e2"]
+
+[params.broadcast]
+type = "str"
+choices = ["none"]
+default = "none"
+[params.const]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.op]
+type = "str"
+choices = ["add"]
+default = "add"
+[params.numel]
+type = "int"
+min = 1
+max = 16777216
+default = 768000
+[params.in0_d0]
+type = "int"
+min = 1
+max = 1024
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 16384
+default = 512
+[params.in0_d2]
+type = "int"
+min = 1
+max = 16384
+default = 1500
+[params.out0_d0]
+type = "int"
+min = 1
+max = 1024
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 16384
+default = 1500
+[params.out0_d2]
+type = "int"
+min = 1
+max = 16384
+default = 512
+
+[derived]
+blocks = "ceil(out0_d2 / 128)"
+tiles = "ceil(out0_d1 / 256)"
+tail = "ds(out0_d2 - (blocks - 1) * 128)"
+skip = "(tiles * 256 - out0_d1) * blocks"
+zero = "ds(0)"
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d2", "ceil(in0_d1 / 128) * 128"]
+range = [-2, 2]
+[inputs.in1]
+shape = ["out0_d0", "tiles * 256", "blocks * 128"]
+range = [-2, 2]
+[outputs.out0]
+shape = ["out0_d0", "tiles * 256", "blocks * 128"]
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_in1 = "CR6"
+qf_out0 = "CR7"
+out0_d1 = "CR8"
+blocks = "CR9"
+tail = "CR10"
+skip = "CR11"
+zero = "CR12"
+out0_d0 = "LR15"
+
+[cases.default]
