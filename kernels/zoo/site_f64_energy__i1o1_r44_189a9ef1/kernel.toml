@@ -1,0 +1,69 @@
+[kernel]
+op = "site_f64_energy"
+formats = ["e2"]
+
+[params.numel]
+type = "int"
+default = 200704
+min = 1
+[params.out]
+type = "int"
+default = 784
+min = 1
+[params.in0_d0]
+type = "int"
+default = 1
+min = 1
+[params.in0_d1]
+type = "int"
+default = 256
+min = 1
+[params.in0_d2]
+type = "int"
+default = 28
+min = 1
+[params.in0_d3]
+type = "int"
+default = 28
+min = 1
+[params.out0_d0]
+type = "int"
+default = 1
+min = 1
+[params.out0_d1]
+type = "int"
+default = 1
+min = 1
+[params.out0_d2]
+type = "int"
+default = 28
+min = 1
+[params.out0_d3]
+type = "int"
+default = 28
+min = 1
+[inputs.in0]
+shape = ["in0_d0", "in0_d2", "in0_d3", "ceil(in0_d1 / 128) * 128"]
+range = [-1, 1]
+[outputs.out0]
+shape = ["out0_d0", "out0_d2", "out0_d3", "ceil(out0_d1 / 128) * 128"]
+[scratch.tmp]
+shape = [1, 128]
+[derived]
+one = "ds(1)"
+tail = "ds((in0_d1 - 1) % 128 + 1)"
+chunks = "ceil(in0_d1 / 128)"
+rows = "out0_d0 * out0_d2 * out0_d3"
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+tmp = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+one = "CR7"
+tail = "CR8"
+chunks = "CR9"
+rows = "CR10"
+[cases.default]
+[golden]
+tolerance = { e2 = "NX8_STEP" }
