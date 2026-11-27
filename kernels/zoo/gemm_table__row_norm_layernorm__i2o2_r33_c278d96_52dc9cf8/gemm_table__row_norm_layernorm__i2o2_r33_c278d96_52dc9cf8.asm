@@ -29,10 +29,15 @@
 {% endmacro %}
 {% macro save(n,count=2,dec=false) %}{{ at('LR1',n) }}{{ split('LR1',count,dec) }}{% endmacro %}
 {% macro norm_products(offsets) %}
+ SET LR6 LR10 ;;
+ {% for p in offsets %}
+ {% if not loop.first %}SET LR10 LR6 ;;{% endif %}
+ {{ load(p) }}
  {% for _ in range(3) %}
  LD.MULT.CYCLIC LR10 {{ cr.norm }} LR0 ;;
- {% for p in offsets %}{{ load(p) }}{{ mul() }}{% endfor %}
+ {{ mul() }}
  INC LR10 1 ;;
+ {% endfor %}
  {% endfor %}
 {% endmacro %}
 {% macro average() %}
