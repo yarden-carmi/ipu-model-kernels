@@ -34,10 +34,10 @@
  {{ load(offsets[0],true) }}
  {{ at('LR1',offsets[1]) }}
  LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR3 ;;
- {% for _ in range(3) %}
  LD.MULT R0 LR10 {{ cr.norm }} ;;
+ {% for _ in range(3) %}
  {{ mul() }}
- MULT.RC.VV LR3 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; INC LR10 1 ;;
+ MULT.RC.VV LR3 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; INC LR10 1{% if not loop.last %} ; LD.MULT R0 LR10 {{ cr.norm }}{% endif %} ;;
  {% endfor %}
  {% else %}
  SET LR6 LR10 ;;
@@ -198,9 +198,9 @@ normalize:
  LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR3 ;;
  INC LR9 1 ;;
  {% for n in range(20,23) %}{{ load(n) }}{{ mul(loop.first) }}{{ mul(slot='LR3') }}{% endfor %}
- {% for i in range(3) %}
  LD.MULT R0 LR10 {{ cr.norm }} ;;
- MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; INC LR10 1 ;;
+ {% for i in range(3) %}
+ MULT.VE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; INC LR10 1{% if not loop.last %} ; LD.MULT R0 LR10 {{ cr.norm }}{% endif %} ;;
  {% endfor %}
  INC LR5 1 ;;
  BGE.S LR5 {{ cr.tiles }} last_output ;;
