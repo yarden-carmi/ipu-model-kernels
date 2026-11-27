@@ -1,0 +1,87 @@
+[kernel]
+op = "gemm"
+formats = ["e1", "e2"]
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 65536
+default = 96
+[params.m]
+type = "int"
+min = 1
+max = 65536
+default = 196
+[params.n]
+type = "int"
+min = 1
+max = 65536
+default = 40
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 96
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 14
+[params.in0_d3]
+type = "int"
+min = 1
+max = 65536
+default = 14
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 40
+[params.out0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 14
+[params.out0_d3]
+type = "int"
+min = 1
+max = 65536
+default = 14
+[derived]
+chunks = "ceil(in0_d2 * in0_d3 / 128)"
+full = "ds(128)"
+tail = "ds((in0_d2 * in0_d3 - 1) % 128 + 1)"
+minusone = "-1"
+[inputs.in0]
+shape = ["in0_d1 * in0_d0 * chunks", 128]
+[inputs.w]
+shape = ["n * (k + 1)", 128]
+[outputs.out0]
+shape = ["out0_d1 * out0_d0 * chunks", 128]
+[abi]
+in0 = "CR2"
+w = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+chunks = "CR7"
+full = "CR8"
+tail = "CR9"
+minusone = "CR10"
+k = "CR11"
+n = "CR12"
+[golden]
+tolerance = {e1 = "NX8_STEP", e2 = "NX8_STEP"}
+[cases.default]
