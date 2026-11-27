@@ -40,7 +40,7 @@
  LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR6 ;;
  LD.MULT R0 LR10 {{ cr.norm }} ;;
  {% for _ in range(3) %}
- {{ mul() }}
+  {{ mul(first=loop.first) }}
  {{ mul(slot='LR3') }}
  MULT.RC.VV LR6 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; INC LR10 1{% if not loop.last %} ; LD.MULT R0 LR10 {{ cr.norm }}{% endif %} ;;
  {% endfor %}
@@ -53,12 +53,11 @@
  {% endfor %}
  {{ save(3,3) }}
  {{ at('LR10') }}
- {{ vec(first=true,s='CR0') }}
  {{ norm_products([3,4,5]) }}
 {% endmacro %}
-{% macro squares(ds) %}
+{% macro squares(ds,cached=false) %}
  LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;
- LD.MULT R0 LR9 {{ cr.tmp }} ;;
+ {% if not cached %}LD.MULT R0 LR9 {{ cr.tmp }} ;;{% endif %}
   {% for term in range(4) %}
   MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ ds }}{% if term == 0 or term == 3 %} ; INC LR9 1{% elif term == 2 %} ; LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0{% endif %} ;;
   {% if term == 0 %}LD.MULT R0 LR9 {{ cr.tmp }} ;;{% endif %}
@@ -86,7 +85,7 @@
  // Both SET and BLT see the pre-increment lane; MULT sees the snapshot.
  MULT.RC.VE LR0 LR6 0 LR0 {{ full }} {{ iq }} ; ACC.ADD ; {{ coeff() }} ; INC LR10 1 ; SET LR6 LR10 ; BLT.S LR10 {% if full_chunk %}LR11{% else %}LR1{% endif %} {{ label }} ;;
 {{ label }}_last:
- MULT.RC.VE LR0 LR10 0 LR0 {{ full }} {{ iq }} ; ACC.ADD ; INC LR7 1 ;;
+ MULT.RC.VE LR0 LR10 0 LR0 {{ full }} {{ iq }} ; ACC.ADD ; INC LR7 1{% if full_chunk %} ; DEC LR8 1{% endif %} ;;
 {% endmacro %}
 {% macro lut(i) %}
  LD.LUT {{ i }} {{ cr.lut }} LR1 ;;
@@ -116,7 +115,6 @@ gemm_tile:
 gemm_full_chunk:
   {% for i in range(8) %}
   {{ kchunk('LR11','gemm_full_mac_' ~ i,true) }}
-  DEC LR8 1 ;;
   {% if not loop.last %}BEQ LR8 CR0 gemm_last_chunk ;;
   {% else %}BNE LR8 CR0 gemm_full_chunk ;;
   {% endif %}
@@ -158,13 +156,19 @@ center_subtract:
  {{ vec(first=true,s='CR0') }}
  {{ at('LR9',32) }}
  SET LR5 CR1 ;;
- BGE.S LR5 {{ cr.tiles }} variance_tail ;;
+ // With one tile, split left its high part in R0 and the zeroing MULT
+ // did not replace it. Reuse that operand for the first square.
+ BGE.S LR5 {{ cr.tiles }} variance_single ;;
 variance:
  {{ squares(full) }}
  INC LR5 1 ;;
  BLT.S LR5 {{ cr.tiles }} variance ;;
 variance_tail:
  {{ squares(tail) }}
+ B variance_average ;;
+variance_single:
+ {{ squares(tail,true) }}
+variance_average:
  {{ average() }}
  {{ at('LR1',3) }}
  LD.MULT R0 LR1 {{ cr.norm }} ;;
@@ -196,10 +200,9 @@ refine:
  SET LR5 CR0 ;;
  {{ at('LR9',32) }}{{ at('LR10',4) }}
 normalize:
- {{ vec(first=true,s='CR0') }}
  LD.MULT R0 LR10 {{ cr.norm }} ;;
  {% for _ in range(3) %}
- {{ mul(slot='LR6') }}
+ {{ mul(first=loop.first,slot='LR6') }}
  MULT.RC.VV LR7 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; INC LR10 1{% if not loop.last %} ; LD.MULT R0 LR10 {{ cr.norm }}{% endif %} ;;
  {% endfor %}
  {{ save(20,3) }}
