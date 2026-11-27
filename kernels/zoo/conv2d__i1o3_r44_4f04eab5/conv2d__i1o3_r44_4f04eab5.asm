@@ -57,12 +57,12 @@ kx:
  {% for b in range(ib) %}
  LD.MULT R0 LR11 {{cr.in0}} ; SET LR12 CR0 ;;
  {% set count = [128, cin - b * 128] | min %}
- {{setnum('LR15', count)}}
+ {{setnum('LR15', count - 1)}}
+ DEC LR12 1 ;;
+ LD.MULT.CYCLIC LR7 {{ cr.weights }} LR0 ;;
 channel_{{b}}:
- {{digit('LR12', 'ACC.ADD')}}
- {{digit('LR12', 'ACC.ADD')}}
- INC LR12 1 ;;
- BLT.S LR12 LR15 channel_{{b}} ;;
+ MULT.RC.VE LR0 LR12 0 LR0 {{ds}} {{qi}} ; ACC.ADD ; LD.MULT.CYCLIC LR7 {{cr.weights}} LR0 ; INC LR7 1 ; INC LR12 1 ;;
+ MULT.RC.VE LR0 LR12 0 LR0 {{ds}} {{qi}} ; ACC.ADD ; LD.MULT.CYCLIC LR7 {{cr.weights}} LR0 ; INC LR7 1 ; BLT.S LR12 LR15 channel_{{b}} ;;
  {% if not loop.last %}INC LR11 1 ;;{% endif %}
  {% endfor %}
  {% if ib > 1 %}DEC LR11 {{ib - 1}} ;;{% endif %}
@@ -92,8 +92,6 @@ last_block:
  {% for s in range(stride) %} ADD LR2 LR2 {{cr.row_step}} ;; {% endfor %}
  INC LR4 {{stride}} ;;
  BLT.S LR4 {{cr.end_y}} line ;;
-
- {# Gather one output channel from spatial-major temporary rows. #}
  SET LR0 CR0 ; SET LR1 CR0 ; SET LR4 CR0 ;;
  SET LR5 CR0 ; SET LR8 CR0 ; SET LR9 CR0 ;;
  {{setnum('LR14', out0_d1)}}

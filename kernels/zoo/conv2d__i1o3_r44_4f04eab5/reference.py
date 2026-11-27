@@ -49,11 +49,11 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 56, 56], [200704, 3136, 56, 1], 0), module.op0_weight, None, [1, 1], [1, 1])
+    r0 = aten.conv2d.default(_v(ins[0], [1, 512, 7, 7], [25088, 49, 7, 1], 0), module.op0_weight, None, [1, 1], [1, 1])
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 64, 56, 56], [200704, 3136, 56, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 512, 7, 7], [25088, 49, 7, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 64, 56, 56])}
+    return {"out0": _out(op1, [1, 512, 7, 7])}
 # ---- end of the frozen reference ----
 
 
@@ -76,5 +76,6 @@ def fold(module, **params):
     _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
     step = torch.exp2(exponent.double() - 6)
     high = (rows / step).round().clamp(-63, 63) * step
-    return {"weights": torch.stack((high, rows - high), dim=2).reshape(-1, 128),
+    digits = torch.stack((high, rows - high), dim=2).reshape(-1, 128)
+    return {"weights": torch.cat((digits, digits.new_zeros((1, 128)))),
             "scales": channel_scale[:, None].expand(-1, 128).contiguous()}

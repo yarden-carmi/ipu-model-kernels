@@ -1,7 +1,6 @@
 [kernel]
 op = "conv2d"
 formats = ["e1", "e2"]
-
 [params]
 bias = { type = "bool", default = true }
 groups = { type = "int", choices = [1], default = 1 }
@@ -21,32 +20,27 @@ out0_d0 = { type = "int", choices = [1], default = 1 }
 out0_d1 = { type = "int", min = 1, max = 768, default = 64 }
 out0_d2 = { type = "int", min = 1, max = 512, default = 56 }
 out0_d3 = { type = "int", min = 1, max = 864, default = 56 }
-
 [derived]
 iblocks = "ceil(in0_d1 / 128)"
 blocks = "ceil(out0_d1 / 128)"
 ds_pair = "ds(128) + 65536 * ds((out0_d1 - 1) % 128 + 1)"
 weight_rows = "2 * blocks * (1 + kh * kw * cin)"
 output_rows = "out0_d0 * out0_d2 * out0_d3 * blocks"
-batch_step = "in0_d2 * in0_d3 * iblocks"
 row_step = "in0_d3 * iblocks"
 end_x = "out0_d3 * stride - padding"
 end_y = "out0_d2 * stride - padding"
 spatial = "out0_d2 * out0_d3"
 chunks = "ceil(spatial / 128)"
-tail = "ds((spatial - 1) % 128 + 1)"
-
 [inputs.in0]
 shape = ["in0_d0", "in0_d2", "in0_d3", "iblocks", 128]
 [inputs.weights]
-shape = ["weight_rows", 128]
+shape = ["weight_rows + 1", 128]
 [inputs.scales]
 shape = ["out0_d1", 128]
 [scratch.tmp]
 shape = ["5 * output_rows + 5", 128]
 [outputs.out0]
 shape = ["out0_d1", "out0_d0", "chunks", 128]
-
 [abi]
 in0 = "CR2"
 tmp = "CR3"
@@ -62,5 +56,4 @@ end_y = "CR12"
 in0_d3 = "CR13"
 in0_d2 = "CR14"
 scales = "CR15"
-
 [cases.default]
