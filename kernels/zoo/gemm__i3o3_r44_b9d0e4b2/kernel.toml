@@ -1,0 +1,89 @@
+[kernel]
+op = "gemm"
+formats = ["e1", "e2"]
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 65536
+default = 96
+[params.m]
+type = "int"
+min = 1
+max = 65536
+default = 196
+[params.n]
+type = "int"
+min = 1
+max = 65536
+default = 40
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 96
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 14
+[params.in0_d3]
+type = "int"
+min = 1
+max = 128
+default = 14
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 40
+[params.out0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 14
+[params.out0_d3]
+type = "int"
+min = 1
+max = 128
+default = 14
+[derived]
+pack = "128 // in0_d3"
+spatial = "ceil(in0_d2 / pack)"
+batch_stride = "in0_d1 * spatial"
+full = "ds(pack * in0_d3)"
+tail = "ds(((out0_d2 - 1) % pack + 1) * out0_d3)"
+groups = "k // 16"
+batches = "in0_d0"
+[inputs.in0]
+shape = ["in0_d0", "in0_d1", "spatial", 128]
+[inputs.w]
+shape = ["n * (2 + 2 * ceil(k / 16))", 128]
+[outputs.out0]
+shape = ["out0_d0", "out0_d1", "ceil(out0_d2 / pack)", 128]
+[abi]
+in0 = "CR2"
+w = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+spatial = "CR7"
+full = "CR8"
+tail = "CR9"
+groups = "CR10"
+n = "CR11"
+batches = "CR12"
+batch_stride = "CR13"
+[cases.default]
