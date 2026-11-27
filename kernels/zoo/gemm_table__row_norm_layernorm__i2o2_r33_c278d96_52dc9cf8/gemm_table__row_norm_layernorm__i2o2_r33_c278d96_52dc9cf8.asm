@@ -29,17 +29,6 @@
 {% endmacro %}
 {% macro save(n,count=2,dec=false) %}{{ at('LR1',n) }}{{ split('LR1',count,dec) }}{% endmacro %}
 {% macro norm_products(offsets) %}
- {% if offsets|length == 2 %}
- // Keep both rsqrt parts resident while streaming the three gamma parts.
- {{ load(offsets[0],true) }}
- {{ at('LR1',offsets[1]) }}
- LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR3 ;;
- LD.MULT R0 LR10 {{ cr.norm }} ;;
- {% for _ in range(3) %}
- {{ mul() }}
- MULT.RC.VV LR3 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; INC LR10 1{% if not loop.last %} ; LD.MULT R0 LR10 {{ cr.norm }}{% endif %} ;;
- {% endfor %}
- {% else %}
  // Hold the three left parts in cyclic slots and reuse each coefficient.
  SET LR6 LR3 ;;
  INC LR6 64 ;;
@@ -55,7 +44,6 @@
  {{ mul(slot='LR3') }}
  MULT.RC.VV LR6 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; INC LR10 1{% if not loop.last %} ; LD.MULT R0 LR10 {{ cr.norm }}{% endif %} ;;
  {% endfor %}
- {% endif %}
 {% endmacro %}
 {% macro average() %}
  {{ save(0,3) }}
@@ -191,11 +179,21 @@ refine:
  {% for n in [18,19] %}{{ load(n) }}{{ vec('SUB',s=cr.half) }}{% endfor %}
  {{ save(12,2,true) }}
  BNE LR4 CR0 refine ;;
+ // Reserve the upper two cyclic slots for rsqrt across every output tile.
+ ADD LR6 LR3 LR3 ;;
+ ADD LR7 LR6 LR3 ;;
+ {{ at('LR1',11) }}
+ LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR6 ; INC LR1 1 ;;
+ LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR7 ; INC LR1 1 ;;
  SET LR5 CR0 ;;
  {{ at('LR9',32) }}{{ at('LR10',4) }}
 normalize:
  {{ vec(first=true,s='CR0') }}
- {{ norm_products([12,13]) }}
+ LD.MULT R0 LR10 {{ cr.norm }} ;;
+ {% for _ in range(3) %}
+ {{ mul(slot='LR6') }}
+ MULT.RC.VV LR7 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; INC LR10 1{% if not loop.last %} ; LD.MULT R0 LR10 {{ cr.norm }}{% endif %} ;;
+ {% endfor %}
  {{ save(20,3) }}
  LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;
  INC LR9 1 ;;
