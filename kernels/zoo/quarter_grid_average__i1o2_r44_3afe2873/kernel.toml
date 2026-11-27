@@ -1,0 +1,90 @@
+[kernel]
+op = "quarter_grid_average"
+formats = ["e1"]
+[params.h]
+type = "int"
+min = 4
+max = 4096
+default = 66
+[params.w]
+type = "int"
+min = 4
+max = 4096
+default = 66
+[params.in0_d0]
+type = "int"
+min = 1
+max = 64
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 128
+default = 64
+[params.in0_d2]
+type = "int"
+min = 4
+max = 4096
+default = 66
+[params.in0_d3]
+type = "int"
+min = 4
+max = 4096
+default = 66
+[params.out0_d0]
+type = "int"
+min = 1
+max = 64
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 128
+default = 64
+[params.out0_d2]
+type = "int"
+min = 1
+max = 64
+default = 32
+[params.out0_d3]
+type = "int"
+min = 1
+max = 2048
+default = 32
+[inputs.in0]
+shape = ["in0_d0", "in0_d2", "in0_d3", 128]
+range = [-1.0, 1.0]
+[outputs.out0]
+shape = ["out0_d1", "out0_d0", "ceil(out0_d3 / 2)", 128]
+[scratch.tmp]
+shape = ["out0_d0 * out0_d2 * out0_d3", 128]
+[scratch.residual]
+shape = ["out0_d0 * out0_d2 * out0_d3", 128]
+[scratch.packed]
+shape = [1, 128]
+[derived]
+input_image = "h * w"
+valid = "ds(out0_d1)"
+full = "ds(128) + 65536 * ds(2 * out0_d2)"
+weight = "19 * 65536 + 123 * 256"
+weight_fp32 = "123 * 8388608"
+gather_count = "out0_d2 * out0_d3"
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+tmp = "CR4"
+w = "CR5"
+out0_d3 = "CR6"
+out0_d2 = "CR7"
+residual = "CR8"
+packed = "CR9"
+valid = "CR10"
+qf_in0 = "CR11"
+qf_out0 = "CR12"
+weight = "CR13"
+weight_fp32 = "CR14"
+full = "CR15"
+input_image = "LR15"
+gather_count = "LR14"
+out0_d1 = "LR12"
+[cases.default]
