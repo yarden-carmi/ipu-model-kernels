@@ -1,0 +1,59 @@
+[kernel]
+op = "binary_mul_col"
+formats = ["e1"]
+
+[params.broadcast]
+type = "str"
+choices = ["col"]
+default = "col"
+[params.op]
+type = "str"
+choices = ["mul"]
+default = "mul"
+[params.inner]
+type = "int"
+default = 576
+[params.numel]
+type = "int"
+default = 28224
+[params.in0_d2]
+type = "int"
+default = 7
+[params.in0_d3]
+type = "int"
+default = 7
+
+[derived]
+inner_end = "inner - 1"
+wrap = "127"
+pack = "2"
+plane = "(in0_d2 + pack - 1) // pack"
+last_prefetch = "plane - 1"
+valid = "ds(pack * in0_d3)"
+last_valid = "ds(((in0_d2 - 1) % pack + 1) * in0_d3)"
+
+[inputs.in0]
+shape = ["inner * plane", 128]
+range = [-2, 2]
+[inputs.in1]
+shape = ["(inner + 127) // 128", 128]
+range = [-2, 2]
+[outputs.out0]
+shape = ["inner * plane", 128]
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_in1 = "CR6"
+qf_out0 = "CR7"
+inner_end = "CR8"
+plane = "CR9"
+last_valid = "CR11"
+last_prefetch = "CR10"
+wrap = "CR12"
+valid = "CR15"
+
+[cases.default]
+numel = 28224
