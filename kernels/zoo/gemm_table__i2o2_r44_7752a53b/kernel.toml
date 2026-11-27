@@ -1,0 +1,108 @@
+[kernel]
+op = "gemm_table"
+formats = ["e2", "e3"]
+
+[params.k]
+type = "int"
+min = 1
+max = 4096
+default = 192
+[params.n]
+type = "int"
+min = 1
+max = 4096
+default = 384
+[params.m]
+type = "int"
+min = 1
+max = 65535
+default = 256
+[params.bias]
+type = "bool"
+default = true
+[params.act_out0]
+type = "str"
+choices = ["gelu_tanh", "silu"]
+default = "gelu_tanh"
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 4
+[params.in0_d1]
+type = "int"
+min = 1
+max = 65535
+default = 64
+[params.in0_d2]
+type = "int"
+min = 1
+max = 4096
+default = 192
+[params.in0_d3]
+type = "int"
+min = 1
+max = 65535
+default = 64
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 4
+[params.out0_d1]
+type = "int"
+min = 1
+max = 65535
+default = 64
+[params.out0_d2]
+type = "int"
+min = 1
+max = 4096
+default = 384
+[params.out0_d3]
+type = "int"
+min = 1
+max = 65535
+default = 64
+
+[derived]
+pack = "max(1, 128 // in0_d2)"
+blocks = "ceil(in0_d3 / pack) * ceil(in0_d2 * pack / 128)"
+batch_rows = "blocks"
+ir = "in0_d1 * in0_d0 * blocks"
+out_rows = "out0_d1 * out0_d0 * ceil(out0_d3 / max(1, 128 // out0_d2)) * ceil(out0_d2 * max(1, 128 // out0_d2) / 128)"
+chunks = "ceil(k / 128)"
+groups = "chunks - 1"
+coeff_rows = "3 * n * (chunks + 1)"
+full = "ds(128)"
+tail = "ds(min(128, out0_d2 * ((out0_d3 - 1) % max(1, 128 // out0_d2) + 1)))"
+
+[inputs.in0]
+shape = ["ir", 128]
+range = [-2, 2]
+[inputs.coeff]
+shape = ["coeff_rows", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[outputs.out0]
+shape = ["out_rows", 128]
+
+[abi]
+in0 = "CR2"
+coeff = "CR3"
+lut = "CR4"
+out0 = "CR5"
+qf_in0 = "CR6"
+qf_out0 = "CR7"
+batch_rows = "CR8"
+blocks = "CR9"
+n = "CR10"
+full = "CR11"
+tail = "CR12"
+in0_d0 = "CR13"
+chunks = "CR14"
+groups = "CR15"
+
+[cases.default]
