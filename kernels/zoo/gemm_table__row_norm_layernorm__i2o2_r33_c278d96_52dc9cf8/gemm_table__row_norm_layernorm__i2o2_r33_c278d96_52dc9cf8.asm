@@ -7,8 +7,8 @@
  SET {{ r }} CR0 ;;
  {% if n %}INC {{ r }} {{ n }} ;;{% endif %}
 {% endmacro %}
-{% macro vec(op='ADD',first=false,fmt=q,s='CR1') %}
- MULT.VE LR0 {{ s }} 0 LR0 {{ full }} {{ fmt }} ; ACC.{{ op }}{% if first %}.FIRST{% endif %} ;;
+{% macro vec(op='ADD',first=false,fmt=q,s='CR1',ra='LR0') %}
+ MULT.VE {{ ra }} {{ s }} 0 LR0 {{ full }} {{ fmt }} ; ACC.{{ op }}{% if first %}.FIRST{% endif %} ;;
 {% endmacro %}
 {% macro load(n,cyclic=false,ra='R0') %}
  {{ at('LR1',n) }}
@@ -65,12 +65,13 @@
   {% endfor %}
 {% endmacro %}
 {% macro product(a,b,na) %}
- // Keep both right-hand residual parts live across the left-hand parts.
- {{ load(b) }}{{ load(b+1,ra='R1') }}
- {% for i in range(na) %}
- {{ load(a+i,true) }}
- {{ mul(loop.first) }}{{ mul(ra='R1') }}
- {% endfor %}
+  // Keep both right-hand residual parts live across the left-hand parts.
+  {{ load(b) }}{{ load(b+1,ra='R1') }}
+  {{ load(a,true) }}
+  {% for i in range(na) %}
+  {{ mul(loop.first) }}
+  MULT.RC.VV LR0 R1 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if not loop.last %} ; LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ; INC LR1 1{% endif %} ;;
+  {% endfor %}
 {% endmacro %}
 {% macro coeff() %}LD.MULT.CYCLIC LR5 {{ cr.coeff }} LR0 ; INC LR5 1{% endmacro %}
 {% macro kchunk(limit,label,full_chunk=false) %}
@@ -131,28 +132,26 @@ gemm_last_tile:
  SET LR5 CR0 ;;
  {{ vec(first=true,s='CR0') }}
 sum:
- LD.MULT R0 LR5 {{ cr.hidden }} ;;
+ LD.MULT R1 LR5 {{ cr.hidden }} ;;
  INC LR5 1 ;;
  BGE.S LR5 {{ cr.tiles }} sum_tail ;;
- MULT.VE LR0 CR1 0 LR0 {{ full }} {{ oq }} ; AGG.SUM LR0 {{ full }} ; B sum ;;
+ MULT.VE LR3 CR1 0 LR0 {{ full }} {{ oq }} ; AGG.SUM LR0 {{ full }} ; B sum ;;
 sum_tail:
- MULT.VE LR0 CR1 0 LR0 {{ full }} {{ oq }} ; AGG.SUM LR0 {{ tail }} ;;
-  {{ average() }}{{ save(6,3) }}
-  // Keep the mean parts resident throughout the centering pass.
-  ADD LR6 LR3 LR3 ; ADD LR7 LR3 LR3 ;;
-  ADD LR7 LR7 LR3 ;;
-  {% for slot in ['LR3', 'LR6', 'LR7'] %}
-  {{ at('LR1',6 + loop.index0) }}
-  LD.MULT.CYCLIC LR1 {{ cr.tmp }} {{ slot }} ;;
-  {% endfor %}
+ MULT.VE LR3 CR1 0 LR0 {{ full }} {{ oq }} ; AGG.SUM LR0 {{ tail }} ;;
+ {{ average() }}{{ save(6,3) }}
  SET LR5 CR0 ;;
  {{ at('LR9',32) }}
+ // R1 still holds the last tile. Reuse it after centering earlier tiles.
 center:
+ ADD LR6 LR5 CR1 ;;
+ BGE.S LR6 {{ cr.tiles }} center_tail ;;
  LD.MULT R0 LR5 {{ cr.hidden }} ;;
  {{ vec(first=true,fmt=oq) }}
-  {% for slot in ['LR3', 'LR6', 'LR7'] %}
-  MULT.RC.VE {{ slot }} CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB ;;
-  {% endfor %}
+ B center_subtract ;;
+center_tail:
+ {{ vec(first=true,fmt=oq,ra='LR3') }}
+center_subtract:
+ {% for n in range(6,9) %}{{ load(n) }}{{ vec('SUB') }}{% endfor %}
  {{ split('LR9',2) }}
  INC LR9 1 ; INC LR5 1 ;;
  BLT.S LR5 {{ cr.tiles }} center ;;
