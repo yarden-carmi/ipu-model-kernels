@@ -1,0 +1,122 @@
+[kernel]
+op = "conv2d_builtin"
+formats = ["e1", "e2"]
+
+[params.act_out0]
+type = "str"
+choices = ["relu"]
+default = "relu"
+[params.bias]
+type = "bool"
+default = true
+[params.cin]
+type = "int"
+min = 1
+max = 128
+default = 128
+[params.cout]
+type = "int"
+min = 1
+max = 128
+default = 128
+[params.groups]
+type = "int"
+choices = [1]
+default = 1
+[params.h]
+type = "int"
+min = 2
+max = 224
+multiple_of = 2
+default = 28
+[params.w]
+type = "int"
+min = 1
+max = 64
+default = 28
+[params.kh]
+type = "int"
+choices = [3]
+default = 3
+[params.kw]
+type = "int"
+choices = [3]
+default = 3
+[params.padding]
+type = "int"
+choices = [1]
+default = 1
+[params.stride]
+type = "int"
+choices = [1]
+default = 1
+[params.in0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 512
+default = 128
+[params.in0_d2]
+type = "int"
+min = 1
+max = 224
+default = 28
+[params.in0_d3]
+type = "int"
+min = 1
+max = 224
+default = 28
+[params.out0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 512
+default = 128
+[params.out0_d2]
+type = "int"
+min = 1
+max = 224
+default = 14
+[params.out0_d3]
+type = "int"
+min = 1
+max = 224
+default = 14
+
+[derived]
+height = "in0_d2"
+width = "in0_d3"
+channels = "cin"
+ob = "ceil(out0_d1 / 128)"
+wr = "2 * (1 + kh * kw * cin)"
+full = "ds(128)"
+tail = "ds(out0_d1)"
+
+[inputs.in0]
+shape = ["in0_d1 * in0_d2 / 2", 128]
+range = [-1, 1]
+[inputs.weights]
+shape = ["wr", 128]
+range = [-1, 1]
+[outputs.out0]
+shape = ["out0_d2", "out0_d3", "ob", 128]
+
+[abi]
+in0 = "CR2"
+weights = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+full = "CR7"
+tail = "CR8"
+height = "CR9"
+width = "CR10"
+channels = "CR11"
+
+[cases.default]
