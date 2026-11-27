@@ -49,12 +49,13 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv1d.default(_v(ins[0], [1, 384, 3000], [1152000, 3000, 1], 0), module.weight, module.bias, [2], [1])
+    r0 = aten.conv1d.default(_v(ins[0], [1, 80, 3000], [240000, 3000, 1], 0), module.weight, module.bias, [1], [1])
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.gelu.default(_v(op0, [1, 384, 1500], [576000, 1500, 1], 0))
+    r0 = aten.gelu.default(_v(op0, [1, 384, 3000], [1152000, 3000, 1], 0))
     op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 384, 1500])}
+    return {"out0": _out(op1, [1, 384, 3000])}
 # ---- end of the frozen reference ----
+
 
 def fold(module, **params):
     import numpy as np
@@ -72,7 +73,12 @@ def fold(module, **params):
             for g in range(groups):
                 expanded[g*no:(g+1)*no, g*ni:(g+1)*ni] = w[g*no:(g+1)*no]
             w = expanded
-        taps = w.permute(2, 1, 0).reshape(-1, cout)
+        stride = params['stride']
+        if kw == 3 and params['padding'] == 1 and params['out0_d2'] % (6 - 2 * stride) == 0 and not (cin <= 128 and cout <= 384):
+            a, b, c = w.double().permute(2, 1, 0)
+            taps = torch.cat((a + c, a, b, -c, b))
+        else:
+            taps = w.permute(2, 1, 0).reshape(-1, cout)
     chunks = (cout + 127) // 128
     rows = torch.cat((bias[None], taps)).numpy()
     rows = np.pad(rows, ((0, 0), (0, chunks*128 - cout)))

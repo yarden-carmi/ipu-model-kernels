@@ -24,7 +24,9 @@ ic = "ceil(in0_d1 / 128)"
 oc = "ceil(out0_d1 / 128)"
 dw = "1 - min(1, max(cin - groups, groups - cin, cout - groups, groups - cout))"
 pc = "dw + (1 - dw) * ic"
-weight_block = "2 + 2 * kw * (dw + (1 - dw) * cin)"
+pair = "(1 - dw) * (1 - min(1, max(kw - 3, 3 - kw) + max(padding - 1, 1 - padding) + out0_d2 % (6 - 2 * stride))) * min(1, max(0, cin - 128) + max(0, cout - 384))"
+weight_block = "2 + 2 * (kw + 2 * pair) * (dw + (1 - dw) * cin)"
+pair_end = "ceil(out0_d2 / (6 - 2 * stride)) - 1"
 ds128 = "ds(128)"
 copy_end = "in0_d2 * pc - 2"
 pixel_end = "out0_d2 - 1"
@@ -39,6 +41,8 @@ shape = [5, 128]
 range = [0, 0]
 [scratch.pad]
 shape = ["(in0_d2 + 2 * padding) * pc", 128]
+[scratch.diff]
+shape = ["2 + pair * in0_d2 * ic", 128]
 [outputs.out0]
 shape = ["out0_d0", "out0_d2", "oc", 128]
 [abi]
@@ -54,6 +58,8 @@ ds128 = "CR10"
 weight_block = "CR14"
 copy_end = "CR11"
 pixel_end = "CR12"
+diff = "CR13"
+pair_end = "CR15"
 [golden]
 tolerance = {e1="NX8_STEP", e2="NX8_STEP"}
 [cases.default]
