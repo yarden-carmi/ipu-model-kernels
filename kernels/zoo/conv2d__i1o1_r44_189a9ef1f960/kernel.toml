@@ -8,27 +8,28 @@ default = true
 [params.cin]
 type = "int"
 min = 1
-max = 1024
-default = 256
+max = 512
+default = 384
 [params.cout]
 type = "int"
 min = 1
 max = 1024
-default = 256
+default = 384
 [params.groups]
 type = "int"
-choices = [1]
+min = 1
+max = 1
 default = 1
 [params.h]
 type = "int"
 min = 1
 max = 512
-default = 14
+default = 16
 [params.w]
 type = "int"
 min = 1
 max = 128
-default = 14
+default = 16
 [params.kh]
 type = "int"
 min = 1
@@ -51,42 +52,44 @@ max = 2
 default = 1
 [params.in0_d0]
 type = "int"
-choices = [1]
+min = 1
+max = 1
 default = 1
 [params.in0_d1]
 type = "int"
 min = 1
-max = 1024
-default = 256
+max = 512
+default = 384
 [params.in0_d2]
 type = "int"
 min = 1
 max = 512
-default = 14
+default = 16
 [params.in0_d3]
 type = "int"
 min = 1
 max = 128
-default = 14
+default = 16
 [params.out0_d0]
 type = "int"
-choices = [1]
+min = 1
+max = 1
 default = 1
 [params.out0_d1]
 type = "int"
 min = 1
 max = 1024
-default = 256
+default = 384
 [params.out0_d2]
 type = "int"
 min = 1
-max = 512
-default = 14
+max = 514
+default = 8
 [params.out0_d3]
 type = "int"
 min = 1
-max = 128
-default = 14
+max = 130
+default = 8
 
 [derived]
 blocks = "ceil(out0_d1 / 128)"
@@ -99,7 +102,7 @@ skip_y = "2 * in0_d1"
 
 [inputs.in0]
 shape = ["in0_d0 * in0_d2 * in0_d3 * plane", 128]
-range = [-1, 1]
+range = [-2, 2]
 [inputs.weights]
 shape = ["blocks", "2 * (1 + kh * kw * in0_d1)", 128]
 range = [-1, 1]
@@ -121,6 +124,7 @@ ends = "CR12"
 input_hw = "CR13"
 skip_y = "CR14"
 
-[cases.default]
 [golden]
 tolerance = {e1 = "NX8_STEP", e2 = "NX8_STEP"}
+
+[cases.default]
