@@ -1,0 +1,60 @@
+[kernel]
+op = "round_fp16"
+formats = ["e2"]
+
+[params]
+numel = { type = "int", min = 1, max = 16777216, default = 12288 }
+in0_d0 = { type = "int", min = 1, max = 16777216, default = 1 }
+in0_d1 = { type = "int", min = 1, max = 16777216, default = 48 }
+in0_d2 = { type = "int", min = 1, max = 16777216, default = 16 }
+in0_d3 = { type = "int", choices = [16], default = 16 }
+out0_d0 = { type = "int", min = 1, max = 16777216, default = 1 }
+out0_d1 = { type = "int", min = 1, max = 16777216, default = 48 }
+out0_d2 = { type = "int", min = 1, max = 16777216, default = 16 }
+out0_d3 = { type = "int", choices = [16], default = 16 }
+
+[derived]
+rows = "in0_d0 * in0_d1 * ceil(in0_d2 / (128 // in0_d3))"
+groups = "ceil(in0_d2 / (128 // in0_d3))"
+channels = "in0_d1"
+batchstride = "in0_d1 * in0_d2"
+full = "ds(128)"
+indices = "50462976"
+zero_sign_scale = "18 * 65536 + 23 * 256"
+overflow_limit = "18 * 65536 + 143 * 256 + 31"
+overflow_gain = "18 * 65536 + 252 * 256 + 10"
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d1 * in0_d2", 128]
+range = [-2, 2]
+[outputs.out0]
+shape = ["out0_d0 * out0_d1 * ceil(out0_d2 / (128 // out0_d3))", 128]
+[scratch.bias]
+shape = [1, 128]
+[scratch.half]
+shape = [1, 128]
+[scratch.positive]
+shape = [1, 128]
+[scratch.negative]
+shape = [1, 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+qf_in0 = "CR4"
+qf_out0 = "CR5"
+rows = "CR6"
+full = "CR7"
+bias = "CR8"
+half = "CR9"
+indices = "CR10"
+zero_sign_scale = "CR11"
+overflow_limit = "CR12"
+overflow_gain = "CR13"
+positive = "CR14"
+negative = "CR15"
+channels = "LR14"
+groups = "LR15"
+batchstride = "LR3"
+
+[cases.default]
