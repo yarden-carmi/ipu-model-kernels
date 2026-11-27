@@ -1,0 +1,133 @@
+[kernel]
+op = "conv2d_table"
+formats = ["e1", "e2"]
+
+[params.act_out0]
+type = "str"
+choices = ["hardswish", "silu"]
+default = "hardswish"
+[params.bias]
+type = "bool"
+default = true
+[params.cin]
+type = "int"
+min = 1
+max = 640
+default = 64
+[params.cout]
+type = "int"
+min = 1
+max = 640
+default = 64
+[params.groups]
+type = "int"
+min = 1
+max = 640
+default = 64
+[params.h]
+type = "int"
+min = 1
+max = 256
+default = 14
+[params.w]
+type = "int"
+min = 5
+max = 256
+default = 14
+[params.kh]
+type = "int"
+choices = [3, 5]
+default = 5
+[params.kw]
+type = "int"
+choices = [3, 5]
+default = 5
+[params.padding]
+type = "int"
+choices = [1, 2]
+default = 2
+[params.stride]
+type = "int"
+choices = [1, 2]
+default = 1
+[params.in0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 640
+default = 64
+[params.in0_d2]
+type = "int"
+min = 1
+max = 256
+default = 14
+[params.in0_d3]
+type = "int"
+min = 1
+max = 256
+default = 14
+[params.out0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 640
+default = 64
+[params.out0_d2]
+type = "int"
+min = 1
+max = 258
+default = 14
+[params.out0_d3]
+type = "int"
+min = 1
+max = 256
+default = 14
+
+[derived]
+ix = "ceil(in0_d3 / 128)"
+ox = "ceil(out0_d3 / 128)"
+ds128 = "ds(128)"
+ds_tail = "ds(1 + (out0_d3 - 1) % 128)"
+plane = "(in0_d2 + 2 * padding) * kw * ox"
+gcin = "cin // groups"
+wrows = "2 * (1 + gcin) * cout"
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d2", "in0_d1", "ix", 128]
+range = [-2, 2]
+[inputs.weights]
+shape = ["wrows", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[scratch.pad]
+shape = ["in0_d1 * plane", 128]
+[outputs.out0]
+shape = ["out0_d0", "out0_d2", "out0_d1", "ox", 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+weights = "CR4"
+lut = "CR5"
+pad = "CR6"
+qf_in0 = "CR7"
+qf_weights = "CR8"
+qf_out0 = "CR9"
+ds128 = "CR10"
+ds_tail = "CR11"
+plane = "CR12"
+gcin = "CR13"
+cout = "CR14"
+out0_d2 = "CR15"
+
+[golden]
+tolerance = { e1 = "NX8_STEP", e2 = "NX8_STEP" }
+[cases.default]
