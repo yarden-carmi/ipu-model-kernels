@@ -1,0 +1,78 @@
+[kernel]
+op = "conv2d_table"
+formats = ["e1", "e2"]
+
+[params]
+act_out0 = {type="str", choices=["silu"], default="silu"}
+bias = {type="bool", default=true}
+cin = {type="int", min=1, max=1024, default=8}
+cout = {type="int", min=1, max=1024, default=8}
+groups = {type="int", min=1, max=1024, default=1}
+h = {type="int", choices=[8,16,32,64,128,256], default=8}
+w = {type="int", min=1, max=1024, default=8}
+kh = {type="int", choices=[3], default=3}
+kw = {type="int", choices=[3], default=3}
+padding = {type="int", choices=[1], default=1}
+stride = {type="int", choices=[1,2], default=1}
+in0_d0 = {type="int", choices=[1], default=1}
+in0_d1 = {type="int", min=1, max=1024, default=8}
+in0_d2 = {type="int", choices=[8,16,32,64,128,256], default=8}
+in0_d3 = {type="int", min=1, max=1024, default=8}
+out0_d0 = {type="int", choices=[1], default=1}
+out0_d1 = {type="int", min=1, max=1024, default=8}
+out0_d2 = {type="int", choices=[4,8,16,32,64,128,256], default=8}
+out0_d3 = {type="int", min=1, max=1024, default=8}
+
+[derived]
+ipack = "max(1, 128 // in0_d2)"
+xinrows = "ceil(in0_d3 / ipack)"
+irows = "xinrows * ceil(in0_d2 / 128)"
+opack = "max(1, (128 // out0_d2) // (1 + (stride - 1) * (3 - 2 * min(1, out0_d2 // 64))))"
+otiles = "ceil(out0_d3 / opack) * ceil(out0_d2 / 128)"
+ds128 = "ds(128)"
+dsout = "ds(min(128, opack * out0_d2))"
+tail = "ds(min(128, (1 + (out0_d3 - 1) % opack) * out0_d2))"
+ni = "cin // groups"
+no = "cout // groups"
+maskrows = "9 * otiles * (1 + (stride - 1) * (in0_d2 // 256))"
+wrows = "cout * (2 + 2 * ceil(ni / 8))"
+out_last = "otiles - 1"
+stage_group = "9 * ni"
+tile_jump = "9 * (cin - ni)"
+
+[inputs.in0]
+shape = ["cin", "irows", 128]
+range = [-2,2]
+[inputs.weights]
+shape = ["wrows",128]
+range = [-1,1]
+[inputs.masks]
+shape = ["maskrows",128]
+range = [0,1]
+[inputs.lut]
+shape = [5,128]
+range = [0,0]
+[outputs.out0]
+shape = ["cout", "otiles",128]
+[scratch.pad]
+shape = ["1 + 9 * cin * otiles",128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+weights = "CR4"
+lut = "CR5"
+pad = "CR6"
+qf_in0 = "CR7"
+qf_out0 = "CR8"
+masks = "CR9"
+ds128 = "CR10"
+dsout = "CR11"
+tail = "CR12"
+irows = "CR13"
+tile_jump = "CR14"
+stage_group = "CR15"
+
+[golden]
+tolerance = {e1="NX8_STEP", e2="NX8_STEP"}
+[cases.default]
