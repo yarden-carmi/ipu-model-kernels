@@ -1,77 +1,20 @@
 [kernel]
 op = "binary_add"
 formats = ["e2"]
-
-[params.broadcast]
-type = "str"
-choices = ["none"]
-default = "none"
-[params.inner]
-type = "int"
-min = 0
-max = 0
-default = 0
-[params.op]
-type = "str"
-choices = ["add"]
-default = "add"
-[params.numel]
-type = "int"
-min = 1
-max = 16777216
-default = 49152
-[params.in0_d0]
-type = "int"
-min = 4
-max = 4
-default = 4
-[params.in0_d1]
-type = "int"
-min = 8
-max = 256
-multiple_of = 8
-default = 64
-[params.in0_d2]
-type = "int"
-min = 32
-max = 256
-multiple_of = 16
-default = 192
-[params.in1_d0]
-type = "int"
-min = 4
-max = 4
-default = 4
-[params.in1_d1]
-type = "int"
-min = 8
-max = 256
-multiple_of = 8
-default = 64
-[params.in1_d2]
-type = "int"
-min = 32
-max = 256
-multiple_of = 16
-default = 192
-[params.out0_d0]
-type = "int"
-min = 4
-max = 4
-default = 4
-[params.out0_d1]
-type = "int"
-min = 8
-max = 256
-multiple_of = 8
-default = 64
-[params.out0_d2]
-type = "int"
-min = 32
-max = 256
-multiple_of = 16
-default = 192
-
+[params]
+broadcast = { type = "str", choices = ["none"], default = "none" }
+inner = { type = "int", min = 0, max = 0, default = 0 }
+op = { type = "str", choices = ["add"], default = "add" }
+numel = { type = "int", min = 1, max = 16777216, default = 49152 }
+in0_d0 = { type = "int", min = 4, max = 4, default = 4 }
+in0_d1 = { type = "int", min = 8, max = 256, multiple_of = 8, default = 64 }
+in0_d2 = { type = "int", min = 32, max = 256, multiple_of = 16, default = 192 }
+in1_d0 = { type = "int", min = 4, max = 4, default = 4 }
+in1_d1 = { type = "int", min = 8, max = 256, multiple_of = 8, default = 64 }
+in1_d2 = { type = "int", min = 32, max = 256, multiple_of = 16, default = 192 }
+out0_d0 = { type = "int", min = 4, max = 4, default = 4 }
+out0_d1 = { type = "int", min = 8, max = 256, multiple_of = 8, default = 64 }
+out0_d2 = { type = "int", min = 32, max = 256, multiple_of = 16, default = 192 }
 [derived]
 width = "ceil(out0_d2 / 128)"
 in_width = "ceil(in0_d2 / 128)"
@@ -83,7 +26,6 @@ seq_hi = "117835012"
 dest_gap = "1077952576"
 limits = "(out0_d1 - 8) + 65536 * (out0_d2 // 16 - 1)"
 scratch_format = "312 + 65536 * 328"
-
 [inputs.in0]
 shape = ["in0_d0", "in0_d1", "in_width * 128"]
 range = [-2, 2]
@@ -92,10 +34,8 @@ shape = ["in1_d0", "in1_d2", "in1_span * 128"]
 range = [-2, 2]
 [outputs.out0]
 shape = ["out0_d0", "out0_d1", "width * 128"]
-
 [scratch.tiles]
 shape = ["2 + 2 * (out0_d2 // 16)", 128]
-
 [abi]
 in0 = "CR2"
 in1 = "CR3"
@@ -110,5 +50,4 @@ seq_lo = "CR11"
 seq_hi = "CR12"
 limits = "CR13"
 scratch_format = "CR14"
-
 [cases.default]
