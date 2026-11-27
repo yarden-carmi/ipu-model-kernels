@@ -1,23 +1,16 @@
-{# Keep one channel-scale block resident as the spatial rows stream past. #}
-{% macro product(size) %}
- MULT.RC.VV LR0 R0 0 LR0 {{ size }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ size }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR3
-{%- endmacro %}
-{% macro scan(size, loop, drain) %}
- SET LR2 LR1 ; SET LR3 LR1 ; LD.MULT.CYCLIC LR1 {{ cr.in1 }} LR0 ;;
- SUB LR2 LR2 {{ cr.blocks }} ; SUB LR3 LR3 {{ cr.blocks }} ; SET LR4 CR1 ;;
- LD.MULT R0 LR2 {{ cr.in0 }} ; ADD LR2 LR2 {{ cr.blocks }} ; BEQ {{ cr.rows_minus_one }} CR0 {{ drain }} ;;
-{{ loop }}:
- LD.MULT R0 LR2 {{ cr.in0 }} ; ADD LR2 LR2 {{ cr.blocks }} ; {{ product(size) }} ; ADD LR3 LR3 {{ cr.blocks }} ; INC LR4 1 ; BLT.S LR4 {{ cr.rows_minus_one }} {{ loop }} ;;
-{{ drain }}:
- {{ product(size) }} ; ADD LR3 LR3 {{ cr.blocks }} ;;
- INC LR1 1 ;;
+{% macro run_block(ds) %}
+    SET LR2 CR0 ; SUB LR4 LR3 {{ cr.blocks }} ; SUB LR1 LR3 {{ cr.blocks }} ;;
+    LD.MULT R0 LR3 {{ cr.in1 }} ;;
+    LD.MULT.CYCLIC LR4 {{ cr.in0 }} LR0 ; ADD LR4 LR4 {{ cr.blocks }} ;;
+loop_{{ ds }}:
+    MULT.RC.VV LR0 R0 0 LR0 {{ cr[ds] }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr[ds] }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ; LD.MULT.CYCLIC LR4 {{ cr.in0 }} LR0 ; ADD LR4 LR4 {{ cr.blocks }} ; ADD LR1 LR1 {{ cr.blocks }} ; INC LR2 1 ; BLT.S LR2 {{ cr.prefetch_end }} loop_{{ ds }} ;;
+    MULT.RC.VV LR0 R0 0 LR0 {{ cr[ds] }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr[ds] }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ; ADD LR1 LR1 {{ cr.blocks }} ;;
 {% endmacro %}
-
- SET LR0 CR0 ; SET LR1 CR0 ;;
- BEQ {{ cr.last_block }} CR0 tail ;;
-full:
- {{ scan(cr.full_size, 'full_rows', 'full_drain') }}
- BLT.S LR1 {{ cr.last_block }} full ;;
-tail:
- {{ scan(cr.tail_size, 'tail_rows', 'tail_drain') }}
- HALT ;;
+    SET LR0 CR0 ; SET LR3 CR0 ; BEQ CR0 {{ cr.last_block }} last_block ;;
+block:
+    {{ run_block('valid') }}
+    INC LR3 1 ;;
+    BLT.S LR3 {{ cr.last_block }} block ;;
+last_block:
+    {{ run_block('last_valid') }}
+    HALT ;;

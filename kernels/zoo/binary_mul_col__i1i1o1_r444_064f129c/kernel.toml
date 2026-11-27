@@ -1,54 +1,60 @@
 [kernel]
 op = "binary_mul_col"
-formats = ["e1", "e2"]
+formats = ["e1"]
 
-[params]
-broadcast = { type = "str", choices = ["col"], default = "col" }
-op = { type = "str", choices = ["mul"], default = "mul" }
-inner = { type = "int", min = 1, max = 16384, default = 16 }
-numel = { type = "int", min = 1, max = 16777216, default = 50176 }
-in0_d0 = { type = "int", min = 1, default = 1 }
-in0_d1 = { type = "int", min = 1, default = 16 }
-in0_d2 = { type = "int", min = 1, default = 56 }
-in0_d3 = { type = "int", min = 1, default = 56 }
-in1_d0 = { type = "int", min = 1, default = 1 }
-in1_d1 = { type = "int", min = 1, default = 16 }
-in1_d2 = { type = "int", min = 1, default = 1 }
-in1_d3 = { type = "int", min = 1, default = 1 }
-out0_d0 = { type = "int", min = 1, default = 1 }
-out0_d1 = { type = "int", min = 1, default = 16 }
-out0_d2 = { type = "int", min = 1, default = 56 }
-out0_d3 = { type = "int", min = 1, default = 56 }
+[params.broadcast]
+type = "str"
+choices = ["col"]
+default = "col"
+[params.op]
+type = "str"
+choices = ["mul"]
+default = "mul"
+[params.inner]
+type = "int"
+default = 576
+[params.numel]
+type = "int"
+default = 28224
+[params.in0_d2]
+type = "int"
+default = 7
+[params.in0_d3]
+type = "int"
+default = 7
 
 [derived]
-spatial_rows = "numel // inner"
-rows_minus_one = "spatial_rows - 1"
-blocks = "ceil(inner / 128)"
+plane = "in0_d2 * in0_d3"
+blocks = "(inner + 127) // 128"
 last_block = "blocks - 1"
-full_size = "ds(128)"
-tail_size = "ds(inner - 128 * last_block)"
+last_pixel = "plane - 1"
+prefetch_end = "plane - 2"
+valid = "ds(128)"
+last_valid = "ds((inner - 1) % 128 + 1)"
 
 [inputs.in0]
-shape = ["spatial_rows", "blocks * 128"]
+shape = ["plane * blocks", 128]
 range = [-2, 2]
 [inputs.in1]
-shape = ["blocks", 128]
+shape = ["(inner + 127) // 128", 128]
 range = [-2, 2]
 [outputs.out0]
-shape = ["spatial_rows", "blocks * 128"]
+shape = ["plane * blocks", 128]
 
 [abi]
 in0 = "CR2"
 in1 = "CR3"
 out0 = "CR4"
 qf_in0 = "CR5"
-qf_out0 = "CR6"
-blocks = "CR7"
-last_block = "CR8"
-rows_minus_one = "CR9"
-qf_in1 = "CR10"
-full_size = "CR15"
-tail_size = "CR14"
+qf_in1 = "CR6"
+qf_out0 = "CR7"
+blocks = "CR8"
+plane = "CR9"
+last_valid = "CR11"
+last_block = "CR10"
+last_pixel = "CR12"
+prefetch_end = "CR13"
+valid = "CR15"
 
 [cases.default]
-numel = 50176
+numel = 28224
