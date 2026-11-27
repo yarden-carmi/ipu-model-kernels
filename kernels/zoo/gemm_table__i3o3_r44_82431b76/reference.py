@@ -92,7 +92,7 @@ def fold(module, **params):
         if k == 96:
             sizes = [2] * 16 + [3] * 21 + [1]
         if k == 64:
-            sizes = [4, 8] * 5 + [4]
+            sizes = [4, 8] * 4 + [8, 8]
         bits = 6 if k <= 16 else 5
         main = weight.new_zeros(n, 128)
         fine = torch.zeros_like(main)

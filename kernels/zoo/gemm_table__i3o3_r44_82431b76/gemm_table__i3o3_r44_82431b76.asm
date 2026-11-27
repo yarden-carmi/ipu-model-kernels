@@ -19,9 +19,9 @@ end:
 {% set span = 4 if k == 64 else (3 if k <= 96 else 2) %}
 {% set single = k >= 8 and k <= 16 %}
 {% set prefix = 0 if k <= 32 or k == 64 or k == 96 else (k // 16 if k > 96 else (k // 3 if k > 64 else k // 4)) %}
-{% set groups = 11 if k == 64 else (6 if k == 16 else (13 if k == 32 else (38 if k == 96 else (k - prefix + span - 1) // span))) %}
+{% set groups = 10 if k == 64 else (6 if k == 16 else (13 if k == 32 else (38 if k == 96 else (k - prefix + span - 1) // span))) %}
 {% macro group_count(g) -%}
-{{ (4 if g % 2 == 0 else 8) if k == 64 else ((2 if g < 16 else (1 if g == 37 else 3)) if k == 96 else ((2 if g < 2 else 3) if k == 16 else ((3 if g < 6 else 2) if k == 32 else (k - prefix - g * span if g + 1 == groups else span)))) }}
+{{ (8 if g >= 8 else (4 if g % 2 == 0 else 8)) if k == 64 else ((2 if g < 16 else (1 if g == 37 else 3)) if k == 96 else ((2 if g < 2 else 3) if k == 16 else ((3 if g < 6 else 2) if k == 32 else (k - prefix - g * span if g + 1 == groups else span)))) }}
 {%- endmacro %}
 {# Keep the first input row live across output channels to hide its load. #}
 {% set resident = (k <= 32 or k == 64) and not prefix %}
