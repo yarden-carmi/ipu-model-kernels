@@ -1,0 +1,109 @@
+[kernel]
+op = "binary_add"
+formats = ["e2"]
+
+[params.broadcast]
+type = "str"
+choices = ["none"]
+default = "none"
+[params.inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.op]
+type = "str"
+choices = ["add"]
+default = "add"
+[params.numel]
+type = "int"
+min = 1
+max = 16777216
+default = 49152
+[params.in0_d0]
+type = "int"
+min = 1
+max = 1024
+default = 4
+[params.in0_d1]
+type = "int"
+min = 1
+max = 16384
+default = 64
+[params.in0_d2]
+type = "int"
+min = 1
+max = 16384
+default = 192
+[params.in1_d0]
+type = "int"
+min = 1
+max = 1024
+default = 4
+[params.in1_d1]
+type = "int"
+min = 1
+max = 16384
+default = 64
+[params.in1_d2]
+type = "int"
+min = 1
+max = 16384
+default = 192
+[params.out0_d0]
+type = "int"
+min = 1
+max = 1024
+default = 4
+[params.out0_d1]
+type = "int"
+min = 1
+max = 16384
+default = 64
+[params.out0_d2]
+type = "int"
+min = 1
+max = 4096
+default = 192
+
+[derived]
+blocks = "ceil(out0_d2 / 128)"
+tail = "ds(out0_d2 - (blocks - 1) * 128)"
+pitch = "ceil(in0_d1 / 256) * 2 * in0_d2"
+span = "in0_d1 * in0_d2"
+correction = "pitch - span // 128"
+rem = "span % 128"
+step = "out0_d0 * out0_d1"
+scalar = "ds(1)"
+step_row = "step // 128"
+step_lane = "step % 128"
+tail_n = "out0_d2 - (blocks - 1) * 128"
+
+[inputs.in0]
+shape = ["in0_d0", "ceil(in0_d1 / 256)", "in0_d2 * 256"]
+range = [-2, 2]
+[inputs.in1]
+shape = ["in1_d0", "in1_d1", "ceil(in1_d2 / 128) * 128"]
+range = [-2, 2]
+[outputs.out0]
+shape = ["out0_d0", "out0_d1", "blocks * 128"]
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_in1 = "CR6"
+qf_out0 = "CR7"
+span = "CR8"
+out0_d1 = "CR9"
+out0_d0 = "CR10"
+tail = "CR11"
+correction = "CR12"
+scalar = "CR13"
+step = "CR14"
+step_row = "LR12"
+step_lane = "LR13"
+tail_n = "LR15"
+
+[cases.default]
