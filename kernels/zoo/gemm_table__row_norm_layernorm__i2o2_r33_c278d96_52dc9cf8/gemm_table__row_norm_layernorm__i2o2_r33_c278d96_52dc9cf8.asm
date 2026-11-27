@@ -137,13 +137,22 @@ sum:
  MULT.VE LR0 CR1 0 LR0 {{ full }} {{ oq }} ; AGG.SUM LR0 {{ full }} ; B sum ;;
 sum_tail:
  MULT.VE LR0 CR1 0 LR0 {{ full }} {{ oq }} ; AGG.SUM LR0 {{ tail }} ;;
- {{ average() }}{{ save(6,3) }}
+  {{ average() }}{{ save(6,3) }}
+  // Keep the mean parts resident throughout the centering pass.
+  ADD LR6 LR3 LR3 ; ADD LR7 LR3 LR3 ;;
+  ADD LR7 LR7 LR3 ;;
+  {% for slot in ['LR3', 'LR6', 'LR7'] %}
+  {{ at('LR1',6 + loop.index0) }}
+  LD.MULT.CYCLIC LR1 {{ cr.tmp }} {{ slot }} ;;
+  {% endfor %}
  SET LR5 CR0 ;;
  {{ at('LR9',32) }}
 center:
  LD.MULT R0 LR5 {{ cr.hidden }} ;;
  {{ vec(first=true,fmt=oq) }}
- {% for n in range(6,9) %}{{ load(n) }}{{ vec('SUB') }}{% endfor %}
+  {% for slot in ['LR3', 'LR6', 'LR7'] %}
+  MULT.RC.VE {{ slot }} CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB ;;
+  {% endfor %}
  {{ split('LR9',2) }}
  INC LR9 1 ; INC LR5 1 ;;
  BLT.S LR5 {{ cr.tiles }} center ;;
