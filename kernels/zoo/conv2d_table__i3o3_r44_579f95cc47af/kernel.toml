@@ -13,27 +13,27 @@ default = true
 type = "int"
 min = 1
 max = 640
-default = 96
+default = 64
 [params.cout]
 type = "int"
 min = 1
 max = 640
-default = 96
+default = 64
 [params.groups]
 type = "int"
-min = 1
+min = 2
 max = 640
-default = 96
+default = 64
 [params.h]
 type = "int"
 min = 1
 max = 256
-default = 28
+default = 14
 [params.w]
 type = "int"
-min = 1
-max = 128
-default = 28
+min = 5
+max = 64
+default = 14
 [params.kh]
 type = "int"
 choices = [5]
@@ -48,8 +48,8 @@ choices = [2]
 default = 2
 [params.stride]
 type = "int"
-choices = [2]
-default = 2
+choices = [1, 2]
+default = 1
 [params.in0_d0]
 type = "int"
 choices = [1]
@@ -58,17 +58,17 @@ default = 1
 type = "int"
 min = 1
 max = 640
-default = 96
+default = 64
 [params.in0_d2]
 type = "int"
 min = 1
 max = 256
-default = 28
+default = 14
 [params.in0_d3]
 type = "int"
 min = 1
-max = 128
-default = 28
+max = 64
+default = 14
 [params.out0_d0]
 type = "int"
 choices = [1]
@@ -77,44 +77,64 @@ default = 1
 type = "int"
 min = 1
 max = 640
-default = 96
+default = 64
 [params.out0_d2]
 type = "int"
 min = 1
-max = 256
+max = 258
 default = 14
 [params.out0_d3]
 type = "int"
 min = 1
 max = 64
 default = 14
+
 [derived]
+ix = "ceil(in0_d3 / 128)"
+dw = "min(1, groups - 1)"
+ip = "1"
+op = "1"
+ni = "ceil(cin / ip)"
+no = "ceil(cout / op)"
+wide = "min(1, op - 1)"
+row = "dw * stride + (1 - dw) * (3 - 2 * wide)"
+plane = "(in0_d2 + 4) * row"
+channel_end = "cin * plane - row"
+weight_rows = "(52 + 26 * (stride - 1)) * no"
 ds128 = "ds(128)"
-dsout = "ds(out0_d3)"
+ds_width = "ds(min(w, 128))"
+ds_out = "ds(min(128, op * out0_d3))"
+
 [inputs.in0]
-shape = ["in0_d0", "in0_d2", "in0_d1", 128]
+shape = ["in0_d0", "in0_d2", "ni", "ix", 128]
 range = [-2, 2]
 [inputs.weights]
-shape = ["cout", 78, 128]
+shape = ["weight_rows", 128]
 range = [-1, 1]
 [inputs.lut]
 shape = [5, 128]
 range = [0, 0]
 [scratch.pad]
-shape = ["cin", "2 * (h + 4)", 128]
+shape = ["(dw * no + (1 - dw) * (cin + 1)) * plane + 2", 128]
 [outputs.out0]
-shape = ["out0_d0", "out0_d2", "out0_d1", 128]
+shape = ["out0_d0", "out0_d2", "no", 128]
+
 [abi]
 in0 = "CR2"
 out0 = "CR3"
 weights = "CR4"
 lut = "CR5"
 pad = "CR6"
-qf_in0 = "CR7"
-qf_weights = "CR8"
-qf_out0 = "CR9"
-ds128 = "CR10"
-dsout = "CR11"
+no = "CR7"
+qf_in0 = "CR8"
+qf_weights = "CR9"
+qf_out0 = "CR10"
+ds128 = "CR11"
+ds_width = "CR12"
+ds_out = "CR13"
+plane = "CR14"
+channel_end = "CR15"
+
 [golden]
 tolerance = { e1 = "NX8_STEP", e2 = "NX8_STEP" }
 [cases.default]
