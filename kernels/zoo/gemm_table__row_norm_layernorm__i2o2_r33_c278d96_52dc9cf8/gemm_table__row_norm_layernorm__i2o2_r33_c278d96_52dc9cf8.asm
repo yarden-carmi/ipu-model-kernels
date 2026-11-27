@@ -65,10 +65,11 @@
 {% endmacro %}
 {% macro product(a,b,na) %}
   // Keep both right-hand residual parts live across the left-hand parts.
-  {{ load(b) }}{{ load(b+1,ra='R1') }}
+  {{ load(b) }}
   {{ load(a,true) }}
+  {{ at('LR8',b+1) }}
   {% for i in range(na) %}
-  {{ mul(loop.first) }}
+  MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if loop.first %}.FIRST ; LD.MULT R1 LR8 {{ cr.tmp }}{% endif %} ;;
   MULT.RC.VV LR0 R1 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if not loop.last %} ; LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ; INC LR1 1{% endif %} ;;
   {% endfor %}
 {% endmacro %}
