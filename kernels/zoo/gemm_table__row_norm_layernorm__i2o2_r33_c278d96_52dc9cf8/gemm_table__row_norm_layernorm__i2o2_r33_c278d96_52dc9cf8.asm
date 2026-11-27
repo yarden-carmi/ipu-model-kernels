@@ -58,12 +58,11 @@
 {% endmacro %}
 {% macro squares(ds) %}
  LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;
- INC LR9 1 ;;
- MULT.RC.VS LR0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ ds }} ; LD.MULT R0 LR9 {{ cr.tmp }} ;;
- // Reuse the two residual parts for both cross terms and the low square.
- MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ ds }} ; LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR3 ;;
- MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ ds }} ; INC LR9 1 ;;
- MULT.RC.VS LR3 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ ds }} ;;
+ LD.MULT R0 LR9 {{ cr.tmp }} ;;
+  {% for term in range(4) %}
+  MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ ds }}{% if term == 0 or term == 3 %} ; INC LR9 1{% elif term == 2 %} ; LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0{% endif %} ;;
+  {% if term == 0 %}LD.MULT R0 LR9 {{ cr.tmp }} ;;{% endif %}
+  {% endfor %}
 {% endmacro %}
 {% macro product(a,b,na) %}
  // Keep both right-hand residual parts live across the left-hand parts.
