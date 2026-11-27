@@ -1,0 +1,96 @@
+[kernel]
+op = "pool2d"
+formats = ["e2"]
+
+[params.channels]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.h]
+type = "int"
+min = 1
+max = 4096
+default = 224
+[params.w]
+type = "int"
+min = 1
+max = 4096
+default = 224
+[params.k]
+type = "int"
+min = 1
+max = 31
+default = 9
+[params.kind]
+type = "str"
+choices = ["max"]
+default = "max"
+[params.padding]
+type = "int"
+min = 0
+max = 15
+default = 4
+[params.stride]
+type = "int"
+min = 1
+max = 32
+default = 1
+[params.in0_d0]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 224
+[params.in0_d2]
+type = "int"
+min = 1
+max = 4096
+default = 224
+[params.out0_d0]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 224
+[params.out0_d2]
+type = "int"
+min = 1
+max = 4096
+default = 224
+[inputs.in0]
+shape = ["in0_d1", "in0_d2", 128]
+range = [-1.0, 1.0]
+[outputs.out0]
+shape = ["out0_d1", "out0_d2", 128]
+[derived]
+input_image = "in0_d1 * in0_d2"
+vertical_step = "stride * in0_d2"
+initial_row = "-padding * in0_d2"
+valid = "ds(out0_d0)"
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+in0_d2 = "CR4"
+in0_d1 = "CR5"
+out0_d2 = "CR6"
+out0_d1 = "CR7"
+out0_d0 = "CR8"
+stride = "CR9"
+vertical_step = "CR10"
+k = "CR11"
+padding = "CR12"
+valid = "CR13"
+qf_in0 = "CR14"
+qf_out0 = "CR15"
+initial_row = "LR1"
+input_image = "LR15"
+[cases.default]
