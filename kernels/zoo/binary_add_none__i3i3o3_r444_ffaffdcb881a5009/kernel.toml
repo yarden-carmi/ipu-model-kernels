@@ -1,0 +1,53 @@
+[kernel]
+op = "binary_add"
+formats = ["e1", "e2"]
+[params]
+broadcast = { type = "str", choices = ["none"], default = "none" }
+inner = { type = "int", min = 0, max = 0, default = 0 }
+op = { type = "str", choices = ["add"], default = "add" }
+numel = { type = "int", min = 1, max = 16777216, default = 16384 }
+in0_d0 = { type = "int", min = 1, max = 16384, default = 1 }
+in0_d1 = { type = "int", min = 1, max = 16384, default = 64 }
+in0_d2 = { type = "int", min = 1, max = 16384, default = 16 }
+in0_d3 = { type = "int", min = 1, max = 16384, default = 16 }
+in1_d0 = { type = "int", min = 1, max = 16384, default = 1 }
+in1_d1 = { type = "int", min = 1, max = 16384, default = 64 }
+in1_d2 = { type = "int", min = 1, max = 16384, default = 16 }
+in1_d3 = { type = "int", min = 1, max = 16384, default = 16 }
+out0_d0 = { type = "int", min = 1, max = 16384, default = 1 }
+out0_d1 = { type = "int", min = 1, max = 16384, default = 64 }
+out0_d2 = { type = "int", min = 1, max = 16384, default = 16 }
+out0_d3 = { type = "int", min = 1, max = 16384, default = 16 }
+[derived]
+items = "out0_d1 * out0_d0 * out0_d2"
+groups = "ceil(items / 8)"
+group_rows = "ceil(8 * out0_d3 / 128)"
+rows = "groups * group_rows"
+normal_mask = "ds(8 * out0_d3 - (group_rows - 1) * 128)"
+last_items = "items - (groups - 1) * 8"
+last_rows = "ceil(last_items * out0_d3 / 128)"
+last_mask = "ds(last_items * out0_d3 - (last_rows - 1) * 128)"
+normal_groups = "groups - 1"
+loop_bound = "groups - 2"
+[inputs.in0]
+shape = ["ceil(in0_d1 * in0_d0 * in0_d2 / 8)", "ceil(8 * in0_d3 / 128) * 128"]
+range = [-2, 2]
+[inputs.in1]
+shape = ["ceil(in1_d1 * in1_d0 * in1_d2 / 8)", "ceil(8 * in1_d3 / 128) * 128"]
+range = [-2, 2]
+[outputs.out0]
+shape = ["rows", 128]
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_in1 = "CR6"
+qf_out0 = "CR7"
+group_rows = "CR8"
+normal_mask = "CR9"
+normal_groups = "CR10"
+last_rows = "CR11"
+last_mask = "CR12"
+loop_bound = "CR13"
+[cases.default]
