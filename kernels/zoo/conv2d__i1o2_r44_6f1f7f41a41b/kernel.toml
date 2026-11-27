@@ -1,0 +1,137 @@
+[kernel]
+op = "conv2d"
+formats = ["e1", "e2"]
+
+[params.bias]
+type = "bool"
+default = true
+[params.cin]
+type = "int"
+min = 1
+max = 512
+default = 64
+[params.cout]
+type = "int"
+min = 1
+max = 512
+default = 64
+[params.groups]
+type = "int"
+choices = [1]
+default = 1
+[params.h]
+type = "int"
+min = 1
+max = 128
+default = 32
+[params.w]
+type = "int"
+min = 1
+max = 128
+default = 32
+[params.kh]
+type = "int"
+choices = [3]
+default = 3
+[params.kw]
+type = "int"
+choices = [3]
+default = 3
+[params.padding]
+type = "int"
+choices = [1]
+default = 1
+[params.stride]
+type = "int"
+choices = [1, 2]
+default = 1
+[params.in0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 512
+default = 64
+[params.in0_d2]
+type = "int"
+min = 1
+max = 128
+default = 32
+[params.in0_d3]
+type = "int"
+min = 1
+max = 128
+default = 32
+[params.out0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 512
+default = 64
+[params.out0_d2]
+type = "int"
+min = 1
+max = 128
+default = 32
+[params.out0_d3]
+type = "int"
+min = 1
+max = 128
+default = 32
+
+[derived]
+full = "ds(128)"
+height = "ds(out0_d2)"
+last_y = "out0_d2 - 1"
+last_c = "in0_d1 - 1"
+plane = "in0_d3 * ceil(in0_d1 / 128)"
+y_step = "stride * in0_d3 * ceil(in0_d1 / 128)"
+xplane = "in0_d3 * 3"
+weight_rows = "2 + 9 * in0_d1"
+cblock = "128"
+
+[inputs.in0]
+shape = ["in0_d0 * ceil(in0_d1 / 128) * in0_d2 * in0_d3", 128]
+range = [-2, 2]
+[inputs.weights]
+shape = ["out0_d1", "weight_rows", 128]
+range = [-1, 1]
+[inputs.onehot]
+shape = ["out0_d2", 128]
+range = [0, 1]
+[scratch.transpose]
+shape = ["in0_d1 * in0_d3 * 3", 128]
+[outputs.out0]
+shape = ["out0_d0 * out0_d1 * out0_d3", 128]
+
+[abi]
+in0 = "CR2"
+weights = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+in0_d1 = "CR7"
+in0_d2 = "CR8"
+in0_d3 = "CR9"
+out0_d1 = "CR10"
+out0_d3 = "CR11"
+full = "CR12"
+height = "CR13"
+transpose = "CR14"
+onehot = "CR15"
+last_y = "LR9"
+last_c = "LR10"
+plane = "LR11"
+y_step = "LR12"
+xplane = "LR13"
+weight_rows = "LR14"
+cblock = "LR15"
+
+[golden]
+tolerance = {e1 = "NX8_STEP", e2 = "NX8_STEP"}
+[cases.default]
