@@ -1,0 +1,89 @@
+[kernel]
+op = "gemm"
+formats = ["e2", "e3"]
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 128
+default = 72
+[params.m]
+type = "int"
+min = 1
+max = 65536
+default = 784
+[params.n]
+type = "int"
+min = 1
+max = 65536
+default = 24
+[params.in0_d0]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 128
+default = 72
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 28
+[params.in0_d3]
+type = "int"
+min = 1
+max = 65536
+default = 28
+[params.out0_d0]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 24
+[params.out0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 28
+[params.out0_d3]
+type = "int"
+min = 1
+max = 65536
+default = 28
+[derived]
+blocks = "ceil(in0_d2 * in0_d3 / 128)"
+full = "ds(128)"
+tail = "ds((out0_d2 * out0_d3 - 1) % 128 + 1)"
+lastloop = "k - 2"
+slot = "128"
+[inputs.in0]
+shape = ["in0_d0 * in0_d1 * blocks", 128]
+[inputs.w]
+shape = ["n * 4", 128]
+[outputs.out0]
+shape = ["out0_d0 * out0_d1 * ceil(out0_d2 * out0_d3 / 128)", 128]
+[abi]
+in0 = "CR2"
+w = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+blocks = "CR7"
+full = "CR8"
+tail = "CR9"
+k = "CR10"
+n = "CR11"
+lastloop = "CR12"
+slot = "CR13"
+[golden]
+tolerance = {e2 = "NX8_STEP", e3 = "NX8_STEP"}
+[cases.default]
