@@ -9,6 +9,7 @@
 tile:
     SET LR4 CR0 ; MULT.RC.VE LR0 CR0 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
 channel:
+    BEQ {{ cr.spatial_minus_one }} CR0 one_row ;;
     BEQ {{ cr.spatial_minus_one }} CR1 two_rows ;;
     SET LR5 CR0 ;;
 spatial_row:
@@ -21,6 +22,7 @@ last_row:
 two_rows:
     LD.MULT R0 LR1 {{ cr.in0 }} ;;
     MULT.VE LR0 {{ inv }} 0 LR0 {{ cr.active }}.L {{ cr.qf_in0 }}.L ; AGG.SUM LR4 {{ cr.active }}.L ; INC LR1 1 ;;
+one_row:
     LD.MULT R0 LR1 {{ cr.in0 }} ;;
     MULT.VE LR0 {{ inv }} 0 LR0 {{ cr.last_active }}.L {{ cr.qf_in0 }}.L ; AGG.SUM LR4 {{ cr.last_active }}.L ; INC LR1 1 ;;
 channel_done:
