@@ -4,53 +4,53 @@ formats = ["e1", "e2"]
 [params]
 act_out0 = {type="str", choices=["silu"], default="silu"}
 bias = {type="bool", default=true}
-cin = {type="int", min=1, max=640, default=192}
-cout = {type="int", min=1, max=640, default=96}
-groups = {type="int", choices=[1], default=1}
-h = {type="int", min=2, max=256, default=32}
-w = {type="int", min=2, max=256, default=32}
-kh = {type="int", choices=[3], default=3}
-kw = {type="int", choices=[3], default=3}
-padding = {type="int", choices=[1], default=1}
-stride = {type="int", choices=[1], default=1}
+cin = {type="int", min=1, max=640, default=8}
+cout = {type="int", min=1, max=640, default=8}
+groups = {type="int", min=1, max=640, default=1}
+h = {type="int", min=1, max=256, default=8}
+w = {type="int", min=1, max=256, default=8}
+kh = {type="int", min=1, max=5, default=3}
+kw = {type="int", min=1, max=5, default=3}
+padding = {type="int", min=0, max=2, default=1}
+stride = {type="int", min=1, max=2, default=1}
 in0_d0 = {type="int", choices=[1], default=1}
-in0_d1 = {type="int", min=1, max=640, default=192}
-in0_d2 = {type="int", min=2, max=256, default=32}
-in0_d3 = {type="int", min=2, max=256, default=32}
+in0_d1 = {type="int", min=1, max=640, default=8}
+in0_d2 = {type="int", min=1, max=256, default=8}
+in0_d3 = {type="int", min=1, max=256, default=8}
 in1_d0 = {type="int", choices=[1], default=1}
-in1_d1 = {type="int", min=1, max=640, default=192}
-in1_d2 = {type="int", min=2, max=256, default=32}
-in1_d3 = {type="int", min=2, max=256, default=32}
+in1_d1 = {type="int", min=1, max=640, default=8}
+in1_d2 = {type="int", min=1, max=256, default=8}
+in1_d3 = {type="int", min=1, max=256, default=8}
 out0_d0 = {type="int", choices=[1], default=1}
-out0_d1 = {type="int", min=1, max=640, default=96}
-out0_d2 = {type="int", min=2, max=256, default=32}
-out0_d3 = {type="int", min=2, max=256, default=32}
+out0_d1 = {type="int", min=1, max=640, default=8}
+out0_d2 = {type="int", min=1, max=260, default=8}
+out0_d3 = {type="int", min=1, max=260, default=8}
 [derived]
-ic0 = "ceil(in0_d1 / 128)"
 ic = "ceil(in1_d1 / 128)"
 oc = "ceil(out0_d1 / 128)"
-weight_block = "2 + 2 * kh * kw * cin"
+dw = "1 - min(1, max(cin - groups, groups - cin, cout - groups, groups - cout))"
+pc = "dw + (1 - dw) * ic"
+weight_block = "2 + 2 * kh * kw * dw + kh * kw * (1 - dw) * (2 * cin - 64 * (cin // 128) - (cin % 128) // 2 + min(1, (in1_d2 * in1_d3) // 512) * (4 * (cin // 128) + (cin % 128) // 2 - (15 * (cin % 128)) // 32) - (1 - min(1, max(in1_d2 * in1_d3 - 256, 256 - in1_d2 * in1_d3))) * (24 * (cin // 128) + (11 * (cin % 128)) // 16 - (cin % 128) // 2))"
 ds128 = "ds(128)"
-window_jump = "(in1_d3 + 2 * padding - kw) * ic"
+window_jump = "(in1_d3 + 2 * padding - kw) * pc"
 [inputs.in0]
-shape = ["in0_d0", "in0_d2", "in0_d3", "ic0", 128]
+shape = ["in0_d0", "in0_d2", "in0_d3", "ceil(in0_d1 / 128)", 128]
 range = [-2, 2]
 [inputs.in1]
 shape = ["in1_d0", "in1_d2", "in1_d3", "ic", 128]
 range = [-2, 2]
 [inputs.weights]
-shape = ["oc * weight_block",128]
-range = [-1,1]
+shape = ["oc * weight_block", 128]
+range = [-1, 1]
 [inputs.lut]
-shape = [5,128]
-range = [0,0]
+shape = [5, 128]
+range = [0, 0]
 [scratch.pad]
-shape = ["(in1_d2 + 2 * padding) * (in1_d3 + 2 * padding) * ic",128]
+shape = ["(in1_d2 + 2 * padding) * (in1_d3 + 2 * padding) * pc", 128]
 [outputs.out0]
 shape = ["out0_d0", "out0_d2", "out0_d3", "oc", 128]
 [abi]
-in0 = "CR15"
-in1 = "CR2"
+in0 = "CR2"
 out0 = "CR3"
 weights = "CR4"
 lut = "CR5"
@@ -59,6 +59,7 @@ qf_in1 = "CR7"
 qf_weights = "CR8"
 qf_out0 = "CR9"
 ds128 = "CR10"
+in1 = "CR11"
 window_jump = "CR12"
 out0_d2 = "CR13"
 weight_block = "CR14"
