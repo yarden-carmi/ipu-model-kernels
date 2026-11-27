@@ -33,17 +33,15 @@ plane = "(2 - stride) * (ir + guard_extra) + (stride - 1) * sr * taps"
 group_plane = "gc * plane"
 tiles = "ceil(out0_d3 / 128)"
 fast = "(stride - 1) * (w // 256) * (1 // groups) * min(1, 3 // gc)"
-compact = "(2 - stride) * (w // 32) * (63 // w) * (1 - 1 // gc) * (1 // groups)"
-dw_direct = "(2 - stride) * min(1, w // 64) * (1 - w // 256) * (1 // gc) * min(1, ir // 3) * (1 // (1 + (in0_d2 * w) % 128)) * (1 // (1 + max(in0_d2, out0_d2) - min(in0_d2, out0_d2)))"
-bias_sep = "dw_direct * (127 // w)"
-weight_tile = "3 - (2 - stride) * (w // 64) * (127 // w) * (1 // gc) + (1 - fast) * 2 * gc * taps + fast * 2 * gc - compact * 4 * gc - 2 * dw_direct - bias_sep"
+compact = "(2 - stride) * (w // 8) * (63 // w) * (1 // groups) * (1 - 1 // gc) // 4"
+direct128 = "(2 - stride) * (w // 128) * (255 // w) * (1 // gc) * min(1, ir // 3) * (1 // (1 + max(in0_d2, out0_d2) - min(in0_d2, out0_d2)))"
+weight_tile = "3 - 2 * (2 - stride) * (w // 64) * (127 // w) * (1 // gc) + (1 - fast) * 2 * gc * taps + fast * 2 * gc - compact * 4 * gc - 2 * direct128"
 lookahead = "(2 - stride) * (1 - w // 256) * (1 - 1 // gc)"
 full = "ds(128)"
 input_tail = "65536 * ds(1 + (in0_d2 * in0_d3 - 1) % 128) + full"
 tail = "ds(1 + (out0_d2 * out0_d3 - 1) % 128)"
 sr_last = "sr - 1"
 gc_last = "gc - 1"
-bias_or_gc = "bias_sep * base(bias_const) + (1 - bias_sep) * gc_last"
 
 [inputs.in0]
 shape = ["in0_d1 * ir", 128]
@@ -54,9 +52,6 @@ range = [-1, 1]
 [inputs.lut]
 shape = [5, 128]
 range = [0, 0]
-[inputs.bias_const]
-shape = ["1 + bias_sep * (cout - 1)", 128]
-range = [-1, 1]
 [scratch.guard]
 shape = ["cin * (ir + guard_extra) + compact * (ir + 6)", 128]
 [scratch.stencil]
@@ -72,15 +67,14 @@ lut = "CR5"
 guard = "CR6"
 stencil = "CR7"
 qf_in0 = "CR8"
-qf_bias_const = "CR9"
+qf_weights = "CR9"
 qf_out0 = "CR10"
 input_tail = "CR11"
 tail = "CR12"
 sr_last = "CR13"
-bias_or_gc = "CR14"
+gc_last = "CR14"
 plane = "CR15"
 group_plane = "LR15"
-bias_const = "LR0"
 
 [golden]
 tolerance = {e1 = "NX8_STEP", e2 = "NX8_STEP"}

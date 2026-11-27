@@ -64,15 +64,7 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    result = _fold(module, **params)
-    if 'bias_const' not in result:
-        import numpy as np
-        result['bias_const'] = np.zeros((1, 128))
-    return result
-
-
-def _fold(module, **params):
-    """Fold inference BN and encode horizontally masked taps."""
+    """Fold inference BN and encode the horizontally masked taps in three parts."""
     import numpy as np
 
     weight = module.op0_weight.double()
@@ -103,24 +95,16 @@ def _fold(module, **params):
     mid = leading(remainder)
     parts = np.stack((hi, mid, remainder - mid), axis=-2)
     ir = (params['in0_d2'] * w + 127) // 128
-    if (stride == 1 and w in (64, 128) and gc == 1 and ir >= 3
-            and params['in0_d2'] * w % 128 == 0 and params['in0_d2'] == params['out0_d2']):
-        # The two unmasked center residuals share a row and are broadcast.
+    direct128 = stride == 1 and w == 128 and gc == 1 and ir >= 3 and params['in0_d2'] * w % 128 == 0 and params['in0_d2'] == params['out0_d2']
+    if (stride == 1 and w == 64 and gc == 1) or direct128:
         scalar = np.zeros_like(rows[:, :, 0])
-        scalar[:, :, 0] = remainder[:, :, 5, 0]
-        scalar[:, :, 1] = remainder[:, :, 8, 0]
-        packed = [] if w == 64 else [hi[:, :, 0], mid[:, :, 0]]
+        scalar[:, :, :2] = remainder[:, :, [5, 8], 0]
+        packed = [hi[:, :, 0], mid[:, :, 0]]
         for t in range(1, 10):
             packed.append(hi[:, :, t])
             if t != 8:
                 packed.append(scalar if t == 5 else remainder[:, :, t])
-        result = {'weights': np.stack(packed, axis=2).reshape(-1, 128)}
-        if w == 64:
-            result['bias_const'] = rows[:, :, 0].reshape(-1, 128)
-        return result
-    if stride == 1 and w == 64 and gc == 1:
-        return {'weights': np.concatenate((parts[:, :, 0, :2].reshape(cout, tiles, 2, 128),
-            np.stack((hi[:, :, 1:], remainder[:, :, 1:]), axis=-2).reshape(cout, tiles, -1, 128)), axis=2).reshape(-1, 128)}
+        return {'weights': np.stack(packed, axis=2).reshape(-1, 128)}
     if stride == 2 and w == 256 and params['groups'] == 1 and gc <= 3:
         values = rows[:, 0, 1:, 1].reshape(cout, gc, kh * kw)
         hi_values = leading(values)
@@ -129,7 +113,7 @@ def _fold(module, **params):
         packed[:, :, 1, :kh * kw] = values - hi_values
         return {'weights': np.concatenate((parts[:, 0, 0], packed.reshape(cout, 2 * gc, 128)), axis=1).reshape(-1, 128)}
     taps = np.stack((hi[:, :, 1:], remainder[:, :, 1:]), axis=-2)
-    if stride == 1 and w == 32 and params['groups'] == 1 and gc > 1 and (kh, kw) == (3, 3):
+    if stride == 1 and w in (8, 16, 32) and params['groups'] == 1 and gc > 1:
         sides = taps.reshape(cout, tiles, gc, 9, 2, 128)[:, :, :, [0, 2, 3, 5, 6, 8]]
         centers = weight.reshape(cout, gc, 9).numpy()[:, :, [1, 7, 4]]
         center_hi = leading(centers)
