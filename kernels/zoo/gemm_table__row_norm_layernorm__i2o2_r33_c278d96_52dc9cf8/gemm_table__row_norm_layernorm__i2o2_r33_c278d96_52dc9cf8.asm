@@ -10,13 +10,13 @@
 {% macro vec(op='ADD',first=false,fmt=q,s='CR1') %}
  MULT.VE LR0 {{ s }} 0 LR0 {{ full }} {{ fmt }} ; ACC.{{ op }}{% if first %}.FIRST{% endif %} ;;
 {% endmacro %}
-{% macro load(n,cyclic=false) %}
+{% macro load(n,cyclic=false,ra='R0') %}
  {{ at('LR1',n) }}
  {% if cyclic %}LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ;;
- {% else %}LD.MULT R0 LR1 {{ cr.tmp }} ;;{% endif %}
+ {% else %}LD.MULT {{ ra }} LR1 {{ cr.tmp }} ;;{% endif %}
 {% endmacro %}
-{% macro mul(first=false,slot='LR0') %}
- MULT.RC.VV {{ slot }} R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if first %}.FIRST{% endif %} ;;
+{% macro mul(first=false,slot='LR0',ra='R0') %}
+ MULT.RC.VV {{ slot }} {{ ra }} 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if first %}.FIRST{% endif %} ;;
 {% endmacro %}
 // Preserve accumulator precision across scratch stores by saving residuals.
 {% macro split(reg,count,dec=false) %}
@@ -29,19 +29,28 @@
 {% endmacro %}
 {% macro save(n,count=2,dec=false) %}{{ at('LR1',n) }}{{ split('LR1',count,dec) }}{% endmacro %}
 {% macro norm_products(offsets) %}
- // Keep the split scalar resident while streaming each coefficient once.
- {% set slots = ['LR0','LR3','LR8'] %}
- {{ at('LR1',offsets[0]) }}
- {% for slot in slots[:offsets|length] %}
- LD.MULT.CYCLIC LR1 {{ cr.tmp }} {{ slot }} ;;
- {% if not loop.last %}INC LR1 1 ;;{% endif %}
- {% endfor %}
+ {% if offsets|length == 2 %}
+ // Keep both rsqrt parts resident while streaming the three gamma parts.
+ {{ load(offsets[0],true) }}
+ {{ at('LR1',offsets[1]) }}
+ LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR3 ;;
  {% for _ in range(3) %}
  LD.MULT R0 LR10 {{ cr.norm }} ;;
- {% for slot in slots[:offsets|length] %}
- MULT.RC.VV {{ slot }} R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if loop.last %} ; INC LR10 1{% endif %} ;;
+ {{ mul() }}
+ MULT.RC.VV LR3 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; INC LR10 1 ;;
+ {% endfor %}
+ {% else %}
+ SET LR6 LR10 ;;
+ {% for p in offsets %}
+ {% if not loop.first %}SET LR10 LR6 ;;{% endif %}
+ {{ load(p) }}
+ {% for _ in range(3) %}
+ LD.MULT.CYCLIC LR10 {{ cr.norm }} LR0 ;;
+ {{ mul() }}
+ INC LR10 1 ;;
  {% endfor %}
  {% endfor %}
+ {% endif %}
 {% endmacro %}
 {% macro average() %}
  {{ save(0,3) }}
@@ -63,10 +72,12 @@
  LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;
  MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ ds }} ; INC LR9 1 ;;
 {% endmacro %}
-{% macro product(a,b,na,nb) %}
+{% macro product(a,b,na) %}
+ // Keep both right-hand residual parts live across the left-hand parts.
+ {{ load(b) }}{{ load(b+1,ra='R1') }}
  {% for i in range(na) %}
  {{ load(a+i,true) }}
- {% for j in range(nb) %}{{ load(b+j) }}{{ mul(i==0 and j==0) }}{% endfor %}
+ {{ mul(loop.first) }}{{ mul(ra='R1') }}
  {% endfor %}
 {% endmacro %}
 {% macro coeff() %}LD.MULT.CYCLIC LR5 {{ cr.coeff }} LR0 ; INC LR5 1{% endmacro %}
@@ -125,8 +136,6 @@ gemm_last_chunk:
  SET LR4 LR6 ; B gemm_tile ;;
 gemm_last_tile:
  {{ gelu(tail) }}
- // LR8 is no longer the GEMM chunk counter; use it for cyclic slot 2.
- ADD LR8 LR3 LR3 ;;
  SET LR5 CR0 ;;
  {{ vec(first=true,s='CR0') }}
 sum:
@@ -168,9 +177,9 @@ variance_tail:
  {{ at('LR4',1) }}
 // Newton refinement: y <- 1.5*y - 0.5*v*y^3.
 refine:
- {{ product(12,12,2,2) }}{{ save(14) }}
- {{ product(9,14,3,2) }}{{ save(16) }}
- {{ product(12,16,2,2) }}{{ save(18) }}
+ {{ product(12,12,2) }}{{ save(14) }}
+ {{ product(9,14,3) }}{{ save(16) }}
+ {{ product(12,16,2) }}{{ save(18) }}
  {% for i in range(2) %}
  {{ load(12+i) }}
  {{ vec(first=loop.first) }}{{ vec(s=cr.half) }}
