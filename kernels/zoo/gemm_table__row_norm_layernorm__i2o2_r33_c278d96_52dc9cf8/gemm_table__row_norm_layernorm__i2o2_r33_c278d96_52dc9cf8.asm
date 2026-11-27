@@ -29,6 +29,17 @@
 {% endmacro %}
 {% macro save(n,count=2,dec=false) %}{{ at('LR1',n) }}{{ split('LR1',count,dec) }}{% endmacro %}
 {% macro norm_products(offsets) %}
+ {% if offsets|length == 2 %}
+ // Keep both rsqrt parts resident while streaming the three gamma parts.
+ {{ load(offsets[0],true) }}
+ {{ at('LR1',offsets[1]) }}
+ LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR3 ;;
+ {% for _ in range(3) %}
+ LD.MULT R0 LR10 {{ cr.norm }} ;;
+ {{ mul() }}
+ MULT.RC.VV LR3 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; INC LR10 1 ;;
+ {% endfor %}
+ {% else %}
  SET LR6 LR10 ;;
  {% for p in offsets %}
  {% if not loop.first %}SET LR10 LR6 ;;{% endif %}
@@ -39,6 +50,7 @@
  INC LR10 1 ;;
  {% endfor %}
  {% endfor %}
+ {% endif %}
 {% endmacro %}
 {% macro average() %}
  {{ save(0,3) }}
