@@ -36,7 +36,7 @@ SET {{ r }} CR0 ;;
 {{ imm('LR3',-1) }}
 {{ imm('LR4',0) }}
 {{ imm('LR5',cin-1) }}
-{{ imm('LR6',ir-1) }}
+{{ imm('LR6',ir-2 if (in0_d2*w)%128 == 0 and ir > 1 else ir-1) }}
 {% macro guard(label,count) %}
 {{ imm('LR7',count-1) }}
 SET LR8 CR0 ; MULT.RC.VE LR0 CR0 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ;;
@@ -50,6 +50,12 @@ ACTIVATE.QUANTIZE identity {{ active }} {{ qi }} {{ cr.guard }} LR3 ; INC LR3 1 
 {% endmacro %}
 copy_channel:
 {{ guard('copy_top',2 if dw_window and w == 64 else 4) }}
+{% if (in0_d2*w)%128 == 0 and ir > 1 %}
+SET LR8 CR0 ; LD.MULT R0 LR2 {{ cr.in0 }} ; INC LR2 1 ;;
+copy_row:
+MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ; LD.MULT R0 LR2 {{ cr.in0 }} ; INC LR2 1 ; ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.guard }} LR3 ; INC LR3 1 ; INC LR8 1 ; BLT.S LR8 LR6 copy_row ;;
+MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.guard }} LR3 ; INC LR3 1 ;;
+{% else %}
 SET LR8 CR0 ;;
 copy_row:
 {% if (in0_d2*w)%128 %}BEQ LR8 LR6 copy_last ;;{% endif %}
@@ -57,6 +63,7 @@ copy_row:
 {% if (in0_d2*w)%128 %}
 copy_last:
 {{ copy(cr.input_tail ~ '.H') }} ;;
+{% endif %}
 {% endif %}
 {{ guard('copy_bottom',2 if dw_window and w == 64 else 6) }}
 INC LR4 1 ; BLT.S LR4 LR5 copy_channel ;;
