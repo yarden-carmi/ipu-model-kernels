@@ -10,6 +10,8 @@
 {% set compact = stride == 1 and w in [8,16,32] and groups == 1 and gc > 1 %}
 {% set short_bias = stride == 1 and w == 64 and gc == 1 %}
 {% set direct = stride == 1 and w in [64,128] and gc == 1 and (in0_d2*w)%128 == 0 and ir >= 3 and in0_d2 == out0_d2 %}
+{% set packed64 = direct and w == 64 %}
+{% set scalar_dw = stride == 2 and gc == 1 and in0_d2*w%128 == 0 and out0_d2*out0_d3%128 == 0 and out0_d3 in [16,32,64] %}
 {% set wk = 3-short_bias+parts*gc*kh*kw %}
 {% set dw_window = window and gc==1 %}
 {% set fused_store = dw_window and (out0_d2*out0_d3)%128 == 0 %}
@@ -79,6 +81,8 @@ ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.guard }} LR3 ; INC LR3 1 ;;
 {% endif %}
 
 # Compact stride-two input taps into the output's spatial lane order.
+# For scalar depthwise taps, stage the even and odd columns only. The left
+# tap is the odd row shifted by one lane, with each scanline's first lane masked.
 {% if stride == 2 %}
 {{ imm('LR2',-1) }}
 {{ imm('LR4',0) }}
@@ -90,17 +94,18 @@ ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.guard }} LR3 ; INC LR3 1 ;;
 {% macro stage_tap(t) %}
 {% set right = w >= 128 and t%kw == 2 %}
 {% set d = (t//kw-padding)*w+(0 if right else t%kw-padding) %}
-{% set next = (t+1)%(kh*kw) %}
+{% set next = (1 if t==8 else t+1+(1 if t%3==2 else 0)) if scalar_dw else (t+1)%(kh*kw) %}
 {% set nd = (next//kw-padding)*w+(0 if w>=128 and next%kw==2 else next%kw-padding) %}
 {% set n = 4 if w <= 64 else 2 %}
 {% set step = 2 if w == 128 else 1 %}
 {% set overlap = d%128 and w != 128 %}
 {% set start = 1 if d%128 and w == 128 else 0 %}
 {% set banks = ['LR0','LR1','LR10','LR11'] %}
-{% set pd = ((t-1)//kw-padding)*w+(0 if w>=128 and (t-1)%kw==2 else (t-1)%kw-padding) %}
+{% set prev = t-1-(1 if scalar_dw and t%3==1 else 0) %}
+{% set pd = (prev//kw-padding)*w+(0 if w>=128 and prev%kw==2 else prev%kw-padding) %}
 {% set opt = w == 128 and not fast %}
-{% set delta = (d%128-128-(pd%128+128*(n-1) if t else 0)+256)%512-256 %}
-{% set advance = nd//128+(1 if nd%128 and w==128 else 0)-d//128-start+(4 if not next else 0) %}
+{% set delta = (d%128-128-(pd%128+128*(n-1) if t != (1 if scalar_dw else 0) else 0)+256)%512-256 %}
+{% set advance = nd//128+(1 if nd%128 and w==128 else 0)-d//128-start+(4 if t==8 else 0) %}
 {% if fast and t%kw==0 %}
 INC LR2 1 ; INC LR3 1 ; {{ bump('LR7', (d%128+128-(pd%128+128 if t else 0)+256)%512-256) }} ;;
 {% else %}
@@ -108,7 +113,7 @@ LD.MULT.CYCLIC LR6 {{ cr.guard }} {{ banks[start] }} ; SET LR6 LR3 ; {% if not o
 {% if overlap %}LD.MULT.CYCLIC LR6 {{ cr.guard }} LR1 ; INC LR6 1 ;;{% endif %}
 {% for p in range(n) %}
 MULT.RC.VE LR7 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.STRIDE {{ [16,[w,64]|min]|max }} {{ 'on_inv' if right else 'on' }} {{ 'on' if w <= 64 else 'off' }} {{ ('LR0' if p == 0 else 'LR9') if opt else 'LR9' }} ; {% if opt and loop.first %}{% set change = (delta+128+256)%512-256 %}{% if change == -256 %}ADD LR7 LR7 LR10 ;{% else %}{{ bump('LR7',change) }}{% endif %} {{ bump('LR3',advance) }}{% else %}INC LR7 128 ;{% endif %} {% if not opt %}INC LR9 {{ 1 if w <= 64 else 2 }} ;{% endif %}
-{% if loop.last %}ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.stencil }} LR2 ; INC LR2 1 ;
+{% if loop.last %}ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.stencil }} LR2 ; INC LR2 {{2 if scalar_dw and t%3==1 else 1}} ;
 {% else %}LD.MULT.CYCLIC LR6 {{ cr.guard }} {{ banks[(p+1+(1 if overlap else 0)+start)%4] }} ; INC LR6 {{ step }} ;{% endif %} {% if not (opt and loop.last and t < kh*kw-1) %};;{% endif %}
 {% endfor %}
 {% endif %}
@@ -117,7 +122,7 @@ stage_channel:
 SET LR3 LR13 ; SET LR6 LR13 ; SET LR8 CR0 ;;
 SET LR7 CR0 ;;
 stage_row:
-{% for t in range(kh*kw) %}{{ stage_tap(t) }}{% endfor %}
+{% for t in range(kh*kw) if not scalar_dw or t%3!=0 %}{{ stage_tap(t) }}{% endfor %}
 SET LR7 CR0 ; INC LR8 1 ; BLT.S LR8 {{ cr.sr_last }} stage_row ;;
 ADD LR13 LR13 LR14 ; INC LR4 1 ; BLT.S LR4 LR5 stage_channel ;;
 {% endif %}
@@ -139,8 +144,8 @@ SET LR14 {{ cr.sr_last }} ;;
 short_channel:
 {% if direct %}
 LD.MULT.CYCLIC LR0 {{ cr.guard }} LR0 ; SET LR6 CR0 ; SET LR9 LR3 ; SET LR11 LR12 ;;
-LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR12 ; INC LR9 1 ;;
-LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR10 ; INC LR9 1 ; SET LR13 LR10 ;;
+LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR12 ; INC LR9 1 ; {% if packed64 %}ADD LR13 LR12 LR12 ;{% endif %} ;;
+LD.MULT.CYCLIC LR9 {{ cr.in0 }} {{ 'LR13' if packed64 else 'LR10' }} ; INC LR9 1 ; {% if not packed64 %}SET LR13 LR10 ;{% endif %} ;;
 {% else %}
 SET LR6 CR0 ; SET LR9 LR3 ; SET LR11 LR12 ;;
 DEC LR9 2 ;;
@@ -148,8 +153,33 @@ LD.MULT.CYCLIC LR9 {{ cr.guard }} LR0 ; INC LR9 1 ;;
 LD.MULT.CYCLIC LR9 {{ cr.guard }} LR12 ; INC LR9 1 ;;
 LD.MULT.CYCLIC LR9 {{ cr.guard }} LR10 ; INC LR9 1 ; SET LR13 LR10 ;;
 {% endif %}
-LD.MULT R1 LR7 {{ cr.weights }} ; SET LR8 LR7 ;;
-{% macro short_body(last) %}
+LD.MULT {{ 'R0' if packed64 else 'R1' }} LR7 {{ cr.weights }} ; SET LR8 LR7 ;;
+{% macro short_body(last,end=false) %}
+{% if packed64 %}
+# Keep the bias residual and center-tap residual in R1; the center tap's
+# unused weight load slot prefetches the next input row into the cyclic ring.
+MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD.FIRST ; SET LR1 LR11 ; LD.MULT R1 LR8 {{ cr.weights }} ; INC LR8 1 ;;
+MULT.EE LR12 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; DEC LR1 65 ; LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;;
+{% for t in range(9) %}
+{% for p in range(2) %}
+{% if t == 4 and p == 1 %}MULT.RC.VE LR1 LR10 0 LR0 {{ ds }} {{ qw }} {% else %}MULT.RC.VV LR1 R0 0 LR0 {{ ds }} {{ qw }} {% endif %}; ACC.ADD ;
+{% if t and loop.first %}INC LR1 {{ 62 if t%3 == 0 else 1 }} ;{% endif %}
+{% if t == 8 and loop.last %}
+{% if end %}INC LR4 1 ; BLT.S LR4 LR5 short_channel ;{% else %}SET LR8 LR7 ; LD.MULT R0 LR7 {{ cr.weights }} ; INC.MODP2 LR11 LR12 9 ; {% if not last %}BLT.S LR6 LR14 short_row ;{% endif %}{% endif %} {{ store(ds) }}
+{% else %}
+{% if t == 4 and p == 0 %}
+{% if last %}LD.MULT.CYCLIC LR0 {{ cr.guard }} LR13 ;{% else %}LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR13 ;{% endif %}
+{% if end %}INC LR7 19 ; ADD LR3 LR3 LR15 ;{% endif %}
+{% else %}
+LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;
+{% endif %}
+{% if t == 0 and loop.first %}INC.MODP2 LR13 LR12 9 ; SET LR10 LR12 ;{% endif %}
+{% if t == 1 and loop.last %}INC LR10 1 ;{% endif %}
+{% if t == 2 and not loop.first %}INC LR9 1 ; INC LR6 1 ;{% endif %}
+{% endif %} ;;
+{% endfor %}
+{% endfor %}
+{% else %}
 MULT.VE LR12 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD.FIRST ; SET LR1 LR11 ; LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;;
 MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; DEC LR1 {{ w+1 }} ; LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;;
 {% for t in range(4) %}
@@ -166,11 +196,13 @@ MULT.RC.VV LR1 R0 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; INC LR1 1 ; SUB LR10 LR10 
 MULT.RC.VE LR1 LR10 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; INC LR10 1 ; LD.MULT R1 LR7 {{ cr.weights }} ; INC.MODP2 LR11 LR12 9 ;;
 MULT.RC.VV LR1 R0 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; INC LR1 1 ; LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;;
 MULT.RC.VV LR1 R0 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; SET LR8 LR7 ; ADD LR10 LR12 LR12 ; {% if direct and last %}LD.MULT.CYCLIC LR0 {{ cr.guard }} LR13 ;{% else %}LD.MULT.CYCLIC LR9 {{ cr.in0 if direct else cr.guard }} LR13 ;{% endif %} {{ store(ds) }} {% if not last %}BLT.S LR6 LR14 short_row ;{% endif %} ;;
+{% endif %}
 {% endmacro %}
 short_row:
 {{ short_body(false) }}
-{% if direct %}{{ short_body(true) }}{{ short_body(true) }}{% endif %}
-INC LR7 {{ 1+2*kh*kw }} ; ADD LR3 LR3 LR15 ; INC LR4 1 ; BLT.S LR4 LR5 short_channel ;;
+{% if direct %}{{ short_body(true) }}{{ short_body(true,packed64) }}{% endif %}
+{% if not packed64 %}INC LR7 {{ 1+2*kh*kw }} ; ADD LR3 LR3 LR15 ; INC LR4 1 ; BLT.S LR4 LR5 short_channel ;;
+{% endif %}
 HALT ;;
 {% else %}
 {{ imm('LR2',-1) }}
@@ -182,6 +214,7 @@ HALT ;;
 {{ imm('LR14',0) }}
 {{ imm('LR12',128) }}
 {% if fast %}{{ imm('LR15',256) }}{% endif %}
+{% if scalar_dw %}{{ imm('LR13',1) }}{{ imm('LR14',127) }}{% endif %}
 {% if compact %}{{ imm('LR13',256) }}{% endif %}
 
 output_channel:
@@ -205,7 +238,16 @@ MULT.RC.VE LR12 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; SET LR11 CR0 ; LD.MULT.C
 MULT.RC.VE LR12 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; SET LR11 {{ 'CR1' if fast else 'CR0' }} ; {% if dw_window %}LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;{% elif fast %}LD.MULT.CYCLIC LR9 {{ cr.stencil }} LR12 ; INC LR9 3 ; SET LR14 LR12 ;{% endif %} ;;
 MULT.RC.VE LR0 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; {% if dw_window %}LD.MULT.CYCLIC LR9 {{ cr.guard }} LR0 ; {{ bump('LR9',first) }}{% else %}LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;{% endif %} ;;
 {% endif %}
-{% if fast %}
+{% if scalar_dw %}
+LD.MULT R1 LR8 {{ cr.weights }} ; INC LR8 1 ; SET LR1 LR9 ; SET LR11 CR0 ;;
+LD.MULT.CYCLIC LR1 {{ cr.stencil }} LR12 ; INC LR1 3 ;;
+{% for t in range(9) %}
+{% set bank = ['LR14','LR0','LR12'][t%3] %}
+{% set mask = 'LR13' if t%3 == 0 else 'LR0' %}
+MULT.RC.VE {{ bank }} LR11 0 {{ mask }} {{ cr.input_tail }}.H {{ qw }} ; ACC.ADD ; {% if t %}DEC LR11 127 ;{% endif %} {% if t%3==0 %}LD.MULT.CYCLIC LR1 {{ cr.stencil }} LR0 ; DEC LR1 1 ;{% elif loop.last %}INC LR10 9 ;{% endif %} ;;
+MULT.RC.VE {{ bank }} LR11 0 {{ mask }} {{ cr.input_tail }}.H {{ qw }} ; ACC.ADD ; INC LR11 128 ; {% if loop.last %}{{ store(ds) }} INC LR6 1 ; BLT.S LR6 {{ cr.sr_last }} output_row ;{% elif t%3==2 %}LD.MULT.CYCLIC LR1 {{ cr.stencil }} LR12 ; INC LR1 4 ;{% endif %} ;;
+{% endfor %}
+{% elif fast %}
 {% for ch in range(cin) %}
 {% if loop.first %}LD.MULT R1 LR8 {{ cr.weights }} ; INC LR8 1 ; SET LR1 LR9 ; SET LR13 CR0 ;;{% endif %}
 {% for t in range(kh*kw) %}
@@ -290,7 +332,7 @@ MULT.RC.VV {{ rc }} R1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ;
 {% endfor %}
 {% endif %}
 {% if window and gc>1 %}DEC LR8 1 ;;{% endif %}
-{% if not fused_store %}
+{% if not fused_store and not scalar_dw %}
 {% if (out0_d2*out0_d3)%128 %}BEQ LR6 {{ cr.sr_last }} store_tail ;;{% endif %}
 {{ store(ds) }} INC LR10 {{ 1 if stride == 1 else kh*kw }} ; INC LR6 1 ; BLT.S LR6 {{ cr.sr_last }} output_row ;;
 {% if (out0_d2*out0_d3)%128 %}
@@ -300,7 +342,9 @@ store_tail:
 next_channel:
 {% endif %}
 {% endif %}
-{% if fast %}
+{% if scalar_dw %}
+SET LR7 LR8 ; ADD LR3 LR3 LR15 ; INC LR4 1 ; BLT.S LR4 LR5 output_channel ;;
+{% elif fast %}
 SET LR7 LR8 ; INC LR4 1 ; BLT.S LR4 LR5 output_channel ;;
 {% else %}
 SET LR7 LR8 ; INC LR14 1 ; BLT.S LR14 LR13 same_group ;;

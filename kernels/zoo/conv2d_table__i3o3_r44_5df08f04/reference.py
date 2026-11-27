@@ -95,6 +95,25 @@ def fold(module, **params):
     mid = leading(remainder)
     parts = np.stack((hi, mid, remainder - mid), axis=-2)
     ir = (params['in0_d2'] * w + 127) // 128
+    if (stride == 1 and w == 64 and gc == 1 and ir >= 3
+            and params['in0_d2'] % 2 == 0 and params['in0_d2'] == params['out0_d2']):
+        scalar = np.zeros_like(rows[:, :, 0])
+        scalar[:, :, 0] = remainder[:, :, 0, 0]
+        scalar[:, :, 1] = remainder[:, :, 5, 0]
+        packed = [hi[:, :, 0], scalar]
+        for t in range(1, 10):
+            packed.append(hi[:, :, t])
+            if t != 5:
+                packed.append(remainder[:, :, t])
+        return {'weights': np.stack(packed, axis=2).reshape(-1, 128)}
+    if (stride == 2 and gc == 1 and params['in0_d2'] * w % 128 == 0
+            and params['out0_d2'] * ow % 128 == 0 and ow in (16, 32, 64)):
+        values = weight.reshape(cout, 9).numpy()
+        high = leading(values)
+        packed = np.zeros((cout, 2, 128), dtype=np.float64)
+        packed[:, 0, :9] = high
+        packed[:, 1, :9] = values - high
+        return {'weights': np.concatenate((parts[:, 0, 0], packed), axis=1).reshape(-1, 128)}
     direct128 = stride == 1 and w == 128 and gc == 1 and ir >= 3 and params['in0_d2'] * w % 128 == 0 and params['in0_d2'] == params['out0_d2']
     if (stride == 1 and w == 64 and gc == 1) or direct128:
         scalar = np.zeros_like(rows[:, :, 0])
