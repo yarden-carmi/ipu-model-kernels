@@ -1,0 +1,47 @@
+[kernel]
+op = "multiplicity_pool_resize"
+formats = ["e2"]
+
+[params]
+in0_d0 = {type = "int", default = 1}
+in0_d1 = {type = "int", default = 64}
+in0_d2 = {type = "int", default = 64}
+in0_d3 = {type = "int", default = 64}
+out0_d0 = {type = "int", default = 1}
+out0_d1 = {type = "int", default = 64}
+out0_d2 = {type = "int", default = 128}
+out0_d3 = {type = "int", default = 128}
+oh = {type = "int", default = 128}
+ow = {type = "int", default = 128}
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d1", "in0_d3", 128]
+[outputs.out0]
+shape = ["out0_d1", "out0_d0", "out0_d2", 128]
+
+[derived]
+nx = "min(1, case_qf)"
+center = "(1 - nx) * 0x3f100000 + nx * 0x017e10"
+side = "(1 - nx) * 0x3e400000 + nx * 0x017c40"
+corner = "(1 - nx) * 0x3d800000 + nx * 0x017b00"
+last_x = "in0_d3 - 1"
+last_y = "in0_d2 - 1"
+last_plane = "in0_d0 * in0_d1 - 1"
+one = "ds(1)"
+full = "ds(128)"
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+qf_in0 = "CR4"
+qf_out0 = "CR5"
+center = "CR6"
+side = "CR7"
+corner = "CR8"
+last_x = "CR9"
+last_y = "CR10"
+last_plane = "CR12"
+one = "CR13"
+full = "CR15"
+
+[cases.default]
