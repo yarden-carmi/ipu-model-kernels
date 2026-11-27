@@ -1,0 +1,94 @@
+[kernel]
+op = "half_grid_box_cascade"
+formats = ["e2"]
+[params.channels]
+type = "int"
+min = 1
+max = 128
+default = 64
+[params.oh]
+type = "int"
+min = 1
+max = 65536
+default = 64
+[params.ow]
+type = "int"
+min = 1
+max = 128
+default = 64
+[params.in0_d0]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 128
+default = 64
+[params.in0_d2]
+type = "int"
+min = 1
+max = 32768
+default = 32
+[params.in0_d3]
+type = "int"
+min = 1
+max = 64
+default = 32
+[params.out0_d0]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 128
+default = 64
+[params.out0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 64
+[params.out0_d3]
+type = "int"
+min = 1
+max = 64
+default = 64
+[inputs.in0]
+shape = ["in0_d0 * in0_d2 * in0_d3", 128]
+[outputs.out0]
+shape = ["out0_d1 * ceil((out0_d0 * out0_d2 * out0_d3 + 128) / 128)", 128]
+[scratch.tmp]
+shape = ["out0_d0 * out0_d2 * out0_d3", 128]
+[scratch.residual]
+shape = ["out0_d0 * out0_d2 * out0_d3 + 1", 128]
+[derived]
+valid = "ds(out0_d1)"
+full = "ds(128) + 65536 * ds(0)"
+w9 = "19 * 65536 + 126 * 256 + 2"
+w3 = "19 * 65536 + 124 * 256 + 8"
+w1 = "19 * 65536 + 123 * 256"
+f1 = "123 * 8388608"
+packed = "out0_d0 * out0_d2 * out0_d3"
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+tmp = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+valid = "CR7"
+in0_d3 = "CR8"
+in0_d2 = "LR13"
+f1 = "CR9"
+w9 = "CR10"
+w3 = "CR11"
+w1 = "CR12"
+full = "CR13"
+out0_d3 = "CR14"
+residual = "CR15"
+out0_d2 = "LR12"
+packed = "LR11"
+out0_d1 = "LR15"
+[cases.default]
