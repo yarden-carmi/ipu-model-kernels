@@ -1,0 +1,58 @@
+[kernel]
+op = "conv2d"
+formats = ["e1", "e2"]
+[params]
+bias = { type = "bool", default = false }
+groups = { type = "int", choices = [1], default = 1 }
+cin = { type = "int", min = 1, max = 512, default = 384 }
+cout = { type = "int", min = 1, max = 768, default = 64 }
+h = { type = "int", min = 8, max = 128, multiple_of = 8, default = 8 }
+w = { type = "int", min = 8, max = 128, multiple_of = 8, default = 8 }
+kh = { type = "int", min = 1, max = 8, default = 3 }
+kw = { type = "int", min = 1, max = 8, default = 3 }
+padding = { type = "int", min = 0, max = 3, default = 1 }
+stride = { type = "int", choices = [1, 2], default = 1 }
+in0_d0 = { type = "int", choices = [1], default = 1 }
+in0_d1 = { type = "int", min = 1, max = 512, default = 384 }
+in0_d2 = { type = "int", min = 8, max = 128, multiple_of = 8, default = 8 }
+in0_d3 = { type = "int", min = 8, max = 128, multiple_of = 8, default = 8 }
+out0_d0 = { type = "int", choices = [1], default = 1 }
+out0_d1 = { type = "int", min = 1, max = 768, default = 64 }
+out0_d2 = { type = "int", min = 8, max = 128, multiple_of = 8, default = 8 }
+out0_d3 = { type = "int", min = 8, max = 128, multiple_of = 8, default = 8 }
+[derived]
+iblocks = "ceil(in0_d1 / 128)"
+blocks = "ceil(out0_d1 / 128)"
+ds_pair = "ds(128) + 65536 * ds((out0_d1 - 1) % 128 + 1)"
+weight_rows = "2 * blocks * (1 + kh * kw * cin)"
+output_rows = "out0_d0 * out0_d2 * out0_d3 * blocks"
+row_step = "in0_d3 * iblocks"
+end_x = "out0_d3 * stride - padding"
+end_y = "out0_d2 * stride - padding"
+chunks = "ceil(8 * out0_d3 / 128)"
+[inputs.in0]
+shape = ["in0_d0", "in0_d2", "in0_d3", "iblocks", 128]
+[inputs.weights]
+shape = ["weight_rows + 1", 128]
+[inputs.scales]
+shape = ["out0_d1", 128]
+[scratch.tmp]
+shape = ["5 * output_rows + 5", 128]
+[outputs.out0]
+shape = ["out0_d1", "out0_d0", "out0_d2 / 8", "chunks", 128]
+[abi]
+in0 = "CR2"
+tmp = "CR3"
+weights = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+ds_pair = "CR7"
+out0 = "CR8"
+weight_rows = "CR9"
+row_step = "CR10"
+end_x = "CR11"
+end_y = "CR12"
+in0_d3 = "CR13"
+in0_d2 = "CR14"
+scales = "CR15"
+[cases.default]
