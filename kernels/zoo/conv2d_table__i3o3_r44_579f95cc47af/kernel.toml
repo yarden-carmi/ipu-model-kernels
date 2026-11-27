@@ -1,0 +1,120 @@
+[kernel]
+op = "conv2d_table"
+formats = ["e1", "e2"]
+
+[params.act_out0]
+type = "str"
+choices = ["hardswish"]
+default = "hardswish"
+[params.bias]
+type = "bool"
+default = true
+[params.cin]
+type = "int"
+min = 1
+max = 640
+default = 96
+[params.cout]
+type = "int"
+min = 1
+max = 640
+default = 96
+[params.groups]
+type = "int"
+min = 1
+max = 640
+default = 96
+[params.h]
+type = "int"
+min = 1
+max = 256
+default = 28
+[params.w]
+type = "int"
+min = 1
+max = 128
+default = 28
+[params.kh]
+type = "int"
+choices = [5]
+default = 5
+[params.kw]
+type = "int"
+choices = [5]
+default = 5
+[params.padding]
+type = "int"
+choices = [2]
+default = 2
+[params.stride]
+type = "int"
+choices = [2]
+default = 2
+[params.in0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 640
+default = 96
+[params.in0_d2]
+type = "int"
+min = 1
+max = 256
+default = 28
+[params.in0_d3]
+type = "int"
+min = 1
+max = 128
+default = 28
+[params.out0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 640
+default = 96
+[params.out0_d2]
+type = "int"
+min = 1
+max = 256
+default = 14
+[params.out0_d3]
+type = "int"
+min = 1
+max = 64
+default = 14
+[derived]
+ds128 = "ds(128)"
+dsout = "ds(out0_d3)"
+[inputs.in0]
+shape = ["in0_d0", "in0_d2", "in0_d1", 128]
+range = [-2, 2]
+[inputs.weights]
+shape = ["cout", 78, 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[scratch.pad]
+shape = ["cin", "2 * (h + 4)", 128]
+[outputs.out0]
+shape = ["out0_d0", "out0_d2", "out0_d1", 128]
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+weights = "CR4"
+lut = "CR5"
+pad = "CR6"
+qf_in0 = "CR7"
+qf_weights = "CR8"
+qf_out0 = "CR9"
+ds128 = "CR10"
+dsout = "CR11"
+[golden]
+tolerance = { e1 = "NX8_STEP", e2 = "NX8_STEP" }
+[cases.default]
