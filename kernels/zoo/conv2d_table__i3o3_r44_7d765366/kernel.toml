@@ -1,0 +1,142 @@
+[kernel]
+op = "conv2d_table"
+formats = ["e2"]
+
+[params.act_out0]
+type = "str"
+choices = ["silu"]
+default = "silu"
+[params.bias]
+type = "bool"
+default = true
+[params.cin]
+type = "int"
+min = 1
+max = 1024
+default = 16
+[params.cout]
+type = "int"
+min = 1
+max = 1024
+default = 16
+[params.groups]
+type = "int"
+min = 1
+max = 1024
+default = 1
+[params.h]
+type = "int"
+min = 8
+max = 256
+multiple_of = 8
+default = 8
+[params.w]
+type = "int"
+choices = [8, 16, 32, 64, 128, 256]
+default = 8
+[params.kh]
+type = "int"
+choices = [3]
+default = 3
+[params.kw]
+type = "int"
+choices = [3]
+default = 3
+[params.padding]
+type = "int"
+choices = [1]
+default = 1
+[params.stride]
+type = "int"
+choices = [1, 2]
+default = 1
+[params.in0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 1024
+default = 16
+[params.in0_d2]
+type = "int"
+min = 8
+max = 256
+default = 8
+[params.in0_d3]
+type = "int"
+min = 8
+max = 256
+default = 8
+[params.out0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 1024
+default = 16
+[params.out0_d2]
+type = "int"
+min = 4
+max = 256
+default = 8
+[params.out0_d3]
+type = "int"
+min = 4
+max = 256
+default = 8
+
+[derived]
+iplane = "2 * ceil(in0_d2 * in0_d3 / 256)"
+tiles = "ceil(out0_d2 * out0_d3 / 128)"
+pieces = "2 - (2 - stride) * (1 - min(1, (in0_d2 * in0_d3) // 65))"
+spitch = "9 * pieces * tiles"
+dsfull = "ds(128)"
+dstail = "ds(1 + (out0_d2 * out0_d3 - 1) % 128)"
+wr = "cout * (2 + pieces * (cin // groups))"
+mr = "2 * max(1, w // 128)"
+segsize = "32 + 32 * min(1, w // 128)"
+segend = "(min(128 // segsize, ceil(out0_d2 * out0_d3 / segsize)) - 1) * (segsize // 32)"
+cend = "cin // groups - 1"
+outend = "cout - 2"
+
+[inputs.in0]
+shape = ["in0_d1", "iplane", 128]
+range = [-2, 2]
+[inputs.weights]
+shape = ["wr", 128]
+range = [-1, 1]
+[inputs.masks]
+shape = ["mr", 128]
+range = [0, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[outputs.out0]
+shape = ["out0_d1", "tiles", 128]
+[scratch.stage]
+shape = ["2 + cin * spitch", 128]
+
+[abi]
+in0 = "CR2"
+weights = "CR3"
+masks = "CR4"
+lut = "CR5"
+out0 = "CR6"
+stage = "CR7"
+qf_in0 = "CR8"
+qf_out0 = "CR9"
+dsfull = "CR10"
+dstail = "CR11"
+iplane = "CR12"
+spitch = "CR13"
+cend = "CR14"
+outend = "CR15"
+segend = "LR13"
+
+[golden]
+tolerance = { e2 = "NX8_STEP" }
+[cases.default]
