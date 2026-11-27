@@ -58,7 +58,7 @@ stash:
     ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf_in0 }}.L {{ cr.tiles }} LR0 ; SET LR15 CR1 ;;
     LD.MULT R0 LR0 {{ cr.tiles }} ;;
     MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.SUB ;
-    ACTIVATE.QUANTIZE identity CR15.L {{ cr.scratch_format }}.H {{ cr.tiles }} LR15 ;;
+    ACTIVATE.QUANTIZE identity CR15.L {{ cr.scratch_format }}.H {{ cr.tiles }} LR15 ;
     ADDBI LRD4 -15 ; SET LR2 {{ cr.seq_lo }} ; SET LR3 {{ cr.seq_hi }} ; LD.MULT R0 LR9 {{ cr.in1 }} ;;
 {% else %}
     ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf_in0 }}.L {{ cr.tiles }} LR0 ;
