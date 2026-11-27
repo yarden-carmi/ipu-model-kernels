@@ -1,12 +1,17 @@
-{% macro dot(prefetch) %}
-    MULT.RC.VV LR3 R0 0 LR11 {{ cr.ds_main }}.H {{ cr.qf_in1 }}.L ; AGG.SUM.FIRST LR9 {{ cr.ds_main }}.H ; INC LR9 1 ; ADD LR7 LR7 {{ cr.strides }}.H {% if prefetch %}; LD.MULT.CYCLIC LR7 {{ cr.in1 }} LR11 ; DEC LR10 1 ; BNE LR10 CR1 {{ prefetch }}{% endif %} ;;
+{% macro load_column(packed) %}
+{% if packed %}LD.MULT R0 LR7 {{ cr.rotated }}{% else %}LD.MULT.CYCLIC LR7 {{ cr.in1 }} LR11{% endif %}
+{%- endmacro %}
+{% macro dot(prefetch, packed) %}
+    MULT.RC.VV LR3 R0 0 LR11 {{ cr.ds_main }}.H {{ cr.qf_in1 }}.L ; AGG.SUM.FIRST LR9 {{ cr.ds_main }}.H ; ADD LR9 LR9 CR1 {% if prefetch %}; ADD LR7 LR7 {{ 'CR1' if packed else cr.strides ~ '.H' }} ; {{ load_column(packed) }} ; DEC LR10 1 ; BNE LR10 CR1 {{ prefetch }}{% endif %} ;;
 {% endmacro %}
-{% macro output(ds) %}
-    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR0 ; INC LR0 1 ;;
+{% macro output(ds, packed) %}
+    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR0 ; INC LR0 1 ; ADD LR7 LR7 {{ 'CR1' if packed else cr.strides ~ '.H' }} ;;
 {% endmacro %}
-{% macro rows(tag, rotate) %}
+{% macro rows(tag, rotate, packed=false) %}
 {{ tag }}_row:
-{% if rotate %}
+{% if packed %}
+    LD.MULT.CYCLIC LR6 {{ cr.in0 }} LR11 ; SET LR7 CR1 ; SET LR8 {{ cr.sizes }}.H ;;
+{% elif rotate %}
     LD.MULT.CYCLIC LR6 {{ cr.in0 }} LR11 ; SET LR7 LR1 ; SET LR8 {{ cr.sizes }}.H ;;
     LD.MULT.CYCLIC LR6 {{ cr.in0 }} LR12 ;;
     MULT.RC.VE LR3 CR1 0 LR11 {{ cr.ds_main }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ cr.ds_main }}.L {{ cr.qf_in0 }}.L {{ cr.rotated }} LR11 ;;
@@ -18,13 +23,13 @@
     SET LR9 CR0 ; SET LR10 LR8 ; BGE.S LR12 LR8 {{ tag }}_load ;;
     SET LR10 LR12 ;;
 {{ tag }}_load:
-    LD.MULT.CYCLIC LR7 {{ cr.in1 }} LR11 ; DEC LR9 1 ; DEC LR10 1 ; BEQ LR10 CR1 {{ tag }}_last ;;
+    {{ load_column(packed) }} ; DEC LR9 1 ; DEC LR10 1 ; BEQ LR10 CR1 {{ tag }}_last ;;
 {{ tag }}_column:
-    {{ dot(tag ~ '_column') }}
+    {{ dot(tag ~ '_column', packed) }}
 {{ tag }}_last:
-    {{ dot('') }}
+    {{ dot('', packed) }}
     BGE.S LR12 LR8 {{ tag }}_tail ;;
-    {{ output(cr.ds_main ~ '.L') }}
+    {{ output(cr.ds_main ~ '.L', packed) }}
     DEC LR8 128 ; B {{ tag }}_tile ;;
 {{ tag }}_tail:
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.ds_tail }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR0 ; INC LR0 1 ; ADD LR6 LR6 {{ cr.strides }}.L ; DEC LR5 1 ; BNE LR5 CR1 {{ tag }}_row ;;
@@ -35,10 +40,22 @@
     SET LR11 CR0 ; SET LR12 CR0 ; SET LR4 {{ cr.heads }}.H ;;
     INC LR12 128 ; DEC LR0 1 ;;
 head:
-    SET LR5 {{ cr.sizes }}.L ; SET LR6 LR1 ;;
+    SET LR5 {{ cr.sizes }}.L ; SET LR6 LR1 ; BLT.S LR12 {{ cr.sizes }}.H pack_head ;;
     BNE LR3 CR0 rotated_row ;;
     {{ rows('aligned', false) }}
     {{ rows('rotated', true) }}
+pack_head:
+    SET LR13 {{ cr.sizes }}.H ; SET LR14 CR0 ; SET LR7 LR1 ;;
+    LD.MULT.CYCLIC LR7 {{ cr.in1 }} LR11 ; DEC LR13 1 ; BEQ LR13 CR1 pack_last ;;
+{% macro pack(prefetch) %}
+    LD.MULT.CYCLIC LR7 {{ cr.in1 }} LR12 ;;
+    MULT.RC.VE LR3 CR1 0 LR11 {{ cr.ds_main }}.L {{ cr.qf_in1 }}.L ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{ cr.ds_main }}.L {{ cr.qf_in1 }}.L {{ cr.rotated }} LR14 ; INC LR14 1 {% if prefetch %}; ADD LR7 LR7 {{ cr.strides }}.H ; LD.MULT.CYCLIC LR7 {{ cr.in1 }} LR11 ; DEC LR13 1 ; BNE LR13 CR1 pack_row{% endif %} ;;
+{% endmacro %}
+pack_row:
+    {{ pack(true) }}
+pack_last:
+    {{ pack(false) }}
+    {{ rows('packed', false, true) }}
 next_head:
     ADD LR3 LR3 {{ cr.heads }}.L ; DEC LR4 1 ; BEQ LR4 CR1 done ;;
     BLT.S LR3 LR12 head ;;
@@ -46,8 +63,7 @@ next_head:
 done:
     HALT ;;
 
-{# Each pass deinterleaves one feature bit and doubles the number of
-   tokens contiguous in a row. Two input rows produce two output rows. #}
+{# Deinterleave one feature bit per pass, doubling the token span. #}
 {% macro butterfly(rc, parity, dest, extra='') %}
     MULT.RC.VE {{ rc }} CR1 0 LR0 {{ cr.ds_main }}.L {{ cr.qf_in1 }}.L ; ACC.STRIDE 64 {{ parity }} off {{ dest }} {{ extra }} ;;
 {% endmacro %}
