@@ -53,31 +53,177 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 64, 64], [262144, 4096, 64, 1], 0), module.op0_weight)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 96, 32, 32], [98304, 1024, 32, 1], 0), module.op0_weight)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 256, 64, 64], [1048576, 4096, 64, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 384, 32, 32], [393216, 1024, 32, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.silu_.default(_v(op1, [1, 256, 64, 64], [1048576, 4096, 64, 1], 0))
+    r0 = aten.silu_.default(_v(op1, [1, 384, 32, 32], [393216, 1024, 32, 1], 0))
     op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 256, 64, 64])}
+    return {"out0": _out(op2, [1, 384, 32, 32])}
 # ---- end of the frozen reference ----
 
 
+def _digits(rows, bits):
+    """Split row-scaled coefficients into a coarse term and a residual."""
+    _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
+    step = torch.ldexp(torch.ones_like(exponent, dtype=rows.dtype), exponent - bits)
+    coarse = torch.round(rows / step) * step
+    return torch.stack((coarse, rows - coarse), dim=-2)
+
+
+def old_fold(module, **params):
+    n, k = params['n'], params['k']
+    source = getattr(module, 'op0_weight', getattr(module, 'weight', None))
+    weight = source.double().reshape(n, k)
+    source_bias = getattr(module, 'op0_bias', getattr(module, 'bias', None))
+    bias = weight.new_zeros(n) if source_bias is None else source_bias.double().reshape(n)
+    if hasattr(module, 'op1_running_var'):
+        scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
+        weight = weight * scale[:, None]
+        bias = (bias - module.op1_running_mean.double()) * scale + module.op1_bias.double()
+    if not params['bias']:
+        bias = weight.new_zeros(n)
+
+    if k <= 128:
+        span = 4 if k == 64 else (3 if k <= 96 else 2)
+        prefix = 0 if k <= 32 or k == 64 else (k // 16 if k > 96 else (k // 3 if k > 64 else k // 4))
+        groups = (k - prefix + span - 1) // span
+        sizes = [2] * 2 + [3] * 4 if k == 16 else ([3] * 6 + [2] * 7 if k == 32 else [span] * (groups - 1) + [k - prefix - span * (groups - 1)])
+        bits = 6 if k <= 16 else 5
+        main = weight.new_zeros(n, 128)
+        fine = torch.zeros_like(main)
+        bias_digits = _digits(bias[:, None], bits).reshape(n, 2)
+        single = 8 <= k <= 16
+        if not single:
+            fine[:, 127] = bias_digits[:, 1]
+        if prefix:
+            digits = _digits(weight[:, :prefix], bits)
+            main[:, :prefix] = digits[:, 0]
+            fine[:, :prefix] = digits[:, 1]
+        peak = torch.maximum(weight.abs().amax(1, keepdim=True), bias.new_zeros(n, 1))
+        _, exp = torch.frexp(peak)
+        scale = torch.ldexp(torch.ones_like(peak), exp - 1)
+        original_grid = 32 < k <= 64
+        if k < 128 and not original_grid:
+            main[:, 127] = scale[:, 0]
+        peak_fine = torch.maximum(fine.abs().amax(1, keepdim=True), scale / (64 if bits == 6 else 32))
+        _, ef = torch.frexp(peak_fine)
+        fine_scale = torch.ldexp(torch.ones_like(peak_fine), ef - 1)
+        if not original_grid:
+            fine[:, 126] = fine_scale[:, 0]
+        grid = torch.arange(-256, 257, dtype=weight.dtype, device=weight.device)
+        v = grid * fine_scale / 256
+        _, ve = torch.frexp(v.abs())
+        vstep = torch.maximum(torch.ldexp(torch.ones_like(v), ve - 1 - bits), fine_scale / (64 if bits == 6 else 256))
+        candidates = (v / vstep).round() * vstep
+        if original_grid:
+            candidates = scale * torch.arange(-128, 129, dtype=weight.dtype, device=weight.device) / 4096
+        start = prefix
+        for g, count in enumerate(sizes):
+            taps = weight[:, start:start + count]
+            residual = taps.unsqueeze(-1) - candidates[:, None, :]
+            mag = residual.abs()
+            _, e = torch.frexp(mag)
+            quantum = torch.maximum(torch.ldexp(torch.ones_like(mag), e - 1 - bits), scale[:, :, None] / (64 if bits == 6 else 256))
+            rounded = torch.minimum((mag / quantum).round() * quantum, scale[:, :, None] * (2 - 2.**-bits))
+            loss = (rounded - mag).square().sum(1) + candidates.square() / 4096
+            common = candidates.gather(1, loss.argmin(dim=1, keepdim=True))
+            main[:, start:start + taps.size(1)] = taps - common
+            fine[:, prefix + g] = common[:, 0]
+            start += count
+        b = weight.new_zeros(n, 128)
+        b[:, 127] = bias if single else bias_digits[:, 0]
+        packed = torch.stack((b, main, fine) if single else (b, fine, main), dim=1)
+    elif k <= 384:
+        blocks = (k + 127) // 128
+        rows = torch.nn.functional.pad(weight, (0, blocks * 128 - k)).reshape(n, blocks, 128)
+        packed = torch.cat((_digits(bias[:, None].expand(n, 128), 5), rows), dim=1)
+    elif k >= 144:
+        width = 8
+        blocks = (k + width - 1) // width
+        rows = weight.new_zeros(n, blocks, 128)
+        rows[:, :, :width] = torch.nn.functional.pad(weight, (0, blocks * width - k)).reshape(n, blocks, width)
+        packed = torch.cat((_digits(bias[:, None].expand(n, 128), 5), rows), dim=1)
+    else:
+        compensated = k <= 96
+        groups = k // 2 if k <= 16 else (min(26, k // 2, k * 7 // 16) if compensated else min(k * 5 // 16, (k - 1) // 2))
+        if 32 < k <= 64:
+            groups = k // 4
+        quad = 8 <= k <= 16 and k % 4 == 0
+        if quad:
+            chunks = [3, 3, 3, 3, 2, 2] if k == 16 else [4] * (k // 4)
+            groups = len(chunks)
+        paired = 0 if quad else k - 2 * groups
+        blocks = (paired + 31) // 32
+        rows = weight.new_zeros(n, blocks, 128)
+        rows[:, :, :32] = torch.nn.functional.pad(weight[:, :paired], (0, blocks * 32 - paired)).reshape(n, blocks, 32)
+        if k <= 64 and paired:
+            rows[:, 0, 127] = bias
+        bits = 6 if k <= 16 else 5
+        packed = _digits(rows, bits).reshape(n, -1, 128)
+        if k > 64 or quad:
+            packed = torch.cat((_digits(bias[:, None].expand(n, 128), bits), packed), dim=1)
+        if paired < k:
+            if compensated:
+                if quad:
+                    pieces = weight.split(chunks, dim=1)
+                    pair = torch.stack([torch.nn.functional.pad(piece, (0, max(chunks) - size))
+                                        for piece, size in zip(pieces, chunks)], dim=1)
+                else:
+                    pair = weight[:, paired:].reshape(n, groups, 2)
+                peak = pair.abs().amax(dim=(1, 2), keepdim=True)
+                if not paired and not quad:
+                    digits = _digits(bias[:, None], bits).reshape(n, 2)
+                    peak = torch.maximum(peak, digits[:, 0].abs().reshape(n, 1, 1))
+                _, exponent = torch.frexp(peak)
+                scale = torch.ldexp(torch.ones_like(peak), exponent - 1)
+                s = scale.squeeze(-1)
+                grid = torch.arange(-64, 65, dtype=weight.dtype, device=weight.device)
+                candidates = s.unsqueeze(-1) * grid / (4096 if k <= 16 else 1024)
+                mantissa = 6 if k <= 16 else 5
+
+                def error(w):
+                    v = (w.unsqueeze(-1) - candidates).abs()
+                    _, e = torch.frexp(v)
+                    quantum = torch.maximum(torch.ldexp(torch.ones_like(v), e - 1 - mantissa),
+                                            s.unsqueeze(-1) / (64 if k <= 16 else 256))
+                    rounded = torch.minimum(torch.round(v / quantum) * quantum,
+                                            (s * (2 - 2.0 ** -mantissa)).unsqueeze(-1))
+                    return rounded - v + (v >= 2 * s.unsqueeze(-1)) * s.unsqueeze(-1)
+
+                loss = sum(error(tap).square() for tap in pair.unbind(-1)) + candidates.square() / 4096
+                correction = candidates.expand_as(loss).gather(-1, loss.argmin(dim=-1, keepdim=True)).squeeze(-1)
+                tail = weight.new_zeros(n, 2, 128)
+                residual = pair - correction[..., None]
+                if quad:
+                    tail[:, 0, :k] = torch.cat([residual[:, j, :size] for j, size in enumerate(chunks)], dim=1)
+                else:
+                    tail[:, 0, :groups] = residual[..., 0]
+                    tail[:, 0, 64:64 + groups] = residual[..., 1]
+                tail[:, 0, 126] = scale.flatten()
+                tail[:, 1, :groups] = correction
+                if not paired and not quad:
+                    tail[:, :, 127] = digits
+            else:
+                tail = weight.new_zeros(n, groups, 128)
+                tail[..., 0] = weight[:, paired::2]
+                tail[..., 127] = weight[:, paired + 1::2]
+            packed = torch.cat((packed, tail), dim=1)
+    return {'coeff': torch.nn.functional.pad(packed.reshape(-1, 128), (0, 0, 0, 1))}
+
 def fold(module, **params):
-    """Fold batch normalization and tile coefficients by output channel."""
-    n, k = params["n"], params["k"]
+    n, k = params['n'], params['k']
     scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
     weight = module.op0_weight.double().reshape(n, k) * scale[:, None]
     bias = module.op1_bias.double() - module.op1_running_mean.double() * scale
-    if getattr(module, "op0_bias", None) is not None:
+    if getattr(module, 'op0_bias', None) is not None:
         bias = bias + module.op0_bias.double() * scale
     padded = ((n + 127) // 128) * 128
     rows = weight.new_zeros((k + 1, padded))
-    if params["bias"]:
+    if params['bias']:
         rows[0, :n] = bias
     rows[1:, :n] = weight.T
     rows = rows.reshape(k + 1, -1, 128).transpose(0, 1).reshape(-1, 128)
-    # Store the coarse value and residual separately to reduce FP8 error.
     _, exponent = torch.frexp(rows.abs().amax(dim=1, keepdim=True))
     step = torch.ldexp(torch.ones_like(exponent, dtype=rows.dtype), exponent - 4)
     coarse = torch.round(rows / step) * step
@@ -87,60 +233,14 @@ def fold(module, **params):
         _, exp = torch.frexp(taps.abs().amax(dim=-1, keepdim=True))
         step = torch.ldexp(torch.ones_like(exp, dtype=taps.dtype), exp - 4)
         high = torch.round(taps / step) * step
-        return {"coeff": torch.cat((pairs[0], torch.stack((high, taps - high), dim=1).flatten(0, 1)))}
-    width, height = params["in0_d3"], params["in0_d2"]
+        return {'coeff': torch.cat((pairs[0], torch.stack((high, taps - high), dim=1).flatten(0, 1)))}
+    width, height = params['in0_d3'], params['in0_d2']
     limit = min(height, 128 // width)
     pixels = width * (1 if height % limit else limit)
-    if k % 16 == 0 and pixels % 8 == 0:
-        if k == 64 and n > 64:
-            tiles = []
-            for block in range(padded // 128):
-                start = block * (k + 1)
-                taps = rows[start + 1:start + k + 1].reshape(k // 4, 4, 128)
-                shifted, offset = _center_taps(taps)
-                _, ex = torch.frexp(shifted.abs().amax(dim=1, keepdim=True))
-                step = torch.ldexp(torch.ones_like(ex, dtype=rows.dtype), ex - 4)
-                high = (shifted / step).round() * step
-                split = torch.arange(k, device=rows.device) % 8 == 7
-                parts = torch.stack((torch.where(split[:, None], high, shifted), shifted - high), dim=1)
-                tiles.append(torch.cat((pairs[start], parts[torch.stack((torch.ones_like(split), split), dim=1)], offset)))
-            return {"coeff": torch.cat(tiles)}
-        if k == 32 and 64 < n <= 128:
-            # For each four-tap group, use one shared offset per output
-            # channel. Choose the offset to minimize rounding of the taps.
-            centered = rows[1:].reshape(8, 4, 128)
-            _, ex = torch.frexp(centered.abs().amax(dim=2, keepdim=True))
-            grid = torch.ldexp(torch.ones_like(centered[:, :1, :1]), ex - 6)
-            radius = grid.amax(dim=1, keepdim=True)
-            candidates = radius * torch.linspace(-2, 2, 129, dtype=rows.dtype, device=rows.device)
-            shifted = centered.unsqueeze(-1) - candidates.unsqueeze(1)
-            _, value_ex = torch.frexp(shifted.abs())
-            step = torch.ldexp(torch.ones_like(shifted), torch.maximum(value_ex, ex.unsqueeze(-1) - 2) - 6)
-            err = shifted - (shifted / step).round() * step
-            cost = err.square().sum(dim=1) + err.sum(dim=1).square() * 0.25
-            offset = candidates.expand(-1, 128, -1).gather(-1, cost.argmin(dim=-1, keepdim=True)).squeeze(-1)
-            return {"coeff": torch.cat((pairs[0], (centered - offset[:, None]).reshape(32, 128), offset))}
-        # Keep residuals for most taps; encode the rest directly.
+    if k == 96 and pixels % 8 == 0:
         index = torch.arange(rows.shape[0], device=rows.device) % (k + 1)
-        single = (index > 0) & ((index - 1) % 16 >= (16 if n <= 64 else (8 if k >= 160 else 11 if k == 32 else 12)))
-        if k == 32 and n > 64:
-            single |= (index - 1) % 32 == 26
-        if k == 96 and n > 64:
-            single = (index > 0) & ((index - 1) % 16 < 4)
+        tap = (index - 1) % 16
+        single = (index > 0) & ((tap < 4) | (tap == 5))
         pairs[single, 0] = rows[single]
-        return {"coeff": pairs[torch.stack((torch.ones_like(single), ~single), dim=1)]}
-    return {"coeff": pairs.reshape(-1, 128)}
-
-
-def _center_taps(taps):
-    """Fit a shared offset to the FP8 rounding grid of four coefficient rows."""
-    _, ex = torch.frexp(taps.abs().amax(dim=2, keepdim=True))
-    grid = torch.ldexp(torch.ones_like(taps[:, :1, :1]), ex - 6)
-    candidates = grid.amax(dim=1, keepdim=True) * torch.linspace(-2, 2, 129, dtype=taps.dtype, device=taps.device)
-    shifted = taps.unsqueeze(-1) - candidates.unsqueeze(1)
-    _, value_ex = torch.frexp(shifted.abs())
-    step = torch.ldexp(torch.ones_like(shifted), torch.maximum(value_ex, ex.unsqueeze(-1) - 2) - 6)
-    err = shifted - (shifted / step).round() * step
-    cost = err.square().sum(dim=1) + err.sum(dim=1).square() * 0.25
-    offset = candidates.expand(-1, 128, -1).gather(-1, cost.argmin(dim=-1, keepdim=True)).squeeze(-1)
-    return (taps - offset[:, None]).reshape(-1, 128), offset
+        return {'coeff': pairs[torch.stack((torch.ones_like(single), ~single), dim=1)]}
+    return {'coeff': pairs.reshape(-1, 128)}

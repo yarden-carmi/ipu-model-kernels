@@ -12,92 +12,87 @@ default = true
 [params.k]
 type = "int"
 min = 1
-max = 65535
-default = 128
-[params.m]
-type = "int"
-min = 1
-max = 65535
-default = 256
+max = 160
+default = 64
 [params.n]
 type = "int"
 min = 1
-max = 65535
-default = 512
+max = 4096
+default = 256
+[params.m]
+type = "int"
+min = 1
+max = 65536
+default = 4096
 [params.in0_d0]
 type = "int"
 min = 1
-max = 65535
+max = 65536
 default = 1
 [params.in0_d1]
 type = "int"
 min = 1
-max = 65535
-default = 128
+max = 4096
+default = 64
 [params.in0_d2]
 type = "int"
 min = 1
-max = 65535
-default = 16
+max = 65536
+default = 64
 [params.in0_d3]
 type = "int"
 min = 1
 max = 128
-default = 16
+default = 64
 [params.out0_d0]
 type = "int"
 min = 1
-max = 65535
+max = 65536
 default = 1
 [params.out0_d1]
 type = "int"
 min = 1
-max = 65535
-default = 512
+max = 4096
+default = 256
 [params.out0_d2]
 type = "int"
 min = 1
-max = 65535
-default = 16
+max = 65536
+default = 64
 [params.out0_d3]
 type = "int"
 min = 1
-max = 65535
-default = 16
-
+max = 128
+default = 64
 [derived]
-pack_limit = "min(in0_d2, 128 // in0_d3)"
-pack = "1 + (pack_limit - 1) * (1 - min(1, in0_d2 % pack_limit))"
+pack = "1 + (min(in0_d2, 128 // in0_d3) - 1) * (1 - min(1, in0_d2 % min(in0_d2, 128 // in0_d3)))"
 pixels = "pack * in0_d3"
+pixel_end = "pixels - 1"
+tap_loop_end = "max(0, k - 2)"
+packed = "min(1, k // 32) * (1 - min(1, k % 16)) * (1 - min(1, pixels % 8))"
+narrow_pair = "min(1, max(0, 65 - n)) * min(1, max(0, 65 - k)) * (1 - k % 2)"
+split_taps = "16 - 5 * (1 - min(1, max(k - 96, 96 - k)))"
+src_lo = "packed * 50462976 + (1 - packed) * max(0, k - 2)"
+src_hi = "packed * 117835012 + (1 - packed) * pixel_end"
 plane = "in0_d2 // pack"
 groups = "in0_d0 * plane"
 batch_skip = "(k - 1) * plane"
 blocks = "ceil(n / 128)"
 full_ds = "ds(128)"
 tail_ds = "ds(n - 128 * (blocks - 1))"
-src_lo = "50462976"
-src_hi = "117835012"
-packed = "(1 - min(1, k % 16)) * (1 - min(1, pixels % 8))"
-resident_panels = "(1 - min(1, max(k - 32, 32 - k))) * min(1, max(0, n - 64)) * (1 - min(1, max(0, n - 128)))"
-center64 = "packed * (1 - min(1, max(k - 64, 64 - k))) * min(1, max(0, n - 64))"
-split_taps = "12 + 4 * (1 - min(1, max(0, n - 64))) - 4 * (1 - min(1, max(0, 160 - k))) * min(1, max(0, n - 64)) - (1 - min(1, max(k - 32, 32 - k))) * min(1, max(0, n - 64))"
-narrow_pair = "min(1, max(0, 65 - n)) * min(1, max(0, 65 - k)) * (1 - k % 2)"
-
 [inputs.in0]
 shape = ["groups * k", 128]
 range = [-2, 2]
 [inputs.coeff]
-shape = ["center64 * blocks * 90 + (1 - center64) * (packed * resident_panels * 42 + (1 - packed * resident_panels) * blocks * (2 * (k + 1) - narrow_pair * k - packed * (k // 16) * (16 - split_taps) - packed * (1 - min(1, max(k - 32, 32 - k))) * min(1, max(0, n - 64))))", 128]
+shape = ["blocks * (2 * (k + 1) - narrow_pair * k - (1 - narrow_pair) * packed * (k // 16) * (16 - split_taps))", 128]
 range = [-1, 1]
 [inputs.lut]
 shape = [5, 128]
 range = [0, 0]
 [outputs.out0]
 shape = ["m * blocks", 128]
-
 [scratch.panel]
-shape = ["ceil(k / 16) + packed * resident_panels * 9 + center64 * 17", 128]
-
+shape = ["ceil(k / 16)", 128]
 [abi]
 in0 = "CR2"
 coeff = "CR3"
@@ -116,5 +111,4 @@ batch_skip = "CR15"
 groups = "LR10"
 src_lo = "LR14"
 src_hi = "LR15"
-
 [cases.default]
