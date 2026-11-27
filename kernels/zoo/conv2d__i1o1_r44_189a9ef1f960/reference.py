@@ -49,17 +49,22 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.default(_v(ins[0], [1, 128, 28, 28], [100352, 784, 28, 1], 0), module.op0_weight, None, [1, 1], [1, 1])
+    r0 = aten.conv2d.default(_v(ins[0], [1, 256, 14, 14], [50176, 196, 14, 1], 0), module.op0_weight, None, [1, 1], [1, 1])
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 128, 28, 28], [100352, 784, 28, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 256, 14, 14], [50176, 196, 14, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 128, 28, 28])}
+    return {"out0": _out(op1, [1, 256, 14, 14])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    scale = module.op1_weight / torch.sqrt(module.op1_running_var + 1e-5)
-    weight = module.op0_weight * scale[:, None, None, None]
+    weight = module.op0_weight.to(torch.float64)
+    conv_bias = getattr(module, "op0_bias", None)
+    bias_value = weight.new_zeros(weight.shape[0]) if conv_bias is None else conv_bias.to(torch.float64)
+    if hasattr(module, "op1_running_var"):
+        scale = module.op1_weight.to(torch.float64) / torch.sqrt(module.op1_running_var.to(torch.float64) + 1e-5)
+        bias_value = module.op1_bias.to(torch.float64) + (bias_value - module.op1_running_mean.to(torch.float64)) * scale
+        weight = weight * scale[:, None, None, None]
     cout, cin, kh, kw = weight.shape
     blocks = (cout + 127) // 128
     padded = weight.new_zeros((blocks * 128, cin, kh, kw))
@@ -69,9 +74,10 @@ def fold(module, **params):
         0, 3, 4, 2, 1
     ).reshape(blocks, kh * kw * cin, 128)
     bias = weight.new_zeros(blocks * 128)
-    bias[:cout] = module.op1_bias - module.op1_running_mean * scale
+    bias[:cout] = bias_value
     rows[:, 0] = bias.reshape(blocks, 128)
-    peak = rows.abs().amax(dim=-1, keepdim=True).clamp(min=1e-30)
-    step = torch.pow(2.0, torch.floor(torch.log2(peak)) - 4)
-    high = torch.round(rows / step) * step
-    return {"weights": torch.stack((high, rows - high), dim=2).reshape(blocks, -1, 128)}
+    import numpy as np
+    values = rows.numpy()
+    step = np.exp2(np.frexp(np.max(np.abs(values), axis=-1, keepdims=True))[1] - 6.)
+    hi = np.sign(values) * np.minimum(np.floor(np.abs(values) / step + 0.5), 63) * step
+    return {"weights": np.stack((hi, values - hi), axis=-2).reshape(blocks, -1, 128)}

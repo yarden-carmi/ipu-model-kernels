@@ -8,7 +8,7 @@ default = true
 [params.cin]
 type = "int"
 min = 1
-max = 1024
+max = 512
 default = 384
 [params.cout]
 type = "int"
@@ -58,7 +58,7 @@ default = 1
 [params.in0_d1]
 type = "int"
 min = 1
-max = 1024
+max = 512
 default = 384
 [params.in0_d2]
 type = "int"
@@ -98,8 +98,7 @@ full = "ds(128)"
 tail = "ds(out0_d1 - (blocks - 1) * 128)"
 ends = "out0_d3 * stride - padding + 65536 * (out0_d2 * stride - padding)"
 input_hw = "in0_d3 + 65536 * in0_d2"
-skip_y = "2 * kw * in0_d1"
-skip_x = "2 * in0_d1"
+skip_y = "2 * in0_d1"
 
 [inputs.in0]
 shape = ["in0_d0 * in0_d2 * in0_d3 * plane", 128]
@@ -124,7 +123,6 @@ tail = "CR11"
 ends = "CR12"
 input_hw = "CR13"
 skip_y = "CR14"
-skip_x = "CR15"
 
 [golden]
 tolerance = {e1 = "NX8_STEP", e2 = "NX8_STEP"}
