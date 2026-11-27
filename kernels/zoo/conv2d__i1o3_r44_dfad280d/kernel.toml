@@ -1,0 +1,133 @@
+[kernel]
+op = "conv2d"
+formats = ["e1", "e2"]
+
+[params.bias]
+type = "bool"
+default = true
+[params.cin]
+type = "int"
+min = 1
+max = 1024
+default = 384
+[params.cout]
+type = "int"
+min = 1
+max = 1024
+default = 384
+[params.groups]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.h]
+type = "int"
+min = 8
+max = 512
+multiple_of = 8
+default = 16
+[params.w]
+type = "int"
+min = 8
+max = 128
+multiple_of = 8
+default = 16
+[params.kh]
+type = "int"
+min = 3
+max = 3
+default = 3
+[params.kw]
+type = "int"
+min = 3
+max = 3
+default = 3
+[params.padding]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.stride]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.in0_d0]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 1024
+default = 384
+[params.in0_d2]
+type = "int"
+min = 8
+max = 512
+multiple_of = 8
+default = 16
+[params.in0_d3]
+type = "int"
+min = 8
+max = 128
+multiple_of = 8
+default = 16
+[params.out0_d0]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 1024
+default = 384
+[params.out0_d2]
+type = "int"
+min = 1
+max = 514
+default = 8
+[params.out0_d3]
+type = "int"
+min = 1
+max = 128
+default = 8
+
+[derived]
+blocks = "ceil(in0_d1 / 128)"
+plane = "1 + kh * kw * blocks"
+full = "ds(128)"
+tail = "ds(min(128, 2 * out0_d3))"
+ends = "out0_d2 * ceil(out0_d3 * 2 / 128) / 2"
+input_hw = "in0_d3"
+skip_y = "in0_d2"
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d2 * in0_d3 * blocks", 128]
+range = [-2, 2]
+[inputs.weights]
+shape = ["out0_d1", "plane", 128]
+range = [-1, 1]
+[outputs.out0]
+shape = ["out0_d0 * out0_d1 * ends", 128]
+
+[abi]
+in0 = "CR2"
+weights = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+full = "CR7"
+plane = "CR8"
+ends = "CR9"
+skip_y = "CR10"
+input_hw = "CR11"
+out0_d1 = "CR12"
+tail = "CR13"
+
+[golden]
+tolerance = {e1 = "NX8_STEP", e2 = "NX8_STEP"}
+
+[cases.default]
