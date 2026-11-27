@@ -1,22 +1,22 @@
 [kernel]
 op = "gemm_table"
-formats = ["e2", "e3"]
+formats = ["e1", "e2"]
 
 [params.k]
 type = "int"
 min = 1
 max = 4096
-default = 40
+default = 192
 [params.n]
 type = "int"
 min = 1
 max = 4096
-default = 240
+default = 384
 [params.m]
 type = "int"
 min = 1
 max = 65535
-default = 196
+default = 256
 [params.bias]
 type = "bool"
 default = true
@@ -28,36 +28,36 @@ default = "hardswish"
 type = "int"
 min = 1
 max = 65535
-default = 1
+default = 4
 [params.in0_d1]
 type = "int"
 min = 1
 max = 65535
-default = 40
+default = 64
 [params.in0_d2]
 type = "int"
 min = 1
 max = 4096
-default = 14
-[params.in0_d3]
-type = "int"
-min = 1
-max = 128
-default = 14
+default = 192
 [params.out0_d0]
 type = "int"
 min = 1
 max = 65535
-default = 1
+default = 4
 [params.out0_d1]
 type = "int"
 min = 1
 max = 65535
-default = 240
+default = 64
 [params.out0_d2]
 type = "int"
 min = 1
 max = 4096
+default = 384
+[params.in0_d3]
+type = "int"
+min = 1
+max = 128
 default = 14
 [params.out0_d3]
 type = "int"
@@ -66,16 +66,15 @@ max = 128
 default = 14
 
 [derived]
-pack = "128 // in0_d3"
-blocks = "ceil(in0_d2 / pack)"
+blocks = "ceil(in0_d2 / (128 // in0_d3))"
 batch_rows = "in0_d1 * blocks"
 ir = "in0_d0 * batch_rows"
 out_rows = "out0_d0 * out0_d1 * ceil(out0_d2 / (128 // out0_d3))"
 chunks = "ceil(k / 128)"
 groups = "chunks - 1"
-coeff_rows = "n * 2 * (chunks + 1)"
-full = "ds(pack * in0_d3)"
-tail = "ds((out0_d2 - pack * (blocks - 1)) * out0_d3)"
+coeff_rows = "n * (2 * chunks + 1)"
+full = "ds(out0_d3 * (128 // out0_d3))"
+tail = "ds(out0_d3 * ((out0_d2 - 1) % (128 // out0_d3) + 1))"
 
 [inputs.in0]
 shape = ["ir", 128]

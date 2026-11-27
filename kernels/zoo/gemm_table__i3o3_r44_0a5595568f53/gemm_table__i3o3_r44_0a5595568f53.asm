@@ -25,9 +25,9 @@ batch:
     SET LR2 CR0 ; SET LR10 {{ cr.n }} ;;
 channel:
     ADD LR3 LR2 {{ cr.chunks }} ; SET LR11 LR13 ; SET LR12 {{ cr.blocks }} ;;
+    ADD LR3 LR3 {{ cr.chunks }} ;;
 block:
-    ADD LR3 LR2 {{ cr.chunks }} ; SET LR4 LR11 ; SET LR5 LR2 ;;
-    LD.MULT R0 LR3 {{ cr.coeff }} ;;
+    LD.MULT R0 LR3 {{ cr.coeff }} ; SET LR4 LR11 ; SET LR5 LR2 ;;
     MULT.EE LR0 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
 {% if k > 128 %}
     SET LR8 {{ cr.groups }} ;;
@@ -36,10 +36,7 @@ groups:
     DEC LR8 1 ; BNE LR8 CR1 groups ;;
 {% endif %}
     {{ chunk((k - 1) % 128 + 1, 'reduce_last') }}
-    ADD LR5 LR3 CR1 ; SET LR4 LR11 ;;
-    ADD LR3 LR5 {{ cr.chunks }} ;;
-    LD.MULT R0 LR3 {{ cr.coeff }} ;;
-    MULT.EE LR0 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ;;
+    SET LR4 LR11 ;;
 {% if k > 128 %}
     SET LR8 {{ cr.groups }} ;;
 groups_low:
