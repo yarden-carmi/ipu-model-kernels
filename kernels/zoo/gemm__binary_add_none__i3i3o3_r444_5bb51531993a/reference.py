@@ -61,7 +61,7 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    """Fold batch norm and pack scalar coefficients for spatial-vector MACs."""
+    """Pack spatial GEMM coefficients in small blocks with sparse corrections."""
     n, k = params["s0_n"], params["s0_k"]
     if hasattr(module, "op1_running_var"):
         scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
@@ -70,19 +70,67 @@ def fold(module, **params):
     else:
         weight = module.weight.double().reshape(n, k)
         bias = getattr(module, "bias", None)
-    groups = (k + 31) // 32
-    padded = torch.nn.functional.pad(weight, (0, groups * 32 - k)).reshape(n, groups, 32)
-    coeff = weight.new_zeros((n, 2 + 2 * groups, 128))
+    coeff = weight.new_zeros((n, 2, 128))
     if params["s0_bias"] and bias is not None:
         bias = bias.double()
         quantum = torch.ldexp(torch.ones_like(bias), torch.frexp(bias.abs())[1] - 5)
         hi = torch.round(bias / quantum) * quantum
         coeff[:, 0, :] = hi[:, None]
         coeff[:, 1, :] = (bias - hi)[:, None]
-    quantum = torch.ldexp(torch.ones_like(padded[:, :, :1]), torch.frexp(padded.abs().amax(-1, keepdim=True))[1] - 5)
-    hi = torch.round(padded / quantum) * quantum
-    omitted = [i for i in range(32) if i % 3 == 2 or i in (13, 27, 31)]
-    hi[..., omitted] = padded[..., omitted]
-    coeff[:, 2::2, :32] = hi
-    coeff[:, 3::2, :19] = (padded - hi)[..., [i for i in range(32) if i not in omitted]]
-    return {"w": coeff.reshape(-1, 128)}
+    rows = [coeff]
+    def pack(piece):
+        row = torch.nn.functional.pad(piece[:, None, :], (0, 128 - piece.shape[-1]))
+        return row
+
+    # Translate the coefficients by a representable scalar. The kernel
+    # subtracts the corresponding scaled input sum from the dot product.
+    radius = weight.abs().amax(1, keepdim=True)
+    quantum = torch.ldexp(torch.ones_like(radius), torch.frexp(0.75 * radius)[1] - 6)
+    steps = torch.arange(-63, 64, dtype=weight.dtype, device=weight.device)
+    candidates = quantum * steps
+    shifted = weight.clone()
+    shifts = []
+    for p in range(0, min(k, 4), 2):
+        even = weight[:, None, p::4] + candidates[:, :, None]
+        odd = weight[:, None, p + 1::4]
+        odd = torch.nn.functional.pad(odd, (0, even.shape[-1] - odd.shape[-1]))
+        pair_grid = torch.ldexp(torch.ones_like(even), torch.frexp(torch.maximum(even.abs(), odd.abs()))[1] - 5)
+        odd_hi = torch.round(odd / pair_grid) * pair_grid
+        exp = torch.frexp(even.abs())[1]
+        mx = torch.frexp(torch.maximum(even.abs(), odd_hi.abs()))[1]
+        grid = torch.ldexp(torch.ones_like(even), torch.maximum(exp, mx - 2) - 6)
+        rounded = even.sign() * torch.minimum(torch.floor(even.abs() / grid + 0.5) * grid,
+                                              torch.ldexp(torch.full_like(even, 63 / 64), mx))
+        error = rounded - even
+        best = (error.square().sum(-1) + error.sum(-1).square() * 0.06).argmin(-1, keepdim=True)
+        shift = candidates.gather(1, best)
+        shifted[:, p::4] += shift
+        shifts.append(shift)
+    weight = shifted
+    pieces = []
+    for block in weight.split(2, dim=1):
+        for piece in (block,):
+            split = [1] if piece.shape[1] == 2 else []
+            grid = torch.ldexp(torch.ones_like(piece[:, :1]), torch.frexp(piece.abs().amax(-1, keepdim=True))[1] - 5)
+            hi = piece.clone()
+            hi[:, split] = torch.round(piece[:, split] / grid) * grid
+            ex = torch.frexp(hi.abs())[1]
+            mx = ex.amax(-1, keepdim=True)
+            grid = torch.ldexp(torch.ones_like(hi), torch.maximum(ex, mx - 2) - 6)
+            rounded = hi.sign() * torch.minimum(torch.floor(hi.abs() / grid + 0.5) * grid,
+                                                torch.ldexp(torch.full_like(hi, 63 / 64), mx))
+            keep = torch.zeros_like(hi, dtype=torch.bool)
+            keep[:, split] = True
+            error = (rounded - hi).masked_fill(keep, 0).sum(-1, keepdim=True)
+            margin = (grid * 0.45).masked_fill(~keep | (hi == 0) | (ex == mx) |
+                                             (hi.abs() == torch.ldexp(torch.ones_like(hi), ex - 1)), 0)
+            pieces.append((piece, split, hi, margin, error))
+    ratio = (sum(p[4] for p in pieces) / sum(p[3].sum(-1, keepdim=True) for p in pieces).clamp_min(1e-30)).clamp(-1, 1)
+    lo = []
+    primary = []
+    for piece, split, hi, margin, _ in pieces:
+        hi = hi + ratio * margin
+        lo.append((piece - hi)[:, split])
+        primary.append(pack(hi))
+    rows.extend([pack(torch.cat(lo, dim=-1)), *primary, pack(torch.cat(shifts, dim=1))])
+    return {"w": torch.cat(rows, dim=1).reshape(-1, 128)}

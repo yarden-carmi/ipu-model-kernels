@@ -1,52 +1,126 @@
 [kernel]
-op = "gemm__binary_add_none"
-formats = ["e2"]
+op = "gemm_binary_add"
+formats = ["e1", "e2", "e3"]
 
-[params]
-s0_bias = {type = "bool", default = true}
-s0_k = {type = "int", min = 1, max = 4096, default = 88}
-s0_m = {type = "int", min = 1, max = 65536, default = 784}
-s0_n = {type = "int", min = 1, max = 64, default = 24}
-s1_broadcast = {type = "str", choices = ["none"], default = "none"}
-s1_inner = {type = "int", min = 0, max = 0, default = 0}
-s1_numel = {type = "int", min = 1, max = 4194304, default = 18816}
-s1_op = {type = "str", choices = ["add"], default = "add"}
-in0_d0 = {type = "int", min = 1, max = 65536, default = 1}
-in0_d1 = {type = "int", min = 1, max = 4096, default = 88}
-in0_d2 = {type = "int", min = 1, max = 65536, default = 28}
-in0_d3 = {type = "int", min = 1, max = 65536, default = 28}
-in1_d0 = {type = "int", min = 1, max = 65536, default = 1}
-in1_d1 = {type = "int", min = 1, max = 64, default = 24}
-in1_d2 = {type = "int", min = 1, max = 65536, default = 28}
-in1_d3 = {type = "int", min = 1, max = 65536, default = 28}
-out0_d0 = {type = "int", min = 1, max = 65536, default = 1}
-out0_d1 = {type = "int", min = 1, max = 64, default = 24}
-out0_d2 = {type = "int", min = 1, max = 65536, default = 28}
-out0_d3 = {type = "int", min = 1, max = 65536, default = 28}
+[params.s0_bias]
+type = "bool"
+default = true
+[params.s0_m]
+type = "int"
+min = 1
+max = 65536
+default = 256
+[params.s0_k]
+type = "int"
+min = 1
+max = 256
+default = 256
+[params.s0_n]
+type = "int"
+min = 1
+max = 16384
+default = 64
+[params.s1_broadcast]
+type = "str"
+choices = ["none"]
+default = "none"
+[params.s1_inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.s1_numel]
+type = "int"
+min = 1
+max = 1073741824
+default = 98304
+[params.s1_op]
+type = "str"
+choices = ["add"]
+default = "add"
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 256
+[params.in0_d2]
+type = "int"
+min = 1
+max = 16384
+default = 64
+[params.in0_d3]
+type = "int"
+min = 1
+max = 65536
+default = 64
+[params.in1_d0]
+type = "int"
+min = 1
+max = 65536
+default = 1
+[params.in1_d1]
+type = "int"
+min = 1
+max = 65536
+default = 64
+[params.in1_d2]
+type = "int"
+min = 1
+max = 16384
+default = 64
+[params.in1_d3]
+type = "int"
+min = 1
+max = 65536
+default = 64
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 64
+[params.out0_d2]
+type = "int"
+min = 1
+max = 16384
+default = 64
+[params.out0_d3]
+type = "int"
+min = 1
+max = 65536
+default = 64
 
 [derived]
 tiles = "ceil(out0_d2 * out0_d3 / 128)"
-batch_tiles = "out0_d0 * tiles"
-last_tile = "batch_tiles - 1"
 stride = "in0_d0 * ceil(in0_d2 * in0_d3 / 128)"
-irows = "in0_d1 * stride"
-rrows = "in1_d1 * in1_d0 * ceil(in1_d2 * in1_d3 / 128)"
-orows = "out0_d1 * batch_tiles"
-groups = "s0_k // 32"
+groups = "(s0_k - 1) // 2"
+sum_rows = "4 * stride"
+even0 = "(s0_k + 3) // 4"
+even2 = "(s0_k + 1) // 4"
 full = "ds(128)"
 tail = "ds((out0_d2 * out0_d3 - 1) % 128 + 1)"
 
 [inputs.in0]
-shape = ["irows", 128]
+shape = ["in0_d1 * stride", 128]
 range = [-2, 2]
 [inputs.in1]
-shape = ["rrows", 128]
+shape = ["in1_d0 * in1_d1 * ceil(in1_d2 * in1_d3 / 128)", 128]
 range = [-2, 2]
 [inputs.w]
-shape = ["s0_n * (2 + 2 * ceil(s0_k / 32))", 128]
-range = [-1, 1]
+shape = ["s0_n * (5 + groups)", 128]
+[scratch.sums]
+shape = ["sum_rows", 128]
 [outputs.out0]
-shape = ["orows", 128]
+shape = ["out0_d0 * out0_d1 * tiles", 128]
 
 [abi]
 in0 = "CR2"
@@ -61,10 +135,10 @@ tail = "CR10"
 tiles = "CR11"
 stride = "CR12"
 groups = "CR13"
-s0_n = "CR14"
+sums = "CR14"
 out0_d0 = "CR15"
-last_tile = "LR11"
+s0_n = "LR8"
+even0 = "LR12"
+even2 = "LR13"
 
-[golden]
-tolerance = {e2 = "NX8_STEP"}
 [cases.default]
