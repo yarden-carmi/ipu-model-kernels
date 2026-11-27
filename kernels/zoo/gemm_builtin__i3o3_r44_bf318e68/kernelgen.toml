@@ -1,0 +1,15 @@
+chain = ["gemm"]
+chain_in = ["in0"]
+chain_out = ["out0"]
+
+[layout.in0]
+lanes = 3
+rows = [0, 1, 2]
+pack = "min(4, 128 // d3)"
+
+[view.in0]
+kind = "whole"
+
+[layout.out0]
+lanes = 3
+rows = [0, 2, 1]
