@@ -1,0 +1,108 @@
+[kernel]
+op = "binary_mul_scalar"
+formats = ["e1", "e2"]
+
+[params.broadcast]
+type = "str"
+choices = ["scalar"]
+default = "scalar"
+[params.const]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.numel]
+type = "int"
+min = 1
+max = 2147483647
+default = 786432
+[params.op]
+type = "str"
+choices = ["mul"]
+default = "mul"
+[params.in0_d0]
+type = "int"
+min = 1
+max = 2147483647
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 2147483647
+default = 12
+[params.in0_d2]
+type = "int"
+min = 1
+max = 2147483647
+default = 256
+[params.in0_d3]
+type = "int"
+min = 1
+max = 2147483647
+default = 256
+[params.out0_d0]
+type = "int"
+min = 1
+max = 2147483647
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 2147483647
+default = 12
+[params.out0_d2]
+type = "int"
+min = 1
+max = 2147483647
+default = 256
+[params.out0_d3]
+type = "int"
+min = 1
+max = 2147483647
+default = 256
+
+[inputs.in0]
+shape = ["rows", 128]
+range = [-2.0, 2.0]
+[outputs.out0]
+shape = ["out0_d0 * out0_d1 * out0_d3 * ceil(out0_d2 / 128)", 128]
+[scratch.scalar]
+shape = [1, 128]
+
+[derived]
+groups = "in0_d0 * in0_d1 * in0_d3"
+chunks = "ceil(in0_d2 / 128)"
+rows = "groups * chunks"
+last = "(in0_d2 - 1) % 128 + 1"
+ds_pair = "ds(last) + ds(128) * 65536"
+remainder = "in0_d2 % 128"
+last_row = "rows - 1"
+penultimate_row = "max(0, last_row - 1)"
+# These two coefficients decode as zero in NX8 and differ by 1/8 in FP32.
+fp_base = "0x43010080"
+fp_top = "fp_base + 8192"
+# Unsigned e1 with exponent and mantissa zero, scaled by 2^-3.
+nx_scale = "0x00017c00"
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+qf_in0 = "CR4"
+qf_out0 = "CR5"
+groups = "CR6"
+chunks = "CR7"
+ds_pair = "CR8"
+fp_base = "CR9"
+fp_top = "CR10"
+nx_scale = "CR11"
+scalar = "CR12"
+last_row = "CR13"
+penultimate_row = "CR14"
+remainder = "LR5"
+
+[cases.default]
