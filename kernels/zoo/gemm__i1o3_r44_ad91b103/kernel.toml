@@ -1,0 +1,84 @@
+[kernel]
+op = "gemm"
+formats = ["e1", "e2"]
+
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 128
+default = 72
+[params.m]
+type = "int"
+min = 1
+default = 784
+[params.n]
+type = "int"
+min = 1
+default = 24
+[params.in0_d0]
+type = "int"
+min = 1
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 128
+default = 72
+[params.in0_d2]
+type = "int"
+min = 1
+default = 28
+[params.in0_d3]
+type = "int"
+min = 1
+max = 128
+default = 28
+[params.out0_d0]
+type = "int"
+min = 1
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+default = 24
+[params.out0_d2]
+type = "int"
+min = 1
+default = 28
+[params.out0_d3]
+type = "int"
+min = 1
+max = 128
+default = 28
+
+[derived]
+pack = "min(out0_d1, max(1, 128 // out0_d3))"
+groups = "ceil(out0_d1 / pack)"
+weight_rows = "groups * (2 + 2 * pack)"
+full = "ds(128)"
+active = "ds(pack * out0_d3)"
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d2 * in0_d3", 128]
+[inputs.w]
+shape = ["weight_rows", 128]
+[outputs.out0]
+shape = ["out0_d0 * out0_d2 * groups", 128]
+
+[abi]
+in0 = "CR2"
+w = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+full = "CR7"
+active = "CR8"
+groups = "CR9"
+in0_d3 = "CR10"
+in0_d2 = "CR11"
+in0_d0 = "CR12"
+
+[cases.default]
