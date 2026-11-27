@@ -1,0 +1,133 @@
+[kernel]
+op = "gemm_table"
+formats = ["e2", "e3"]
+
+[params.k]
+type = "int"
+min = 4
+multiple_of = 4
+max = 1920
+default = 240
+[params.n]
+type = "int"
+min = 1
+max = 4096
+default = 160
+[params.m]
+type = "int"
+min = 1
+max = 32640
+default = 64
+[params.bias]
+type = "bool"
+default = true
+[params.act_out0]
+type = "str"
+choices = ["gelu_tanh", "silu"]
+default = "silu"
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 4
+[params.in0_d1]
+type = "int"
+min = 1
+max = 512
+default = 16
+[params.in0_d2]
+type = "int"
+min = 1
+max = 4096
+default = 240
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 65535
+default = 320
+[params.out0_d2]
+type = "int"
+min = 1
+max = 4096
+default = 8
+[params.out0_d3]
+type = "int"
+min = 1
+max = 65535
+default = 8
+[params.in1_d0]
+type = "int"
+min = 1
+max = 65535
+default = 1
+[params.in1_d1]
+type = "int"
+min = 1
+max = 65535
+default = 160
+[params.in1_d2]
+type = "int"
+min = 1
+max = 65535
+default = 8
+[params.in1_d3]
+type = "int"
+min = 1
+max = 65535
+default = 8
+
+[derived]
+blocks = "ceil(in0_d1 / 128)"
+batch_rows = "in0_d2 * blocks"
+ir = "in0_d0 * batch_rows"
+tiles = "ceil(m / 128)"
+copy_rows = "in1_d0 * in1_d1 * ceil(in1_d2 / (128 / in1_d3))"
+stage_rows = "k * tiles"
+chunks = "ceil(k / 128)"
+groups = "chunks - 1"
+coeff_rows = "n * (2 * chunks + 1)"
+full = "ds(128)"
+tail = "ds(m - 128 * (tiles - 1))"
+lane_step = "16777216"
+
+[inputs.in0]
+shape = ["ir", 128]
+range = [-2, 2]
+[inputs.in1]
+shape = ["copy_rows", 128]
+range = [-2, 2]
+[inputs.coeff]
+shape = ["coeff_rows", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[outputs.out0]
+shape = ["out0_d0 * out0_d1 * ceil(out0_d2 / (128 / out0_d3))", 128]
+
+[scratch.stage]
+shape = ["stage_rows", 128]
+
+[abi]
+in0 = "CR2"
+coeff = "CR3"
+lut = "CR4"
+out0 = "CR5"
+qf_in0 = "CR6"
+qf_out0 = "CR7"
+stage = "CR8"
+in1 = "CR9"
+qf_in1 = "CR10"
+full = "CR11"
+tail = "CR12"
+stage_rows = "CR13"
+copy_rows = "CR14"
+k = "CR15"
+lane_step = "LR12"
+
+[cases.default]
