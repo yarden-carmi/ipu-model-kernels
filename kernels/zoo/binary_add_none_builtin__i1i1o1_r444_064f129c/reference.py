@@ -53,11 +53,11 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.add_.Tensor(_v(ins[0], [1, 128, 28, 28], [100352, 784, 28, 1], 0), _v(ins[1], [1, 128, 28, 28], [100352, 784, 28, 1], 0))
+    r0 = aten.add_.Tensor(_v(ins[0], [1, 256, 14, 14], [50176, 196, 14, 1], 0), _v(ins[1], [1, 256, 14, 14], [50176, 196, 14, 1], 0))
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.relu_.default(_v(op0, [1, 128, 28, 28], [100352, 784, 28, 1], 0))
+    r0 = aten.relu_.default(_v(op0, [1, 256, 14, 14], [50176, 196, 14, 1], 0))
     op1 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op1, [1, 128, 28, 28])}
+    return {"out0": _out(op1, [1, 256, 14, 14])}
 # ---- end of the frozen reference ----
 
 
