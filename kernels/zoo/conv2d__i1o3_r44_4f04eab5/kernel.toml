@@ -4,22 +4,22 @@ formats = ["e1", "e2"]
 [params]
 bias = { type = "bool", default = true }
 groups = { type = "int", choices = [1], default = 1 }
-cin = { type = "int", min = 1, max = 512, default = 64 }
-cout = { type = "int", min = 1, max = 768, default = 64 }
-h = { type = "int", min = 1, max = 512, default = 56 }
-w = { type = "int", min = 1, max = 864, default = 56 }
+cin = { type = "int", min = 1, max = 512, default = 512 }
+cout = { type = "int", min = 1, max = 768, default = 256 }
+h = { type = "int", min = 1, max = 512, default = 7 }
+w = { type = "int", min = 1, max = 864, default = 7 }
 kh = { type = "int", min = 1, max = 8, default = 3 }
 kw = { type = "int", min = 1, max = 8, default = 3 }
 padding = { type = "int", min = 0, max = 3, default = 1 }
 stride = { type = "int", choices = [1, 2], default = 1 }
 in0_d0 = { type = "int", choices = [1], default = 1 }
-in0_d1 = { type = "int", min = 1, max = 512, default = 64 }
-in0_d2 = { type = "int", min = 1, max = 512, default = 56 }
-in0_d3 = { type = "int", min = 1, max = 864, default = 56 }
+in0_d1 = { type = "int", min = 1, max = 512, default = 512 }
+in0_d2 = { type = "int", min = 1, max = 512, default = 7 }
+in0_d3 = { type = "int", min = 1, max = 864, default = 7 }
 out0_d0 = { type = "int", choices = [1], default = 1 }
-out0_d1 = { type = "int", min = 1, max = 768, default = 64 }
-out0_d2 = { type = "int", min = 1, max = 512, default = 56 }
-out0_d3 = { type = "int", min = 1, max = 864, default = 56 }
+out0_d1 = { type = "int", min = 1, max = 768, default = 256 }
+out0_d2 = { type = "int", min = 1, max = 512, default = 7 }
+out0_d3 = { type = "int", min = 1, max = 864, default = 7 }
 [derived]
 iblocks = "ceil(in0_d1 / 128)"
 blocks = "ceil(out0_d1 / 128)"
@@ -38,7 +38,7 @@ shape = ["weight_rows + 1", 128]
 [inputs.scales]
 shape = ["out0_d1", 128]
 [scratch.tmp]
-shape = ["5 * output_rows + 5", 128]
+shape = ["5 * output_rows + 5 * blocks + 5", 128]
 [outputs.out0]
 shape = ["out0_d1", "out0_d0", "chunks", 128]
 [abi]

@@ -102,16 +102,15 @@ last_block:
  SET LR2 CR0 ; SET LR3 CR0 ;;
  SET LR7 CR0 ;;
  MULT.EE LR0 CR0 0 LR0 {{ds}} {{cr.qf_out0}}.L ; ACC.ADD.FIRST ;;
-gather_{{tag}}:
- LD.MULT R0 LR10 {{cr.tmp}} ;;
- MULT.EE LR4 CR1 0 LR0 {{ds}} {{cr.qf_out0}}.L ; ACC.RESHAPE LRD0 LRD2 7 ;;
- ADDBI LRD2 1 ;;
- INC LR7 1 ;;
- INC LR11 1 ;;
- INC LR10 {{5 * ob}} ;;
  {% if out0_d2 * out0_d3 >= 128 %}
  SET LR12 CR0 ;;
  INC LR12 128 ;;
+ {% endif %}
+gather_{{tag}}:
+ LD.MULT R0 LR10 {{cr.tmp}} ; INC LR7 1 ; INC LR11 1 ;;
+ MULT.EE LR4 CR1 0 LR0 {{ds}} {{cr.qf_out0}}.L ; ACC.RESHAPE LRD0 LRD2 7 ;;
+ ADDBI LRD2 1 ; INC LR10 {{5 * ob}} ;;
+ {% if out0_d2 * out0_d3 >= 128 %}
  BEQ LR7 LR12 gather_done_{{tag}} ;;
  {% endif %}
  BLT.S LR11 LR15 gather_{{tag}} ;;
