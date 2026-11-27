@@ -95,7 +95,10 @@ def fold(module, **params):
     mid = leading(remainder)
     parts = np.stack((hi, mid, remainder - mid), axis=-2)
     if stride == 1 and w == 64 and gc == 1:
-        return {'weights': np.concatenate((parts[:, :, 0, :2].reshape(cout, tiles, 2, 128),
+        if params['in0_d2'] * w % 128 == 0 and params['in0_d2'] >= 6 and params['in0_d2'] == params['out0_d2']:
+            taps = np.stack((hi[:, :, 1:], remainder[:, :, 1:]), axis=-2).reshape(cout, tiles, -1, 128)
+            return {'weights': taps.reshape(-1, 128), 'bias_row': rows[:, :, 0].reshape(-1, 128)}
+        return {'bias_row': np.zeros((1, 128)), 'weights': np.concatenate((parts[:, :, 0, :2].reshape(cout, tiles, 2, 128),
             np.stack((hi[:, :, 1:], remainder[:, :, 1:]), axis=-2).reshape(cout, tiles, -1, 128)), axis=2).reshape(-1, 128)}
     if stride == 2 and w == 256 and params['groups'] == 1 and gc <= 3:
         values = rows[:, 0, 1:, 1].reshape(cout, gc, kh * kw)
@@ -103,11 +106,11 @@ def fold(module, **params):
         packed = np.zeros((cout, gc, 2, 128), dtype=np.float64)
         packed[:, :, 0, :kh * kw] = hi_values
         packed[:, :, 1, :kh * kw] = values - hi_values
-        return {'weights': np.concatenate((parts[:, 0, 0], packed.reshape(cout, 2 * gc, 128)), axis=1).reshape(-1, 128)}
+        return {'bias_row': np.zeros((1, 128)), 'weights': np.concatenate((parts[:, 0, 0], packed.reshape(cout, 2 * gc, 128)), axis=1).reshape(-1, 128)}
     packed = np.concatenate((
         parts[:, :, 0].reshape(cout, tiles, 3, 128),
         np.stack((hi[:, :, 1:], remainder[:, :, 1:]), axis=-2).reshape(cout, tiles, -1, 128),
     ), axis=2).reshape(-1, 128)
     if stride == 1 and w <= 128 and gc > 1:
         packed = np.pad(packed, ((0, 1), (0, 0)))
-    return {'weights': packed}
+    return {'weights': packed, 'bias_row': np.zeros((1, 128))}

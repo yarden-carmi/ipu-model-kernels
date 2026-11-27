@@ -32,7 +32,7 @@ SET {{ r }} CR0 ;;
 
 # Copy input planes between zero guards for cyclic reads at the top and bottom.
 {% if not direct %}
-{{ imm('LR0',0) }}
+SET LR0 CR0 ; LD.MULT R1 LR10 CR0 ;;
 {{ imm('LR1',128) }}
 {{ imm('LR2',-1) }}
 {{ imm('LR3',-1) }}
@@ -116,7 +116,7 @@ SET LR3 LR13 ; SET LR6 LR13 ; SET LR8 CR0 ;;
 SET LR7 CR0 ;;
 stage_row:
 {% for t in range(kh*kw) %}{{ stage_tap(t) }}{% endfor %}
-SET LR7 CR0 ; INC LR8 1 ; BLT.S LR8 {{ cr.sr_last }} stage_row ;;
+SET LR7 CR0 ; INC LR8 1 ; BLT.S LR8 {{ cr.sr_last }}.L stage_row ;;
 ADD LR13 LR13 LR14 ; INC LR4 1 ; BLT.S LR4 LR5 stage_channel ;;
 {% endif %}
 
@@ -126,45 +126,61 @@ LD.LUT {{ i }} {{ cr.lut }} LR2 ; INC LR2 1 ;;
 {% endfor %}
 {% if short_bias %}
 {{ imm('LR2',-1) }}
-{{ imm('LR3',-1 if direct else 2) }}
+{% if direct %}{{ imm('LR9',-1) }}{{ imm('LR3',256) }}{% else %}{{ imm('LR3',2) }}{% endif %}
 {{ imm('LR4',0) }}
 {{ imm('LR5',cout-1) }}
 {{ imm('LR7',-1) }}
 {{ imm('LR12',128) }}
-SET LR14 {{ cr.sr_last }} ;;
+SET LR14 {{ cr.sr_last }}.L ;;
 {% if direct %}DEC LR14 1 ; DEC LR15 4 ;{% else %}INC LR14 1 ;{% endif %} ;;
 short_channel:
-SET LR6 CR0 ; SET LR9 LR3 ; SET LR11 LR12 ;;
 {% if direct %}
-LD.MULT.CYCLIC LR0 {{ cr.guard }} LR0 ;;
+LD.MULT.CYCLIC LR0 {{ cr.guard }} LR0 ; SET LR6 CR0 ; SET LR11 LR12 ;;
 LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR12 ; INC LR9 1 ;;
-SET LR1 LR12 ;;
-INC LR1 128 ;;
-LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR1 ; INC LR9 1 ;;
+LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR3 ; INC LR9 1 ; SET LR13 LR3 ;;
+LD.MULT R1 LR10 CR0 ; SET LR8 LR7 ;;
 {% else %}
+SET LR6 CR0 ; SET LR9 LR3 ; SET LR11 LR12 ;;
 DEC LR9 2 ;;
 LD.MULT.CYCLIC LR9 {{ cr.guard }} LR0 ; INC LR9 1 ;;
 LD.MULT.CYCLIC LR9 {{ cr.guard }} LR12 ; INC LR9 1 ;;
 SET LR1 LR12 ;;
 INC LR1 128 ;;
 LD.MULT.CYCLIC LR9 {{ cr.guard }} LR1 ; INC LR9 1 ;;
-{% endif %}
 SET LR13 LR1 ;;
 LD.MULT R0 LR7 {{ cr.weights }} ; INC LR7 1 ; SET LR8 LR7 ;;
 DEC LR7 1 ; INC LR8 1 ;;
+{% endif %}
 {% macro short_body(last) %}
+{% if direct %}
+MULT.VE LR12 CR1 0 LR0 {{ ds }} {{ cr.qf_bias_row }}.L ; ACC.ADD.FIRST ; SET LR1 LR11 ; LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;;
+{% else %}
 LD.MULT R1 LR8 {{ cr.weights }} ; INC LR8 1 ;;
 MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD.FIRST ; SET LR1 LR11 ; LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;;
 MULT.VE LR12 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; DEC LR1 65 ; LD.MULT R1 LR8 {{ cr.weights }} ; INC LR8 1 ;;
+{% endif %}
 {% for t in range(9) %}
+{% if direct %}
+{% for p in range(2) %}
+MULT.RC.VV LR1 R0 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ;
+{% if t == 8 and p == 1 %}
+{% if last %}LD.MULT.CYCLIC LR0 {{ cr.guard }} LR13 ;{% else %}LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR13 ;{% endif %} SET LR8 LR7 ; {{ store(ds) }} {% if not last %}BLT.S LR6 LR14 short_row ;{% endif %}
+{% else %}
+LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;
+{% endif %}
+{% if not p %}{{ bump('LR1',-65 if not t else (1 if t%3 else 62)) }}{% endif %}
+{% if t == 7 and p %}INC.MODP2 LR11 LR12 9 ;{% elif t == 6 %}{{ 'INC LR9 1 ;' if not p else 'INC LR6 1 ;' }}{% elif t == 0 and not p %}INC.MODP2 LR13 LR12 9 ;{% elif t == 0 and p and last == 2 %}INC LR10 1 ;{% endif %} ;;
+{% endfor %}
+{% else %}
 MULT.RC.VV LR1 R0 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; {% if t < 8 %}LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;{% else %}LD.MULT R0 LR7 {{ cr.weights }} ; INC LR7 1 ; SET LR8 LR7 ;{% endif %} {% if t %}INC LR1 {{ 1 if t%3 else 62 }} ;{% endif %} {% if t == 7 %}INC LR9 1 ;{% elif t == 0 %}INC.MODP2 LR13 LR12 9 ;{% endif %} ;;
 MULT.RC.VV LR1 R1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; {% if t < 8 %}LD.MULT R1 LR8 {{ cr.weights }} ; INC LR8 1 ; {% if t == 7 %}INC.MODP2 LR11 LR12 9 ; INC LR6 1 ;{% endif %}{% else %}{% if direct and last %}LD.MULT.CYCLIC LR0 {{ cr.guard }} LR13 ;{% else %}LD.MULT.CYCLIC LR9 {{ cr.in0 if direct else cr.guard }} LR13 ;{% endif %} {{ store(ds) }} INC LR8 1 ; DEC LR7 1 ; {% if not last %}BLT.S LR6 LR14 short_row ;{% endif %}{% endif %} ;;
+{% endif %}
 {% endfor %}
 {% endmacro %}
 short_row:
 {{ short_body(false) }}
-{% if direct %}{{ short_body(true) }}{{ short_body(true) }}{% endif %}
-INC LR7 {{ 2+2*kh*kw }} ; ADD LR3 LR3 LR15 ; INC LR4 1 ; BLT.S LR4 LR5 short_channel ;;
+{% if direct %}{{ short_body(1) }}{{ short_body(2) }}{% endif %}
+INC LR7 {{ 2*kh*kw+(0 if direct else 2) }} ; {% if direct %}DEC LR9 2 ;{% else %}ADD LR3 LR3 LR15 ;{% endif %} INC LR4 1 ; BLT.S LR4 LR5 short_channel ;;
 HALT ;;
 {% else %}
 {{ imm('LR2',-1) }}
@@ -259,14 +275,14 @@ MULT.RC.VV {{ rc }} R1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ;
 {% if t+1 < kh*kw or (window and gc>1) %}LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;{% endif %}
 {% endmacro %}
 {% for t in range(kh*kw) %}
-{{ product(t) }} {% if loop.last %}{% if fused_store %}{{ store(ds) }} INC LR10 1 ; INC LR6 1 ; BLT.S LR6 {{ cr.sr_last }} output_row ;{% elif stride == 2 and 1 < gc <= 3 %}{% if ch < gc-1 %}ADD LR9 LR9 {{ cr.plane }} ; LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;{% endif %}{% elif gc > 1 %}ADD LR9 LR9 {{ cr.plane }} ; INC LR11 1 ; BLT.S LR11 {{ cr.gc_last }} {{ 'input_channel' if window else 'next_input_channel' }} ;{% endif %}{% endif %} ;;
+{{ product(t) }} {% if loop.last %}{% if fused_store %}{{ store(ds) }} INC LR10 1 ; INC LR6 1 ; BLT.S LR6 {{ cr.sr_last }}.L output_row ;{% elif stride == 2 and 1 < gc <= 3 %}{% if ch < gc-1 %}ADD LR9 LR9 {{ cr.plane }} ; LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;{% endif %}{% elif gc > 1 %}ADD LR9 LR9 {{ cr.plane }} ; INC LR11 1 ; BLT.S LR11 {{ cr.sr_last }}.H {{ 'input_channel' if window else 'next_input_channel' }} ;{% endif %}{% endif %} ;;
 {% endfor %}
 {% endfor %}
 {% endif %}
 {% if window and gc>1 %}DEC LR8 1 ;;{% endif %}
 {% if not fused_store %}
-{% if (out0_d2*out0_d3)%128 %}BEQ LR6 {{ cr.sr_last }} store_tail ;;{% endif %}
-{{ store(ds) }} INC LR10 {{ 1 if stride == 1 else kh*kw }} ; INC LR6 1 ; BLT.S LR6 {{ cr.sr_last }} output_row ;;
+{% if (out0_d2*out0_d3)%128 %}BEQ LR6 {{ cr.sr_last }}.L store_tail ;;{% endif %}
+{{ store(ds) }} INC LR10 {{ 1 if stride == 1 else kh*kw }} ; INC LR6 1 ; BLT.S LR6 {{ cr.sr_last }}.L output_row ;;
 {% if (out0_d2*out0_d3)%128 %}
 BEQ LR0 CR0 next_channel ;;
 store_tail:
