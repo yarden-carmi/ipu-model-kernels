@@ -8,6 +8,7 @@
 {% set first = (-w-1)//128 %}
 {% set parts = 2 %}
 {% set short_bias = stride == 1 and w == 64 and gc == 1 %}
+{% set direct = short_bias and (in0_d2*w)%128 == 0 and ir >= 3 and in0_d2 == out0_d2 %}
 {% set wk = 3-short_bias+parts*gc*kh*kw %}
 {% set dw_window = window and gc==1 %}
 {% set fused_store = dw_window and (out0_d2*out0_d3)%128 == 0 %}
@@ -30,6 +31,7 @@ SET {{ r }} CR0 ;;
 {% endmacro %}
 
 # Copy input planes between zero guards for cyclic reads at the top and bottom.
+{% if not direct %}
 {{ imm('LR0',0) }}
 {{ imm('LR1',128) }}
 {{ imm('LR2',-1) }}
@@ -67,6 +69,12 @@ copy_last:
 {% endif %}
 {{ guard('copy_bottom',2 if dw_window and w == 64 else 6) }}
 INC LR4 1 ; BLT.S LR4 LR5 copy_channel ;;
+{% else %}
+{{ imm('LR0',0) }}
+{{ imm('LR3',-1) }}
+MULT.RC.VE LR0 CR0 0 LR0 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ;;
+ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.guard }} LR3 ; INC LR3 1 ;;
+{% endif %}
 
 # Compact stride-two input taps into the output's spatial lane order.
 {% if stride == 2 %}
@@ -118,32 +126,44 @@ LD.LUT {{ i }} {{ cr.lut }} LR2 ; INC LR2 1 ;;
 {% endfor %}
 {% if short_bias %}
 {{ imm('LR2',-1) }}
-{{ imm('LR3',2) }}
+{{ imm('LR3',-1 if direct else 2) }}
 {{ imm('LR4',0) }}
 {{ imm('LR5',cout-1) }}
 {{ imm('LR7',-1) }}
 {{ imm('LR12',128) }}
 SET LR14 {{ cr.sr_last }} ;;
-INC LR14 1 ;;
+{% if direct %}DEC LR14 1 ; DEC LR15 4 ;{% else %}INC LR14 1 ;{% endif %} ;;
 short_channel:
 SET LR6 CR0 ; SET LR9 LR3 ; SET LR11 LR12 ;;
+{% if direct %}
+LD.MULT.CYCLIC LR0 {{ cr.guard }} LR0 ;;
+LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR12 ; INC LR9 1 ;;
+SET LR1 LR12 ;;
+INC LR1 128 ;;
+LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR1 ; INC LR9 1 ;;
+{% else %}
 DEC LR9 2 ;;
 LD.MULT.CYCLIC LR9 {{ cr.guard }} LR0 ; INC LR9 1 ;;
 LD.MULT.CYCLIC LR9 {{ cr.guard }} LR12 ; INC LR9 1 ;;
 SET LR1 LR12 ;;
 INC LR1 128 ;;
 LD.MULT.CYCLIC LR9 {{ cr.guard }} LR1 ; INC LR9 1 ;;
+{% endif %}
 SET LR13 LR1 ;;
 LD.MULT R0 LR7 {{ cr.weights }} ; INC LR7 1 ; SET LR8 LR7 ;;
 DEC LR7 1 ; INC LR8 1 ;;
-short_row:
+{% macro short_body(last) %}
 LD.MULT R1 LR8 {{ cr.weights }} ; INC LR8 1 ;;
 MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD.FIRST ; SET LR1 LR11 ; LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;;
 MULT.VE LR12 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; DEC LR1 65 ; LD.MULT R1 LR8 {{ cr.weights }} ; INC LR8 1 ;;
 {% for t in range(9) %}
 MULT.RC.VV LR1 R0 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; {% if t < 8 %}LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;{% else %}LD.MULT R0 LR7 {{ cr.weights }} ; INC LR7 1 ; SET LR8 LR7 ;{% endif %} {% if t %}INC LR1 {{ 1 if t%3 else 62 }} ;{% endif %} {% if t == 7 %}INC LR9 1 ;{% elif t == 0 %}INC.MODP2 LR13 LR12 9 ;{% endif %} ;;
-MULT.RC.VV LR1 R1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; {% if t < 8 %}LD.MULT R1 LR8 {{ cr.weights }} ; INC LR8 1 ; {% if t == 7 %}INC.MODP2 LR11 LR12 9 ; INC LR6 1 ;{% endif %}{% else %}LD.MULT.CYCLIC LR9 {{ cr.guard }} LR13 ; {{ store(ds) }} INC LR8 1 ; DEC LR7 1 ; BLT.S LR6 LR14 short_row ;{% endif %} ;;
+MULT.RC.VV LR1 R1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; {% if t < 8 %}LD.MULT R1 LR8 {{ cr.weights }} ; INC LR8 1 ; {% if t == 7 %}INC.MODP2 LR11 LR12 9 ; INC LR6 1 ;{% endif %}{% else %}{% if direct and last %}LD.MULT.CYCLIC LR0 {{ cr.guard }} LR13 ;{% else %}LD.MULT.CYCLIC LR9 {{ cr.in0 if direct else cr.guard }} LR13 ;{% endif %} {{ store(ds) }} INC LR8 1 ; DEC LR7 1 ; {% if not last %}BLT.S LR6 LR14 short_row ;{% endif %}{% endif %} ;;
 {% endfor %}
+{% endmacro %}
+short_row:
+{{ short_body(false) }}
+{% if direct %}{{ short_body(true) }}{{ short_body(true) }}{% endif %}
 INC LR7 {{ 2+2*kh*kw }} ; ADD LR3 LR3 LR15 ; INC LR4 1 ; BLT.S LR4 LR5 short_channel ;;
 HALT ;;
 {% else %}
