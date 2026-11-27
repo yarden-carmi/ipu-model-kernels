@@ -1,0 +1,48 @@
+[kernel]
+op = "binary_add"
+formats = ["e1", "e2"]
+[params]
+broadcast = { type = "str", choices = ["none"], default = "none" }
+inner = { type = "int", min = 0, max = 0, default = 0 }
+op = { type = "str", choices = ["add"], default = "add" }
+numel = { type = "int", min = 1, max = 16777216, default = 16384 }
+in0_d0 = { type = "int", min = 1, max = 1024, default = 1 }
+in0_d1 = { type = "int", min = 1, max = 16384, default = 64 }
+in0_d2 = { type = "int", min = 8, max = 16384, multiple_of = 8, default = 16 }
+in0_d3 = { type = "int", min = 8, max = 128, multiple_of = 8, default = 16 }
+in1_d0 = { type = "int", min = 1, max = 1024, default = 1 }
+in1_d1 = { type = "int", min = 1, max = 16384, default = 64 }
+in1_d2 = { type = "int", min = 8, max = 16384, multiple_of = 8, default = 16 }
+in1_d3 = { type = "int", min = 8, max = 128, multiple_of = 8, default = 16 }
+out0_d0 = { type = "int", min = 1, max = 1024, default = 1 }
+out0_d1 = { type = "int", min = 1, max = 16384, default = 64 }
+out0_d2 = { type = "int", min = 8, max = 16384, multiple_of = 8, default = 16 }
+out0_d3 = { type = "int", min = 8, max = 128, multiple_of = 8, default = 16 }
+[derived]
+blocks = "ceil(out0_d3 * 8 / 128)"
+groups = "out0_d0 * out0_d1 * out0_d2 / 8"
+rows = "groups * blocks"
+active = "ds(out0_d3 * 8 - (blocks - 1) * 128)"
+last_row = "rows - 1"
+loop_bound = "rows - 2"
+[inputs.in0]
+shape = ["in0_d0 * in0_d1 * (in0_d2 / 8) * ceil(in0_d3 * 8 / 128)", 128]
+range = [-2, 2]
+[inputs.in1]
+shape = ["in1_d0 * in1_d1 * (in1_d2 / 8) * ceil(in1_d3 * 8 / 128)", 128]
+range = [-2, 2]
+[outputs.out0]
+shape = ["rows", 128]
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_in1 = "CR6"
+qf_out0 = "CR7"
+blocks = "CR8"
+rows = "CR9"
+active = "CR10"
+last_row = "CR11"
+loop_bound = "CR12"
+[cases.default]
