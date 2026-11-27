@@ -10,28 +10,23 @@
 {% macro pick(qf, mask=0) %}
     MULT.VE LR15 CR1 0 LR0 CR15.L {{ qf }}.L ; ACC.RESHAPE LRD2 LRD4 {{ mask }} ;
 {% endmacro %}
-
-// Eight adjacent positions by sixteen channels. The scratch tile uses
-// position-major lanes, letting one row load supply eight output rows.
 group:
     SET LR6 LR14 ; SET LR7 LR13 ; SET LR9 LR12 ;;
     SET LR8 CR0 ;;
 tile:
-    SET LR4 {{ cr.seq_lo }} ; SET LR3 {{ cr.seq_hi }} ; SET LR15 LR10 ;;
-    ADD LR4 LR4 LR4 ; ADD LR3 LR3 LR3 ;;
-    ADD LR4 LR4 LR4 ; ADD LR3 LR3 LR3 ;;
-    ADD LR4 LR4 LR4 ; SET LR2 CR1 ;;
+    SET LR4 {{ cr.seq_lo }} ; SET LR3 {{ cr.seq_hi }} ; SET LR2 {{ cr.seq_lo }} ;;
+    ADD LR4 LR4 LR4 ; ADD LR3 LR3 LR3 ; ADD LR2 LR2 LR2 ;;
+    ADD LR4 LR4 LR4 ; ADD LR3 LR3 LR3 ; ADD LR2 LR2 LR2 ;;
     ADD LR4 LR4 LR4 ;;
-    ADD LR5 LR4 {{ cr.dest_gap }} ; BEQ LR7 CR0 phase_0 ;;
+    ADD LR4 LR4 LR4 ;;
+    ADD LR5 LR4 {{ cr.dest_gap }} ; SET LR15 CR1 ; BEQ LR7 CR0 phase_0 ;;
 {% for p in range(1, P - 1) %}
-    BEQ LR7 LR2 phase_{{ p }} ; INC LR2 1 ;;
+    BEQ LR7 LR15 phase_{{ p }} ; INC LR15 1 ;;
 {% endfor %}
 {% macro phase(p) %}
 phase_{{ p }}:
-    SET LR2 {{ cr.seq_lo }} ; {{ shift('LR7', (p + S) % P - p) }}
+    SET LR15 LR10 ; {{ shift('LR7', (p + S) % P - p) }}
     {{ shift('LR6', p // 8) }} LD.MULT R0 LR6 {{ cr.in0 }} ;;
-    ADD LR2 LR2 LR2 ;;
-    ADD LR2 LR2 LR2 ;;
     {% set prev = namespace(lane=0) %}
     {% for k in range(16) %}
         {% set z = 16 * p + k * S %}
@@ -58,10 +53,8 @@ phase_{{ p }}:
 {% endmacro %}
 {{ phase(P - 1) }}
 {% for p in range(P - 1) %}{{ phase(p) }}{% endfor %}
-
 stash:
 {% if compensate %}
-    // Keep a residual when a shared scratch scale would lose small values.
     ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf_in0 }}.L {{ cr.tiles }} LR0 ; SET LR15 CR1 ;;
     LD.MULT R0 LR0 {{ cr.tiles }} ;;
     MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.SUB ;
@@ -90,7 +83,6 @@ stash:
     ACTIVATE.QUANTIZE identity CR15.L {{ cr.scratch_format }}.L {{ cr.tiles }} LR8 ;
     INC LR8 1 ; BLT.S LR8 {{ cr.limits }}.H tile ;;
 {% endif %}
-
     SET LR7 CR0 ; SET LR2 {{ cr.seq_lo }} ; SET LR3 {{ cr.seq_hi }} ;;
     SET LR6 CR0 ;;
     INC LR6 112 ;;
@@ -129,7 +121,6 @@ emit:
     {{ emit_chunk((P - 1) % 8 + 1, cr.tail ~ '.L', cr.scratch_format ~ '.L') }}
 {% endif %}
     INC LR7 16 ; BLT.S LR7 LR6 emit ;;
-
     BGE.S LR11 {{ cr.limits }}.L next_batch ;;
     INC LR11 8 ; INC LR13 2 ;;
     BLT.S {{ cr.limits }}.H LR13 wrap_group ;;
