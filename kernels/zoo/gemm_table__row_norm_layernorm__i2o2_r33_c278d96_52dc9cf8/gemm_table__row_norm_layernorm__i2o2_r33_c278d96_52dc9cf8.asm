@@ -40,15 +40,20 @@
  MULT.RC.VV LR3 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; INC LR10 1{% if not loop.last %} ; LD.MULT R0 LR10 {{ cr.norm }}{% endif %} ;;
  {% endfor %}
  {% else %}
- SET LR6 LR10 ;;
- {% for p in offsets %}
- {% if not loop.first %}SET LR10 LR6 ;;{% endif %}
- {{ load(p) }}
+ // Hold the three left parts in cyclic slots and reuse each coefficient.
+ SET LR6 LR3 ;;
+ INC LR6 64 ;;
+ INC LR6 64 ;;
+ {{ load(offsets[0],true) }}
+ {{ at('LR1',offsets[1]) }}
+ LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR3 ;;
+ {{ at('LR1',offsets[2]) }}
+ LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR6 ;;
+ LD.MULT R0 LR10 {{ cr.norm }} ;;
  {% for _ in range(3) %}
- LD.MULT.CYCLIC LR10 {{ cr.norm }} LR0 ;;
  {{ mul() }}
- INC LR10 1 ;;
- {% endfor %}
+ {{ mul(slot='LR3') }}
+ MULT.RC.VV LR6 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; INC LR10 1{% if not loop.last %} ; LD.MULT R0 LR10 {{ cr.norm }}{% endif %} ;;
  {% endfor %}
  {% endif %}
 {% endmacro %}
