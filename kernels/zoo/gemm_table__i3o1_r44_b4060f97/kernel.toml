@@ -78,26 +78,16 @@ tail_ds = "ds(n - 128 * (blocks - 1))"
 src_lo = "50462976"
 src_hi = "117835012"
 packed = "(1 - min(1, k % 16)) * (1 - min(1, pixels % 8))"
-centered = "packed * (1 - min(1, min(max(k - 32, 32 - k), max(k - 64, 64 - k)))) * min(1, max(0, n - 64))"
-split_taps = "12 + 2 * (1 - min(1, max(0, n - 64))) - 4 * (1 - min(1, max(0, 160 - k))) * min(1, max(0, n - 64))"
+resident_panels = "(1 - min(1, max(k - 32, 32 - k))) * min(1, max(0, n - 64)) * (1 - min(1, max(0, n - 128)))"
+center64 = "packed * (1 - min(1, max(k - 64, 64 - k))) * min(1, max(0, n - 64))"
+split_taps = "12 + 4 * (1 - min(1, max(0, n - 64))) - 4 * (1 - min(1, max(0, 160 - k))) * min(1, max(0, n - 64)) - (1 - min(1, max(k - 32, 32 - k))) * min(1, max(0, n - 64))"
 narrow_pair = "min(1, max(0, 65 - n)) * min(1, max(0, 65 - k)) * (1 - k % 2)"
-chunks = "ceil(k / 128)"
-coeff_chunks = "chunks * 2"
-batch_rows = "k * plane"
-pixel_ds = "ds(pixels)"
-width_ds = "ds(in0_d3)"
-output_groups = "ceil(n / pack)"
-panel_count = "ceil(k / 16)"
-sum_count = "k // 4"
-narrow = "(1 - min(1, max(k - 16, 16 - k))) * (1 - min(1, max(n - 64, 64 - n)))"
-centered_split = "centered * max(0, k - 32) // 4"
-coeff_rows = "narrow * (2 + k) + (1 - narrow) * (blocks * (2 + centered * (k + sum_count) + centered_split + (1 - centered) * (2 * k - packed * (k // 16) * (16 - split_taps))) + packed * min(1, max(0, k - 160)))"
 
 [inputs.in0]
 shape = ["groups * k", 128]
 range = [-2, 2]
 [inputs.coeff]
-shape = ["coeff_rows", 128]
+shape = ["center64 * blocks * 90 + (1 - center64) * (packed * resident_panels * 42 + (1 - packed * resident_panels) * blocks * (2 * (k + 1) - narrow_pair * k - packed * (k // 16) * (16 - split_taps) - packed * (1 - min(1, max(k - 32, 32 - k))) * min(1, max(0, n - 64))))", 128]
 range = [-1, 1]
 [inputs.lut]
 shape = [5, 128]
@@ -106,7 +96,7 @@ range = [0, 0]
 shape = ["m * blocks", 128]
 
 [scratch.panel]
-shape = ["panel_count + centered * (sum_count + ceil(sum_count / 16))", 128]
+shape = ["ceil(k / 16) + packed * resident_panels * 9 + center64 * 17", 128]
 
 [abi]
 in0 = "CR2"

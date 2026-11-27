@@ -82,55 +82,65 @@ def fold(module, **params):
     step = torch.ldexp(torch.ones_like(exponent, dtype=rows.dtype), exponent - 4)
     coarse = torch.round(rows / step) * step
     pairs = torch.stack((coarse, rows - coarse), dim=1)
-    if k == 16 and n == 64:
+    if n <= 64 and k <= 64 and k % 2 == 0:
         taps = rows[1:, :64].reshape(-1, 128)
-        _, ex = torch.frexp(taps.abs().amax(dim=-1, keepdim=True))
-        step = torch.ldexp(torch.ones_like(ex, dtype=taps.dtype), ex - 4)
-        high = (taps / step).round() * step
+        _, exp = torch.frexp(taps.abs().amax(dim=-1, keepdim=True))
+        step = torch.ldexp(torch.ones_like(exp, dtype=taps.dtype), exp - 4)
+        high = torch.round(taps / step) * step
         return {"coeff": torch.cat((pairs[0], torch.stack((high, taps - high), dim=1).flatten(0, 1)))}
     width, height = params["in0_d3"], params["in0_d2"]
     limit = min(height, 128 // width)
     pixels = width * (1 if height % limit else limit)
     if k % 16 == 0 and pixels % 8 == 0:
-        if k in (32, 64) and n > 64:
-            # For each four-tap group, use one shared offset per output
-            # channel. Choose the offset to minimize rounding of the taps.
+        if k == 64 and n > 64:
             tiles = []
             for block in range(padded // 128):
                 start = block * (k + 1)
-                centered = rows[start + 1:start + k + 1].reshape(k // 4, 4, 128)
-                shifted, offset = _center(centered)
-                if k == 64:
-                    _, ex = torch.frexp(shifted.abs().amax(dim=1, keepdim=True))
-                    step = torch.ldexp(torch.ones_like(ex, dtype=shifted.dtype), ex - 4)
-                    high = (shifted / step).round() * step
-                    split = torch.arange(k, device=rows.device) % 8 == 7
-                    components = torch.stack((torch.where(split[:, None], high, shifted), shifted - high), dim=1)
-                    shifted = components[torch.stack((torch.ones_like(split), split), dim=1)]
-                tiles.append(torch.cat((pairs[start], shifted, offset)))
+                taps = rows[start + 1:start + k + 1].reshape(k // 4, 4, 128)
+                shifted, offset = _center_taps(taps)
+                _, ex = torch.frexp(shifted.abs().amax(dim=1, keepdim=True))
+                step = torch.ldexp(torch.ones_like(ex, dtype=rows.dtype), ex - 4)
+                high = (shifted / step).round() * step
+                split = torch.arange(k, device=rows.device) % 8 == 7
+                parts = torch.stack((torch.where(split[:, None], high, shifted), shifted - high), dim=1)
+                tiles.append(torch.cat((pairs[start], parts[torch.stack((torch.ones_like(split), split), dim=1)], offset)))
             return {"coeff": torch.cat(tiles)}
+        if k == 32 and 64 < n <= 128:
+            # For each four-tap group, use one shared offset per output
+            # channel. Choose the offset to minimize rounding of the taps.
+            centered = rows[1:].reshape(8, 4, 128)
+            _, ex = torch.frexp(centered.abs().amax(dim=2, keepdim=True))
+            grid = torch.ldexp(torch.ones_like(centered[:, :1, :1]), ex - 6)
+            radius = grid.amax(dim=1, keepdim=True)
+            candidates = radius * torch.linspace(-2, 2, 129, dtype=rows.dtype, device=rows.device)
+            shifted = centered.unsqueeze(-1) - candidates.unsqueeze(1)
+            _, value_ex = torch.frexp(shifted.abs())
+            step = torch.ldexp(torch.ones_like(shifted), torch.maximum(value_ex, ex.unsqueeze(-1) - 2) - 6)
+            err = shifted - (shifted / step).round() * step
+            cost = err.square().sum(dim=1) + err.sum(dim=1).square() * 0.25
+            offset = candidates.expand(-1, 128, -1).gather(-1, cost.argmin(dim=-1, keepdim=True)).squeeze(-1)
+            return {"coeff": torch.cat((pairs[0], (centered - offset[:, None]).reshape(32, 128), offset))}
         # Keep residuals for most taps; encode the rest directly.
         index = torch.arange(rows.shape[0], device=rows.device) % (k + 1)
-        single = (index > 0) & ((index - 1) % 16 >= (14 if n <= 64 else 8 if k >= 160 else 12))
+        single = (index > 0) & ((index - 1) % 16 >= (16 if n <= 64 else (8 if k >= 160 else 11 if k == 32 else 12)))
+        if k == 32 and n > 64:
+            single |= (index - 1) % 32 == 26
         if k == 96 and n > 64:
             single = (index > 0) & ((index - 1) % 16 < 4)
         pairs[single, 0] = rows[single]
-        packed = pairs[torch.stack((torch.ones_like(single), ~single), dim=1)]
-        if k > 160:
-            packed = torch.cat((packed, rows.new_zeros((1, 128))))
-        return {"coeff": packed}
+        return {"coeff": pairs[torch.stack((torch.ones_like(single), ~single), dim=1)]}
     return {"coeff": pairs.reshape(-1, 128)}
 
 
-def _center(centered):
-    _, ex = torch.frexp(centered.abs().amax(dim=2, keepdim=True))
-    grid = torch.ldexp(torch.ones_like(centered[:, :1, :1]), ex - 6)
-    radius = grid.amax(dim=1, keepdim=True)
-    candidates = radius * torch.linspace(-2, 2, 129, dtype=centered.dtype, device=centered.device)
-    shifted = centered.unsqueeze(-1) - candidates.unsqueeze(1)
+def _center_taps(taps):
+    """Fit a shared offset to the FP8 rounding grid of four coefficient rows."""
+    _, ex = torch.frexp(taps.abs().amax(dim=2, keepdim=True))
+    grid = torch.ldexp(torch.ones_like(taps[:, :1, :1]), ex - 6)
+    candidates = grid.amax(dim=1, keepdim=True) * torch.linspace(-2, 2, 129, dtype=taps.dtype, device=taps.device)
+    shifted = taps.unsqueeze(-1) - candidates.unsqueeze(1)
     _, value_ex = torch.frexp(shifted.abs())
     step = torch.ldexp(torch.ones_like(shifted), torch.maximum(value_ex, ex.unsqueeze(-1) - 2) - 6)
     err = shifted - (shifted / step).round() * step
     cost = err.square().sum(dim=1) + err.sum(dim=1).square() * 0.25
     offset = candidates.expand(-1, 128, -1).gather(-1, cost.argmin(dim=-1, keepdim=True)).squeeze(-1)
-    return (centered - offset[:, None]).reshape(-1, 128), offset
+    return (taps - offset[:, None]).reshape(-1, 128), offset
