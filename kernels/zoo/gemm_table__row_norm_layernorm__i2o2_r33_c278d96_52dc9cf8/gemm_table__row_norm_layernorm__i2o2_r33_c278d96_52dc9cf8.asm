@@ -104,6 +104,9 @@ gemm_tile:
 gemm_full_chunk:
  {{ kchunk('LR11','gemm_full_mac',true) }}
  DEC LR8 1 ;;
+ BEQ LR8 CR0 gemm_last_chunk ;;
+ {{ kchunk('LR11','gemm_full_mac_second',true) }}
+ DEC LR8 1 ;;
  BNE LR8 CR0 gemm_full_chunk ;;
 gemm_last_chunk:
  {{ kchunk('LR12','gemm_last_mac') }}
