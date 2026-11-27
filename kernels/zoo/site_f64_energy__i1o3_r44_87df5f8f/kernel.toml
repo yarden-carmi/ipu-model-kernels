@@ -1,0 +1,78 @@
+[kernel]
+op = "site_f64_energy"
+formats = ["e2"]
+
+[params.numel]
+type = "int"
+default = 200704
+min = 1
+[params.out]
+type = "int"
+default = 784
+min = 1
+[params.in0_d0]
+type = "int"
+default = 1
+min = 1
+[params.in0_d1]
+type = "int"
+default = 256
+min = 1
+[params.in0_d2]
+type = "int"
+default = 28
+min = 1
+[params.in0_d3]
+type = "int"
+default = 28
+min = 1
+[params.out0_d0]
+type = "int"
+default = 1
+min = 1
+[params.out0_d1]
+type = "int"
+default = 1
+min = 1
+[params.out0_d2]
+type = "int"
+default = 28
+min = 1
+[params.out0_d3]
+type = "int"
+default = 28
+min = 1
+[derived]
+capacity = "max(1, 128 // out0_d3)"
+pack = "1 + (capacity - 1) * (1 - min(1, out0_d2 % capacity))"
+active_count = "min(128, pack * out0_d3)"
+active = "ds(active_count)"
+one = "ds(1)"
+chunks = "ceil(in0_d1 / 128)"
+tail = "ds((in0_d1 - 1) % 128 + 1)"
+rows = "out0_d0 * out0_d1 * out0_d2 // pack * ceil(out0_d3 / 128)"
+[inputs.in0]
+shape = ["in0_d0", "in0_d2", "in0_d3", "ceil(in0_d1 / 128) * 128"]
+range = [-1, 1]
+[outputs.out0]
+shape = ["rows", 128]
+[scratch.tmp]
+shape = [1, 128]
+[scratch.values]
+shape = [128, 128]
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+tmp = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+active = "CR7"
+tail = "CR8"
+chunks = "CR9"
+rows = "CR10"
+active_count = "CR11"
+one = "CR12"
+values = "CR13"
+[cases.default]
+[golden]
+tolerance = { e2 = "NX8_STEP" }
