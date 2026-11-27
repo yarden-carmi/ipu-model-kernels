@@ -102,18 +102,13 @@ gemm_tile:
  SET LR8 LR14 ;;
  BEQ LR8 CR0 gemm_last_chunk ;;
 gemm_full_chunk:
- {{ kchunk('LR11','gemm_full_mac',true) }}
- DEC LR8 1 ;;
- BEQ LR8 CR0 gemm_last_chunk ;;
-  {{ kchunk('LR11','gemm_full_mac_second',true) }}
+  {% for i in range(8) %}
+  {{ kchunk('LR11','gemm_full_mac_' ~ i,true) }}
   DEC LR8 1 ;;
-  BEQ LR8 CR0 gemm_last_chunk ;;
-  {{ kchunk('LR11','gemm_full_mac_third',true) }}
-  DEC LR8 1 ;;
-  BEQ LR8 CR0 gemm_last_chunk ;;
-  {{ kchunk('LR11','gemm_full_mac_fourth',true) }}
-  DEC LR8 1 ;;
-  BNE LR8 CR0 gemm_full_chunk ;;
+  {% if not loop.last %}BEQ LR8 CR0 gemm_last_chunk ;;
+  {% else %}BNE LR8 CR0 gemm_full_chunk ;;
+  {% endif %}
+  {% endfor %}
 gemm_last_chunk:
  {{ kchunk('LR12','gemm_last_mac') }}
  ADD LR6 LR4 CR1 ;;
