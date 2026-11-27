@@ -7,6 +7,8 @@
 {% set qi = cr.qf_in0 ~ '.L' %}
 {% set qw = cr.qf_weights ~ '.L' %}
 {% set qo = cr.qf_out0 ~ '.L' %}
+{% set residuals = 5 %}
+{% set triple = not dw and out0_d2*out0_d3 > 256 and cin > 3 %}
 {% macro step(r,n) %}
 {% for k in range(0,n,255) %}
  INC {{ r }} {{ [255,n-k]|min }} ;;
@@ -71,8 +73,9 @@ pixel:
 {% endmacro %}
 {% for t in range(kh*kw) %}{{ depth_tap(t,loop.last) }}{% endfor %}
 {% else %}
- MULT.RC.VE LR0 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD.FIRST ; INC LR13 1 ;;
- MULT.RC.VE LR1 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; SET LR9 CR0 ; SET LR12 CR0 ;;
+ MULT.RC.VE LR0 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD.FIRST ; {% if not triple %}INC LR13 1 ;{% endif %} ;;
+ MULT.RC.VE LR1 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; SET LR9 CR0 ; SET LR12 CR0 ; {% if triple %}LD.MULT.CYCLIC LR13 {{ cr.weights }} LR0 ; INC LR13 1 ;{% endif %} ;;
+ {% if triple %}MULT.RC.VE LR0 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; INC LR13 1 ;;{% endif %}
  INC LR12 {{ kh }} ;;
 kernel_y:
 {% macro dense_tap(x,c) %}
@@ -84,10 +87,12 @@ kernel_y:
  DEC LR15 2 ;;
 scalar_{{ x }}_{{ c }}:
  MULT.RC.VE LR0 LR14 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; INC LR14 1 ; LD.MULT.CYCLIC LR13 {{ cr.weights }} LR0 ; INC LR13 1 ;;
- MULT.RC.VE LR1 LR14 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; LD.MULT.CYCLIC LR13 {{ cr.weights }} LR1 ; INC LR13 1 ; BLT.S LR14 LR15 scalar_{{ x }}_{{ c }} ;;
+ MULT.RC.VE LR1 LR14 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; LD.MULT.CYCLIC LR13 {{ cr.weights }} LR1 ; INC LR13 1 ; {% if not triple %}BLT.S LR14 LR15 scalar_{{ x }}_{{ c }} ;{% endif %} ;;
+ {% if triple %}MULT.RC.VE LR0 LR14 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; LD.MULT.CYCLIC LR13 {{ cr.weights }} LR0 ; INC LR13 1 ; BLT.S LR14 LR15 scalar_{{ x }}_{{ c }} ;;{% endif %}
  {% endif %}
  MULT.RC.VE LR0 LR14 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; INC LR14 1 ; INC LR13 1 ;;
- MULT.RC.VE LR1 LR14 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ;;
+ MULT.RC.VE LR1 LR14 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; {% if triple %}LD.MULT.CYCLIC LR13 {{ cr.weights }} LR0 ;{% endif %} ;;
+ {% if triple %}MULT.RC.VE LR0 LR14 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; INC LR13 1 ;;{% endif %}
 {% endmacro %}
 {% for x in range(kw) %}{% for c in range(ic) %}{{ dense_tap(x,c) }}{% endfor %}{% endfor %}
  ADD LR4 LR4 {{ cr.window_jump }} ; INC LR9 1 ;;
@@ -102,7 +107,7 @@ res_stride_loop:
  {% endif %}
  {{ step('LR12',(out0_d2*out0_d3*oc)%255) }}
  SET LR13 LR8 ; LD.MULT R0 LR8 {{ cr.tmp }} ;;
- {% for j in range(5) %}
+  {% for j in range(residuals) %}
  MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.SUB ; ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.residual }} LR13 ;;
  {% if not loop.last %}
  LD.MULT R0 LR13 {{ cr.residual }} ;;
@@ -140,11 +145,10 @@ transpose_tile:
  SET LR7 CR0 ; SET LR8 CR0 ;;
  {% set n = [128,out0_d2*out0_d3]|min %}
  {{ step('LR8',n) }}
- MULT.VE LR0 CR0 0 LR14 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ;;
+ MULT.VE LR0 CR0 0 LR14 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ; LD.MULT R0 LR5 {{ base }} ;;
 transpose_lane_{{ name }}:
- LD.MULT R0 LR5 {{ base }} ;;
  MULT.EE LR1 CR1 0 LR14 {{ ds }} {{ qi }} ; ACC.RESHAPE LRD14 LRD12 0 ; INC LR5 {{ oc }} ; INC LR7 1 ;;
- ADDBI LRD12 1 ; BLT.S LR7 LR8 transpose_lane_{{ name }} ;;
+ ADDBI LRD12 1 ; LD.MULT R0 LR5 {{ base }} ; BLT.S LR7 LR8 transpose_lane_{{ name }} ;;
  {{ step('LR4',n) }}
 {% endmacro %}
  {{ scatter('high',cr.tmp) }}
@@ -152,9 +156,9 @@ transpose_lane_{{ name }}:
  ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.pad }} LR6 ;;
  LD.MULT R0 LR6 {{ cr.pad }} ;;
  MULT.VE LR6 CR1 0 LR14 {{ ds }} {{ qi }} ; ACC.SUB ;;
- INC LR6 6 ;;
+  INC LR6 {{ residuals + 1 }} ;;
  ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.pad }} LR6 ;;
- {% for j in range(5) %}
+  {% for j in range(residuals) %}
  SET LR5 LR10 ; DEC LR4 {{ [128,out0_d2*out0_d3]|min }} ;;
  {% for k in range(j) %}ADD LR5 LR5 LR9 ;;{% endfor %}
  {{ scatter('low' ~ j,cr.residual) }}
@@ -164,13 +168,13 @@ transpose_lane_{{ name }}:
  LD.MULT R0 LR6 {{ cr.pad }} ;;
  SET LR7 CR0 ;;
  MULT.VE LR7 CR1 0 LR14 {{ ds }} {{ qi }} ; ACC.SUB ;;
- INC LR6 6 ;;
+  INC LR6 {{ residuals + 1 }} ;;
  ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.pad }} LR6 ;;
  {% endfor %}
  SET LR6 CR0 ;;
  LD.MULT R0 LR6 {{ cr.pad }} ;;
  MULT.VE LR6 CR1 0 LR14 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ;;
- {% for j in range(11) %}
+  {% for j in range(1 + 2*residuals) %}
  INC LR6 1 ;;
  LD.MULT R0 LR6 {{ cr.pad }} ;;
  SET LR7 CR0 ;;

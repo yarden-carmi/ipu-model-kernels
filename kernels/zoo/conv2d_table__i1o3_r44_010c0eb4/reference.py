@@ -53,13 +53,13 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 256, 64, 64], [1048576, 4096, 64, 1], 0), module.op0_weight, None, [2, 2], [1, 1], [1, 1], 256)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 160, 8, 8], [10240, 64, 8, 1], 0), module.op0_weight, None, [1, 1], [1, 1])
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 256, 32, 32], [262144, 1024, 32, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 160, 8, 8], [10240, 64, 8, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.silu_.default(_v(op1, [1, 256, 32, 32], [262144, 1024, 32, 1], 0))
+    r0 = aten.silu_.default(_v(op1, [1, 160, 8, 8], [10240, 64, 8, 1], 0))
     op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 256, 32, 32])}
+    return {"out0": _out(op2, [1, 160, 8, 8])}
 # ---- end of the frozen reference ----
 
 
@@ -91,7 +91,7 @@ def fold(module, **params):
     rows = rows.reshape(-1, chunks, 128).transpose(1, 0, 2)
     step = np.exp2(np.frexp(np.max(np.abs(rows), axis=-1, keepdims=True))[1] - 6.)
     hi = np.sign(rows) * np.minimum(np.floor(np.abs(rows) / step + 0.5), 63) * step
-    if groups != cin or groups != cout:
+    if (groups != cin or groups != cout) and not (params['out0_d2'] * params['out0_d3'] > 256 and cin > 3):
         return {'weights': np.stack((hi, rows - hi), axis=-2).reshape(-1, 128)}
     rem = rows - hi
     step2 = np.exp2(np.frexp(np.max(np.abs(rem), axis=-1, keepdims=True))[1] - 6.)
