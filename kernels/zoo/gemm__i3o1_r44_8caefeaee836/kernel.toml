@@ -1,0 +1,96 @@
+[kernel]
+op = "gemm"
+formats = ["e1", "e2"]
+
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 65536
+default = 64
+[params.m]
+type = "int"
+min = 1
+max = 65536
+default = 16384
+[params.n]
+type = "int"
+min = 1
+max = 65536
+default = 32
+[params.in0_d0]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 64
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 128
+[params.in0_d3]
+type = "int"
+min = 1
+max = 128
+multiple_of = 2
+default = 128
+[params.out0_d0]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 32
+[params.out0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 128
+[params.out0_d3]
+type = "int"
+min = 1
+max = 65536
+default = 128
+
+[derived]
+pack = "1 + min(1, 64 // out0_d1) * min(1, (out0_d1 - 1) // 16) * (1 - (out0_d0 * out0_d2 * out0_d3) % 2)"
+tiles = "ceil(out0_d1 * pack / 128)"
+pixels = "out0_d0 * out0_d2 * out0_d3 / pack"
+channel_stride = "in0_d2"
+full = "ds(128)"
+tail = "ds((out0_d1 * pack - 1) % 128 + 1)"
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d1 * in0_d2", 128]
+[inputs.w]
+shape = ["3 * tiles * (k * pack + 1) + 1", 128]
+[outputs.out0]
+shape = ["pixels * tiles", 128]
+
+[abi]
+in0 = "CR2"
+w = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+tiles = "CR7"
+full = "CR8"
+tail = "CR9"
+pixels = "CR10"
+k = "CR11"
+channel_stride = "CR12"
+in0_d3 = "CR13"
+
+[golden]
+tolerance = {e1 = "NX8_STEP", e2 = "NX8_STEP"}
+[cases.default]
