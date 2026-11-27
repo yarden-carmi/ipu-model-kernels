@@ -46,6 +46,7 @@ y_end:
     BLT.S LR14 {{ cr.in0_d2 }} x_end ;;
     SET LR14 {{ cr.in0_d2 }} ;;
 x_end:
+    DEC LR14 1 ;;
     SET LR9 LR3 ; SET LR10 LR8 ; SET LR11 LR4 ;;
     BGE.S LR11 CR0 clip_top ;;
     SET LR11 CR0 ;;
@@ -58,13 +59,16 @@ seed:
     {{ reduce('.FIRST') }} ;;
 window_y:
     SET LR11 LR4 ;;
-    BGE.S LR11 CR0 window_x ;;
+    BGE.S LR11 CR0 window_x_start ;;
     SET LR11 CR0 ;;
+window_x_start:
+    ADD LR12 LR10 LR11 ;;
+    DEC LR12 1 ;;
 window_x:
-    ADD LR12 LR10 LR11 ; LD.MULT R0 LR12 {{ cr.in0 }} ; INC LR11 1 ;;
-    {{ reduce('') }} ; BLT.S LR11 LR14 window_x ;;
+    LD.MULT R0 LR12 {{ cr.in0 }} ; {{ reduce('') }} ; INC LR11 1 ; INC LR12 1 ; BLT.S LR11 LR14 window_x ;;
     INC LR9 1 ; ADD LR10 LR10 {{ cr.in0_d2 }} ;;
     BLT.S LR9 LR13 window_y ;;
+    {{ reduce('') }} ;;
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.valid }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR7 ;;
     INC LR7 1 ; INC LR6 1 ; ADD LR4 LR4 {{ cr.stride }} ;;
     BLT.S LR6 {{ cr.out0_d2 }} out_x ;;
