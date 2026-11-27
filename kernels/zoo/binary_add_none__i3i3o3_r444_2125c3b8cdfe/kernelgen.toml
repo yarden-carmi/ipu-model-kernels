@@ -1,0 +1,98 @@
+chain = ["binary"]
+chain_in = ["in0", "in1"]
+chain_out = ["out0"]
+
+[layout.in0]
+lanes = 3
+rows = [1, 0, 2]
+pack = 8
+[view.in0]
+kind = "whole"
+
+[layout.in1]
+lanes = 3
+rows = [1, 0, 2]
+pack = 8
+[view.in1]
+kind = "whole"
+
+[layout.out0]
+lanes = 3
+rows = [0, 1, 2]
+pack = 8
+[kernel]
+op = "binary_add"
+formats = ["e1", "e2"]
+
+[params.broadcast]
+type = "str"
+choices = ["none"]
+default = "none"
+[params.inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.op]
+type = "str"
+choices = ["add"]
+default = "add"
+[params.numel]
+type = "int"
+min = 1
+max = 16777216
+default = 16384
+[params.out0_d0]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 16384
+default = 64
+[params.out0_d2]
+type = "int"
+min = 1
+max = 16384
+default = 16
+[params.out0_d3]
+type = "int"
+min = 1
+max = 512
+default = 16
+
+[derived]
+rem = "out0_d0 * out0_d1 * out0_d2 % 8"
+grows = "ceil(8 * out0_d3 / 128)"
+groups = "out0_d0 * out0_d1 * out0_d2 // 8"
+trows = "ceil(rem * out0_d3 / 128)"
+rows = "groups * grows + trows"
+row_bound = "grows * (groups - 1)"
+gtail = "ds(8 * out0_d3 % 128)"
+ttail = "ds(rem * out0_d3 % 128)"
+neg_one = "0 - 1"
+
+[inputs.in0]
+shape = ["rows", 128]
+range = [-2, 2]
+[inputs.in1]
+shape = ["rows", 128]
+range = [-2, 2]
+[outputs.out0]
+shape = ["rows", 128]
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_in1 = "CR6"
+qf_out0 = "CR7"
+row_bound = "CR8"
+gtail = "CR10"
+ttail = "CR11"
+neg_one = "CR13"
+
+[cases.default]
