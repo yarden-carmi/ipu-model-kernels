@@ -8,9 +8,8 @@ channel:
 spatial:
     {{ multiply_store(cr.valid) }} ; INC LR1 1 ; INC LR6 1 ; LD.MULT.CYCLIC LR6 {{ cr.in0 }} LR0 ; INC LR5 1 ; BLT.S LR5 {{ cr.last_prefetch }} spatial ;;
 spatial_last:
-    {{ multiply_store(cr.last_valid) }} ; INC LR1 1 ; INC LR2 1 ;;
-    INC.MODP2 LR4 CR1 7 ; BEQ LR2 {{ cr.inner }} done ;;
-    BNE LR4 CR0 channel ;;
+    {{ multiply_store(cr.last_valid) }} ; INC LR1 1 ; INC LR2 1 ; BEQ LR2 {{ cr.inner_end }} done ;;
+    INC.MODP2 LR4 CR1 7 ; BNE LR4 {{ cr.wrap }} channel ;;
 scale_block:
     LD.MULT R0 LR3 {{ cr.in1 }} ;;
     INC LR3 1 ; B channel ;;

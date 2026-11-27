@@ -24,6 +24,8 @@ type = "int"
 default = 7
 
 [derived]
+inner_end = "inner - 1"
+wrap = "127"
 pack = "min(in0_d2, 128 // in0_d3)"
 plane = "(in0_d2 + pack - 1) // pack"
 last_prefetch = "plane - 1"
@@ -46,11 +48,12 @@ out0 = "CR4"
 qf_in0 = "CR5"
 qf_in1 = "CR6"
 qf_out0 = "CR7"
-inner = "CR8"
+inner_end = "CR8"
 plane = "CR9"
 last_valid = "CR11"
 last_prefetch = "CR10"
 valid = "CR15"
+wrap = "CR12"
 
 [cases.default]
 numel = 28224
