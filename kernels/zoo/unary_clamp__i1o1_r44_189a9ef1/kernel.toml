@@ -1,0 +1,69 @@
+[kernel]
+op = "unary_clamp"
+formats = ["e1"]
+
+[params.fn]
+type = "str"
+choices = ["clamp"]
+default = "clamp"
+
+[params.numel]
+type = "int"
+min = 1
+default = 784
+
+[params.in0_d2]
+type = "int"
+min = 1
+default = 28
+
+[params.in0_d0]
+type = "int"
+min = 1
+default = 1
+
+[params.in0_d1]
+type = "int"
+min = 1
+default = 1
+
+[params.in0_d3]
+type = "int"
+min = 1
+default = 28
+
+[derived]
+rows = "in0_d0 * in0_d2 * in0_d3 * ((in0_d1 + 127) // 128)"
+last_row = "rows - 1"
+penultimate = "rows - 2"
+minus_one = "-1"
+active = "ds(min(128, in0_d1))"
+three = "3"
+two = "2"
+six = "6"
+
+[inputs.in0]
+shape = ["rows", 128]
+range = [-1.0, 1.0]
+
+[scratch.work]
+shape = [10, 128]
+
+[outputs.out0]
+shape = ["rows", 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+last_row = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+active = "CR7"
+penultimate = "CR8"
+minus_one = "CR9"
+work = "CR10"
+three = "CR11"
+two = "CR12"
+six = "CR13"
+
+[cases.default]
