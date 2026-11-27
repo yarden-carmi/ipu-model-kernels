@@ -53,17 +53,25 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 96, 32, 32], [98304, 1024, 32, 1], 0), module.op0_weight, None, [1, 1], [1, 1])
+    r0 = aten.conv2d.default(_v(ins[0], [1, 256, 64, 64], [1048576, 4096, 64, 1], 0), module.op0_weight, None, [1, 1], [1, 1], [1, 1], 256)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 48, 32, 32], [49152, 1024, 32, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 256, 64, 64], [1048576, 4096, 64, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.silu_.default(_v(op1, [1, 48, 32, 32], [49152, 1024, 32, 1], 0))
+    r0 = aten.silu_.default(_v(op1, [1, 256, 64, 64], [1048576, 4096, 64, 1], 0))
     op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 48, 32, 32])}
+    return {"out0": _out(op2, [1, 256, 64, 64])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
+    result = _fold(module, **params)
+    if 'bias_const' not in result:
+        import numpy as np
+        result['bias_const'] = np.zeros((1, 128))
+    return result
+
+
+def _fold(module, **params):
     """Fold inference BN and encode horizontally masked taps."""
     import numpy as np
 
@@ -94,6 +102,22 @@ def fold(module, **params):
     remainder = rows - hi
     mid = leading(remainder)
     parts = np.stack((hi, mid, remainder - mid), axis=-2)
+    ir = (params['in0_d2'] * w + 127) // 128
+    if (stride == 1 and w in (64, 128) and gc == 1 and ir >= 3
+            and params['in0_d2'] * w % 128 == 0 and params['in0_d2'] == params['out0_d2']):
+        # The two unmasked center residuals share a row and are broadcast.
+        scalar = np.zeros_like(rows[:, :, 0])
+        scalar[:, :, 0] = remainder[:, :, 5, 0]
+        scalar[:, :, 1] = remainder[:, :, 8, 0]
+        packed = [] if w == 64 else [hi[:, :, 0], mid[:, :, 0]]
+        for t in range(1, 10):
+            packed.append(hi[:, :, t])
+            if t != 8:
+                packed.append(scalar if t == 5 else remainder[:, :, t])
+        result = {'weights': np.stack(packed, axis=2).reshape(-1, 128)}
+        if w == 64:
+            result['bias_const'] = rows[:, :, 0].reshape(-1, 128)
+        return result
     if stride == 1 and w == 64 and gc == 1:
         return {'weights': np.concatenate((parts[:, :, 0, :2].reshape(cout, tiles, 2, 128),
             np.stack((hi[:, :, 1:], remainder[:, :, 1:]), axis=-2).reshape(cout, tiles, -1, 128)), axis=2).reshape(-1, 128)}
@@ -106,16 +130,13 @@ def fold(module, **params):
         return {'weights': np.concatenate((parts[:, 0, 0], packed.reshape(cout, 2 * gc, 128)), axis=1).reshape(-1, 128)}
     taps = np.stack((hi[:, :, 1:], remainder[:, :, 1:]), axis=-2)
     if stride == 1 and w == 32 and params['groups'] == 1 and gc > 1 and (kh, kw) == (3, 3):
-        sides_parts = taps.reshape(cout, tiles, gc, 9, 2, 128)
-        sides = np.stack([v for t in (0, 2, 3, 5, 6, 8)
-                          for v in ((sides_parts[:, :, :, t, 0], sides_parts[:, :, :, t, 1])
-                                    if t not in (0, 8) else (rows[:, :, 1:].reshape(cout, tiles, gc, 9, 128)[:, :, :, t],))], axis=3)
+        sides = taps.reshape(cout, tiles, gc, 9, 2, 128)[:, :, :, [0, 2, 3, 5, 6, 8]]
         centers = weight.reshape(cout, gc, 9).numpy()[:, :, [1, 7, 4]]
         center_hi = leading(centers)
         scalar = np.zeros((cout, tiles, gc, 2, 128), dtype=np.float64)
         scalar[:, :, :, 0, :3] = center_hi[:, None]
         scalar[:, :, :, 1, :3] = (centers - center_hi)[:, None]
-        taps = np.concatenate((sides, scalar), axis=3)
+        taps = np.concatenate((sides.reshape(cout, tiles, gc, 12, 128), scalar), axis=3)
     packed = np.concatenate((
         parts[:, :, 0].reshape(cout, tiles, 3, 128),
         taps.reshape(cout, tiles, -1, 128),
