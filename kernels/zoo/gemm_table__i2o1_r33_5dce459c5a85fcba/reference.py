@@ -58,10 +58,9 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    n, k = params['n'], params['k']
+    n, k = int(params["n"]), int(params["k"])
     weight = module.weight.detach().reshape(n, k)
-    result = {'w': torch.nn.functional.pad(weight, (0, (-k) % 128)).reshape(-1, 128)}
-    if params['bias']:
-        bias = module.bias.detach().reshape(n, 1)
-        result['b'] = torch.nn.functional.pad(bias, (0, 127))
+    result = {"w": torch.nn.functional.pad(weight, (0, (-k) % 128)).contiguous()}
+    if params["bias"]:
+        result["b"] = module.bias.detach().reshape(n, 1).expand(n, 128).contiguous()
     return result

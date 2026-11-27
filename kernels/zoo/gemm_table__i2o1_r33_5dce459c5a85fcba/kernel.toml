@@ -1,100 +1,103 @@
 [kernel]
 op = "gemm_table"
-formats = ["e2"]
+formats = ["e3"]
 
-[params.act_out0]
-type = "str"
-choices = ["silu"]
-default = "silu"
-[params.bias]
-type = "bool"
-default = true
-[params.k]
-type = "int"
-min = 1
-max = 256
-default = 144
 [params.m]
 type = "int"
 min = 1
-max = 65535
-default = 1024
+max = 16384
+default = 256
+[params.k]
+type = "int"
+min = 1
+max = 16384
+default = 768
 [params.n]
 type = "int"
 min = 1
-max = 65535
-default = 288
+max = 16384
+default = 3072
+[params.bias]
+type = "bool"
+default = true
+[params.act_out0]
+type = "str"
+choices = ["gelu", "quick_gelu"]
+default = "gelu"
 [params.in0_d0]
 type = "int"
 min = 1
-max = 65535
-default = 4
+max = 1024
+default = 1
 [params.in0_d1]
 type = "int"
 min = 1
-max = 65535
+max = 16384
 default = 256
 [params.in0_d2]
 type = "int"
 min = 1
-max = 256
-default = 144
+max = 16384
+default = 768
 [params.out0_d0]
 type = "int"
 min = 1
-max = 65535
-default = 4
+max = 1024
+default = 1
 [params.out0_d1]
 type = "int"
 min = 1
-max = 65535
+max = 16384
 default = 256
 [params.out0_d2]
 type = "int"
 min = 1
-max = 65535
-default = 288
+max = 16384
+default = 3072
 
 [derived]
-blocks = "ceil(k / 128)"
+K = "ceil(k / 128)"
+kp = "128 * K"
 tiles = "ceil(out0_d1 / 128)"
-tail_count = "(out0_d1 - 1) % 128"
-full_count = "127"
-full_ds = "ds(128)"
-tail_ds = "ds(tail_count + 1)"
-one_ds = "ds(1)"
+padded_m = "128 * tiles"
+tail = "ds((out0_d1 - 1) % 128 + 1)"
 
 [inputs.in0]
-shape = ["in0_d0 * in0_d1 * ceil(in0_d2 / 128)", 128]
-range = [-2, 2]
+shape = ["in0_d0", "in0_d1", "in0_d2"]
 [inputs.w]
-shape = ["n * blocks", 128]
-range = [-1, 1]
+shape = ["n", "kp"]
 [inputs.b]
 shape = ["n", 128]
-range = [-1, 1]
 when = "bias"
 [inputs.lut]
 shape = [5, 128]
-range = [0, 0]
 [outputs.out0]
-shape = ["out0_d0 * out0_d2 * tiles", 128]
+shape = ["out0_d0", "out0_d2", "padded_m"]
+
+
 
 [abi]
 in0 = "CR2"
 w = "CR3"
-b = "CR4"
-lut = "CR5"
-out0 = "CR6"
-qf_in0 = "CR7"
-qf_out0 = "CR8"
-full_ds = "CR9"
-tail_ds = "CR10"
-one_ds = "CR11"
-full_count = "CR12"
-tail_count = "CR13"
-tiles = "CR14"
-n = "CR15"
-out0_d0 = "LR15"
+out0 = "CR4"
+b = "CR5"
+in0_d1 = "CR6"
+K = "CR7"
+n = "CR8"
+qf_in0 = "CR9"
+lut = "CR10"
+in0_d0 = "CR11"
+qf_out0 = "CR12"
+tail = "CR13"
+
+[golden]
+tolerance = { e3 = "NX8_STEP" }
 
 [cases.default]
+m = 129
+k = 130
+n = 3
+in0_d1 = 129
+in0_d2 = 130
+out0_d1 = 129
+out0_d2 = 3
