@@ -72,8 +72,6 @@ def fold(module, **params):
     bias = module.op1_bias.detach().reshape(n) - module.op1_running_mean.detach().reshape(n) * scale
     weight = weight * scale[:, None]
     weight = torch.nn.functional.pad(weight, (0, (-k) % 128)).reshape(n, -1, 128)
-    # Separate a coarse dyadic leading component and its small correction.
-    # The leading component fits in the mantissa even on the smaller formats.
     _, exponent = torch.frexp(weight.abs().amax(dim=-1, keepdim=True))
     unit = torch.ldexp(torch.ones_like(exponent, dtype=weight.dtype), exponent - 5)
     high = torch.round(weight / unit) * unit

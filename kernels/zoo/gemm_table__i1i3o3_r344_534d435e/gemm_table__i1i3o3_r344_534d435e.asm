@@ -1,4 +1,3 @@
-{# Repack the flat CHW view into feature rows with spatial lanes. #}
     SET LR0 CR0 ; SET LR1 CR0 ; SET LR6 CR0 ;;
     SET LR7 CR0 ; SET LR10 CR0 ; SET LR8 CR0 ;;
     SET LR15 CR0 ; SET LR14 CR0 ; INC LR8 128 ;;
@@ -53,7 +52,6 @@ drain_tail:
     ACTIVATE.QUANTIZE identity {{ cr.tail }}.L {{ cr.qf_in0 }}.L {{ cr.stage }} LR1 ;;
     INC LR1 1 ; INC LR14 {{ (m + 127) // 128 }} ;;
     BLT.S LR1 {{ cr.stage_rows }} stage_row ;;
-
     SET LR9 CR0 ;;
 copy:
     LD.MULT R0 LR9 {{ cr.in1 }} ;;
@@ -69,7 +67,6 @@ copy:
 {% for i in range(5) %}
     {% if i %}INC LR1 1 ; {% endif %}LD.LUT {{ i }} {{ cr.lut }} LR1 ;;
 {% endfor %}
-
 {% macro mac() %}
     MULT.RC.VE LR0 LR6 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR6 1 ; INC LR4 {{ (m + 127) // 128 }}
 {%- endmacro %}
