@@ -5,15 +5,15 @@
     LD.MULT R0 LR4 {{ cr.w }} ; SET LR3 {{ cr.minusone }} ; INC LR4 1 ;;
     LD.MULT.CYCLIC LR2 {{ cr.in0 }} LR0 ; ADD LR2 LR2 {{ cr.width }} ;;
 {% if count == 128 %}
-{{ label }}_group:
-{% for i in range(31) %}
-    {{ mac(true, ' ; BLT.S LR3 ' ~ cr.last_full ~ ' ' ~ label ~ '_advance' if i == 30 else '') }}
-{% endfor %}
+{% for group in range(4) %}
+{% for i in range(32) %}
+{% if group == 3 and i == 31 %}
     {{ mac(false, ' ; DEC LR7 1 ; BNE LR7 CR1 full_chunk') }}
-    B {{ label }}_end ;;
-{{ label }}_advance:
-    {{ mac(true, ' ; B ' ~ label ~ '_group') }}
-{{ label }}_end:
+{% else %}
+    {{ mac(true) }}
+{% endif %}
+{% endfor %}
+{% endfor %}
 {% elif count > 1 %}
 {{ label }}_lane:
     {{ mac(true, ' ; BLT.S LR3 ' ~ cr.last_tail ~ ' ' ~ label ~ '_lane') }}

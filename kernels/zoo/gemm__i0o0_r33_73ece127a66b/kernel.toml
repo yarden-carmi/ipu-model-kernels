@@ -3,15 +3,15 @@ op = "gemm"
 formats = ["e2", "e3"]
 [params]
 bias = {type = "bool", default = true}
-k = {type = "int", min = 1, max = 65536, default = 384}
-m = {type = "int", min = 1, max = 65536, default = 256}
-n = {type = "int", min = 1, max = 65536, default = 192}
+k = {type = "int", min = 1, max = 65536, default = 144}
+m = {type = "int", min = 1, max = 65536, default = 1024}
+n = {type = "int", min = 1, max = 65536, default = 432}
 in0_d0 = {type = "int", min = 1, max = 65536, default = 4}
-in0_d1 = {type = "int", min = 1, max = 65536, default = 64}
-in0_d2 = {type = "int", min = 1, max = 65536, default = 384}
+in0_d1 = {type = "int", min = 1, max = 65536, default = 256}
+in0_d2 = {type = "int", min = 1, max = 65536, default = 144}
 out0_d0 = {type = "int", min = 1, max = 65536, default = 4}
-out0_d1 = {type = "int", min = 1, max = 65536, default = 64}
-out0_d2 = {type = "int", min = 1, max = 65536, default = 192}
+out0_d1 = {type = "int", min = 1, max = 65536, default = 256}
+out0_d2 = {type = "int", min = 1, max = 65536, default = 432}
 [derived]
 width = "ceil(m / 128)"
 chunks = "(k - k % 128) / 128"
