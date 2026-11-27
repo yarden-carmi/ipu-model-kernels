@@ -1,0 +1,171 @@
+[kernel]
+op = "conv2d__binary_add_none_builtin"
+formats = ["e1", "e2"]
+[params.s0_bias]
+type = "bool"
+default = true
+[params.s0_cin]
+type = "int"
+min = 1
+max = 1024
+default = 64
+[params.s0_cout]
+type = "int"
+min = 1
+max = 1024
+default = 64
+[params.s0_groups]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.s0_h]
+type = "int"
+min = 1
+max = 512
+default = 56
+[params.s0_w]
+type = "int"
+min = 1
+max = 128
+default = 56
+[params.s0_kh]
+type = "int"
+min = 1
+max = 3
+default = 3
+[params.s0_kw]
+type = "int"
+min = 1
+max = 3
+default = 3
+[params.s0_padding]
+type = "int"
+min = 0
+max = 1
+default = 1
+[params.s0_stride]
+type = "int"
+min = 1
+max = 32
+default = 1
+[params.s1_broadcast]
+type = "str"
+choices = ["none"]
+default = "none"
+[params.s1_op]
+type = "str"
+choices = ["add"]
+default = "add"
+[params.s1_inner]
+type = "int"
+min = 0
+max = 1000000
+default = 0
+[params.s1_numel]
+type = "int"
+min = 1
+max = 100000000
+default = 200704
+[params.act_out0]
+type = "str"
+choices = ["relu"]
+default = "relu"
+[params.in0_d0]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 1024
+default = 64
+[params.in0_d2]
+type = "int"
+min = 1
+max = 512
+default = 56
+[params.in0_d3]
+type = "int"
+min = 1
+max = 128
+default = 56
+[params.in1_d0]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.in1_d1]
+type = "int"
+min = 1
+max = 1024
+default = 64
+[params.in1_d2]
+type = "int"
+min = 1
+max = 514
+default = 56
+[params.in1_d3]
+type = "int"
+min = 1
+max = 130
+default = 56
+[params.out0_d0]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 1024
+default = 64
+[params.out0_d2]
+type = "int"
+min = 1
+max = 514
+default = 56
+[params.out0_d3]
+type = "int"
+min = 1
+max = 130
+default = 56
+[derived]
+blocks = "ceil(out0_d1 / 128)"
+plane = "ceil(in0_d1 / 128)"
+full = "ds(128)"
+tail = "ds(out0_d1 - (blocks - 1) * 128)"
+ends = "out0_d3 * s0_stride - s0_padding + 65536 * (out0_d2 * s0_stride - s0_padding)"
+input_hw = "in0_d3 + 65536 * in0_d2"
+skip_y = "2 * s0_kw * in0_d1"
+skip_x = "2 * in0_d1"
+[inputs.in0]
+shape = ["in0_d0 * in0_d2 * in0_d3 * plane", 128]
+range = [-2, 2]
+[inputs.in1]
+shape = ["in1_d0 * in1_d2 * in1_d3 * ceil(in1_d1 / 128)", 128]
+range = [-2, 2]
+[inputs.weights]
+shape = ["blocks", "2 * (1 + s0_kh * s0_kw * in0_d1)", 128]
+range = [-1, 1]
+[outputs.out0]
+shape = ["out0_d0 * out0_d2 * out0_d3 * blocks", 128]
+[abi]
+in0 = "CR2"
+weights = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+in1 = "CR7"
+blocks = "CR8"
+qf_in1 = "CR9"
+full = "CR10"
+tail = "CR11"
+ends = "CR12"
+input_hw = "CR13"
+skip_y = "CR14"
+skip_x = "CR15"
+[golden]
+tolerance = {e1 = "NX8_STEP", e2 = "NX8_STEP"}
+[cases.default]
