@@ -33,13 +33,13 @@ plane = "(2 - stride) * (ir + guard_extra) + (stride - 1) * sr * taps"
 group_plane = "gc * plane"
 tiles = "ceil(out0_d3 / 128)"
 fast = "(stride - 1) * (w // 256) * (1 // groups) * min(1, 3 // gc)"
-short_direct = "(2 - stride) * (w // 64) * (127 // w) * (1 // gc) * (1 - in0_d2 % 2) * min(1, in0_d2 // 6)"
-weight_tile = "3 - (2 - stride) * (w // 64) * (127 // w) * (1 // gc) + (1 - fast) * 2 * gc * taps + fast * 2 * gc - 2 * short_direct"
+compact = "(2 - stride) * (w // 32) * (63 // w) * (1 - 1 // gc) * (1 // groups)"
+weight_tile = "3 - (2 - stride) * (w // 64) * (127 // w) * (1 // gc) + (1 - fast) * 2 * gc * taps + fast * 2 * gc - compact * 4 * gc"
 lookahead = "(2 - stride) * (1 - w // 256) * (1 - 1 // gc)"
 full = "ds(128)"
 input_tail = "65536 * ds(1 + (in0_d2 * in0_d3 - 1) % 128) + full"
 tail = "ds(1 + (out0_d2 * out0_d3 - 1) % 128)"
-sr_last = "sr - 1 + 65536 * (gc - 1)"
+sr_last = "sr - 1"
 gc_last = "gc - 1"
 
 [inputs.in0]
@@ -51,11 +51,8 @@ range = [-1, 1]
 [inputs.lut]
 shape = [5, 128]
 range = [0, 0]
-[inputs.bias_row]
-shape = ["max(1, cout * short_direct)", 128]
-range = [0, 0]
 [scratch.guard]
-shape = ["cin * (ir + guard_extra)", 128]
+shape = ["cin * (ir + guard_extra) + compact * (ir + 6)", 128]
 [scratch.stencil]
 shape = ["(stride - 1) * cin * sr * taps + 1", 128]
 [outputs.out0]
@@ -74,8 +71,7 @@ qf_out0 = "CR10"
 input_tail = "CR11"
 tail = "CR12"
 sr_last = "CR13"
-qf_bias_row = "CR14"
-bias_row = "LR10"
+gc_last = "CR14"
 plane = "CR15"
 group_plane = "LR15"
 
