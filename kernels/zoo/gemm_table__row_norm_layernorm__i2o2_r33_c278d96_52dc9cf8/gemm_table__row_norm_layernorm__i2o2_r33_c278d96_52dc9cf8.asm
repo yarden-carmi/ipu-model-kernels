@@ -65,11 +65,18 @@
   {% endfor %}
 {% endmacro %}
 {% macro product(a,b,na) %}
- // Keep both right-hand residual parts live across the left-hand parts.
- {{ load(b) }}{{ load(b+1,ra='R1') }}
+ // Keep both right-hand parts resident and prefetch the next left part
+ // into the alternate cyclic slot while consuming the current part.
+ {{ at('LR1',b-1) }}
+ LD.MULT R0 LR1 {{ cr.tmp }} ; INC LR1 1 ;;
+ LD.MULT R1 LR1 {{ cr.tmp }} ; INC LR1 1 ;;
+ {{ at('LR1',a-1) }}
+ LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ; INC LR1 1 ;;
  {% for i in range(na) %}
- {{ load(a+i,true) }}
- {{ mul(loop.first) }}{{ mul(ra='R1') }}
+ {% set slot = 'LR0' if i % 2 == 0 else 'LR3' %}
+ {% set next_slot = 'LR3' if i % 2 == 0 else 'LR0' %}
+ {{ mul(loop.first,slot=slot) }}
+ MULT.RC.VV {{ slot }} R1 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if not loop.last %} ; LD.MULT.CYCLIC LR1 {{ cr.tmp }} {{ next_slot }} ; INC LR1 1{% endif %} ;;
  {% endfor %}
 {% endmacro %}
 {% macro coeff() %}LD.MULT.CYCLIC LR5 {{ cr.coeff }} LR0 ; INC LR5 1{% endmacro %}
