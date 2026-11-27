@@ -1,0 +1,110 @@
+[kernel]
+op = "gemm"
+formats = ["e1", "e2"]
+
+[params.bias]
+type = "bool"
+default = true
+[params.act_out0]
+type = "str"
+choices = ["relu"]
+default = "relu"
+[params.k]
+type = "int"
+min = 1
+max = 4096
+default = 24
+[params.n]
+type = "int"
+min = 1
+max = 4096
+default = 88
+[params.m]
+type = "int"
+min = 1
+max = 65536
+default = 784
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 24
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 28
+[params.in0_d3]
+type = "int"
+min = 1
+max = 128
+default = 28
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 88
+[params.out0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 28
+[params.out0_d3]
+type = "int"
+min = 1
+max = 128
+default = 28
+
+[derived]
+blocks = "ceil(n / 128)"
+last = "blocks - 1"
+full_ds = "ds(128)"
+tail_ds = "ds(n - 128 * last)"
+chunks = "ceil(in0_d1 / 128)"
+dot = "min(1, max(0, 2 - m)) * min(1, max(0, 2 - in0_d0 * in0_d2 * in0_d3)) * max(0, 1 - max(k - in0_d1, in0_d1 - k))"
+in_pack = "min(4 + 124 * max(0, 2 - m), -ceil(-128 / in0_d3))"
+out_pack = "min(4 + 124 * max(0, 2 - m), -ceil(-128 / out0_d3))"
+in_groups = "ceil(k / in_pack)"
+out_groups = "ceil(n / out_pack)"
+in_rows = "in0_d0 * in0_d2 * ceil(in0_d1 / in_pack)"
+out_rows = "out0_d0 * out0_d2 * out_groups"
+split_main = "max(0, 1 - max(in_pack - 2, 2 - in_pack))"
+coeff_rows = "(1 - dot) * out_groups * (2 + in_groups * 2 * (in_pack + out_pack - 1)) + dot * 2 * (blocks + n * chunks)"
+spatial_rows = "in0_d0 * in0_d2"
+width_ds = "ds(out_pack * out0_d3)"
+last_ds = "ds((n - (out_groups - 1) * out_pack) * out0_d3)"
+
+[inputs.in0]
+shape = ["in_rows", 128]
+[inputs.coeff]
+shape = ["coeff_rows", 128]
+[outputs.out0]
+shape = ["out_rows", 128]
+
+[abi]
+in0 = "CR2"
+coeff = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+k = "CR7"
+in_groups = "CR8"
+spatial_rows = "CR9"
+out_groups = "CR10"
+last = "CR11"
+full_ds = "CR12"
+tail_ds = "CR13"
+width_ds = "CR14"
+last_ds = "CR15"
+
+[cases.default]
