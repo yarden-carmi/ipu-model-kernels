@@ -123,6 +123,8 @@ LD.LUT {{ i }} {{ cr.lut }} LR2 ; INC LR2 1 ;;
 {{ imm('LR5',cout-1) }}
 {{ imm('LR7',-1) }}
 {{ imm('LR12',128) }}
+SET LR14 {{ cr.sr_last }} ;;
+INC LR14 1 ;;
 short_channel:
 SET LR6 CR0 ; SET LR9 LR3 ; SET LR11 LR12 ;;
 DEC LR9 2 ;;
@@ -132,17 +134,17 @@ SET LR1 LR12 ;;
 INC LR1 128 ;;
 LD.MULT.CYCLIC LR9 {{ cr.guard }} LR1 ; INC LR9 1 ;;
 SET LR13 LR1 ;;
+LD.MULT R0 LR7 {{ cr.weights }} ; INC LR7 1 ; SET LR8 LR7 ;;
+DEC LR7 1 ; INC LR8 1 ;;
 short_row:
-SET LR8 LR7 ;;
-LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;;
 LD.MULT R1 LR8 {{ cr.weights }} ; INC LR8 1 ;;
 MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD.FIRST ; SET LR1 LR11 ; LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;;
 MULT.VE LR12 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; DEC LR1 65 ; LD.MULT R1 LR8 {{ cr.weights }} ; INC LR8 1 ;;
 {% for t in range(9) %}
-MULT.RC.VV LR1 R0 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; {% if t < 8 %}LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;{% endif %} {% if t %}INC LR1 {{ 1 if t%3 else 62 }} ;{% endif %} {% if t == 7 %}INC LR9 1 ;{% elif t == 0 %}INC.MODP2 LR13 LR12 9 ;{% endif %} ;;
-MULT.RC.VV LR1 R1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; {% if t < 8 %}LD.MULT R1 LR8 {{ cr.weights }} ; INC LR8 1 ; {% if t == 7 %}INC.MODP2 LR11 LR12 9 ;{% endif %}{% else %}LD.MULT.CYCLIC LR9 {{ cr.guard }} LR13 ; {{ store(ds) }} INC LR6 1 ; BLT.S LR6 {{ cr.sr_last }} short_row ;{% endif %} ;;
+MULT.RC.VV LR1 R0 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; {% if t < 8 %}LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;{% else %}LD.MULT R0 LR7 {{ cr.weights }} ; INC LR7 1 ; SET LR8 LR7 ;{% endif %} {% if t %}INC LR1 {{ 1 if t%3 else 62 }} ;{% endif %} {% if t == 7 %}INC LR9 1 ;{% elif t == 0 %}INC.MODP2 LR13 LR12 9 ;{% endif %} ;;
+MULT.RC.VV LR1 R1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; {% if t < 8 %}LD.MULT R1 LR8 {{ cr.weights }} ; INC LR8 1 ; {% if t == 7 %}INC.MODP2 LR11 LR12 9 ; INC LR6 1 ;{% endif %}{% else %}LD.MULT.CYCLIC LR9 {{ cr.guard }} LR13 ; {{ store(ds) }} INC LR8 1 ; DEC LR7 1 ; BLT.S LR6 LR14 short_row ;{% endif %} ;;
 {% endfor %}
-SET LR7 LR8 ; ADD LR3 LR3 LR15 ; INC LR4 1 ; BLT.S LR4 LR5 short_channel ;;
+INC LR7 {{ 2+2*kh*kw }} ; ADD LR3 LR3 LR15 ; INC LR4 1 ; BLT.S LR4 LR5 short_channel ;;
 HALT ;;
 {% else %}
 {{ imm('LR2',-1) }}
