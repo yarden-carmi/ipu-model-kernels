@@ -1,0 +1,126 @@
+[kernel]
+op = "conv2d_table"
+formats = ["e1", "e2"]
+
+[params.act_out0]
+type = "str"
+choices = ["hardswish"]
+default = "hardswish"
+[params.bias]
+type = "bool"
+default = true
+[params.cin]
+type = "int"
+min = 1
+max = 640
+default = 64
+[params.cout]
+type = "int"
+min = 1
+max = 640
+default = 64
+[params.groups]
+type = "int"
+min = 2
+max = 640
+default = 64
+[params.h]
+type = "int"
+min = 1
+max = 32
+default = 28
+[params.w]
+type = "int"
+choices = [7, 14, 28]
+default = 28
+[params.kh]
+type = "int"
+choices = [5]
+default = 5
+[params.kw]
+type = "int"
+choices = [5]
+default = 5
+[params.padding]
+type = "int"
+choices = [2]
+default = 2
+[params.stride]
+type = "int"
+choices = [1, 2]
+default = 1
+[params.in0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 640
+default = 64
+[params.in0_d2]
+type = "int"
+min = 1
+max = 256
+default = 128
+[params.in0_d3]
+type = "int"
+min = 1
+max = 256
+default = 128
+[params.out0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 640
+default = 64
+[params.out0_d2]
+type = "int"
+min = 1
+max = 258
+default = 128
+[params.out0_d3]
+type = "int"
+min = 1
+max = 258
+default = 128
+
+[derived]
+weight_rows = "cout * (3 + 3 * kh * kw)"
+ds128 = "ds(128)"
+ds_width = "ds(min(w, 128))"
+ds_out = "ds(out0_d3)"
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d1", "ceil(in0_d2 / (128 // in0_d3))", 128]
+range = [-2, 2]
+[inputs.weights]
+shape = ["weight_rows", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[scratch.pad]
+shape = ["(in0_d2 + 4) * stride", 128]
+[outputs.out0]
+shape = ["out0_d0", "out0_d1", "out0_d2", 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+weights = "CR4"
+lut = "CR5"
+pad = "CR6"
+qf_in0 = "CR8"
+qf_weights = "CR9"
+qf_out0 = "CR10"
+ds128 = "CR11"
+ds_width = "CR12"
+ds_out = "CR13"
+
+[golden]
+tolerance = { e1 = "NX8_STEP", e2 = "NX8_STEP" }
+[cases.default]
