@@ -29,28 +29,19 @@
 {% endmacro %}
 {% macro save(n,count=2,dec=false) %}{{ at('LR1',n) }}{{ split('LR1',count,dec) }}{% endmacro %}
 {% macro norm_products(offsets) %}
- {% if offsets|length == 2 %}
- // Keep both rsqrt parts resident while streaming the three gamma parts.
- {{ load(offsets[0],true) }}
- {{ at('LR1',offsets[1]) }}
- LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR3 ;;
+ // Keep the split scalar resident while streaming each coefficient once.
+ {% set slots = ['LR0','LR3','LR8'] %}
+ {{ at('LR1',offsets[0]) }}
+ {% for slot in slots[:offsets|length] %}
+ LD.MULT.CYCLIC LR1 {{ cr.tmp }} {{ slot }} ;;
+ {% if not loop.last %}INC LR1 1 ;;{% endif %}
+ {% endfor %}
  {% for _ in range(3) %}
  LD.MULT R0 LR10 {{ cr.norm }} ;;
- {{ mul() }}
- MULT.RC.VV LR3 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; INC LR10 1 ;;
- {% endfor %}
- {% else %}
- SET LR6 LR10 ;;
- {% for p in offsets %}
- {% if not loop.first %}SET LR10 LR6 ;;{% endif %}
- {{ load(p) }}
- {% for _ in range(3) %}
- LD.MULT.CYCLIC LR10 {{ cr.norm }} LR0 ;;
- {{ mul() }}
- INC LR10 1 ;;
+ {% for slot in slots[:offsets|length] %}
+ MULT.RC.VV {{ slot }} R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if loop.last %} ; INC LR10 1{% endif %} ;;
  {% endfor %}
  {% endfor %}
- {% endif %}
 {% endmacro %}
 {% macro average() %}
  {{ save(0,3) }}
@@ -134,6 +125,8 @@ gemm_last_chunk:
  SET LR4 LR6 ; B gemm_tile ;;
 gemm_last_tile:
  {{ gelu(tail) }}
+ // LR8 is no longer the GEMM chunk counter; use it for cyclic slot 2.
+ ADD LR8 LR3 LR3 ;;
  SET LR5 CR0 ;;
  {{ vec(first=true,s='CR0') }}
 sum:
