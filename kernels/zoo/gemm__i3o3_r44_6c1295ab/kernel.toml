@@ -1,0 +1,49 @@
+[kernel]
+op = "gemm"
+formats = ["e1"]
+
+[params]
+bias = {type = "bool", default = true}
+k = {type = "int", min = 1, max = 128, default = 64}
+m = {type = "int", min = 1, max = 65536, default = 4096}
+n = {type = "int", min = 1, max = 65536, default = 64}
+in0_d0 = {type = "int", min = 1, max = 1, default = 1}
+in0_d1 = {type = "int", min = 1, max = 128, default = 64}
+in0_d2 = {type = "int", min = 1, max = 65536, default = 64}
+in0_d3 = {type = "int", min = 1, max = 128, default = 64}
+out0_d0 = {type = "int", min = 1, max = 1, default = 1}
+out0_d1 = {type = "int", min = 1, max = 65536, default = 64}
+out0_d2 = {type = "int", min = 1, max = 65536, default = 64}
+out0_d3 = {type = "int", min = 1, max = 128, default = 64}
+
+[derived]
+full = "ds(128)"
+tail = "ds(out0_d3)"
+last = "k - 3"
+minusone = "-1"
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d2 * in0_d1", 128]
+[inputs.w]
+shape = ["n * 2", 128]
+[outputs.out0]
+shape = ["out0_d1 * out0_d0 * out0_d2", 128]
+
+[abi]
+in0 = "CR2"
+w = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+n = "CR7"
+full = "CR8"
+tail = "CR9"
+in0_d2 = "CR10"
+k = "CR11"
+last = "CR12"
+minusone = "CR13"
+
+[golden]
+tolerance = {e1 = "NX8_STEP"}
+
+[cases.default]
