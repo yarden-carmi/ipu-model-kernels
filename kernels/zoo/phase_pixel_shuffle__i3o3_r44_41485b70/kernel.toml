@@ -1,0 +1,47 @@
+[kernel]
+op = "phase_pixel_shuffle"
+formats = ["e2"]
+
+[params]
+channels = {type="int", min=1, default=48}
+s = {type="int", min=1, default=4}
+in0_d0 = {type="int", min=1, default=1}
+in0_d1 = {type="int", min=1, default=768}
+in0_d2 = {type="int", min=1, default=16}
+in0_d3 = {type="int", min=1, max=128, default=16}
+out0_d0 = {type="int", min=1, default=1}
+out0_d1 = {type="int", min=1, default=48}
+out0_d2 = {type="int", min=1, default=64}
+out0_d3 = {type="int", min=1, max=128, default=64}
+
+[derived]
+active = "ds(out0_d3)"
+phase_step = "in0_d0 * in0_d2"
+channel_step = "s * s * in0_d0 * in0_d2"
+src_lo = "50462976"
+src_hi = "117835012"
+dst_lo = "s * 50462976"
+dst_hi = "s * 117835012"
+
+[inputs.in0]
+shape = ["in0_d1", "in0_d0", "in0_d2", "ceil(in0_d3 / 128) * 128"]
+[outputs.out0]
+shape = ["out0_d1", "out0_d0", "out0_d2", "ceil(out0_d3 / 128) * 128"]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+qf_in0 = "CR4"
+qf_out0 = "CR5"
+active = "CR6"
+phase_step = "CR7"
+channel_step = "CR8"
+src_lo = "CR9"
+src_hi = "CR10"
+dst_lo = "CR11"
+dst_hi = "CR12"
+channels = "CR13"
+in0_d0 = "CR14"
+in0_d2 = "LR14"
+
+[cases.default]
