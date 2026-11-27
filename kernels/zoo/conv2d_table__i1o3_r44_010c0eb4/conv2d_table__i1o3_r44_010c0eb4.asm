@@ -7,7 +7,7 @@
 {% set qi = cr.qf_in0 ~ '.L' %}
 {% set qw = cr.qf_weights ~ '.L' %}
 {% set qo = cr.qf_out0 ~ '.L' %}
-{% set residuals = 5 %}
+{% set residuals = 4 if not dw and out0_d2*out0_d3 <= 64 else 5 %}
 {% set triple = not dw and out0_d2*out0_d3 > 256 and cin > 3 %}
 {% macro step(r,n) %}
 {% for k in range(0,n,255) %}
