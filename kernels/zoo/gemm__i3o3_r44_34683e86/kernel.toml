@@ -1,0 +1,95 @@
+[kernel]
+op = "gemm"
+formats = ["e1", "e2"]
+
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 4096
+default = 64
+[params.m]
+type = "int"
+min = 1
+default = 16384
+[params.n]
+type = "int"
+min = 1
+max = 4096
+default = 32
+[params.in0_d0]
+type = "int"
+min = 1
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+default = 64
+[params.in0_d2]
+type = "int"
+min = 1
+default = 128
+[params.in0_d3]
+type = "int"
+min = 1
+default = 128
+[params.out0_d0]
+type = "int"
+min = 1
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+default = 32
+[params.out0_d2]
+type = "int"
+min = 1
+default = 128
+[params.out0_d3]
+type = "int"
+min = 1
+default = 128
+
+[derived]
+pack3 = "1 - min(1, max(in0_d3 - 32, 32 - in0_d3) + in0_d2 % 4 + max(0, k - 96))"
+ip = "min(in0_d2, max(1, 128 // in0_d3)) - pack3"
+op = "min(out0_d2, max(1, 128 // out0_d3)) - pack3"
+pitch = "ceil(in0_d2 / ip) * ceil(ip * in0_d3 / 128)"
+out_pitch = "ceil(out0_d2 / op) * ceil(op * out0_d3 / 128)"
+full = "ds(128)"
+active = "ds(min(128, ip * in0_d3))"
+tail = "ds(min(128, in0_d3 * (in0_d2 % 3)))"
+scalar127 = "127"
+loop_count = "(k - 1) // 32"
+weight_rows = "n * (2 + 2 * ceil(k / 32))"
+batch_stride = "k * pitch"
+batches = "in0_d0"
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d1 * pitch", 128]
+range = [-2, 2]
+[inputs.w]
+shape = ["weight_rows", 128]
+range = [-1, 1]
+[outputs.out0]
+shape = ["out0_d0 * out0_d1 * out_pitch", 128]
+
+[abi]
+in0 = "CR2"
+w = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+loop_count = "CR7"
+n = "CR8"
+full = "CR9"
+scalar127 = "CR12"
+active = "CR13"
+tail = "CR10"
+pitch = "LR4"
+batch_stride = "LR15"
+batches = "LR12"
+
+[cases.default]
