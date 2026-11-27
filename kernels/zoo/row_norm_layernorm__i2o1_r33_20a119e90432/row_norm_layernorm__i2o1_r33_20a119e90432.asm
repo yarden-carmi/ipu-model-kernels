@@ -59,16 +59,29 @@ raw_chunk:
  SET LR2 CR0 ; SET LR3 CR0 ; SET LR14 LR13 ;;
  {{ vec('ADD.FIRST',q,f,'CR0') }}
 raw_elem:
- SET LR10 LR4 ; SET LR11 LR1 ;;
-  {% if channels > 128 %}
-  {% if channels > 256 %}raw_lane:{% endif %}
-  BLT.S LR11 LR13 raw_load ;;
+  {% if channels > 128 and channels <= 256 %}
+  SET LR10 LR4 ; SET LR11 LR1 ; BLT.S LR1 LR13 raw_load ;;
+  {% else %}
+  SET LR10 LR4 ; SET LR11 LR1 ;;
+  {% endif %}
+   {% if channels > 128 %}
+   {% if channels > 256 %}raw_lane:{% endif %}
+   {% if channels > 256 %}BLT.S LR11 LR13 raw_load ;;{% endif %}
   SUB LR11 LR11 LR13 ; INC LR10 1 ;;
   {% if channels > 256 %}B raw_lane ;;{% endif %}
  {% endif %}
 raw_load:
  {{ ld('LR10',cr.in0) }}
- MULT.EE LR11 CR1 0 LR0 {{ f }} {{ iq }} ; ACC.RESHAPE LRD0 LRD2 7 ; DEC LR5 1 ;;
+  {% if (rows//channels)*((channels+127)//128) < 128 and rows%channels < 128 %}
+  MULT.EE LR11 CR1 0 LR0 {{ f }} {{ iq }} ; ACC.RESHAPE LRD0 LRD2 7 ; DEC LR5 1 ; DEC LR14 1 ;;
+  ADDBI LRD2 1 {% if rows//channels %}; INC LR4 {{ (rows//channels)*((channels+127)//128) }}{% endif %} {% if rows%channels %}; INC LR1 {{ rows%channels }}{% endif %} ;;
+  {% if rows%channels %}
+  BLT.S LR1 LR8 raw_advance ;;
+  SUB LR1 LR1 LR8 ; ADD LR4 LR4 {{ cr.chunks }} ;;
+raw_advance:
+  {% endif %}
+  {% else %}
+  MULT.EE LR11 CR1 0 LR0 {{ f }} {{ iq }} ; ACC.RESHAPE LRD0 LRD2 7 ; DEC LR5 1 ;;
  ADDBI LRD2 1 ; DEC LR14 1 ;;
   {% if rows//channels %}{% set advance = (rows//channels)*((channels+127)//128) %}{% if advance < 128 %}INC LR4 {{ advance }} ;;{% else %}{{ imm('LR10',advance) }} ADD LR4 LR4 LR10 ;;{% endif %}{% endif %}
  {% if rows%channels %}
@@ -76,7 +89,8 @@ raw_load:
  BLT.S LR1 LR8 raw_advance ;;
  SUB LR1 LR1 LR8 ; ADD LR4 LR4 {{ cr.chunks }} ;;
 raw_advance:
- {% endif %}
+  {% endif %}
+  {% endif %}
  BEQ LR5 CR0 raw_save ;;
  BNE LR14 CR0 raw_elem ;;
 raw_save:
@@ -166,10 +180,10 @@ plane:
  SET LR0 CR0 ; SET LR3 CR0 ;;
  {% if out0_d1 % 128 %}{{ vec('ADD.FIRST',q,f,'CR0') }}{% endif %}
  SET LR2 CR0 ; SET LR5 LR11 ; SET LR0 LR13 ;;
-gather:
- {{ ld('LR5') }}
- MULT.EE LR6 CR1 0 LR1 {{ f }} {{ q }} ; ACC.RESHAPE LRD6 LRD2 7 ; ADD LR5 LR5 {{ step }} ; DEC LR0 1 ;;
- ADDBI LRD2 1 ; BNE LR0 CR0 gather ;;
+ gather:
+  {{ ld('LR5') }}
+  MULT.EE LR6 CR1 0 LR1 {{ f }} {{ q }} ; ACC.RESHAPE LRD6 LRD2 7 ; ADD LR5 LR5 {{ step }} ; DEC LR0 1 ;;
+  ADDBI LRD2 1 ; BNE LR0 CR0 gather ;;
  SET LR0 CR0 ;; {{ save('LR10') }}
  INC LR11 1 ;;
  SET LR2 CR0 ;; INC LR2 9 ;; BNE LR10 LR2 plane ;;
