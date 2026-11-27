@@ -1,0 +1,88 @@
+[kernel]
+op = "clamped_pair"
+formats = ["e1"]
+[params.axis]
+type = "int"
+choices = [-2, -1]
+default = -1
+[params.out]
+type = "int"
+min = 1
+max = 256
+default = 224
+[params.in0_d0]
+type = "int"
+min = 1
+max = 16
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 128
+default = 32
+[params.in0_d2]
+type = "int"
+min = 1
+max = 256
+default = 128
+[params.in0_d3]
+type = "int"
+min = 1
+max = 256
+default = 128
+[params.out0_d0]
+type = "int"
+min = 1
+max = 16
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 128
+default = 32
+[params.out0_d2]
+type = "int"
+min = 1
+max = 256
+default = 128
+[params.out0_d3]
+type = "int"
+min = 1
+max = 256
+default = 224
+[inputs.in0]
+shape = ["in0_d0", "in0_d1", "in0_d2", "ic * 128"]
+range = [-1, 1]
+[outputs.out0]
+shape = ["out0_d0", "out0_d1", "out0_d2", "oc * 128"]
+[scratch.work]
+shape = ["21 + 4 * out", 128]
+[derived]
+ic = "ceil(in0_d3 / 128)"
+oc = "ceil(out0_d3 / 128)"
+n = "(axis + 2) * in0_d3 + (-axis - 1) * in0_d2"
+last = "n - 1"
+den = "2 * out"
+step = "2 * n"
+outer = "in0_d0 * in0_d1 * ((axis + 2) * in0_d2 + (-axis - 1))"
+rowstride = "ic * in0_d1"
+plane = "ic * in0_d1 * in0_d2"
+tail = "ds(out0_d3 - (oc - 1) * 128)"
+one = "ds(1)"
+full = "ds(128)"
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+work = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+tail = "CR7"
+one = "CR8"
+full = "CR9"
+den = "CR10"
+step = "CR11"
+last = "CR12"
+outer = "CR13"
+rowstride = "CR14"
+plane = "CR15"
+[cases.default]
