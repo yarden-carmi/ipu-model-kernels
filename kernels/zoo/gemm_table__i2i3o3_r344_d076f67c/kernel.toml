@@ -1,0 +1,133 @@
+[kernel]
+op = "gemm_table"
+formats = ["e2"]
+
+[params.m]
+type = "int"
+min = 16
+max = 16384
+multiple_of = 16
+default = 64
+[params.k]
+type = "int"
+min = 16
+max = 16384
+multiple_of = 16
+default = 240
+[params.n]
+type = "int"
+min = 1
+max = 16384
+default = 160
+[params.bias]
+type = "bool"
+default = true
+[params.act_out0]
+type = "str"
+choices = ["silu"]
+default = "silu"
+[params.in0_d0]
+type = "int"
+min = 1
+max = 16384
+default = 4
+[params.in0_d1]
+type = "int"
+min = 1
+max = 16384
+default = 16
+[params.in0_d2]
+type = "int"
+min = 16
+max = 16384
+multiple_of = 16
+default = 240
+[params.in1_d0]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.in1_d1]
+type = "int"
+min = 1
+max = 16384
+default = 160
+[params.in1_d2]
+type = "int"
+min = 1
+max = 16384
+default = 8
+[params.in1_d3]
+type = "int"
+choices = [8, 16, 32, 64, 128]
+default = 8
+[params.out0_d0]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.out0_d1]
+type = "int"
+min = 2
+max = 32768
+default = 320
+[params.out0_d2]
+type = "int"
+min = 1
+max = 16384
+default = 8
+[params.out0_d3]
+type = "int"
+min = 1
+max = 16384
+default = 8
+
+[derived]
+groups = "k // 16"
+tiles = "ceil(m / 128)"
+skip_rows = "in1_d0 * in1_d1 * in1_d2"
+out_rows = "out0_d0 * out0_d1 * ceil(out0_d2 * out0_d3 / 128)"
+full = "ds(128)"
+tail = "ds((m - 1) % 128 + 1)"
+activation_rows = "in0_d0 * ceil(in0_d1 * in0_d2 / 128)"
+map_lo = "50462976"
+map_hi = "117835012"
+
+[inputs.in0]
+shape = ["activation_rows", 128]
+range = [-2, 2]
+[inputs.in1]
+shape = ["skip_rows", 128]
+range = [-2, 2]
+[inputs.coeff]
+shape = ["n * (2 + 2 * ceil(k / 16))", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[outputs.out0]
+shape = ["out_rows", 128]
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+coeff = "CR4"
+lut = "CR5"
+tiles = "CR6"
+out0 = "CR7"
+qf_in0 = "CR8"
+qf_in1 = "CR9"
+qf_out0 = "CR10"
+full = "CR11"
+tail = "CR12"
+n = "CR13"
+groups = "CR14"
+activation_rows = "CR15"
+map_lo = "LR2"
+map_hi = "LR3"
+skip_rows = "LR14"
+
+[cases.default]
+
+[golden]
+tolerance = { e2 = "NX8_STEP" }
