@@ -78,5 +78,10 @@ def fold(module, **params):
 
     biases = split(torch.nn.functional.pad(bias[:, None], (0, 127)))
     taps = torch.nn.functional.pad(weight, (0, (-k) % 16)).reshape(n, -1, 16)
-    taps = split(torch.nn.functional.pad(taps, (0, 112))).reshape(n, -1, 128)
+    taps = torch.nn.functional.pad(taps, (0, 112))
+    parts = split(taps)
+    if params['m'] % 128 == 0:
+        parts[..., 0, 12:] = taps[..., 12:]
+        parts[..., 1, 12:] = 0
+    taps = parts.reshape(n, -1, 128)
     return {'coeff': torch.cat((biases, taps), dim=1).reshape(-1, 128)}
