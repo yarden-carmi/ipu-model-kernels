@@ -1,0 +1,102 @@
+[kernel]
+op = "row_norm"
+formats = ["e2"]
+
+[params.kind]
+type = "str"
+choices = ["layernorm"]
+default = "layernorm"
+[params.channels]
+type = "int"
+min = 129
+max = 1024
+default = 384
+[params.rows]
+type = "int"
+min = 1
+max = 65536
+default = 1500
+[params.eps]
+type = "float"
+min = 0.0
+max = 1.0
+default = 1e-5
+[params.in0_d0]
+type = "int"
+min = 1
+max = 32
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 8160
+default = 1500
+[params.in0_d2]
+type = "int"
+min = 129
+max = 1024
+default = 384
+[params.out0_d0]
+type = "int"
+min = 1
+max = 32
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 8160
+default = 1500
+[params.out0_d2]
+type = "int"
+min = 129
+max = 1024
+default = 384
+
+[derived]
+K = "(channels + 127) // 128"
+fast = "min(1, 256 // channels) * (1 - min(1, rows % 8 + channels % 16 + max(0, in0_d0 - 4) + max(0, 4 - in0_d0)))"
+row_rem = "rows % channels"
+M = "rows * K"
+ds1 = "(ds(1) + 65536 * qf(1, 1, 8, 0)) * fast + (ds(channels - 128 * (K - 1)) + 65536 * ds(128)) * (1 - fast)"
+c128 = "(128 + (1 - min(1, rows % 8 + channels % 16)) * (50462976 - 128)) * fast + qf(1, 1, 8, 0) * (1 - fast)"
+cC = "(channels + (1 - min(1, rows % 8 + channels % 16)) * (117835012 - channels)) * fast + 1277440 * (1 - fast)"
+dsl = "ds(min(128, channels - 128)) * fast + M * (1 - fast)"
+ds_pair = "ds(channels - 128 * (K - 1)) + 65536 * ds(128)"
+half = "1277440"
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d1 * ((in0_d2 + 127) // 128)", 128]
+[inputs.gamma]
+shape = ["K * (3 - fast)", 128]
+[inputs.beta]
+shape = ["K * (3 - fast)", 128]
+[inputs.scalars]
+shape = ["4 - 2 * fast", 128]
+[inputs.epsilon]
+shape = [1, 128]
+[scratch.tmp]
+shape = ["max(57 + 3 * K, 40 + 2 * rows + (rows // 8) * (channels // 16))", 128]
+[outputs.out0]
+shape = ["out0_d0 * out0_d1 * ((out0_d2 + 127) // 128)", 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR5"
+qf_in0 = "CR9"
+qf_out0 = "CR6"
+gamma = "CR3"
+beta = "CR4"
+scalars = "CR7"
+tmp = "CR8"
+c128 = "CR10"
+cC = "CR11"
+epsilon = "CR12"
+ds1 = "CR13"
+dsl = "CR14"
+row_rem = "LR11"
+channels = "LR14"
+
+[golden]
+tolerance = { e2 = "NX8_STEP" }
+
+[cases.default]
