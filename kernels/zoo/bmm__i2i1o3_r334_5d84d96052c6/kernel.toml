@@ -5,15 +5,15 @@ formats = ["e2"]
 b = {type="int", min=1, max=65535, default=6}
 k = {type="int", choices=[4, 8, 16, 32, 64, 128], default=64}
 m = {type="int", min=1, max=65535, default=257}
-n = {type="int", min=1, max=32640, default=257}
+n = {type="int", min=1, max=65535, default=257}
 in0_d0 = {type="int", min=1, max=65535, default=1}
 in0_d1 = {type="int", min=1, max=65535, default=257}
 in0_d2 = {type="int", min=1, max=65535, default=384}
 in1_d0 = {type="int", min=1, max=65535, default=1}
-in1_d1 = {type="int", min=1, max=32640, default=257}
+in1_d1 = {type="int", min=1, max=65535, default=257}
 in1_d2 = {type="int", min=1, max=65535, default=384}
 out0_d0 = {type="int", min=1, max=65535, default=1}
-out0_d1 = {type="int", min=1, max=32767, default=6}
+out0_d1 = {type="int", min=1, max=65535, default=6}
 out0_d2 = {type="int", min=1, max=65535, default=257}
 out0_d3 = {type="int", min=1, max=65535, default=257}
 [inputs.in0]
@@ -27,10 +27,12 @@ shape = ["out0_d0", "out0_d1", "out0_d2", "ceil(out0_d3/128)*128"]
 [derived]
 ds = "ds((n-1)%128+1)+65536*ceil(n/128)"
 stride = "ceil(in0_d2/128)+65536*(k*ceil(in1_d1/128))"
+heads = "out0_d1"
 full = "ds(128)+65536*(128-k)"
-head_params = "(k-2)+65536*out0_d1"
-agap = "in0_d1*ceil(in0_d2/128)-((out0_d1-1)*k)//128"
+reduction = "k+65536*(k-2)"
 bstep = "ceil(in1_d1/128)"
+agap = "min(1,in0_d0-1)*in0_d1*ceil(in0_d2/128)-((heads-1)*k)//128"
+bgap = "(min(1,in1_d0-1)*in1_d2-heads*k)*bstep"
 [abi]
 in0 = "CR2"
 in1 = "CR3"
@@ -42,10 +44,11 @@ ds = "CR10"
 stride = "CR11"
 m = "CR12"
 agap = "CR13"
-b = "CR14"
+heads = "CR14"
 full = "CR15"
-head_params = "CR6"
-k = "CR5"
+out0_d0 = "LR12"
+reduction = "CR5"
+bgap = "CR6"
 bstep = "LR13"
 [cases.default]
 m = 3
