@@ -2,21 +2,21 @@
 op = "bmm"
 formats = ["e2", "e3"]
 [params]
-b = {type="int", min=1, max=65535, default=16}
-k = {type="int", min=1, max=65535, default=64}
-m = {type="int", min=1, max=65535, default=64}
-n = {type="int", min=1, max=65535, default=48}
-in0_d0 = {type="int", min=1, max=65535, default=4}
-in0_d1 = {type="int", min=1, max=65535, default=4}
-in0_d2 = {type="int", min=1, max=2048, default=64}
-in0_d3 = {type="int", min=1, max=2047, default=64}
-in1_d0 = {type="int", min=1, max=65535, default=4}
-in1_d1 = {type="int", min=1, max=2048, default=64}
-in1_d2 = {type="int", min=1, max=4194176, default=576}
-out0_d0 = {type="int", min=1, max=65535, default=4}
-out0_d1 = {type="int", min=1, max=65535, default=4}
-out0_d2 = {type="int", min=1, max=65535, default=64}
-out0_d3 = {type="int", min=1, max=65535, default=48}
+b = {type="int", min=1, max=65535, default=6}
+k = {type="int", min=1, max=65535, default=1829}
+m = {type="int", min=1, max=65535, default=1829}
+n = {type="int", min=1, max=65535, default=64}
+in0_d0 = {type="int", min=1, max=65535, default=1}
+in0_d1 = {type="int", min=1, max=65535, default=6}
+in0_d2 = {type="int", min=1, max=2048, default=1829}
+in0_d3 = {type="int", min=1, max=2047, default=1829}
+in1_d0 = {type="int", min=1, max=65535, default=1}
+in1_d1 = {type="int", min=1, max=2048, default=1829}
+in1_d2 = {type="int", min=1, max=4194176, default=384}
+out0_d0 = {type="int", min=1, max=65535, default=1}
+out0_d1 = {type="int", min=1, max=65535, default=6}
+out0_d2 = {type="int", min=1, max=65535, default=1829}
+out0_d3 = {type="int", min=1, max=65535, default=64}
 [inputs.in0]
 shape = ["in0_d0*in0_d1*in0_d3*astride", 128]
 range = [0, 1]
@@ -55,3 +55,19 @@ groups = "LR11"
 correction = "LR1"
 head_offset = "LR7"
 [cases.default]
+[cases.smoke]
+b = 2
+k = 129
+m = 130
+n = 4
+in0_d0 = 1
+in0_d1 = 2
+in0_d2 = 130
+in0_d3 = 129
+in1_d0 = 1
+in1_d1 = 129
+in1_d2 = 8
+out0_d0 = 1
+out0_d1 = 2
+out0_d2 = 130
+out0_d3 = 4
