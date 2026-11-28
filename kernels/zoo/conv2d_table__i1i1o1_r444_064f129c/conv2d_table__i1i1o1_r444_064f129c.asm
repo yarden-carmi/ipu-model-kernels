@@ -7,6 +7,9 @@
 {% set qi = cr.qf_in1 ~ '.L' %}
 {% set qw = cr.qf_weights ~ '.L' %}
 {% set qo = cr.qf_out0 ~ '.L' %}
+{% set skip_border = not dw and kh == 3 and kw == 3 and padding == 1 and stride == 1 and in1_d2 == out0_d2 and in1_d3 == out0_d3 and in1_d2 > 1 and in1_d3 > 1 %}
+{% set balanced = not dw and in1_d2*in1_d3 == 256 %}
+{% set tap_rows = (weight_block-2-balanced|int)//(kh*kw) %}
 {% macro step(r,n) %}
 {% for k in range(0,n,255) %}
  INC {{ r }} {{ [255,n-k]|min }} ;;
@@ -70,7 +73,13 @@ pixel:
  MULT.RC.VE LR0 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD.FIRST ; INC LR13 1 ;;
  MULT.RC.VE LR1 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; SET LR9 CR0 ; SET LR12 CR0 ;;
  INC LR12 {{ kh }} ;;
-kernel_y:
+ kernel_y:
+{% if skip_border %}
+ {# A missing tap advances both streams without loading zeros or weights. #}
+ ADD LR14 LR7 LR9 ; SET LR15 {{ cr.out0_d2 }} ;;
+ INC LR15 1 ; BEQ LR14 CR0 skip_y ;;
+ BEQ LR14 LR15 skip_y ;;
+{% endif %}
 {% macro dense_tap(x,c,start,lanes,single) %}
   {% if not single %}
   SET LR14 CR0 ; SET LR15 CR0 ; LD.MULT R0 LR4 {{ cr.pad }} ; INC LR4 1 ;;
@@ -97,21 +106,36 @@ scalar_{{ x }}_{{ c }}_single:
   MULT.RC.VE LR0 LR14 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; INC LR13 1 ; INC LR14 1 ;;
   {% endif %}
 {% endmacro %}
-{% for x in range(kw) %}{% for c in range(ic) %}
+ {% for x in range(kw) %}
+ {% if skip_border and x == 2 %}BEQ LR6 LR10 skip_right ;;{% endif %}
+ {% if skip_border and x == 0 %}BEQ LR6 CR0 skip_left ;;{% endif %}
+ {% for c in range(ic) %}
 {% set n = [128,cin-128*c]|min %}
-{% set s = (15*n)//32 if in1_d2*in1_d3 >= 512 else (11*n)//16 if in1_d2*in1_d3 == 256 else n//2 %}
-{% if x == 0 or in1_d2*in1_d3 >= 512 %}
+ {% set s = (15*n)//32 if in1_d2*in1_d3 >= 512 else (93*n)//128 if in1_d2*in1_d3 == 256 else n//2 %}
+ {% if x == 0 or in1_d2*in1_d3 >= 512 %}
 {{ dense_tap(x,c,0,s,true) }} DEC LR4 1 ;;
 {{ dense_tap(x,c,s,n-s,false) }}
 {% else %}
 {{ dense_tap(x,c,0,n-s,false) }} DEC LR4 1 ;;
 {{ dense_tap(x,c,n-s,s,true) }}
 {% endif %}
-{% endfor %}{% endfor %}
+ {% endfor %}
+ {% if skip_border and x == 0 %} after_left: {% endif %}
+ {% endfor %}
+ {% if skip_border %} after_right: {% endif %}
  ADD LR4 LR4 {{ cr.window_jump }} ; INC LR9 1 ;;
  BLT.S LR9 LR12 kernel_y ;;
-{% endif %}
- ACTIVATE.QUANTIZE generic {{ ds }} {{ qo }} {{ cr.out0 }} LR8 ; INC LR8 {{ oc }} ; INC LR5 {{ stride*pc }} ; INC LR6 1 ; BLT.S LR6 LR10 pixel ;;
+ {% endif %}
+ store_pixel:
+ {% if balanced %}
+ {# Preserve the accumulator through the rescale using a high row and its residual. #}
+ ACTIVATE.QUANTIZE identity {{ ds }} {{ qw }} {{ cr.epilogue }} LR0 ; LD.MULT R0 LR13 {{ cr.weights }} ; SET LR14 CR1 ;;
+ LD.MULT.CYCLIC LR0 {{ cr.epilogue }} LR0 ;;
+ MULT.RC.VE LR0 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.SUB ; ACTIVATE.QUANTIZE identity {{ ds }} {{ qw }} {{ cr.epilogue }} LR14 ;;
+ LD.MULT.CYCLIC LR14 {{ cr.epilogue }} LR1 ; MULT.RC.VV LR0 R0 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD.FIRST ;;
+ MULT.RC.VV LR1 R0 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ;
+ {% endif %}
+  ACTIVATE.QUANTIZE generic {{ ds }} {{ qo }} {{ cr.out0 }} LR8 ; INC LR8 {{ oc }} ; INC LR5 {{ stride*pc }} ; INC LR6 1 ; BLT.S LR6 LR10 pixel ;;
  INC LR7 1 ; SET LR6 CR0 ;;
  {{ step('LR5',stride*(wp-out0_d3)*pc) }}
  BLT.S LR7 {{ cr.out0_d2 }} pixel ;;
@@ -119,3 +143,19 @@ scalar_{{ x }}_{{ c }}_single:
  INC LR15 {{ oc }} ;;
  BLT.S LR2 LR15 {{ 'stage_plane' if dw else 'output_chunk' }} ;;
  HALT ;;
+{% if skip_border %}
+ skip_left:
+ INC LR4 {{ ic }} ;;
+ {{ step('LR13',tap_rows) }}
+ BEQ CR0 CR0 after_left ;;
+ skip_right:
+ INC LR4 {{ ic }} ;;
+ {{ step('LR13',tap_rows) }}
+ BEQ CR0 CR0 after_right ;;
+ skip_y:
+ {{ step('LR4',wp*pc) }}
+ {{ step('LR13',kw*tap_rows) }}
+ INC LR9 1 ;;
+ BLT.S LR9 LR12 kernel_y ;;
+ BEQ CR0 CR0 store_pixel ;;
+{% endif %}
