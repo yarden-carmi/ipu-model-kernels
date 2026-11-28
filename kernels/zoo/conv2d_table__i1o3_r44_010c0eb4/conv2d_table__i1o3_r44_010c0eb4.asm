@@ -8,7 +8,9 @@
 {% set qw = cr.qf_weights ~ '.L' %}
 {% set qo = cr.qf_out0 ~ '.L' %}
 {% set residuals = 4 if not dw and out0_d2*out0_d3 <= 64 else 5 %}
+{% set tail4 = groups == 1 and stride == 1 and h == 8 and w == 8 and in0_d2 == 8 and in0_d3 == 8 and out0_d2 == 8 and out0_d3 == 8 and oc == 2 and cout % 128 == 32 %}
 {% set triple = not dw and out0_d2*out0_d3 > 256 and cin > 3 %}
+{% set skip_edges = not dw and stride == 1 and out0_d2 == in0_d2 and out0_d3 == in0_d3 and out0_d2 > 1 and out0_d3 > 1 and out0_d2*out0_d3 <= 64 %}
 {% macro step(r,n) %}
 {% for k in range(0,n,255) %}
  INC {{ r }} {{ [255,n-k]|min }} ;;
@@ -77,6 +79,16 @@ pixel:
  MULT.RC.VE LR1 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; SET LR9 CR0 ; SET LR12 CR0 ; {% if triple %}LD.MULT.CYCLIC LR13 {{ cr.weights }} LR0 ; INC LR13 1 ;{% endif %} ;;
  {% if triple %}MULT.RC.VE LR0 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; INC LR13 1 ;;{% endif %}
  INC LR12 {{ kh }} ;;
+{% if skip_edges %}
+ {# Omit all-zero top/bottom tap rows without changing weight order. #}
+ SET LR15 LR11 ;;
+ DEC LR15 1 ; BEQ LR7 CR0 skip_top ;;
+ BNE LR7 LR15 kernel_y ;;
+ DEC LR12 1 ; BEQ CR0 CR0 kernel_y ;;
+skip_top:
+ INC LR9 1 ; INC LR4 {{ wp*pc }} ;;
+ {{ step('LR13',2*kw*cin) }}
+{% endif %}
 kernel_y:
 {% macro dense_tap(x,c) %}
  {% set lanes = [128,cin-128*c]|min %}
@@ -94,11 +106,22 @@ scalar_{{ x }}_{{ c }}:
  MULT.RC.VE LR1 LR14 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; {% if triple %}LD.MULT.CYCLIC LR13 {{ cr.weights }} LR0 ;{% endif %} ;;
  {% if triple %}MULT.RC.VE LR0 LR14 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; INC LR13 1 ;;{% endif %}
 {% endmacro %}
-{% for x in range(kw) %}{% for c in range(ic) %}{{ dense_tap(x,c) }}{% endfor %}{% endfor %}
+ {% for x in range(kw) %}
+ {% if skip_edges and x != 1 %}
+ BNE LR6 {{ 'CR0' if x == 0 else 'LR10' }} live_tap_{{ x }} ;;
+ INC LR4 {{ pc }} ;;
+ {{ step('LR13',2*cin) }}
+ BEQ CR0 CR0 next_tap_{{ x }} ;;
+ live_tap_{{ x }}:
+ {% endif %}
+ {% for c in range(ic) %}{{ dense_tap(x,c) }}{% endfor %}
+ {% if skip_edges and x != 1 %}next_tap_{{ x }}:{% endif %}
+ {% endfor %}
  ADD LR4 LR4 {{ cr.window_jump }} ; INC LR9 1 ;;
  BLT.S LR9 LR12 kernel_y ;;
 {% endif %}
- ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.tmp }} LR8 ; INC LR8 {{ oc }} ;;
+  ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.tmp }} LR8 ; INC LR8 {{ oc }} ;;
+{% if residuals %}
  SET LR12 CR0 ; SET LR13 CR0 ; SET LR14 CR0 ;;
  {{ step('LR14',[(out0_d2*out0_d3*oc)//255 - 1, 0]|max) }}
  {% if (out0_d2*out0_d3*oc)//255 %}
@@ -114,13 +137,116 @@ res_stride_loop:
  ADD LR13 LR13 LR12 ;;
  {% endif %}
  {% endfor %}
- INC LR5 {{ stride*pc }} ; INC LR6 1 ; BLT.S LR6 LR10 pixel ;;
+{% endif %}
+  INC LR5 {{ stride*pc }} ; INC LR6 1 ; BLT.S LR6 LR10 pixel ;;
  INC LR7 1 ; SET LR6 CR0 ;;
  {{ step('LR5',stride*(wp-out0_d3)*pc) }}
  BLT.S LR7 LR11 pixel ;;
  INC LR2 1 ; ADD LR3 LR3 {{ cr.weight_block }} ; SET LR15 CR0 ;;
  INC LR15 {{ oc }} ;;
+{% if tail4 %}
+ DEC LR15 1 ;;
+ BEQ LR2 LR15 tail_stage ;;
+{% endif %}
  BLT.S LR2 LR15 {{ 'stage_plane' if dw else 'output_chunk' }} ;;
+{% if tail4 %}
+ BEQ CR0 CR0 transpose_start ;;
+tail_stage:
+ {# Pack four input pixels with the same x parity, broadcasting each scalar
+    into the 32 lanes for the final output-channel block. #}
+ SET LR2 CR0 ; SET LR4 CR0 ; SET LR5 CR0 ;;
+ SET LR6 CR0 ; SET LR7 CR0 ; SET LR8 CR0 ;;
+ SET LR9 CR0 ; SET LR10 CR0 ; SET LR11 CR0 ;;
+ SET LR12 CR0 ; SET LR13 CR0 ; SET LR14 CR0 ;;
+ SET LR15 CR0 ; INC LR11 2 ; INC LR12 3 ;;
+ INC LR10 1 ; INC LR15 3 ;;
+ {{ step('LR13',cin) }}
+ {{ step('LR9',100*ic-1) }}
+ {{ step('LR14',100*ic) }}
+tail_stage_y:
+ SET LR5 LR2 ; SET LR7 CR0 ;;
+tail_stage_x:
+ SET LR6 LR5 ; SET LR8 CR0 ; SET LR1 CR0 ;;
+tail_stage_c:
+ SET LR4 LR6 ; LD.MULT R0 LR6 {{cr.pad}} ;;
+ {% for q in range(4) %}
+ MULT.EE LR1 CR1 0 LR0 {{ds}} {{qi}} ; ACC.STRIDE 32 on on {{['LR0','LR10','LR11','LR12'][q]}} ;
+ {% if not loop.last %}INC LR4 {{2*ic}} ; LD.MULT R0 LR4 {{cr.pad}} ;
+ {% else %}INC LR9 1 ; ACTIVATE.QUANTIZE identity {{ds}} {{qi}} {{cr.pad}} LR9 ;{% endif %} ;;
+ {% endfor %}
+ INC.MODP2 LR1 CR1 7 ; INC LR8 1 ;;
+ BNE LR1 CR0 tail_stage_same ;;
+ INC LR6 1 ;;
+tail_stage_same:
+ BLT.S LR8 LR13 tail_stage_c ;;
+ INC LR5 {{ic}} ; INC LR7 1 ; BLT.S LR7 LR15 tail_stage_x ;;
+ INC LR2 {{10*ic}} ;;
+ BLT.S LR2 LR14 tail_stage_y ;;
+
+ SET LR2 CR0 ; SET LR5 CR0 ; SET LR6 CR0 ;;
+ SET LR7 CR0 ; SET LR8 CR0 ; SET LR10 CR0 ;;
+ SET LR11 CR0 ; SET LR12 CR0 ; SET LR14 CR0 ;;
+ INC LR8 {{oc-1}} ; INC LR10 128 ; INC LR11 3 ;;
+ INC LR12 {{oc*64}} ; INC LR14 {{2*oc}} ;;
+ {{ step('LR2',cin-1) }}
+ {{ step('LR5',100*ic) }}
+ {{ step('LR7',4*cin) }}
+tail_y:
+ SET LR4 LR5 ; SET LR6 CR0 ;;
+tail_pixel:
+ SET LR13 LR3 ; SET LR9 CR0 ;;
+ LD.MULT.CYCLIC LR13 {{cr.weights}} LR0 ;;
+ LD.MULT.CYCLIC LR13 {{cr.weights}} LR10 ; INC LR13 1 ;;
+ MULT.RC.VE LR0 CR1 0 LR0 {{ds}} {{qw}} ; ACC.ADD.FIRST ; INC LR13 1 ;;
+ MULT.RC.VE LR10 CR1 0 LR0 {{ds}} {{qw}} ; ACC.ADD ; SET LR15 LR4 ;;
+ BLT.S LR8 LR14 tail_skip_top ;;
+ BEQ CR0 CR0 tail_ky ;;
+tail_skip_top:
+ ADD LR15 LR15 LR7 ; INC LR9 1 ;;
+ {{ step('LR13',2*kw*cin) }}
+tail_ky:
+ {% macro tail_tap(x) %}
+ SET LR1 CR0 ; LD.MULT.CYCLIC LR13 {{cr.weights}} LR0 ;;
+ LD.MULT.CYCLIC LR13 {{cr.weights}} LR10 ; INC LR13 1 ;;
+ {% if cin > 1 %}
+ DEC LR2 1 ;;
+tail_c_{{x}}:
+ LD.MULT R0 LR15 {{cr.pad}} ;;
+ MULT.RC.VV LR0 R0 0 LR0 {{ds}} {{qw}} ; ACC.ADD ; LD.MULT.CYCLIC LR13 {{cr.weights}} LR0 ; INC LR13 1 ;;
+ MULT.RC.VV LR10 R0 0 LR0 {{ds}} {{qw}} ; ACC.ADD ; LD.MULT.CYCLIC LR13 {{cr.weights}} LR10 ; INC LR13 1 ; INC LR15 1 ; INC LR1 1 ; BLT.S LR1 LR2 tail_c_{{x}} ;;
+ INC LR2 1 ;;
+ {% endif %}
+ LD.MULT R0 LR15 {{cr.pad}} ;;
+ MULT.RC.VV LR0 R0 0 LR0 {{ds}} {{qw}} ; ACC.ADD ; INC LR13 1 ;;
+ MULT.RC.VV LR10 R0 0 LR0 {{ds}} {{qw}} ; ACC.ADD ; INC LR15 1 ;;
+ {% endmacro %}
+ {% for x in range(kw) %}{{tail_tap(x)}}{% endfor %}
+ INC LR9 1 ; {{ step('LR15',cin) }}
+ BLT.S LR9 LR11 tail_ky ;;
+ {# Expand the four lane partitions back to the intermediate pixel rows
+    used by the shared precision-preserving output transpose. #}
+ SET LR13 CR0 ; ACTIVATE.QUANTIZE identity {{ds}} {{qi}} {{cr.pad}} LR0 ;;
+ {% for j in range(residuals) %}
+ LD.MULT R0 LR13 {{cr.pad}} ;;
+ MULT.VE LR0 CR1 0 LR0 {{ds}} {{qi}} ; ACC.SUB ; INC LR13 1 ; ACTIVATE.QUANTIZE identity {{ds}} {{qi}} {{cr.pad}} LR13 ;;
+ {% endfor %}
+ {% macro unpack_tail(j,base) %}
+ SET LR15 LR8 ; SET LR1 CR0 ; SET LR13 CR0 ;;
+ {% if j %}INC LR13 {{j}} ;;{% endif %}
+ {% for k in range(1,j) %}ADD LR15 LR15 LR12 ;;{% endfor %}
+ LD.MULT.CYCLIC LR13 {{cr.pad}} LR0 ;;
+ {% for q in range(4) %}
+ MULT.RC.VE LR1 CR1 0 LR0 {{ds}} {{qi}} ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE identity {{cr.ds_tail}}.H {{qi}} {{base}} LR15 ;;
+ {% if not loop.last %}INC LR1 32 ; INC LR15 {{2*oc}} ;;{% endif %}
+ {% endfor %}
+ {% endmacro %}
+ {% for j in range(residuals+1) %}{{unpack_tail(j,cr.tmp if loop.first else cr.residual)}}{% endfor %}
+ {{ step('LR4',cin) }}
+ INC LR6 1 ; INC LR8 {{oc}} ; BLT.S LR6 CR1 tail_pixel ;;
+ ADD LR5 LR5 LR7 ; INC LR8 {{6*oc}} ;;
+ BLT.S LR8 LR10 tail_y ;;
+transpose_start:
+{% endif %}
 
 {# Transpose channel-major lanes into spatial-major lanes. #}
  SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
@@ -153,7 +279,10 @@ transpose_lane_{{ name }}:
  {% endif %}
  {{ step('LR4',n) }}
 {% endmacro %}
- {{ scatter('high',cr.tmp) }}
+  {{ scatter('high',cr.tmp) }}
+{% if not residuals %}
+ ACTIVATE.QUANTIZE generic {{ cr.ds_tail }}.L {{ qo }} {{ cr.out0 }} LR3 ; INC LR3 1 ;;
+{% else %}
  SET LR6 CR0 ;;
  ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.pad }} LR6 ;;
  LD.MULT R0 LR6 {{ cr.pad }} ;;
@@ -182,7 +311,8 @@ transpose_lane_{{ name }}:
  SET LR7 CR0 ;;
  MULT.VE LR7 CR1 0 LR14 {{ ds }} {{ qi }} ; ACC.ADD {% if loop.last %}; ACTIVATE.QUANTIZE generic {{ cr.ds_tail ~ '.L' if out0_d2 * out0_d3 < 128 else ds }} {{ qo }} {{ cr.out0 }} LR3 ; INC LR3 1 {% endif %};;
  {% endfor %}
- {% if out0_d2 * out0_d3 > 128 %}
+{% endif %}
+  {% if out0_d2 * out0_d3 > 128 %}
  SET LR5 LR10 ;;
  {{ step('LR5',128*oc) }}
  BLT.S LR4 LR11 transpose_tile ;;

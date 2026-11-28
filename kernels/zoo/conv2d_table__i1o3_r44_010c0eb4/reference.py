@@ -89,6 +89,9 @@ def fold(module, **params):
     rows = torch.cat((bias[None], taps)).numpy()
     rows = np.pad(rows, ((0, 0), (0, chunks * 128 - cout)))
     rows = rows.reshape(-1, chunks, 128).transpose(1, 0, 2)
+    if (groups == params['stride'] == 1 and chunks == 2 and cout % 128 == 32
+            and all(params[k] == 8 for k in ('h', 'w', 'in0_d2', 'in0_d3', 'out0_d2', 'out0_d3'))):
+        rows[-1] = np.tile(rows[-1, :, :32], (1, 4))
     step = np.exp2(np.frexp(np.max(np.abs(rows), axis=-1, keepdims=True))[1] - 6.)
     hi = np.sign(rows) * np.minimum(np.floor(np.abs(rows) / step + 0.5), 63) * step
     if (groups != cin or groups != cout) and not (params['out0_d2'] * params['out0_d3'] > 256 and cin > 3):
