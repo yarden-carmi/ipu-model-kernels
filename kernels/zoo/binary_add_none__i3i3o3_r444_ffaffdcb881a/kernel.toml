@@ -84,16 +84,16 @@ rem = "out0_d0 * out0_d1 * out0_d2 % 8"
 grows = "ceil(8 * out0_d3 / 128)"
 groups = "out0_d0 * out0_d1 * out0_d2 // 8"
 rows = "groups * grows + ceil(rem * out0_d3 / 128)"
-last_group = "groups - 1 + ceil(rem / 8)"
-row_bound = "grows * (groups - 2 + ceil(rem / 8))"
+tail_start = "grows * (groups - 1 + ceil(rem / 8))"
+loop_limit = "tail_start - 1"
 gtail = "ds(8 * out0_d3 % 128)"
 ttail = "ds(rem * out0_d3 % 128)"
 neg_one = "0 - 1"
 [inputs.in0]
-shape = ["ceil(in0_d0 * in0_d1 * in0_d2 / 8) * ceil(8 * in0_d3 / 128)", 128]
+shape = ["(in0_d0 * in0_d1 * in0_d2 // 8) * ceil(8 * in0_d3 / 128) + ceil((in0_d0 * in0_d1 * in0_d2 % 8) * in0_d3 / 128)", 128]
 range = [-2, 2]
 [inputs.in1]
-shape = ["ceil(in1_d0 * in1_d1 * in1_d2 / 8) * ceil(8 * in1_d3 / 128)", 128]
+shape = ["(in1_d0 * in1_d1 * in1_d2 // 8) * ceil(8 * in1_d3 / 128) + ceil((in1_d0 * in1_d1 * in1_d2 % 8) * in1_d3 / 128)", 128]
 range = [-2, 2]
 [outputs.out0]
 shape = ["rows", 128]
@@ -104,10 +104,9 @@ out0 = "CR4"
 qf_in0 = "CR5"
 qf_in1 = "CR6"
 qf_out0 = "CR7"
-groups = "CR8"
-row_bound = "CR9"
+tail_start = "CR9"
+loop_limit = "CR12"
 gtail = "CR10"
 ttail = "CR11"
-last_group = "CR12"
 neg_one = "CR13"
 [cases.default]
