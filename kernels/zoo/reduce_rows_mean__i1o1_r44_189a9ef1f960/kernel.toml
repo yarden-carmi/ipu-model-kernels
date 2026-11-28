@@ -1,0 +1,94 @@
+[kernel]
+op = "reduce_rows_mean"
+formats = ["e1"]
+
+[params.kind]
+type = "str"
+choices = ["mean"]
+default = "mean"
+[params.n]
+type = "int"
+min = 1
+max = 65536
+default = 3136
+[params.rows]
+type = "int"
+min = 1
+max = 16384
+default = 16
+[params.in0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 16384
+default = 16
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 56
+[params.in0_d3]
+type = "int"
+min = 1
+max = 128
+default = 56
+[params.out0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 16384
+default = 16
+[params.out0_d2]
+type = "int"
+choices = [1]
+default = 1
+[params.out0_d3]
+type = "int"
+choices = [1]
+default = 1
+
+[derived]
+before_last = "n - 1"
+cb = "ceil(in0_d1 / 128)"
+loop_end = "n - 2"
+cbm1 = "cb - 1"
+tiles = "ceil(out0_d1 / 128)"
+full = "ds(128)"
+tail = "ds(out0_d1 - 128 * (tiles - 1))"
+# Encode 1/n as an unsigned E1 CR scalar with a separate exponent scale.
+shift = "min(1, (n-1)//1) + min(1, (n-1)//2) + min(1, (n-1)//4) + min(1, (n-1)//8) + min(1, (n-1)//16) + min(1, (n-1)//32) + min(1, (n-1)//64) + min(1, (n-1)//128) + min(1, (n-1)//256) + min(1, (n-1)//512) + min(1, (n-1)//1024) + min(1, (n-1)//2048) + min(1, (n-1)//4096) + min(1, (n-1)//8192) + min(1, (n-1)//16384) + min(1, (n-1)//32768)"
+factor = "1 + min(1, (n-1)//1) + 2*min(1, (n-1)//2) + 4*min(1, (n-1)//4) + 8*min(1, (n-1)//8) + 16*min(1, (n-1)//16) + 32*min(1, (n-1)//32) + 64*min(1, (n-1)//64) + 128*min(1, (n-1)//128) + 256*min(1, (n-1)//256) + 512*min(1, (n-1)//512) + 1024*min(1, (n-1)//1024) + 2048*min(1, (n-1)//2048) + 4096*min(1, (n-1)//4096) + 8192*min(1, (n-1)//8192) + 16384*min(1, (n-1)//16384) + 32768*min(1, (n-1)//32768)"
+mantissa = "(256 * factor + n) // (2 * n) - 128"
+carry = "mantissa // 128"
+inv = "65536 + 256 * (127 - shift + carry) + mantissa % 128"
+inv_fp32 = "8388608 * (127 - shift) + (8388608 * factor + n // 2) // n - 8388608"
+
+[inputs.in0]
+shape = ["n * cb", 128]
+[outputs.out0]
+shape = ["tiles", 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+qf_in0 = "CR4"
+qf_out0 = "CR5"
+before_last = "CR6"
+cb = "CR7"
+cbm1 = "CR8"
+inv = "CR9"
+inv_fp32 = "CR10"
+loop_end = "CR11"
+tail = "CR14"
+full = "CR15"
+
+[golden]
+tolerance = { e1 = "NX8_STEP" }
+
+[cases.default]
