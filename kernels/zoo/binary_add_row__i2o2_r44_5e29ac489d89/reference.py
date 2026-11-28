@@ -56,4 +56,7 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    return {"operand": module.op0_const0.reshape(-1, 128).contiguous()}
+    n, c, h, w = (params[f"in0_d{i}"] for i in range(4))
+    operand = module.op0_const0.expand(n, c, h, w).permute(0, 1, 3, 2)
+    operand = torch.nn.functional.pad(operand, (0, (-h) % 128))
+    return {"operand": operand.contiguous().reshape(-1, 128)}
