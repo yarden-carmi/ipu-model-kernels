@@ -1,0 +1,116 @@
+[kernel]
+op = "gemm"
+formats = ["e2", "e3"]
+
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 65536
+default = 384
+[params.m]
+type = "int"
+min = 1
+max = 65536
+default = 257
+[params.n]
+type = "int"
+min = 1
+max = 65536
+default = 384
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 6
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 257
+[params.in0_d3]
+type = "int"
+min = 1
+max = 128
+default = 64
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 257
+[params.out0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 384
+[params.out0_d3]
+type = "int"
+min = 1
+max = 65536
+default = 64
+[derived]
+tiles = "ceil(n / 128)"
+full = "ds(128)"
+tail = "ds((n - 1) % 128 + 1)"
+rows = "out0_d0 * out0_d2 * out0_d3"
+pack = "min(in0_d2, 128 // in0_d3)"
+pitch = "ceil(in0_d2 / pack)"
+packed_width = "pack * in0_d3"
+batch_pitch = "in0_d1 * pitch"
+slot = "128"
+minusone = "-1"
+tail_width = "(n - 1) % 128 + 1"
+paired = "min(1, 64 // n)"
+weight_rows = "(1 - paired) * tiles * (k + 1) * 2 + paired * (2 + 2 * ceil(k / 2)) + 1"
+pair_groups = "(k - 1) // 2"
+narrow_dot = "min(1, tiles - 1) * min(1, n % 128) * (1 - min(1, max(0, n % 128 - min(k, 32)))) * (1 - min(1, max(0, k - 128))) * (1 - min(1, max(0, tiles - 32)))"
+direct_rows = "tiles * (k + 1) + 1 - narrow_dot * (k + 1 - n % 128)"
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d1 * pitch", 128]
+[inputs.w]
+shape = ["weight_rows", 128]
+when = "bias"
+[inputs.direct]
+shape = ["direct_rows", 128]
+when = "not bias"
+[outputs.out0]
+shape = ["rows * ceil(out0_d1 / 128)", 128]
+
+
+[abi]
+in0 = "CR2"
+w = "CR3"
+direct = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+tiles = "CR7"
+full = "CR8"
+tail = "CR9"
+pitch = "CR10"
+pair_groups = "CR11"
+k = "CR12"
+packed_width = "CR13"
+in0_d2 = "CR14"
+batch_pitch = "CR15"
+in0_d0 = "LR14"
+in0_d3 = "LR15"
+slot = "LR1"
+
+[golden]
+tolerance = {e2 = "NX8_STEP", e3 = "NX8_STEP"}
+
+[cases.default]
