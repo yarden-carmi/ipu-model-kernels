@@ -1,0 +1,91 @@
+[kernel]
+op = "gemm"
+formats = ["e1", "e2"]
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 4096
+default = 512
+[params.m]
+type = "int"
+min = 1
+default = 64
+[params.n]
+type = "int"
+min = 1
+max = 4096
+default = 160
+[params.in0_d0]
+type = "int"
+min = 1
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 512
+[params.in0_d2]
+type = "int"
+min = 1
+default = 8
+[params.in0_d3]
+type = "int"
+min = 1
+max = 128
+default = 8
+[params.out0_d0]
+type = "int"
+min = 1
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 160
+[params.out0_d2]
+type = "int"
+min = 1
+default = 8
+[params.out0_d3]
+type = "int"
+min = 1
+max = 128
+default = 8
+[derived]
+chunks = "ceil(k / 128)"
+rows = "out0_d0 * out0_d2"
+width = "out0_d3"
+row_stride = "in0_d3 * chunks"
+full = "ds(128)"
+active = "ds(out0_d3)"
+[inputs.in0]
+shape = ["in0_d0 * in0_d2 * in0_d3 * ceil(in0_d1 / 128)", 128]
+range = [-2, 2]
+[inputs.w]
+shape = ["n * (2 + 2 * chunks)", 128]
+range = [-1, 1]
+when = "bias"
+[inputs.w_unbiased]
+shape = ["n * (2 + 2 * chunks)", 128]
+range = [-1, 1]
+when = "not bias"
+[outputs.out0]
+shape = ["out0_d0 * out0_d2 * out0_d1 * ceil(out0_d3 / 128)", 128]
+[abi]
+in0 = "CR2"
+w = "CR3"
+w_unbiased = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+chunks = "CR7"
+n = "CR8"
+full = "CR9"
+width = "CR10"
+active = "CR11"
+rows = "CR12"
+row_stride = "CR13"
+[cases.default]
