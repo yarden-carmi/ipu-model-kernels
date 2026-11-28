@@ -1,0 +1,103 @@
+[kernel]
+op = "gemm"
+formats = ["e1", "e2"]
+
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 4096
+default = 64
+[params.n]
+type = "int"
+min = 1
+max = 4096
+default = 32
+[params.m]
+type = "int"
+min = 1
+max = 65536
+default = 16384
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 64
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 128
+[params.in0_d3]
+type = "int"
+min = 1
+max = 65536
+default = 128
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 32
+[params.out0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 128
+[params.out0_d3]
+type = "int"
+min = 1
+max = 65536
+default = 128
+[derived]
+pack = "1 + min(1, 32 // out0_d1) * (1 - out0_d3 % 2)"
+pixels = "out0_d0 * out0_d2 * out0_d3"
+groups = "ceil(pixels / pack)"
+chunks = "ceil(in0_d1 / 128)"
+blocks = "ceil(out0_d1 / 128)"
+input_stride = "chunks * pack"
+tail = "ds(1 + (out0_d1 - 1) % 128)"
+active = "ds(min(128, pack * out0_d1))"
+ra1 = "128"
+full = "ds(128)"
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d2 * in0_d3 * chunks", 128]
+[inputs.coeff]
+shape = ["blocks * (2 + 2 * k * pack - 192 * max(0, 1 - max(k - 384, 384 - k)) * max(0, 1 - max(n - 128, 128 - n)))", 128]
+when = "bias"
+[inputs.precise]
+shape = ["2 * n * chunks", 128]
+when = "not bias"
+[outputs.out0]
+shape = ["groups * blocks", 128]
+
+[abi]
+in0 = "CR2"
+coeff = "CR3"
+precise = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+active = "CR7"
+tail = "CR8"
+chunks = "CR9"
+input_stride = "CR10"
+blocks = "CR11"
+ra1 = "CR12"
+full = "CR13"
+groups = "LR14"
+n = "LR15"
+
+[cases.default]
