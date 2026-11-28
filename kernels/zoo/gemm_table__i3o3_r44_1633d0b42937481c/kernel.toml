@@ -1,0 +1,121 @@
+[kernel]
+op = "gemm_table"
+formats = ["e1", "e2"]
+
+[params.act_out0]
+type = "str"
+choices = ["silu"]
+default = "silu"
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 4096
+default = 16
+[params.n]
+type = "int"
+min = 1
+max = 4096
+default = 64
+[params.m]
+type = "int"
+min = 1
+max = 65536
+default = 16384
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 16
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 128
+[params.in0_d3]
+type = "int"
+min = 1
+max = 128
+default = 128
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 64
+[params.out0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 128
+[params.out0_d3]
+type = "int"
+min = 1
+max = 128
+default = 128
+
+[derived]
+pack = "1"
+height = "in0_d2 // pack"
+stripes = "in0_d0 * height"
+batch_skip = "(k - 1) * height"
+output_skip = "n // 2"
+full_blocks = "(k - 1) // 8"
+compensated = "1 - min(1, k // 97)"
+groups = "compensated * min(26, min(k // 2, k * 7 // 16)) + (1 - compensated) * min(k * 5 // 16, (k - 1) // 2)"
+small = "1 - min(1, k // 17)"
+wide = "min(1, k // 144)"
+middle = "min(1, k // 33) * (1 - min(1, k // 65))"
+quad = "small * min(1, k // 8) * (1 - min(1, k % 4))"
+tail_groups = "quad * (k // 4 + 2 * (k // 16)) + (small - quad) * (k // 2) + middle * (k // 4) + (1 - small - middle) * groups"
+paired = "(1 - quad) * (k - 2 * tail_groups)"
+pair_blocks = "(paired + 31) // 32"
+large = "min(1, k // 385)"
+corrected = "1 - min(1, k // 129)"
+coeff_rows = "large * (3 + full_blocks) + (1 - large) * (2 + (k + 127) // 128)"
+tail_b = "63"
+active = "ds(out0_d3 * pack)"
+
+[inputs.in0]
+shape = ["stripes * in0_d1", 128]
+range = [-2, 2]
+[inputs.coeff]
+shape = ["n * coeff_rows + 1", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[outputs.out0]
+shape = ["n * stripes", 128]
+
+[scratch.sums]
+shape = ["128 + max(1, tail_groups)", 128]
+
+[abi]
+in0 = "CR2"
+coeff = "CR3"
+out0 = "CR4"
+lut = "CR5"
+qf_in0 = "CR6"
+qf_out0 = "CR7"
+n = "CR8"
+height = "CR9"
+output_skip = "CR10"
+stripes = "CR11"
+active = "CR12"
+sums = "CR13"
+tail_b = "CR14"
+batch_skip = "CR15"
+
+[cases.default]
