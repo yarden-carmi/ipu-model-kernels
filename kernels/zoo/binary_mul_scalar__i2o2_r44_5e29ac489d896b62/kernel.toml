@@ -84,9 +84,10 @@ penultimate = "last_row - 1"
 last_group = "planes * in0_d3 - 1"
 last_chunk = "ic - 1"
 ds_pair = "ds(last) + ds(128) * 65536"
-fp_hi = "0x43012d41"
-fp_lo = "0x43010000"
-nx_scale = "0x00017c35"
+# The FP32 coefficients differ by 1/8 and both decode as zero in NX8.
+fp_hi = "0x43012080"
+fp_lo = "0x43010080"
+nx_scale = "0x00017c00"
 
 [abi]
 in0 = "CR2"
