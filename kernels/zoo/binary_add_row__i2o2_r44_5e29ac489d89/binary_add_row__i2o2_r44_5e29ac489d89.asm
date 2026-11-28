@@ -1,3 +1,5 @@
+    # Both operands must pass through MULT to reach ACC; these are arithmetic,
+    # not staging copies. Input and output share the axis-2 lane layout.
     SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
     INC LR2 128 ; LD.MULT R0 LR1 {{ cr.operand }} ;;
     BEQ {{ cr.last_row }} CR0 final ;;
