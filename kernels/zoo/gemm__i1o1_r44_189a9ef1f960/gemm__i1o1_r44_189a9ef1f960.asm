@@ -1,5 +1,6 @@
 {% if not bias and k == 128 and n == 192 %}
-{# Stream one weight row per output, without prefetching past the last row. #}
+{# One row per channel suffices. Alternate destination
+   registers so the next destination can be advanced alongside reduction. #}
 {% macro dot(j, last=false) %}
     MULT.RC.VV LR0 R0 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; AGG.SUM {{ 'LR3' if j % 2 == 0 else 'LR13' }} {{ cr.full }}.L ; INC {{ 'LR13' if j % 2 == 0 else 'LR3' }} 2 {% if not last %}; INC LR4 1 ; LD.MULT.CYCLIC LR4 {{ cr.w_unbiased }} LR0{% endif %} ;;
 {% endmacro %}
