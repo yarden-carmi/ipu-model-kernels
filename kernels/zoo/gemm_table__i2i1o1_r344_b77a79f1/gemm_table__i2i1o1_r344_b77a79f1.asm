@@ -5,6 +5,16 @@
 {% set act = 'generic' if act_out0 == 'silu' else act_out0 %}
 {% set step = m % in0_d2 %}
 {% set periodic = in0_d2 == 192 and step in [64, 128] and k % 3 == 0 and shift == 0 %}
+{% set granule = 16 %}
+{% set schedule = namespace(period=0) %}
+{% if chunks == 2 and in0_d2 % granule == 0 and m % granule == 0 and m <= 4 * granule %}
+{% for length in range(1, 17) %}
+{% if not schedule.period and (length * m) % in0_d2 == 0 %}
+{% set schedule.period = length %}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% set grouped = schedule.period and k % schedule.period == 0 %}
 {% macro fetch() %}INC LR4 1 ; LD.MULT.CYCLIC LR4 {{ cr.coeff }} LR0{% endmacro %}
 {% macro mac(src, accum='ADD') %}
     MULT.RC.VE LR0 {{ src }} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.{{ accum }}
@@ -25,6 +35,28 @@
     {{ mac(src) }}{% if not final or not loop.last %} ; {{ fetch() }}{% endif %}{% if not final and loop.last %} ; BNE LR10 CR0 period_{{ phase }}{% endif %} ;;
 {% endfor %}
 {% endmacro %}
+{% macro advance_lane(delta) %}
+{% if delta > 0 %} ; INC LR12 {{ delta }}{% elif delta < 0 %} ; DEC LR12 {{ -delta }}{% endif %}
+{%- endmacro %}
+{% macro grouped_taps(phase) %}
+{% set start = phase * granule %}
+group_{{ phase }}:
+{% for tap in range(schedule.period) %}
+{% set pos = start + tap * m %}
+{% set next = pos + m %}
+{% set lane = (pos % in0_d2) % 128 %}
+{% set row = 2 * (pos // in0_d2) + (pos % in0_d2) // 128 %}
+{% set next_row = 2 * (next // in0_d2) + (next % in0_d2) // 128 %}
+{% set prev = pos - m %}
+{% set delta = lane - (prev % in0_d2) % 128 %}
+{% set prev_row = 2 * (prev // in0_d2) + (prev % in0_d2) // 128 %}
+{% if loop.first or prev_row != row %}
+    LD.MULT R0 LR5 {{ cr.in0 }}{% if loop.first %} ; DEC LR10 1 ; SET LR12 LR7{% elif delta %}{{ advance_lane(delta) }}{% endif %} ;;
+{% endif %}
+    {{ mac('LR12') }} ; {{ fetch() }}{% if not loop.first and prev_row == row %}{{ advance_lane(delta) }}{% endif %}{% if loop.last %} ; BEQ LR10 CR0 last_channel{% endif %} ;;
+    {{ mac('LR12') }} ; {{ fetch() }}{% if next_row != row %} ; INC LR5 {{ next_row - row }}{% endif %}{% if loop.last %} ; B group_{{ phase }}{% endif %} ;;
+{% endfor %}
+{% endmacro %}
 
     SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
     SET LR3 CR0 ; SET LR7 CR0 ;;
@@ -34,6 +66,12 @@
 {% if periodic %}
     SET LR13 CR0 ; SET LR14 CR0 ;;
     INC LR13 64 ; INC LR14 128 ;;
+{% elif grouped %}
+{% for phase in range(1, m // granule) %}
+{% set bound = 'LR8' if phase == 3 else 'LR' ~ (phase + 12) %}
+    SET {{ bound }} CR0 ;;
+    INC {{ bound }} {{ phase * granule }} ;;
+{% endfor %}
 {% endif %}
 {% for i in range(5) %}
     LD.LUT {{ i }} {{ cr.lut }} LR11 ;;
@@ -52,7 +90,7 @@ skip_tile:
     DEC LR4 1 ;;
 gemm_tile:
     SET LR5 LR1 ; SET LR6 LR7 ; SET LR10 CR0 ;;
-    INC LR10 {{ k // 3 - 1 if periodic else k }} ; INC LR11 1 ; {{ fetch() }} ;;
+    INC LR10 {{ k // 3 - 1 if periodic else (k // schedule.period if grouped else k) }} ; INC LR11 1 ; {{ fetch() }} ;;
     {{ mac('CR1', 'ADD.FIRST') }} ; {{ fetch() }} ;;
     {{ mac('CR1') }} ; {{ fetch() }} ;;
 {% if periodic %}
@@ -78,7 +116,17 @@ period_{{ phase }}:
 gemm_store:
     BEQ LR11 LR15 final_tile ;;
 {% else %}
-{% if m % in0_d2 and m < in0_d2 %}
+{% if grouped %}
+    # Each group returns to the same lane in a later physical row. Stream
+    # coefficients without per-tap address tests, loading only the used half.
+{% for phase in range(1, m // granule) %}
+{% set bound = 'LR8' if phase == 3 else 'LR' ~ (phase + 12) %}
+    BLT.S LR7 {{ bound }} group_{{ phase - 1 }} ;;
+{% endfor %}
+{% for phase in range(m // granule - 1, -1, -1) %}
+    {{ grouped_taps(phase) }}
+{% endfor %}
+{% elif m % in0_d2 and m < in0_d2 %}
 {% if chunks == 2 %}
     ADD LR8 LR5 CR1 ; LD.MULT R0 LR5 {{ cr.in0 }} ;;
     LD.MULT R1 LR8 {{ cr.in0 }} ;;
