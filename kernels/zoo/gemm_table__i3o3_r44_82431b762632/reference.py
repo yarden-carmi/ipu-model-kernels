@@ -92,7 +92,7 @@ def fold(module, **params):
         if k == 96:
             sizes = [2] * 3 + [3] * 26 + [4] * 3
         if k == 64:
-            sizes = [4, 8] * 3 + [12, 16]
+            sizes = [5] * 2 + [6] * 9
         bits = 6 if k <= 16 else 5
         main = weight.new_zeros(n, 128)
         fine = torch.zeros_like(main)
@@ -137,8 +137,13 @@ def fold(module, **params):
                 # correction by a separately rounded activation sum.
                 loss = (error.square().sum(1) + error.square().amax(1) * 0.25
                         + candidates.square() * count / 512)
+            elif k == 64:
+                signed_error = error * residual.sign()
+                loss = (error.square().sum(1) + error.square().amax(1) * 0.25
+                        + signed_error.sum(1).square() / count
+                        + candidates.square() * count / 2048)
             else:
-                loss = error.square().sum(1) + candidates.square() / (128 if k == 64 else 4096)
+                loss = error.square().sum(1) + candidates.square() / 4096
             if k == 64:
                 loss = loss.masked_fill((mag >= 2 * scale[:, :, None]).any(dim=1), torch.inf)
             common = candidates.gather(1, loss.argmin(dim=1, keepdim=True))

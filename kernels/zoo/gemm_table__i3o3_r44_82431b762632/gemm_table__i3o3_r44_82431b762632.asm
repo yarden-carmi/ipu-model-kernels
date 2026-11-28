@@ -10,18 +10,22 @@ LD.MULT.CYCLIC LR6 {{ cr.in0 }} LR0
 ADD LR6 LR6 {{ cr.height }} ; {{ row() }}
 {%- endmacro %}
 {% macro advance_stripe() %}
+{% if in0_d0 == 1 %}
+    INC LR5 1 ; INC LR12 1 ; DEC LR10 1 ; BNE LR10 CR1 stripe ;;
+{% else %}
     INC LR5 1 ; DEC LR10 1 ; DEC LR11 1 ;;
     INC LR12 1 ; BEQ LR10 CR0 end ;;
     BNE LR11 CR0 stripe ;;
     ADD LR5 LR5 {{ cr.batch_skip }} ; ADD LR12 LR12 {{ cr.output_skip }} ; SET LR11 {{ cr.height }} ; B stripe ;;
 end:
+{% endif %}
     HALT ;;
 {% endmacro %}
 {% if k <= 128 %}
 {% set span = 4 if k == 64 else (3 if k <= 96 else 2) %}
 {% set single = k >= 8 and k <= 16 %}
 {% set prefix = 0 if k <= 32 or k == 64 or k == 96 else (k // 16 if k > 96 else (k // 3 if k > 64 else k // 4)) %}
-{% set sizes64 = [4, 8, 4, 8, 4, 8, 12, 16] %}
+{% set sizes64 = [5] * 2 + [6] * 9 %}
 {% set groups = sizes64 | length if k == 64 else (6 if k == 16 else (11 if k == 32 else (32 if k == 96 else (k - prefix + span - 1) // span))) %}
 {% macro group_count(g) -%}
 {{ sizes64[g] if k == 64 else ((2 if g < 3 else (3 if g < 29 else 4)) if k == 96 else ((2 if g < 2 else 3) if k == 16 else ((4 if g < 3 else (3 if g < 7 else 2)) if k == 32 else (k - prefix - g * span if g + 1 == groups else span)))) }}
@@ -39,12 +43,11 @@ ACTIVATE.QUANTIZE generic {{ cr.active }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR4
     SET LR13 CR0 ; SET LR15 CR0 ;;
     INC LR13 127 ; INC LR15 255 ;;
 {% for segment in range(5) %}
-    {% if segment %}INC LR4 1 ; {% endif %}LD.LUT {{ segment }} {{ cr.lut }} LR4 ;;
+    {% if segment %}INC LR4 1 ; {% endif %}LD.LUT {{ segment }} {{ cr.lut }} LR4{% if k == 64 and segment == 0 %} ; SET LR14 CR0{% elif k == 64 and segment == 1 %} ; INC LR14 128{% endif %} ;;
 {% endfor %}
 stripe:
 {% if k == 64 %}
-    SET LR6 LR5 ; SUB LR9 LR0 CR1 ; SET LR14 CR0 ;;
-    INC LR14 128 ; LD.MULT.CYCLIC LR5 {{ cr.in0 }} LR14 ;;
+    SET LR6 LR5 ; SUB LR9 LR0 CR1 ; LD.MULT.CYCLIC LR5 {{ cr.in0 }} LR14 ;;
 {% else %}
     SET LR6 LR5 ; SUB LR9 LR0 CR1 ; SET LR14 CR0 ;;
 {% endif %}
@@ -58,13 +61,13 @@ skip:
 {% for g in range(block, [groups, block + 32] | min) %}
 {% set count = group_count(g) | int %}
 {% for j in range(count) %}
-    {{ prod('CR1', loop.first, 'LR14' if k == 64 and g == 0 and loop.first else 'LR0') }} ; {% if loop.last %}ACTIVATE.QUANTIZE identity {{ cr.active }}.L {{ qf }} {{ cr.sums }} LR9 ; INC LR9 1{% if g + 1 < groups %} ; {{ step() }}{% endif %}{% else %}{{ step() }}{% endif %} ;;
+    {{ prod('CR1', loop.first, 'LR14' if k == 64 and g == 0 and loop.first else 'LR0') }} ; {% if loop.last %}ACTIVATE.QUANTIZE identity {{ cr.active }}.L {{ qf }} {{ cr.sums }} LR9 ; INC LR9 1{% if g + 1 < groups %} ; {{ step() }}{% elif k == 64 %} ; SUB LR4 LR12 {{ cr.height }}{% endif %}{% else %}{{ step() }}{% endif %} ;;
 {% endfor %}
 {% endfor %}
 {% endfor %}
     SET LR8 {{ cr.n }} ; SET LR7 CR0 ; SET LR3 LR12 ; LD.MULT R0 LR0 {{ coeff_base }} ;;
 {% if resident %}
-    {% if k == 64 %}SUB LR4 LR12 {{ cr.height }} ;;{% else %}
+    {% if k != 64 %}
     SET LR14 CR0 ; SUB LR4 LR12 {{ cr.height }} ;;
     INC LR14 128 ; LD.MULT.CYCLIC LR5 {{ cr.in0 }} LR14 ;;
     {% endif %}
