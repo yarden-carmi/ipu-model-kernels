@@ -34,8 +34,10 @@
  BNE LR8 CR0 {{ label }}_split ;;
  // For an exact reciprocal, keep it resident from mean through variance.
  {% if label == 'mean' %}LD.MULT.CYCLIC LR10 {{ cr.norm }} LR7 ;;{% endif %}
- {% for i in range(3) %}
- {{ load(offsets[i]) }}
+ // The split leaves the middle residual in R0. Use it before reloading
+ // the high and low parts instead of loading the middle a second time.
+ {% for i in [1,0,2] %}
+ {% if not loop.first %}{{ load(offsets[i]) }}{% endif %}
  MULT.RC.VV LR7 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %}{% if loop.last %} ; INC LR10 1{% endif %} ;;
  {% endfor %}
  B {{ label }}_end ;;
@@ -86,7 +88,6 @@
 {% macro coeff() %}LD.MULT.CYCLIC LR5 {{ cr.coeff }} LR0 ; INC LR5 1{% endmacro %}
 {% macro kchunk(limit,label,full_chunk=false) %}
  LD.MULT R0 LR7 {{ cr.in0 }} ; SET LR10 CR0 ;;
- {{ coeff() }} ;;
  {% if not full_chunk %}
  BEQ LR10 {{ limit }} {{ label }}_last ;;
  SET LR1 {{ limit }} ;;
@@ -96,7 +97,7 @@
  // Both SET and BLT see the pre-increment lane; MULT sees the snapshot.
  MULT.RC.VE LR0 LR6 0 LR0 {{ full }} {{ iq }} ; ACC.ADD ; {{ coeff() }} ; INC LR10 1 ; SET LR6 LR10 ; BLT.S LR10 {% if full_chunk %}LR11{% else %}LR1{% endif %} {{ label }} ;;
 {{ label }}_last:
- MULT.RC.VE LR0 LR10 0 LR0 {{ full }} {{ iq }} ; ACC.ADD ; INC LR7 1{% if full_chunk %} ; DEC LR8 1{% endif %} ;;
+ MULT.RC.VE LR0 LR10 0 LR0 {{ full }} {{ iq }} ; ACC.ADD ; INC LR7 1{% if full_chunk %} ; {{ coeff() }} ; DEC LR8 1{% endif %} ;;
 {% endmacro %}
 {% macro lut(i) %}
  LD.LUT {{ i }} {{ cr.lut }} LR1 ;;
@@ -120,7 +121,7 @@ row:
  DEC LR5 1 ;;
 gemm_tile:
  SET LR7 LR2 ; {{ coeff() }} ;;
- MULT.RC.VE LR0 CR1 0 LR0 {{ full }} {{ iq }} ; ACC.ADD.FIRST ;;
+ MULT.RC.VE LR0 CR1 0 LR0 {{ full }} {{ iq }} ; ACC.ADD.FIRST ; {{ coeff() }} ;;
  SET LR8 LR14 ;;
  BEQ LR8 CR0 gemm_last_chunk ;;
 gemm_full_chunk:
