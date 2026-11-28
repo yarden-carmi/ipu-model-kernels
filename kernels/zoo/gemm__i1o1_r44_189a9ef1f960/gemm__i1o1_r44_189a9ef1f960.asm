@@ -3,10 +3,8 @@
 {% macro dot(j, last=false) %}
     MULT.RC.VV LR0 R0 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; AGG.SUM {{ 'LR3' if j % 2 == 0 else 'LR13' }} {{ cr.full }}.L ; INC {{ 'LR13' if j % 2 == 0 else 'LR3' }} 2 {% if not last %}; INC LR4 1 ; LD.MULT.CYCLIC LR4 {{ cr.w_unbiased }} LR0{% endif %} ;;
 {% endmacro %}
-    SET LR0 CR0 ; SET LR1 {{ cr.lanes128 }} ; SET LR8 CR0 ;;
-    SET LR9 {{ cr.points }} ;;
-    SET LR5 CR0 ;;
-    DEC LR5 1 ;;
+    SET LR0 CR0 ; SET LR8 CR0 ; SET LR5 CR0 ;;
+    SET LR9 {{ cr.points }} ; DEC LR5 1 ;;
 special_row:
     SET LR4 CR0 ; SET LR3 CR0 ; SET LR13 CR0 ; LD.MULT R0 LR8 {{ cr.in0 }} ;;
     DEC LR4 1 ; DEC LR13 1 ;;
@@ -135,11 +133,11 @@ init:
 {% endif %}
 {% if k > 128 %}
 chunk:
-    LD.MULT R0 LR10 {{ cr.in0 }} ; INC LR10 1 ;;
+    LD.MULT R0 LR10 {{ cr.in0 }} ; INC LR10 1 ; SUB LR13 LR0 CR1 ;;
+{% else %}
+    SUB LR13 LR0 CR1 ;;
 {% endif %}
-    SET LR13 CR0 ;;
     {{ weight('LR0') }} ; SET LR3 CR0 ; SET LR12 LR7 ;;
-    DEC LR13 1 ;;
 channel:
     {{ reduce('LR0', 'LR3') }} ; {{ weight('LR1') }} ; INC LR13 1 ; DEC LR12 1 ; BEQ LR12 CR1 last_low ;;
     {{ reduce('LR1', 'LR13') }} ; {{ weight('LR0') }} ; INC LR3 1 ; B channel ;;
