@@ -1,0 +1,145 @@
+[kernel]
+op = "conv2d_builtin"
+formats = ["e1", "e2"]
+
+[params.act_out0]
+type = "str"
+choices = ["relu"]
+default = "relu"
+[params.bias]
+type = "bool"
+default = true
+[params.cin]
+type = "int"
+min = 1
+max = 512
+default = 128
+[params.cout]
+type = "int"
+min = 1
+max = 512
+default = 128
+[params.groups]
+type = "int"
+min = 1
+max = 512
+default = 1
+[params.h]
+type = "int"
+min = 1
+max = 224
+default = 28
+[params.w]
+type = "int"
+min = 1
+max = 224
+default = 28
+[params.kh]
+type = "int"
+min = 1
+max = 7
+default = 3
+[params.kw]
+type = "int"
+min = 1
+max = 7
+default = 3
+[params.padding]
+type = "int"
+min = 0
+max = 3
+default = 1
+[params.stride]
+type = "int"
+choices = [1, 2]
+default = 2
+[params.in0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 512
+default = 128
+[params.in0_d2]
+type = "int"
+min = 1
+max = 224
+default = 28
+[params.in0_d3]
+type = "int"
+min = 1
+max = 224
+default = 28
+[params.out0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 512
+default = 128
+[params.out0_d2]
+type = "int"
+min = 1
+max = 224
+default = 14
+[params.out0_d3]
+type = "int"
+min = 1
+max = 224
+default = 14
+
+[derived]
+fast = "min(1, max(0, 65 - cin)) * min(1, max(0, 129 - cout)) * min(1, max(0, 2 - groups)) * min(1, max(0, 2 - stride)) * min(1, max(0, 1 - (kh - 3) * (kh - 3))) * min(1, max(0, 1 - (kw - 3) * (kw - 3))) * min(1, max(0, 1 - (padding - 1) * (padding - 1)))"
+ib = "ceil(in0_d1 / 128)"
+precise = "min(1, max(0, h - 32)) * min(1, max(0, 33 - cin))"
+ob = "ceil(out0_d1 / 128)"
+wr = "fast * ((25 * cout + 1) * (1 + precise) + 1) + (1 - fast) * (min(1, in0_d1 - groups + out0_d1 - groups) + ob * (2 + kh * kw * (1 + (in0_d1 - 1) * min(1, in0_d1 - groups + out0_d1 - groups)) * 2))"
+full = "ds(128) + fast * 65536 * 15 * cout"
+tail = "ds((out0_d1 - 1) % 128 + 1) + fast * 65536 * 18 * cout"
+v9 = "fast * (out0_d3 - 1) + (1 - fast) * in0_d2"
+v10 = "fast * (out0_d2 - 1) + (1 - fast) * in0_d3"
+v11 = "fast * in0_d3 + (1 - fast) * kh"
+v12 = "fast * (cout - 2) + (1 - fast) * kw"
+v13 = "fast * (in0_d2 * in0_d3 - 1) + (1 - fast) * (min(128, in0_d1) - 1)"
+offsets = "20 * cout + 65536 * 23 * cout"
+top_middle = "2 * cout"
+top_right = "5 * cout"
+middle_left = "7 * cout"
+middle = "10 * cout"
+
+[inputs.in0]
+shape = ["in0_d2", "in0_d3", "ib", 128]
+range = [-1, 1]
+[inputs.weights]
+shape = ["wr", 128]
+range = [-1, 1]
+[outputs.out0]
+shape = ["out0_d2", "out0_d3", "ob", 128]
+[scratch.staged]
+shape = ["in0_d2 * in0_d3", 128]
+
+[abi]
+in0 = "CR2"
+weights = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+full = "CR7"
+tail = "CR8"
+v9 = "CR9"
+v10 = "CR10"
+v11 = "CR11"
+v12 = "CR12"
+v13 = "CR13"
+offsets = "CR14"
+staged = "CR15"
+top_middle = "LR9"
+top_right = "LR10"
+middle_left = "LR13"
+middle = "LR14"
+
+[cases.default]
