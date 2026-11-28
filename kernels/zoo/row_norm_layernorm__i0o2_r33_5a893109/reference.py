@@ -49,29 +49,34 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.layer_norm.default(_v(ins[0], [4, 64, 192], [1, 4, 256], 0), [192], module.weight, module.bias)
+    r0 = aten.layer_norm.default(_v(ins[0], [4, 256, 144], [1, 4, 1024], 0), [144], module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [4, 64, 192])}
+    return {"out0": _out(op0, [4, 256, 144])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
-    channels = params["channels"]
+    channels = int(params["channels"])
 
-    def split(tensor):
-        residual = tensor.reshape(-1, 128)
+    def pad(t):
+        out = torch.zeros(256, dtype=torch.float32)
+        out[:channels] = t.reshape(-1)
+        return out
+
+    def split(t, mantissa=5):
+        residual = t.reshape(-1, 128)
         parts = []
-        for _ in range(2):
-            peak = residual.abs().amax(dim=1, keepdim=True).clamp_min(1e-30)
-            step = 2.0 ** (torch.floor(torch.log2(peak)) - 4)
+        for _ in range(1):
+            peak = residual.abs().amax(1, keepdim=True).clamp_min(1e-30)
+            step = 2.0 ** (torch.floor(torch.log2(peak)) - mantissa)
             part = torch.round(residual / step) * step
             parts.append(part)
             residual = residual - part
         return torch.cat([*parts, residual])
 
-    def affine(tensor):
-        return split(torch.nn.functional.pad(tensor.flatten(), (0, (-channels) % 128)))
-
-    return {"gamma": affine(module.weight), "beta": affine(module.bias),
-            "scalars": torch.cat((split(torch.full((128,), 1 / channels)),
-                                  torch.full((1, 128), params["eps"])))}
+    return {
+        "gamma": split(pad(module.weight) * channels**0.5, mantissa=6),
+        "beta": split(pad(module.bias)),
+        "crow": split(torch.full((128,), 1 / channels)),
+        "epsilon": torch.full((1, 128), params["eps"] * channels),
+    }

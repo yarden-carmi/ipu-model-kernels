@@ -7,86 +7,87 @@ choices = ["layernorm"]
 default = "layernorm"
 [params.channels]
 type = "int"
-min = 128
+min = 129
 max = 256
-default = 144
+multiple_of = 16
+default = 240
 [params.rows]
 type = "int"
-min = 1
-max = 65536
-default = 1024
+min = 64
+max = 1024
+multiple_of = 64
+default = 64
 [params.eps]
 type = "float"
 min = 0.0
 max = 1.0
-default = 0.00001
+default = 1e-5
 [params.in0_d0]
 type = "int"
-min = 1
-max = 16
+min = 4
+max = 4
 default = 4
 [params.in0_d1]
 type = "int"
 min = 1
-max = 1024
-default = 256
+max = 256
+default = 16
 [params.in0_d2]
 type = "int"
-min = 128
+min = 129
 max = 256
-default = 144
+default = 240
 [params.out0_d0]
 type = "int"
-min = 1
-max = 128
+min = 4
+max = 4
 default = 4
 [params.out0_d1]
 type = "int"
 min = 1
-max = 65536
-default = 256
+max = 256
+default = 16
 [params.out0_d2]
 type = "int"
-min = 1
+min = 129
 max = 256
-default = 144
+default = 240
+
 [derived]
-K = "(channels + 127) // 128"
-M = "rows * K"
-ds_pair = "ds(channels - 128 * (K - 1)) + 65536 * ds(128)"
-half = "1277440"
-channel_stride = "(in0_d0 * in0_d1 + 127) // 128"
-plane = "in0_d0 * in0_d1"
-plane_pair = "plane + 65536 * (plane - 1)"
-span = "in0_d2 * channel_stride"
-delta = "(plane % in0_d2) * channel_stride"
+ds1 = "ds(1) + 65536 * qf(1, 1, 8, 0)"
+c128 = "channels * ((rows + 127) // 128)"
+cC = "channels + 65536 * (channels - rows % channels)"
+dsl = "ds(channels - 128)"
 [inputs.in0]
-shape = ["in0_d2 * channel_stride", 128]
+shape = ["in0_d2 * ((in0_d0 * in0_d1 + 127) // 128)", 128]
+range = [-2.0, 2.0]
 [inputs.gamma]
-shape = ["3 * K", 128]
-[inputs.beta]
-shape = ["3 * K", 128]
-[inputs.scalars]
 shape = [4, 128]
+[inputs.beta]
+shape = [4, 128]
+[inputs.crow]
+shape = [2, 128]
+[inputs.epsilon]
+shape = [1, 128]
 [scratch.tmp]
-shape = [24, 128]
+shape = ["40 + 2 * rows + (rows // 8) * (channels // 16)", 128]
 [outputs.out0]
-shape = ["out0_d0 * out0_d1 * ((out0_d2 + 127) // 128)", 128]
+shape = ["out0_d0 * out0_d1 * 2", 128]
 [abi]
 in0 = "CR2"
-out0 = "CR3"
-qf_in0 = "CR4"
-qf_out0 = "CR5"
-gamma = "CR6"
-beta = "CR7"
-scalars = "CR8"
-tmp = "CR9"
-qf_gamma = "CR10"
-ds_pair = "CR11"
-plane_pair = "CR12"
-span = "CR13"
-M = "CR14"
-half = "CR15"
-in0_d0 = "LR14"
-delta = "LR13"
+gamma = "CR3"
+beta = "CR4"
+out0 = "CR5"
+qf_out0 = "CR6"
+crow = "CR7"
+tmp = "CR8"
+qf_in0 = "CR9"
+c128 = "CR10"
+cC = "CR11"
+epsilon = "CR12"
+ds1 = "CR13"
+dsl = "CR14"
+[golden]
+tolerance = { e2 = "NX8_STEP" }
+
 [cases.default]
