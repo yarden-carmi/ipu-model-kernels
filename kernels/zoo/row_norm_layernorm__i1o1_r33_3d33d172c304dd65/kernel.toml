@@ -1,0 +1,97 @@
+[kernel]
+op = "row_norm"
+formats = ["e2"]
+[params.kind]
+type = "str"
+choices = ["layernorm"]
+default = "layernorm"
+[params.channels]
+type = "int"
+min = 128
+max = 768
+multiple_of = 2
+default = 512
+[params.rows]
+type = "int"
+min = 1
+max = 4096
+default = 1500
+[params.eps]
+type = "float"
+min = 0.0
+max = 1.0
+default = 1e-5
+[params.in0_d0]
+type = "int"
+min = 1
+max = 4
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 1500
+[params.in0_d2]
+type = "int"
+min = 128
+max = 768
+multiple_of = 2
+default = 512
+[params.out0_d0]
+type = "int"
+min = 1
+max = 4
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 1500
+[params.out0_d2]
+type = "int"
+min = 128
+max = 768
+multiple_of = 2
+default = 512
+[derived]
+stat = "ds(min(rows,128)) + 65536 * qf(1, 1, 8, 0)"
+wide = "qf(1, 4, 8, 0) + 65536 * ds(rows % 128)"
+tiles = "rows // 128"
+count = "channels // 2"
+g_src = "3 + 65536 + 2 * 16777216"
+g_dst = "min(42, channels // in0_d0) * (3 + 65536 + 2 * 16777216)"
+g_block = "((in0_d1 + 127) // 128)"
+g_end = "out0_d0 * channels * ((out0_d1 + 127) // 128)"
+[inputs.in0]
+shape = ["in0_d0 * in0_d2 * ((in0_d1 + 127) // 128)", 128]
+[inputs.gamma]
+shape = ["2 * channels", 128]
+[inputs.beta]
+shape = ["2 * channels", 128]
+[inputs.crow]
+shape = [2, 128]
+[inputs.epsilon]
+shape = ["1 + 2 * min(1, in0_d0 - 1)", 128]
+[scratch.tmp]
+shape = ["5 + 2 * channels + channels * ((rows + 127) // 128)", 128]
+[outputs.out0]
+shape = ["out0_d0 * out0_d2 * ((out0_d1 + 127) // 128)", 128]
+[abi]
+in0 = "CR2"
+out0 = "CR5"
+qf_in0 = "CR9"
+qf_out0 = "CR6"
+gamma = "CR3"
+beta = "CR4"
+crow = "CR7"
+tmp = "CR8"
+tiles = "CR10"
+count = "CR11"
+epsilon = "CR12"
+stat = "CR13"
+wide = "CR14"
+g_src = "LR0"
+g_dst = "LR1"
+g_block = "LR2"
+g_end = "LR4"
+[cases.default]
