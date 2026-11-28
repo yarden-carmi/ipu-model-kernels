@@ -1,0 +1,129 @@
+[kernel]
+op = "conv2d_builtin"
+formats = ["e1", "e2"]
+
+[params.act_out0]
+type = "str"
+choices = ["relu"]
+default = "relu"
+[params.bias]
+type = "bool"
+default = true
+[params.cin]
+type = "int"
+min = 1
+max = 255
+default = 88
+[params.cout]
+type = "int"
+min = 1
+max = 255
+default = 88
+[params.groups]
+type = "int"
+min = 1
+max = 255
+default = 88
+[params.h]
+type = "int"
+min = 3
+max = 255
+default = 28
+[params.w]
+type = "int"
+min = 3
+max = 127
+default = 28
+[params.kh]
+type = "int"
+choices = [3]
+default = 3
+[params.kw]
+type = "int"
+choices = [3]
+default = 3
+[params.padding]
+type = "int"
+choices = [1]
+default = 1
+[params.stride]
+type = "int"
+choices = [1, 2]
+default = 1
+[params.in0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 255
+default = 88
+[params.in0_d2]
+type = "int"
+min = 3
+max = 255
+default = 28
+[params.in0_d3]
+type = "int"
+min = 3
+max = 127
+default = 28
+[params.out0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 255
+default = 88
+[params.out0_d2]
+type = "int"
+min = 2
+max = 255
+default = 28
+[params.out0_d3]
+type = "int"
+min = 2
+max = 127
+default = 28
+
+[derived]
+dsfull = "ds(128)"
+dswidth = "ds(out0_d3) + 65536 * ds(0)"
+dstail = "ds(1 + (out0_d2 * out0_d3 - 1) % 128)"
+tiles = "ceil(out0_d2 * out0_d3 / 128)"
+pitch = "3 * (h + 2)"
+jump = "pitch * (cin // groups)"
+cend = "cin // groups - 1"
+yend = "out0_d2 - 1"
+wrows = "2 * (1 + cin // groups) * cout + 1"
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d1", "in0_d2", 128]
+range = [-2, 2]
+[inputs.weights]
+shape = ["wrows", 128]
+range = [-1, 1]
+[outputs.out0]
+shape = ["out0_d0", "out0_d1", "tiles + tiles % 2", 128]
+[scratch.stage]
+shape = ["cin * pitch", 128]
+
+[abi]
+in0 = "CR2"
+weights = "CR3"
+out0 = "CR5"
+stage = "CR6"
+qf_in0 = "CR7"
+qf_out0 = "CR8"
+dsfull = "CR9"
+dswidth = "CR10"
+dstail = "CR11"
+pitch = "CR12"
+jump = "CR13"
+cend = "CR14"
+yend = "CR15"
+
+[cases.default]
