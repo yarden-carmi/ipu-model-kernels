@@ -16,7 +16,6 @@ group_loop:
 {{ rowpair('CR15.L' if (k < R - 1 or gt == 0) else cr.gtail ~ '.L', true, k == R - 1, false) }}
 {% endfor %}
 {% endif %}
-tail_group:
 {% for k in range(TR) %}
 {{ rowpair(('CR15.L' if (k < R - 1 or gt == 0) else cr.gtail ~ '.L') if rem == 0 else ('CR15.L' if (k < TR - 1 or tt == 0) else cr.ttail ~ '.L'), k < TR - 1, false, k == TR - 1) }}
 {% endfor %}
