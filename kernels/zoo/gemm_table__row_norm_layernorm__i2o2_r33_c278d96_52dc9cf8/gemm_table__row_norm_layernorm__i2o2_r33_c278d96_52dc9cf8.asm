@@ -197,8 +197,10 @@ variance_tail:
  MULT.RC.VV LR3 R1 0 LR0 {{ full }} {{ q }} ; ACC.ADD ;;
  {{ save(18) }}
  MULT.RC.VE LR3 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ;;
- MULT.RC.VE LR3 {{ cr.half }} 0 LR0 {{ full }} {{ q }} ; ACC.ADD ;;
- {% for n in [18,19] %}{{ load(n) }}{{ vec('SUB',s=cr.half) }}{% endfor %}
+  // The split leaves the high part in R0; consume it before loading the residual.
+  MULT.RC.VE LR3 {{ cr.half }} 0 LR0 {{ full }} {{ q }} ; ACC.ADD ;;
+  MULT.VE LR0 {{ cr.half }} 0 LR0 {{ full }} {{ q }} ; ACC.SUB ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
+  {{ vec('SUB',s=cr.half) }}
  {{ save(12) }}
  // Reserve the upper two cyclic slots for rsqrt across every output tile.
  ADD LR6 LR3 LR3 ;;
