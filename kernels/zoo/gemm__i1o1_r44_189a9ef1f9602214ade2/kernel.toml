@@ -68,6 +68,7 @@ outer = "min(1, max(0, 2 * chunks * n // ceil(n / 128) - 3 * k - 8))"
 outer_rows = "2 * tiles * (k + 1)"
 dot_rows = "2 * chunks * n"
 special = "(1 - min(1, max(k - 128, 128 - k) + max(n - 192, 192 - n)))"
+pack_tail = "min(1, max(0, k - 128)) * min(1, max(0, 193 - k)) * (1 - outer)"
 single = "min(1, max(0, n - 24)) * min(1, max(0, 33 - n)) * min(1, max(0, 65 - k))"
 fast = "(1 - min(1, max(k - 256, 256 - k) + max(n - 64, 64 - n)))"
 fast128 = "(1 - min(1, max(k - 128, 128 - k) + max(n - 64, 64 - n)))"
@@ -80,7 +81,7 @@ shape = ["single * (n + 3) + (1 - single) * (outer * outer_rows + (1 - outer) * 
 range = [-1, 1]
 when = "bias"
 [inputs.w_unbiased]
-shape = ["outer * outer_rows + (1 - outer) * (dot_rows - n * special)", 128]
+shape = ["outer * outer_rows + (1 - outer) * (dot_rows - n * special) + pack_tail * (2 * (k - 128) * tiles - 2 * n)", 128]
 range = [-1, 1]
 when = "not bias"
 [outputs.out0]

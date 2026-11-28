@@ -1,6 +1,5 @@
 {% if not bias and k == 128 and n == 192 %}
-{# One row per channel suffices. Alternate destination
-   registers so the next destination can be advanced alongside reduction. #}
+{# Stream one weight row per output, without prefetching past the last row. #}
 {% macro dot(j, last=false) %}
     MULT.RC.VV LR0 R0 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; AGG.SUM {{ 'LR3' if j % 2 == 0 else 'LR13' }} {{ cr.full }}.L ; INC {{ 'LR13' if j % 2 == 0 else 'LR3' }} 2 {% if not last %}; INC LR4 1 ; LD.MULT.CYCLIC LR4 {{ cr.w_unbiased }} LR0{% endif %} ;;
 {% endmacro %}
@@ -15,6 +14,39 @@ special_row:
     MULT.EE LR0 CR0 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; DEC LR13 1 ;;
 {% for group in range(2) %}{% for j in range(32) %}{{ dot(j, last=group == 1 and j == 31) }}{% endfor %}{% endfor %}
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.tail }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR5 ; INC LR5 1 ; INC LR8 1 ; DEC LR9 1 ; BNE LR9 CR1 special_row ;;
+    HALT ;;
+{% elif not bias and 128 < k <= 192 and 3 * k + 8 >= 4 * n // ((n + 127) // 128) %}
+{# Reduce the full K chunk as dots, then use output channels as lanes
+   for the short K tail rather than doing mostly padded reductions. #}
+{% macro fetch(slot) %}LD.MULT.CYCLIC LR4 {{ cr.w_unbiased }} {{ slot }} ; INC LR4 1{% endmacro %}
+{% macro mul(slot) %}MULT.RC.VV {{ slot }} R0 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L{% endmacro %}
+{% macro store(ds) %}ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR5{% endmacro %}
+{% macro tail_mac(src) %}MULT.RC.VE LR0 {{ src }} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD{% endmacro %}
+    SET LR0 CR0 ; SET LR1 {{ cr.lanes128 }} ; SET LR8 CR0 ;;
+    SET LR9 {{ cr.points }} ; SET LR5 CR0 ; SET LR2 CR0 ;;
+    SUB LR5 LR0 CR1 ; INC LR2 {{ k - 129 }} ;;
+packed_row:
+    SUB LR4 LR0 CR1 ; SET LR6 {{ cr.tiles }} ;;
+packed_tile:
+    SET LR7 {{ cr.tail_count }} ; BEQ LR6 CR1 packed_init ;;
+    SET LR7 {{ cr.lanes128 }} ;;
+packed_init:
+    MULT.EE LR0 CR0 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; LD.MULT R0 LR8 {{ cr.in0 }} ; SET LR3 CR0 ; SET LR10 LR8 ;;
+    SUB LR13 LR0 CR1 ; SET LR12 LR7 ; {{ fetch('LR0') }} ;;
+packed_main_dot:
+    {{ mul('LR0') }} ; AGG.SUM LR3 {{ cr.full }}.L ; {{ fetch('LR1') }} ; INC LR13 1 ; DEC LR12 1 ; BEQ LR12 CR1 packed_main_last ;;
+    {{ mul('LR1') }} ; AGG.SUM LR13 {{ cr.full }}.L ; {{ fetch('LR0') }} ; INC LR3 1 ; B packed_main_dot ;;
+packed_main_last:
+    {{ mul('LR1') }} ; AGG.SUM LR13 {{ cr.full }}.L ; {{ fetch('LR0') }} ;;
+    INC LR10 1 ; LD.MULT R0 LR10 {{ cr.in0 }} ;;
+packed_tail_dot:
+    {{ tail_mac('LR2') }} ; {{ fetch('LR0') }} ; SET LR11 LR2 ; BEQ LR2 CR0 packed_tail_last ;;
+    {{ tail_mac('LR11') }} ; {{ fetch('LR0') }} ; DEC LR2 1 ; B packed_tail_dot ;;
+packed_tail_last:
+    {{ tail_mac('LR11') }} ; INC LR2 {{ k - 129 }} ; BEQ LR6 CR1 packed_store_last ;;
+    {{ store(cr.full) }} ; INC LR5 1 ; DEC LR6 1 ; B packed_tile ;;
+packed_store_last:
+    {{ store(cr.tail) }} ; INC LR5 1 ; DEC LR9 1 ; INC LR8 2 ; BNE LR9 CR1 packed_row ;;
     HALT ;;
 {% elif bias and k in [128, 256] and n == 64 %}
     SET LR0 CR0 ; SET LR5 CR0 ; SET LR8 CR0 ;;
@@ -134,11 +166,11 @@ init:
 {% endif %}
 {% if k > 128 %}
 chunk:
-    LD.MULT R0 LR10 {{ cr.in0 }} ; INC LR10 1 ;;
+    LD.MULT R0 LR10 {{ cr.in0 }} ; INC LR10 1 ; SUB LR13 LR0 CR1 ;;
+{% else %}
+    SUB LR13 LR0 CR1 ;;
 {% endif %}
-    SET LR13 CR0 ;;
     {{ weight('LR0') }} ; SET LR3 CR0 ; SET LR12 LR7 ;;
-    DEC LR13 1 ;;
 channel:
     {{ reduce('LR0', 'LR3') }} ; {{ weight('LR1') }} ; INC LR13 1 ; DEC LR12 1 ; BEQ LR12 CR1 last_low ;;
     {{ reduce('LR1', 'LR13') }} ; {{ weight('LR0') }} ; INC LR3 1 ; B channel ;;

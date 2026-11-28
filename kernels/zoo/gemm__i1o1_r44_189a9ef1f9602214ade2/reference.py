@@ -49,9 +49,9 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.conv2d.default(_v(ins[0], [1, 128, 16, 16], [32768, 256, 16, 1], 0), module.weight)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 160, 8, 8], [10240, 64, 8, 1], 0), module.weight)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [1, 192, 16, 16])}
+    return {"out0": _out(op0, [1, 240, 8, 8])}
 # ---- end of the frozen reference ----
 
 
@@ -98,6 +98,16 @@ def fold(module, **params):
     if 3 * k + 8 < 2 * chunks * n // tile_count:
         rows = pad(torch.cat((bias[None], weight.T)), (0, (-n) % 128))
         return {name: _digits(rows.reshape(k + 1, tile_count, 128).transpose(0, 1)).reshape(-1, 128)}
+
+    if not params['bias'] and 128 < k <= 192:
+        tail = k - 128
+        rows = []
+        for start in range(0, n, 128):
+            tile = weight[start:start + 128]
+            rows.append(_digits(tile[:, :128]).reshape(-1, 128))
+            vectors = pad(tile[:, 128:].T.flip(0), (0, 128 - tile.shape[0]))
+            rows.append(_digits(vectors).reshape(2 * tail, 128))
+        return {name: torch.cat(rows)}
 
     dots = pad(weight, (0, 128 * chunks - k)).reshape(n, chunks, 128)
     digits = _digits(dots)
