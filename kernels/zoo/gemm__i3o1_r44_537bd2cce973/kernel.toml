@@ -1,0 +1,116 @@
+[kernel]
+op = "gemm"
+formats = ["e1", "e2"]
+
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 65536
+default = 64
+[params.n]
+type = "int"
+min = 1
+max = 65536
+default = 32
+[params.m]
+type = "int"
+min = 1
+max = 65536
+default = 16384
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 64
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 128
+[params.in0_d3]
+type = "int"
+min = 1
+max = 128
+default = 128
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 32
+[params.out0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 128
+[params.out0_d3]
+type = "int"
+min = 1
+max = 65536
+default = 128
+
+[derived]
+pack = "min(in0_d2, 128 // in0_d3) - (1 - min(1, max(in0_d3 - 32, 32 - in0_d3) + in0_d2 % 4 + max(0, k - 96)))"
+pitch = "ceil(in0_d2 / pack)"
+batch_pitch = "in0_d1 * pitch"
+last_lane = "in0_d3 - 1"
+packed_width = "pack * in0_d3"
+tiles = "ceil(n / 128)"
+last = "ds((n - 1) % 128 + 1)"
+full = "ds(128)"
+blocks = "k // 8"
+spatial = "min(1, in0_d3 // 32 + (1 - min(1, max(in0_d3 - 16, 16 - in0_d3) + k % 128 + max(0, k - 896)))) * (1 - min(1, n // 129))"
+features = "spatial * n + (1 - spatial) * tiles"
+panels = "in0_d0 * pitch"
+scalar_ds = "ds(1)"
+dot = "1 - min(1, max(in0_d2 * in0_d3 - 64, 64 - in0_d2 * in0_d3) + in0_d0 - 1 + k % 128 + pitch - 1)"
+dot_rows = "64 * (k // 128)"
+feature_count = "dot * (k // 128) + (1 - dot) * features"
+lane_counter = "dot * (k // 2) + (1 - dot) * last_lane"
+dot_src = "dot * 1073741824 + (1 - dot) * panels"
+dot_dst = "dot * 16777216 + (1 - dot) * batch_pitch"
+outer_extent = "dot * n + (1 - dot) * in0_d2"
+
+[inputs.in0]
+shape = ["in0_d0 * batch_pitch", 128]
+[inputs.coeff]
+shape = ["dot * (2 * tiles + n * (1 + k // 128)) + (1 - dot) * (spatial * n * (2 + 2 * ceil(k / 128)) + (1 - spatial) * (tiles * (2 * k + 2 - 3 * blocks) + 1))", 128]
+[scratch.panel]
+shape = ["max(1, dot * (dot_rows + k // 2), spatial * 2 * n * panels)", 128]
+[outputs.out0]
+shape = ["out0_d0 * out0_d2 * out0_d3 * ceil(out0_d1 / 128)", 128]
+
+[abi]
+in0 = "CR2"
+coeff = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+panel = "CR7"
+k = "CR8"
+pitch = "CR9"
+outer_extent = "CR10"
+feature_count = "CR11"
+last = "CR12"
+full = "CR13"
+scalar_ds = "CR14"
+packed_width = "CR15"
+lane_counter = "LR4"
+blocks = "LR13"
+dot_src = "LR8"
+dot_dst = "LR14"
+in0_d0 = "LR15"
+
+[cases.default]
