@@ -4,7 +4,7 @@
 {% set tiles = (n + shift + 127) // 128 %}
 {% set act = 'generic' if act_out0 == 'silu' else act_out0 %}
 {% set step = m % in0_d2 %}
-{% set periodic = in0_d2 == 192 and step in [64, 128] and k % 3 == 0 and shift == 0 %}
+{% set periodic = in0_d2 == 192 and step in [64, 128] and k % 24 == 0 and shift == 0 %}
 {% set granule = 16 %}
 {% set schedule = namespace(period=0) %}
 {% if chunks == 2 and in0_d2 % granule == 0 and m % granule == 0 and m <= 4 * granule %}
@@ -26,13 +26,14 @@
     ACTIVATE.QUANTIZE {{ fn }} {{ ds }}.L {{ cr.qf_out0 }}.L {{ base }} {{ offset }}
 {%- endmacro %}
 {% macro period(phase, final=false) %}
-{% for j in range(3) %}
+{% for j in range(24) %}
 {% set position = (phase + j * (step // 64)) % 3 %}
 {% set advance = chunks * (m // in0_d2 + (position + step // 64) // 3) + ((position + step // 64) % 3 == 2)|int - (position == 2)|int %}
 {% set src = 'LR12' if position == 1 else 'LR6' %}
+{% set split = j % 3 == 2 or j == 10 %}
     LD.MULT R0 LR5 {{ cr.in0 }} ;;
-    {{ mac(src) }} ; {{ fetch() }}{% if j == 0 %} ; INC LR5 {{ advance }}{% endif %} ;;
-{% if j != 0 %}
+    {{ mac(src) }}{% if split or not final or not loop.last %} ; {{ fetch() }}{% if not split %} ; INC LR5 {{ advance }}{% endif %}{% endif %}{% if not split and not final and loop.last %} ; DEC LR10 1 ; BNE LR10 CR1 period_{{ phase }}{% endif %} ;;
+{% if split %}
     {{ mac(src) }}{% if not final or not loop.last %} ; {{ fetch() }} ; INC LR5 {{ advance }}{% endif %}{% if not final and loop.last %} ; DEC LR10 1 ; BNE LR10 CR1 period_{{ phase }}{% endif %} ;;
 {% endif %}
 {% endfor %}
@@ -92,7 +93,7 @@ skip_tile:
     DEC LR4 1 ;;
 gemm_tile:
     SET LR5 LR1 ; SET LR6 LR7 ; SET LR10 CR0 ;;
-    INC LR10 {{ k // 3 - 1 if periodic else (k // schedule.period if grouped else k) }} ; INC LR11 1 ; {{ fetch() }} ;;
+    INC LR10 {{ k // 24 - 1 if periodic else (k // schedule.period if grouped else k) }} ; INC LR11 1 ; {{ fetch() }} ;;
     {{ mac('CR1', 'ADD.FIRST') }} ; {{ fetch() }} ;;
     {{ mac('CR1') }} ; {{ fetch() }} ;;
 {% if periodic %}
@@ -106,7 +107,7 @@ phase_{{ phase }}:
     SUB LR6 LR7 LR{{ 12 + phase }}{% if phase == 2 %} ; INC LR5 1{% endif %} ;;
 {% endif %}
     ADD LR12 LR6 LR13 ;;
-{% if k > 3 %}
+{% if k > 24 %}
 period_{{ phase }}:
     {{ period(phase) }}
 {% endif %}

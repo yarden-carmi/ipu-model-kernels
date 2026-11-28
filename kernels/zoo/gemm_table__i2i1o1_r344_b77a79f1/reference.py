@@ -77,10 +77,10 @@ def fold(module, **params):
     _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
     step = torch.ldexp(torch.ones_like(rows[..., :1]), exponent - 4)
     coarse = torch.round(rows / step) * step
-    if params['in0_d2'] == 192 and params['m'] % 192 in (64, 128) and k % 3 == 0 and shift == 0:
+    if params['in0_d2'] == 192 and params['m'] % 192 in (64, 128) and k % 24 == 0 and shift == 0:
         parts = [torch.stack((coarse[:, 0], rows[:, 0] - coarse[:, 0]), dim=1)]
         for i in range(k):
-            parts.append(rows[:, i + 1:i + 2] if i % 3 == 0 else torch.stack((coarse[:, i + 1], rows[:, i + 1] - coarse[:, i + 1]), dim=1))
+            parts.append(torch.stack((coarse[:, i + 1], rows[:, i + 1] - coarse[:, i + 1]), dim=1) if i % 3 == 2 or i % 24 == 10 else rows[:, i + 1:i + 2])
         packed = torch.cat(parts, dim=1).reshape(-1, 128)
         return {'coeff': packed}
     return {'coeff': torch.stack((coarse, rows - coarse), dim=2).reshape(-1, 128)}
