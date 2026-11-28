@@ -1,0 +1,99 @@
+[kernel]
+op = "gemm"
+formats = ["e1", "e2"]
+
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 32
+max = 4096
+default = 64
+[params.m]
+type = "int"
+min = 1
+default = 16384
+[params.n]
+type = "int"
+min = 1
+max = 4096
+default = 32
+[params.in0_d0]
+type = "int"
+min = 1
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+default = 64
+[params.in0_d2]
+type = "int"
+min = 1
+default = 128
+[params.in0_d3]
+type = "int"
+min = 1
+default = 128
+[params.out0_d0]
+type = "int"
+min = 1
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+default = 32
+[params.out0_d2]
+type = "int"
+min = 1
+default = 128
+[params.out0_d3]
+type = "int"
+min = 1
+default = 128
+
+[derived]
+pack = "min(in0_d2, max(1, 128 // in0_d3)) - (1 - min(1, max(in0_d3 - 32, 32 - in0_d3) + in0_d2 % 4 + max(0, k - 96)))"
+pitch = "ceil(in0_d2 / pack) * ceil(pack * in0_d3 / 128)"
+outpack = "min(out0_d2, max(1, 128 // out0_d3)) - (1 - min(1, max(out0_d3 - 32, 32 - out0_d3) + out0_d2 % 4 + max(0, k - 96)))"
+outpitch = "ceil(out0_d2 / outpack) * ceil(outpack * out0_d3 / 128)"
+active = "ds(min(128, pack * in0_d3))"
+tail = "ds(min(128, (in0_d2 - (ceil(in0_d2 / pack) - 1) * pack) * in0_d3))"
+full = "ds(128)"
+blocks = "ceil(k / 32)"
+wstride = "1 + 2 * blocks"
+ustride = "1 + blocks"
+scalar127 = "127"
+batch_stride = "k * pitch"
+batches = "in0_d0"
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d1 * pitch", 128]
+[inputs.w]
+shape = ["n * wstride + 1", 128]
+when = "bias"
+[inputs.w_unbiased]
+shape = ["n * ustride + 1", 128]
+when = "not bias"
+[outputs.out0]
+shape = ["out0_d0 * out0_d1 * outpitch", 128]
+
+[abi]
+in0 = "CR2"
+w = "CR3"
+w_unbiased = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+n = "CR7"
+full = "CR8"
+active = "CR9"
+pitch = "CR10"
+blocks = "CR11"
+batches = "LR12"
+wstride = "CR12"
+batch_stride = "CR13"
+scalar127 = "CR14"
+tail = "CR15"
+
+[cases.default]
