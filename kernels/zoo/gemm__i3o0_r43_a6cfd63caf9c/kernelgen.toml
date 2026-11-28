@@ -1,0 +1,24 @@
+chain = ["gemm"]
+chain_in = ["in0"]
+chain_out = ["out0"]
+
+[layout.in0]
+lanes = 3
+rows = [0, 1, 2]
+pack = 2
+
+[view.in0]
+kind = "merge"
+
+[prefer.in0]
+lanes = 0
+rows = [1, 3, 2]
+pack = "d2"
+
+[layout.out0]
+lanes = 0
+rows = [2, 1]
+pack = "d1"
+
+[format.out0]
+format = "e1"

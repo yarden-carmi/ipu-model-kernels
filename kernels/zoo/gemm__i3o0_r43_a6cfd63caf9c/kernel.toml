@@ -1,0 +1,61 @@
+[kernel]
+op = "gemm"
+formats = ["e2", "e3"]
+
+[params]
+bias = {type = "bool", default = true}
+k = {type = "int", min = 1, max = 65536, default = 192}
+m = {type = "int", min = 1, max = 65536, default = 256}
+n = {type = "int", min = 1, max = 65536, default = 192}
+in0_d0 = {type = "int", min = 1, max = 65536, default = 4}
+in0_d1 = {type = "int", min = 1, max = 65536, default = 4}
+in0_d2 = {type = "int", min = 2, max = 65536, multiple_of = 2, default = 64}
+in0_d3 = {type = "int", min = 1, max = 64, default = 48}
+out0_d0 = {type = "int", min = 1, max = 65536, default = 4}
+out0_d1 = {type = "int", min = 1, max = 65536, default = 64}
+out0_d2 = {type = "int", min = 1, max = 65536, default = 192}
+
+[derived]
+fast = "max(0, 1 - max(in0_d0-4, 4-in0_d0, in0_d1-4, 4-in0_d1, in0_d2-64, 64-in0_d2, in0_d3-48, 48-in0_d3, k-192, 192-k, m-256, 256-m, out0_d0-4, 4-out0_d0, out0_d1-64, 64-out0_d1))"
+full = "ds(128)"
+minusone = "-1"
+group = "256 + ds((m - 1) % 128 + 1) * 65536"
+single = "ds(1) + 2 * in0_d3 * 65536"
+batch_rows = "in0_d1 * in0_d2 // 2"
+inner = "k"
+
+[inputs.in0]
+shape = ["ceil(in0_d0 * in0_d1 * in0_d2 / 2)", 128]
+[inputs.w]
+shape = ["(2 * fast + (1-fast) * (1 + ceil(k / 128))) * n", 128]
+[outputs.out0]
+shape = ["out0_d2", "ceil(out0_d0 * out0_d1 / 128) * 128"]
+
+[scratch.panel]
+shape = ["max(1, 384 * fast)", 128]
+[scratch.a]
+shape = ["max(1, 512 * fast)", 128]
+[scratch.b]
+shape = ["max(1, 512 * fast)", 128]
+
+[abi]
+in0 = "CR2"
+w = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+n = "LR15"
+single = "CR7"
+full = "CR8"
+a = "CR9"
+b = "CR10"
+group = "CR11"
+batch_rows = "CR12"
+inner = "CR13"
+minusone = "CR14"
+panel = "CR15"
+
+[golden]
+tolerance = {e2 = "NX8_STEP", e3 = "NX8_STEP"}
+
+[cases.default]
