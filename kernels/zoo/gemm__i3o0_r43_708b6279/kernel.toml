@@ -1,0 +1,108 @@
+[kernel]
+op = "gemm"
+formats = ["e2"]
+
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 4096
+default = 144
+[params.m]
+type = "int"
+min = 1
+max = 65536
+default = 1024
+[params.n]
+type = "int"
+min = 1
+max = 16384
+default = 144
+[params.in0_d0]
+type = "int"
+choices = [4]
+default = 4
+[params.in0_d1]
+type = "int"
+min = 2
+max = 32
+multiple_of = 2
+default = 4
+[params.in0_d2]
+type = "int"
+choices = [16, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 384, 448, 512, 768, 1024]
+default = 256
+[params.in0_d3]
+type = "int"
+choices = [4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 72, 80, 88, 96, 104, 112, 120, 128]
+default = 36
+[params.out0_d0]
+type = "int"
+choices = [4]
+default = 4
+[params.out0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 256
+[params.out0_d2]
+type = "int"
+min = 1
+max = 16384
+default = 144
+
+[derived]
+pack = "1 + (1 - min(1, in0_d2 % 2 + max(0, in0_d3 - 64) + k % (2 * in0_d3)))"
+width = "in0_d3 * pack"
+blocks = "k // width"
+weight_chunk = "128"
+tiles = "ceil(in0_d2 / 32)"
+full = "ds(128) + 65536 * ds(min(128, 4 * out0_d1))"
+src_lo = "50462976"
+src_hi = "117835012"
+dst_lo = "555745536"
+dst_hi = "1633698112"
+head_jump = "(in0_d2 - 3) * blocks"
+chart_split = "width // 8 - 1 + 65536 * (blocks - 1)"
+group_tile = "k // 8 - 1 + 65536 * (tiles - 1)"
+lastq_channel = "in0_d2 // 4 - 1 + 65536 * (n - 1)"
+pair_plane = "k // 2"
+
+[inputs.in0]
+shape = ["m * in0_d1 // pack", 128]
+range = [-2, 2]
+[inputs.w]
+shape = ["n * (1 + ceil(k / weight_chunk))", 128]
+range = [-1, 1]
+[outputs.out0]
+shape = ["n * ceil(out0_d1 / 32)", 128]
+
+[scratch.mid]
+shape = ["k // 8 * (in0_d2 // 4)", 128]
+[scratch.pairs]
+shape = ["in0_d2 // 16 * pair_plane", 128]
+[scratch.panel]
+shape = ["tiles * k", 128]
+
+[abi]
+in0 = "CR2"
+w = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+full = "CR7"
+mid = "CR8"
+panel = "CR9"
+head_jump = "CR10"
+src_lo = "LR13"
+src_hi = "LR7"
+pairs = "CR11"
+dst_lo = "LR10"
+chart_split = "CR14"
+group_tile = "CR15"
+dst_hi = "LR8"
+lastq_channel = "CR13"
+
+[cases.default]
