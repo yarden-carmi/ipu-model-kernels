@@ -1,4 +1,5 @@
 {% set p = 128 // in0_d3 %}
+{% set single = k * 3 // 8 if p == 8 else 0 %}
 {% set qi = cr.qf_in0 ~ '.L' %}
 {% set ds = cr.active ~ '.L' %}
 {% set input_base = cr.broadcast if p > 1 else cr.in0 %}
@@ -54,10 +55,24 @@ spatial_row:
     SET LR8 {{ cr.groups }} ; SUB LR7 LR15 CR1 ;;
 output_group:
     {{ load_coeff() }} ; SET LR6 LR5 ; SET LR9 CR0 ;;
-    MULT.VE LR15 CR1 0 LR15 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ; {{ load_coeff() }} ; INC LR9 {{ k }} ;;
+    MULT.VE LR15 CR1 0 LR15 {{ ds }} {{ qi }} ; ACC.ADD.FIRST ; {{ load_coeff() }} ; INC LR9 {{ k - single }} ;;
+{% if single %}
+{# The leading taps have one coefficient row each; the suffix uses coarse/residual pairs. #}
+    MULT.VE LR15 CR1 0 LR15 {{ ds }} {{ qi }} ; ACC.ADD ; {{ load_coeff() }} ; SET LR10 CR0 ;;
+    INC LR10 {{ single }} ;;
+single_tap:
+    {{ load_input() }} ;;
+    {{ mac() }} ; {{ load_coeff() }} ; ADD LR6 LR6 {{ cr.in0_d2 }} ; DEC LR10 1 ; BNE LR10 CR1 single_tap ;;
+    {# The final single MAC already fetched the first coarse coefficient. #}
+    {{ load_input() }} ; B coarse_ready ;;
+{% else %}
     MULT.VE LR15 CR1 0 LR15 {{ ds }} {{ qi }} ; ACC.ADD ; {{ load_input() }} ;;
+{% endif %}
 tap:
     {{ load_coeff() }} ;;
+{% if single %}
+coarse_ready:
+{% endif %}
     {{ mac() }} ; {{ load_coeff() }} ; ADD LR6 LR6 {{ cr.in0_d2 }} ; DEC LR9 1 ; BEQ LR9 CR1 last_tap ;;
     {{ mac() }} ; {{ load_input() }} ; B tap ;;
 last_tap:

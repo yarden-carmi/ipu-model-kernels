@@ -71,6 +71,7 @@ default = 32
 
 [derived]
 pack = "128 // in0_d3"
+single = "(k * 3 // 8) * (1 - min(1, max(pack - 8, 8 - pack)))"
 input_rows = "in0_d0 * in0_d1 * ceil(in0_d2 / pack)"
 groups = "ceil(n / pack)"
 active = "ds(pack * out0_d3)"
@@ -82,7 +83,7 @@ index_hi = "117835012"
 shape = ["input_rows", 128]
 range = [-2, 2]
 [inputs.coeff]
-shape = ["groups * (2 * k + 2)", 128]
+shape = ["groups * (2 * k + 2 - single)", 128]
 range = [-1, 1]
 [inputs.lut]
 shape = [5, 128]

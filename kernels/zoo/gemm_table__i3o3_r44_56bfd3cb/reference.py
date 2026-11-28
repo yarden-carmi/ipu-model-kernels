@@ -53,13 +53,13 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 96, 32, 32], [98304, 1024, 32, 1], 0), module.op0_weight)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 128, 16, 16], [32768, 256, 16, 1], 0), module.op0_weight)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 384, 32, 32], [393216, 1024, 32, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 512, 16, 16], [131072, 256, 16, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.silu_.default(_v(op1, [1, 384, 32, 32], [393216, 1024, 32, 1], 0))
+    r0 = aten.silu_.default(_v(op1, [1, 512, 16, 16], [131072, 256, 16, 1], 0))
     op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 384, 32, 32])}
+    return {"out0": _out(op2, [1, 512, 16, 16])}
 # ---- end of the frozen reference ----
 
 
@@ -80,4 +80,9 @@ def fold(module, **params):
     _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
     step = torch.ldexp(torch.ones_like(exponent, dtype=rows.dtype), exponent - 5)
     coarse = torch.round(rows / step) * step
-    return {'coeff': torch.stack((coarse, rows - coarse), dim=-2).reshape(-1, 128)}
+    # For eight packed slices, use native coefficient precision on a prefix
+    # to reduce loads. Keep the bias and remaining taps compensated.
+    single = k * 3 // 8 if 128 // params['in0_d3'] == 8 else 0
+    split = torch.stack((coarse, rows - coarse), dim=-2)
+    return {'coeff': torch.cat((split[:, :1].flatten(1, 2), rows[:, 1:1 + single],
+                                split[:, 1 + single:].flatten(1, 2)), dim=1).reshape(-1, 128)}
