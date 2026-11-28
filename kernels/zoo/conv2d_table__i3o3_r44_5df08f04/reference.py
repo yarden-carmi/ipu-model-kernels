@@ -125,8 +125,21 @@ def fold(module, **params):
         return {'weights': np.concatenate((parts[:, 0, 0], packed), axis=1).reshape(-1, 128)}
     direct128 = stride == 1 and w == 128 and gc == 1 and ir >= 3 and params['in0_d2'] * w % 128 == 0 and params['in0_d2'] == params['out0_d2']
     if direct128:
-        packed = [hi[:, :, 0], mid[:, :, 0]]
+        center = rows[:, :, 5, 0]
+        b = rows[:, :, 0, 0]
+        scale = np.exp2(np.frexp(np.abs(center))[1] - 1)
+        factors = scale[..., None] * (np.arange(32, 64) / 32)
+        quot = b[..., None] / factors
+        rounded = leading(quot[..., None])[..., 0]
+        best = np.argmin(np.abs(rounded * factors - b[..., None]), axis=-1)
+        factor = np.take_along_axis(factors, best[..., None], axis=-1)[..., 0]
+        scalar = np.zeros_like(rows[:, :, 0])
+        scalar[:, :, 0] = factor
+        scalar[:, :, 1] = center
+        packed = [np.broadcast_to((b / factor)[..., None], scalar.shape), scalar]
         for t in range(9):
+            if t == 4:
+                continue
             if t in (1, 4, 7):
                 packed.append(rows[:, :, t + 1])
             else:
