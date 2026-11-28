@@ -1,0 +1,65 @@
+[kernel]
+op = "scaled_channel_l2"
+formats = ["e2"]
+
+[params.channels]
+type = "int"
+min = 1
+default = 256
+[params.sites]
+type = "int"
+min = 1
+default = 512
+[params.in0_d0]
+type = "int"
+min = 1
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+default = 256
+[params.in0_d2]
+type = "int"
+min = 1
+default = 1
+[params.in0_d3]
+type = "int"
+min = 1
+default = 512
+[params.out0_d0]
+type = "int"
+min = 1
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+default = 1
+[params.out0_d2]
+type = "int"
+min = 1
+default = 512
+
+[derived]
+chunks = "ceil(in0_d1 / 128)"
+ds_tail = "ds((in0_d1 - 1) % 128 + 1)"
+ds_one = "ds(1)"
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d2 * in0_d3 * chunks", 128]
+[outputs.out0]
+shape = ["out0_d0 * out0_d2 * ceil(out0_d1 / 128)", 128]
+[scratch.tmp]
+shape = [1, 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+tmp = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+ds_tail = "CR7"
+ds_one = "CR8"
+chunks = "CR9"
+sites = "CR10"
+
+[cases.default]
