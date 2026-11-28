@@ -20,6 +20,8 @@ out0_d2 = { type = "int", min = 1, max = 256, default = 192 }
 [derived]
 width = "ceil(out0_d0 * out0_d1 / 128)"
 rows = "out0_d2 * width"
+fast_limit = "rows - 2"
+minus_one = "-1"
 valid = "(out0_d0 * out0_d1 - 1) % 128 + 1"
 tail = "ds(valid)"
 
@@ -43,5 +45,7 @@ rows = "CR8"
 width = "CR9"
 valid = "CR10"
 tail = "CR11"
+fast_limit = "CR12"
+minus_one = "CR13"
 
 [cases.default]
