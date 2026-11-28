@@ -1,0 +1,138 @@
+[kernel]
+op = "conv2d_table"
+formats = ["e2"]
+
+[params.act_out0]
+type = "str"
+choices = ["silu"]
+default = "silu"
+[params.bias]
+type = "bool"
+default = true
+[params.cin]
+type = "int"
+min = 1
+max = 512
+default = 16
+[params.cout]
+type = "int"
+min = 1
+max = 512
+default = 16
+[params.groups]
+type = "int"
+min = 1
+max = 512
+default = 1
+[params.h]
+type = "int"
+min = 3
+max = 256
+default = 8
+[params.w]
+type = "int"
+choices = [8, 16, 32, 64, 128, 256]
+default = 8
+[params.kh]
+type = "int"
+choices = [3]
+default = 3
+[params.kw]
+type = "int"
+choices = [3]
+default = 3
+[params.padding]
+type = "int"
+choices = [1]
+default = 1
+[params.stride]
+type = "int"
+choices = [1, 2]
+default = 1
+[params.in0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 512
+default = 16
+[params.in0_d2]
+type = "int"
+min = 3
+max = 256
+default = 8
+[params.in0_d3]
+type = "int"
+min = 3
+max = 256
+default = 8
+[params.out0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 512
+default = 16
+[params.out0_d2]
+type = "int"
+min = 2
+max = 256
+default = 8
+[params.out0_d3]
+type = "int"
+choices = [4, 8, 16, 32, 64, 128]
+default = 8
+
+[derived]
+ds128 = "ds(128)"
+ds_strip = "ds(out0_d3)"
+ix = "ceil(in0_d3 / 128)"
+iplane = "in0_d2 * ix"
+orows = "ceil(out0_d2 * cout * out0_d3 / 128)"
+pack = "128 // out0_d3"
+gcin = "cin // groups"
+gcout = "cout // groups"
+groupstep = "9 * gcin"
+dense = "1 - min(1, groups - 1)"
+blocks = "ceil(cout / pack)"
+rep = "min(1, pack - 1) * dense"
+header = "3 * (1 - rep * (2 - stride)) + rep * pack * (5 - 2 * stride)"
+wrows = "header + 2 * blocks + 18 * gcin * (dense * blocks + (1 - dense) * cout)"
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d1", "iplane", 128]
+range = [-2, 2]
+[inputs.weights]
+shape = ["wrows", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[outputs.out0]
+shape = ["out0_d0", "orows", 128]
+[scratch.pad]
+shape = ["2 + 9 * cin", 128]
+
+[abi]
+in0 = "CR2"
+iplane = "CR3"
+weights = "CR4"
+lut = "CR5"
+out0 = "CR6"
+qf_in0 = "CR7"
+ix = "CR8"
+qf_weights = "CR9"
+qf_out0 = "CR10"
+ds128 = "CR11"
+gcin = "CR12"
+groupstep = "CR13"
+ds_strip = "CR14"
+pad = "CR15"
+
+[golden]
+tolerance = { e2 = "NX8_STEP" }
+[cases.default]
