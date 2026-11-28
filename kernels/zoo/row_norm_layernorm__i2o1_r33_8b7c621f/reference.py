@@ -72,10 +72,17 @@ def fold(module, **params):
     gamma = (module.weight.reshape(-1, 1) * channels**0.5).expand(-1, 128)
     hi, lo = split(gamma, mantissa=6).chunk(2)
     gamma = torch.stack((hi, lo), dim=1).reshape(-1, 128)
+    crow = [split(torch.full((128,), 1 / channels), mantissa=6),
+            torch.full((1, 128), params["eps"] * channels),
+            torch.full((1, 128), 0.5)]
+    if channels == 144:
+        lanes = torch.arange(128)
+        bit2 = (lanes >> 2) & 1
+        bit5 = (lanes >> 5) & 1
+        crow.extend(mask.float().unsqueeze(0) for mask in
+                    (bit2 == bit5, bit2 < bit5, bit2 > bit5))
     return {
         "gamma": torch.cat([gamma, gamma[:1]]),
-        "beta": split(module.bias.reshape(-1, 1).expand(-1, 128), mantissa=5),
-        "crow": torch.cat([split(torch.full((128,), 1 / channels), mantissa=6),
-                           torch.full((1, 128), params["eps"] * channels),
-                           torch.full((1, 128), 0.5)]),
+        "beta": split(module.bias.reshape(-1, 1).expand(-1, 128)),
+        "crow": torch.cat(crow),
     }
