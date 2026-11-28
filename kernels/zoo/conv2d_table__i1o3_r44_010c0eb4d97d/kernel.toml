@@ -1,0 +1,74 @@
+[kernel]
+op = "conv2d_table"
+formats = ["e1", "e2"]
+
+[params]
+act_out0 = {type="str", choices=["silu"], default="silu"}
+bias = {type="bool", default=true}
+cin = {type="int", min=1, max=512, default=256}
+cout = {type="int", min=1, max=512, default=256}
+groups = {type="int", min=1, max=512, default=256}
+h = {type="int", min=1, max=256, default=64}
+w = {type="int", min=1, max=256, default=64}
+kh = {type="int", choices=[3], default=3}
+kw = {type="int", choices=[3], default=3}
+padding = {type="int", choices=[1], default=1}
+stride = {type="int", min=1, max=2, default=2}
+in0_d0 = {type="int", choices=[1], default=1}
+in0_d1 = {type="int", min=1, max=512, default=256}
+in0_d2 = {type="int", min=1, max=256, default=64}
+in0_d3 = {type="int", min=1, max=256, default=64}
+out0_d0 = {type="int", choices=[1], default=1}
+out0_d1 = {type="int", min=1, max=512, default=256}
+out0_d2 = {type="int", min=1, max=256, default=32}
+out0_d3 = {type="int", min=1, max=256, default=32}
+
+[derived]
+ic = "ceil(in0_d1 / 128)"
+oc = "ceil(out0_d1 / 128)"
+dw = "1 - min(1, max(cin - groups, groups - cin, cout - groups, groups - cout))"
+pc = "dw + (1 - dw) * ic"
+weight_block = "2 + 2 * kh * kw * (dw + (1 - dw) * cin) + (dw + (1 - dw) * min(1, max(0, out0_d2 * out0_d3 - 256)) * min(1, max(0, cin - 3))) * (1 + kh * kw * (dw + (1 - dw) * cin))"
+ds128 = "ds(128)"
+ds_tail = "ds(1 + (out0_d2 * out0_d3 - 1) % 128)"
+window_jump = "(in0_d3 + 2 * padding - kw) * pc"
+pack = "1 + (min(out0_d2, max(1, 128 // out0_d3)) - 1) * (1 - min(1, out0_d2 % min(out0_d2, max(1, 128 // out0_d3))))"
+area = "out0_d2 * out0_d3"
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d2", "in0_d3", "ic", 128]
+range = [-2, 2]
+[inputs.weights]
+shape = ["oc * weight_block", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[scratch.pad]
+shape = ["(in0_d2 + 2 * padding) * (in0_d3 + 2 * padding) * pc", 128]
+[scratch.tmp]
+shape = ["out0_d2 * out0_d3 * oc + oc", 128]
+[scratch.residual]
+shape = ["5 * out0_d2 * out0_d3 * oc + oc", 128]
+[outputs.out0]
+shape = ["out0_d0", "out0_d1", "ceil(out0_d2 / pack)", "ceil(out0_d3 * pack / 128)", 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+weights = "CR4"
+lut = "CR5"
+pad = "CR6"
+qf_in0 = "CR7"
+qf_weights = "CR8"
+qf_out0 = "CR9"
+ds128 = "CR10"
+tmp = "CR11"
+window_jump = "CR12"
+ds_tail = "CR13"
+weight_block = "CR14"
+residual = "CR15"
+
+[golden]
+tolerance = {e1="NX8_STEP", e2="NX8_STEP"}
+[cases.default]
