@@ -1,0 +1,67 @@
+[kernel]
+op = "conv2d_table"
+formats = ["e1", "e2"]
+[params]
+act_out0 = {type="str", choices=["silu"], default="silu"}
+bias = {type="bool", default=true}
+cin = {type="int", min=1, max=640, default=8}
+cout = {type="int", min=1, max=640, default=8}
+groups = {type="int", min=1, max=640, default=1}
+h = {type="int", min=1, max=256, default=8}
+w = {type="int", choices=[8, 16, 32, 64, 128, 256], default=8}
+kh = {type="int", choices=[3], default=3}
+kw = {type="int", choices=[3], default=3}
+padding = {type="int", choices=[1], default=1}
+stride = {type="int", min=1, max=2, default=1}
+in0_d0 = {type="int", choices=[1], default=1}
+in0_d1 = {type="int", min=1, max=640, default=8}
+in0_d2 = {type="int", min=1, max=256, default=8}
+in0_d3 = {type="int", min=1, max=256, default=8}
+out0_d0 = {type="int", choices=[1], default=1}
+out0_d1 = {type="int", min=1, max=640, default=8}
+out0_d2 = {type="int", min=1, max=260, default=8}
+out0_d3 = {type="int", choices=[8, 16, 32, 64, 128], default=8}
+[derived]
+ix = "ceil(w / 128)"
+plane = "h * ix"
+pack = "128 // out0_d3 - 1 + min(1, max(out0_d3 - 32, 32 - out0_d3))"
+blocks = "ceil(out0_d2 / pack)"
+dw = "min(1, groups - 1)"
+ni = "dw + (1 - dw) * cin"
+tail = "min(1, out0_d2 % pack) * min(1, blocks - 1)"
+src0 = "stride * 50462976"
+src1 = "stride * 117835012"
+dst0 = "50462976"
+dst1 = "117835012"
+ds128 = "ds(128)"
+[inputs.in0]
+shape = ["in0_d0", "in0_d1", "in0_d2", "ceil(in0_d3 / 128)", 128]
+range = [-2, 2]
+[inputs.weights]
+shape = ["cout * (2 + 2 * tail + 2 * ni)", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[scratch.pad]
+shape = ["1 + cin * blocks * 9", 128]
+[outputs.out0]
+shape = ["out0_d0", "out0_d1", "blocks", 128]
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+weights = "CR4"
+lut = "CR5"
+pad = "CR6"
+qf_in0 = "CR7"
+qf_weights = "CR8"
+qf_out0 = "CR9"
+ds128 = "CR10"
+src0 = "CR11"
+src1 = "CR12"
+dst0 = "CR13"
+dst1 = "CR14"
+plane = "CR15"
+[golden]
+tolerance = {e1="NX8_STEP", e2="NX8_STEP"}
+[cases.default]
