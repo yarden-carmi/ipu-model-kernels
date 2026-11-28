@@ -1,0 +1,64 @@
+[kernel]
+op = "binary_mul_col"
+formats = ["e1"]
+
+[params.broadcast]
+type = "str"
+choices = ["col"]
+default = "col"
+[params.op]
+type = "str"
+choices = ["mul"]
+default = "mul"
+[params.inner]
+type = "int"
+default = 576
+[params.numel]
+type = "int"
+default = 28224
+[params.in0_d2]
+type = "int"
+default = 7
+[params.in0_d3]
+type = "int"
+default = 7
+
+[derived]
+pack = "min(in0_d2, 128 // in0_d3)"
+groups = "(inner + pack - 1) // pack"
+dim_pair = "in0_d2 + in0_d3 * 65536"
+chunks = "(in0_d3 - 1) // 8"
+mask = "(8 - in0_d3 % 8) % 8"
+mask_pair = "(65536 - mask) % 65536 + mask * 65536"
+indices_lo = "50462976"
+indices_hi = "117835012"
+valid = "ds(pack * in0_d3)"
+last_valid = "ds(((inner - 1) % pack + 1) * in0_d3)"
+
+[inputs.in0]
+shape = ["in0_d2 * inner", 128]
+range = [-2, 2]
+[inputs.in1]
+shape = ["(inner + 127) // 128", 128]
+range = [-2, 2]
+[outputs.out0]
+shape = ["in0_d2 * groups", 128]
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+last_valid = "CR6"
+qf_out0 = "CR7"
+inner = "CR8"
+dim_pair = "CR9"
+pack = "CR10"
+chunks = "CR11"
+indices_lo = "CR12"
+indices_hi = "CR13"
+mask_pair = "CR14"
+valid = "CR15"
+
+[cases.default]
+numel = 28224
