@@ -23,7 +23,6 @@
 
 {% macro row(ds) %}
     LD.MULT.CYCLIC LR1 {{ cr.in0 }} LR15 ;;
-    LD.MULT R0 LR4 {{ cr.s0 }} ;;
     {{ product('LR0', 'ADD.FIRST') }} {{ save('identity', 'LR7') }} ; LD.MULT R0 LR0 {{ cr.s0 }} ;;
     {{ boost('ADD.FIRST', 'LR6') }}
     {{ boost('SUB.FIRST', 'LR5', true) }}
@@ -34,7 +33,7 @@
     LD.MULT.CYCLIC LR6 {{ cr.s0 }} LR10 ;;
     {{ product(cr.two, 'ADD.FIRST', cr.qf_out0, 'LR0') }} ; LD.MULT R0 LR12 {{ cr.s0 }} ;;
     {{ product(cr.two, 'SUB', cr.qf_out0, 'LR10') }} ;;
-    {{ product('LR0', 'ADD') }} ; ACTIVATE.QUANTIZE identity {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;;
+    {{ product('LR0', 'ADD') }} ; ACTIVATE.QUANTIZE identity {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ; LD.MULT R0 LR4 {{ cr.s0 }} ;;
     INC LR1 1 ;;
 {% endmacro %}
 
@@ -51,7 +50,7 @@ pixel:
 {% endfor %}
     LD.MULT R0 LR12 {{ cr.s0 }} ;;
     MULT.EE LR0 {{ cr.factor }} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; LD.MULT R0 LR13 {{ cr.s0 }} ;;
-    MULT.EE LR0 {{ cr.factor }} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.SUB ; ACTIVATE.QUANTIZE identity {{ cr.full }}.L {{ cr.qf_in0 }}.L {{ cr.s0 }} LR12 ;;
+    MULT.EE LR0 {{ cr.factor }} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.SUB ; ACTIVATE.QUANTIZE identity {{ cr.full }}.L {{ cr.qf_in0 }}.L {{ cr.s0 }} LR12 ; LD.MULT R0 LR4 {{ cr.s0 }} ;;
 {% set chunks = (out0_d1 + 127) // 128 %}
 {% if chunks <= 8 %}
 {% for i in range(chunks) %}
