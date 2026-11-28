@@ -3,6 +3,8 @@
 {% set shift = n % 128 %}
 {% set tiles = (n + shift + 127) // 128 %}
 {% set act = 'generic' if act_out0 == 'silu' else act_out0 %}
+{% set step = m % in0_d2 %}
+{% set periodic = in0_d2 == 192 and step in [64, 128] and k % 3 == 0 and shift == 0 %}
 {% macro fetch() %}INC LR4 1 ; LD.MULT.CYCLIC LR4 {{ cr.coeff }} LR0{% endmacro %}
 {% macro mac(src, accum='ADD') %}
     MULT.RC.VE LR0 {{ src }} 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.{{ accum }}
@@ -13,12 +15,26 @@
 {% macro store(base, offset, fn, ds) %}
     ACTIVATE.QUANTIZE {{ fn }} {{ ds }}.L {{ cr.qf_out0 }}.L {{ base }} {{ offset }}
 {%- endmacro %}
+{% macro period(phase, final=false) %}
+{% for j in range(3) %}
+{% set position = (phase + j * (step // 64)) % 3 %}
+{% set advance = chunks * (m // in0_d2 + (position + step // 64) // 3) + ((position + step // 64) % 3 == 2)|int - (position == 2)|int %}
+{% set src = 'LR12' if position == 1 else 'LR6' %}
+    LD.MULT R0 LR5 {{ cr.in0 }} ;;
+    {{ mac(src) }} ; {{ fetch() }}{% if not final or not loop.last %} ; INC LR5 {{ advance }}{% endif %}{% if not final and loop.last %} ; DEC LR10 1{% endif %} ;;
+    {{ mac(src) }}{% if not final or not loop.last %} ; {{ fetch() }}{% endif %}{% if not final and loop.last %} ; BNE LR10 CR0 period_{{ phase }}{% endif %} ;;
+{% endfor %}
+{% endmacro %}
 
     SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
     SET LR3 CR0 ; SET LR7 CR0 ;;
     SET LR11 CR0 ;;
     SET LR15 CR0 ;;
     INC LR15 {{ tiles }} ;;
+{% if periodic %}
+    SET LR13 CR0 ; SET LR14 CR0 ;;
+    INC LR13 64 ; INC LR14 128 ;;
+{% endif %}
 {% for i in range(5) %}
     LD.LUT {{ i }} {{ cr.lut }} LR11 ;;
     INC LR11 1 ;;
@@ -36,9 +52,32 @@ skip_tile:
     DEC LR4 1 ;;
 gemm_tile:
     SET LR5 LR1 ; SET LR6 LR7 ; SET LR10 CR0 ;;
-    INC LR10 {{ k }} ; INC LR11 1 ; {{ fetch() }} ;;
+    INC LR10 {{ k // 3 - 1 if periodic else k }} ; INC LR11 1 ; {{ fetch() }} ;;
     {{ mac('CR1', 'ADD.FIRST') }} ; {{ fetch() }} ;;
     {{ mac('CR1') }} ; {{ fetch() }} ;;
+{% if periodic %}
+    # For a 192-wide source row, the tap lane repeats every three channels.
+    # Select the row half in the address, so only the used half is loaded.
+    BLT.S LR7 LR13 phase_0 ;;
+    BLT.S LR7 LR14 phase_1 ;;
+{% for phase in [2, 1, 0] %}
+phase_{{ phase }}:
+{% if phase %}
+    SUB LR6 LR7 LR{{ 12 + phase }}{% if phase == 2 %} ; INC LR5 1{% endif %} ;;
+{% endif %}
+    ADD LR12 LR6 LR13 ;;
+{% if k > 3 %}
+period_{{ phase }}:
+    {{ period(phase) }}
+{% endif %}
+    {{ period(phase, true) }}
+{% if not loop.last %}
+    B gemm_store ;;
+{% endif %}
+{% endfor %}
+gemm_store:
+    BEQ LR11 LR15 final_tile ;;
+{% else %}
 {% if m % in0_d2 and m < in0_d2 %}
 {% if chunks == 2 %}
     ADD LR8 LR5 CR1 ; LD.MULT R0 LR5 {{ cr.in0 }} ;;
@@ -79,6 +118,7 @@ last_channel:
     BEQ LR11 CR1 merge_skip ;;
 {% endif %}
     {{ mac(last_src) }} ; BEQ LR11 LR15 final_tile ;;
+{% endif %}
     {{ store(cr.out0, 'LR2', act, cr.full) }} ;;
     INC LR2 1 ; B gemm_tile ;;
 final_tile:
