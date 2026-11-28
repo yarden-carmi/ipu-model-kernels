@@ -82,9 +82,9 @@
    // Keep both right-hand residual parts live across the left-hand parts.
   {% if not high_live %}{{ load(b) }}{% endif %}
   {{ load(a,true) }}
-  {{ at('LR8',b+1) }}
-  {% for i in range(na) %}
-  MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if loop.first %}.FIRST ; LD.MULT R1 LR8 {{ cr.tmp }}{% endif %} ;;
+   {{ at('LR8',b+1) }}
+   {% for i in range(na) %}
+   MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if loop.first %}.FIRST ; LD.MULT R1 LR8 {{ cr.tmp }}{% endif %} ;;
   MULT.RC.VV LR0 R1 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if not loop.last %} ; LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ; INC LR1 1{% endif %} ;;
   {% endfor %}
 {% endmacro %}
@@ -142,13 +142,11 @@ gemm_last_chunk:
  SET LR4 LR6 ; B gemm_tile ;;
 gemm_last_tile:
  {{ gelu(tail) }}
- SET LR5 CR0 ;;
- {{ vec(first=true,s='CR0') }}
-sum:
- LD.MULT R1 LR5 {{ cr.hidden }} ;;
- INC LR5 1 ;;
- BGE.S LR5 {{ cr.tiles }} sum_tail ;;
- MULT.VE LR3 CR1 0 LR0 {{ full }} {{ oq }} ; AGG.SUM LR0 {{ full }} ; B sum ;;
+  MULT.VE LR0 CR0 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ; SET LR5 CR0 ; LD.MULT R1 LR0 {{ cr.hidden }} ;;
+ sum:
+  INC LR5 1 ;;
+  BGE.S LR5 {{ cr.tiles }} sum_tail ;;
+  MULT.VE LR3 CR1 0 LR0 {{ full }} {{ oq }} ; AGG.SUM LR0 {{ full }} ; LD.MULT R1 LR5 {{ cr.hidden }} ; B sum ;;
 sum_tail:
  MULT.VE LR3 CR1 0 LR0 {{ full }} {{ oq }} ; AGG.SUM LR0 {{ tail }} ;;
  {{ average('mean') }}{{ save(6,3) }}
