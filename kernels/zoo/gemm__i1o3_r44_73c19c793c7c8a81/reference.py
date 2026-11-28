@@ -62,6 +62,8 @@ def fold(module, **params):
     scale = module.op1_weight.double() / torch.sqrt(module.op1_running_var.double() + 1e-5)
     weight = module.op0_weight.double().reshape(n, k) * scale[:, None]
     bias = module.op1_bias.double() - module.op1_running_mean.double() * scale
+    if not params.get('bias', True):
+        bias = torch.zeros_like(bias)
     weight = torch.nn.functional.pad(weight, (0, 128-k))
     exp = torch.frexp(weight.abs().amax(dim=1, keepdim=True))[1]
     digits = torch.ldexp(weight.abs(), 12-exp).round().long().clamp(max=4095)

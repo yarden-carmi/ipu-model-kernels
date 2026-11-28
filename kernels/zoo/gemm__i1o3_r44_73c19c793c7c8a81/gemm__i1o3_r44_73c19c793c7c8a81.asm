@@ -26,21 +26,23 @@
 {% endif %}
 {% endmacro %}
     SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
-    SET LR4 CR0 ;;
-    DEC LR4 1 ;;
+    SET LR13 CR0 ;;
+    DEC LR13 1 ;;
     INC LR1 128 ; INC LR2 128 ; SET LR9 CR0 ;;
     INC LR2 128 ; INC LR9 128 ; SET LR5 CR0 ;;
     DEC LR5 1 ;;
-    INC LR9 128 ; SET LR10 {{ cr.channels }} ; SET LR11 CR0 ;;
+    INC LR9 128 ; SET LR11 CR0 ;;
     INC LR11 2 ;;
     INC LR9 128 ;;
+batch:
+    SET LR4 CR0 ; SET LR10 {{ cr.channels }} ;;
+    DEC LR4 1 ;;
 channel:
     {{ weight('LR0') }}
     {{ weight('LR1') }}
     {{ weight('LR2') }}
     {{ weight('LR9') }}
-    SET LR6 CR0 ; SET LR7 {{ cr.groups }} ;;
-    DEC LR6 1 ;;
+    SET LR6 LR13 ; SET LR7 {{ cr.groups }} ;;
     BEQ LR7 CR1 last_group ;;
 group:
     {{ row('full_first', a, cr.group_ds) }}
@@ -57,4 +59,5 @@ last_group:
     {{ weight('LR9') }}
 {% endif %}
     DEC LR10 1 ; BNE LR10 CR1 channel ;;
+    SET LR13 LR6 ; DEC LR12 1 ; BNE LR12 CR1 batch ;;
     HALT ;;

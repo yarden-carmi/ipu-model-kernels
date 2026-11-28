@@ -22,7 +22,7 @@ default = 24
 [params.in0_d0]
 type = "int"
 min = 1
-max = 1
+max = 65536
 default = 1
 [params.in0_d1]
 type = "int"
@@ -42,7 +42,7 @@ default = 28
 [params.out0_d0]
 type = "int"
 min = 1
-max = 1
+max = 65536
 default = 1
 [params.out0_d1]
 type = "int"
@@ -78,6 +78,7 @@ shape = ["n * 5", 128]
 [outputs.out0]
 shape = ["out0_d0 * out0_d1 * groups * ceil(3 * out0_d3 / 128)", 128]
 [abi]
+out0_d0 = "LR12"
 in0 = "CR2"
 w = "CR3"
 out0 = "CR4"
