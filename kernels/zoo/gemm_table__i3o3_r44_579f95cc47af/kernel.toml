@@ -1,0 +1,110 @@
+[kernel]
+op = "gemm_table"
+formats = ["e2", "e3"]
+
+[params.k]
+type = "int"
+min = 1
+max = 4096
+default = 192
+[params.n]
+type = "int"
+min = 1
+max = 4096
+default = 384
+[params.m]
+type = "int"
+min = 1
+max = 65535
+default = 256
+[params.bias]
+type = "bool"
+default = true
+[params.act_out0]
+type = "str"
+choices = ["hardswish"]
+default = "hardswish"
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 4
+[params.in0_d1]
+type = "int"
+min = 1
+max = 65535
+default = 64
+[params.in0_d2]
+type = "int"
+min = 1
+max = 4096
+default = 192
+[params.in0_d3]
+type = "int"
+min = 1
+max = 128
+default = 14
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 4
+[params.out0_d1]
+type = "int"
+min = 1
+max = 65535
+default = 64
+[params.out0_d2]
+type = "int"
+min = 1
+max = 4096
+default = 384
+[params.out0_d3]
+type = "int"
+min = 1
+max = 128
+default = 14
+
+[derived]
+blocks = "1"
+batch_rows = "k"
+spatial_rows = "in0_d0 * in0_d2"
+ir = "spatial_rows * k"
+out_rows = "out0_d0 * out0_d2 * out0_d1"
+chunks = "ceil(k / 128)"
+groups = "chunks - 1"
+coeff_rows = "n * ((2 + min(1, (k - 1) // 64)) * (chunks + 1))"
+weight_rows = "(2 + min(1, (k - 1) // 64)) * chunks"
+full = "ds(128)"
+tail = "ds(out0_d3)"
+
+[inputs.in0]
+shape = ["ir", 128]
+range = [-2, 2]
+[inputs.coeff]
+shape = ["coeff_rows", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[outputs.out0]
+shape = ["out_rows", 128]
+
+[abi]
+in0 = "CR2"
+coeff = "CR3"
+lut = "CR4"
+out0 = "CR5"
+qf_in0 = "CR6"
+qf_out0 = "CR7"
+batch_rows = "CR8"
+blocks = "CR9"
+n = "CR10"
+full = "CR11"
+tail = "CR12"
+spatial_rows = "CR13"
+chunks = "CR14"
+groups = "CR15"
+weight_rows = "LR15"
+
+[cases.default]
