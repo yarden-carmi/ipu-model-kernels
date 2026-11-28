@@ -7,8 +7,7 @@
     MULT.EE LR0 CR1 0 LR0 {{ cr.active }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; INC LR4 1 ;;
     MULT.EE LR0 CR1 0 LR0 {{ cr.active }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; ACTIVATE.QUANTIZE identity {{ cr.active }}.L {{ cr.qf_in0 }}.L {{ cr.work }} LR4 ;;
 {% endmacro %}
-    SET LR2 CR0 ; SET LR3 {{ cr.minus_one }} ;;
-    LD.MULT.CYCLIC LR2 {{ cr.in0 }} LR0 ;;
+    SET LR2 CR0 ; SET LR3 {{ cr.minus_one }} ; LD.MULT.CYCLIC LR2 {{ cr.in0 }} LR0 ;;
     MULT.RC.VE LR0 CR0 0 LR0 {{ cr.active }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; ACTIVATE.QUANTIZE exp2 {{ cr.active }}.L {{ cr.qf_in0 }}.L {{ cr.work }} LR0 ;;
 {% for i in range(5) %}{{ double() }}{% endfor %}
     LD.MULT R0 LR4 {{ cr.work }} ;;
