@@ -1,0 +1,18 @@
+chain = ["gemm", "binary", "row_norm"]
+chain_in = ["in0", "in1"]
+chain_out = ["out0"]
+
+[layout.in0]
+lanes = 3
+rows = [0, 1, 2]
+pack = 2
+[view.in0]
+kind = "merge"
+[layout.in1]
+lanes = 2
+rows = [0, 1]
+[view.in1]
+kind = "whole"
+[layout.out0]
+lanes = 2
+rows = [0, 1]

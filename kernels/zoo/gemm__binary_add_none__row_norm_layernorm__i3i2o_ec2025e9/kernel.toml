@@ -1,0 +1,144 @@
+[kernel]
+op = "gemm__binary_add_none__row_norm_layernorm"
+formats = ["e2"]
+
+[params.s0_bias]
+type = "bool"
+default = true
+[params.s0_k]
+type = "int"
+min = 1
+max = 3072
+default = 1536
+[params.s0_m]
+type = "int"
+min = 1
+max = 1024
+default = 256
+[params.s0_n]
+type = "int"
+min = 1
+max = 768
+default = 384
+[params.s1_broadcast]
+type = "str"
+choices = ["none"]
+default = "none"
+[params.s1_inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.s1_numel]
+type = "int"
+min = 1
+max = 786432
+default = 98304
+[params.s1_op]
+type = "str"
+choices = ["add"]
+default = "add"
+[params.s2_channels]
+type = "int"
+min = 1
+max = 768
+default = 384
+[params.s2_eps]
+type = "float"
+min = 0.0
+max = 1.0
+default = 1e-12
+[params.s2_kind]
+type = "str"
+choices = ["layernorm"]
+default = "layernorm"
+[params.s2_rows]
+type = "int"
+min = 1
+max = 1024
+default = 256
+[params.in0_d0]
+type = "int"
+min = 1
+max = 4
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 1024
+default = 256
+[params.in0_d2]
+type = "int"
+min = 1
+max = 3072
+default = 256
+[params.in0_d3]
+type = "int"
+min = 64
+max = 64
+default = 64
+[params.in1_d0]
+type = "int"
+min = 1
+max = 4
+default = 1
+[params.in1_d1]
+type = "int"
+min = 1
+max = 1024
+default = 256
+[params.in1_d2]
+type = "int"
+min = 1
+max = 768
+default = 384
+[params.out0_d0]
+type = "int"
+min = 1
+max = 4
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 1024
+default = 256
+[params.out0_d2]
+type = "int"
+min = 1
+max = 768
+default = 384
+
+[derived]
+tail = "ds(s2_channels + 128 - 128 * ceil(s2_channels / 128))"
+scalar = "ds(1) + 65536 * 24"
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d1 * ceil(in0_d2 / 2)", 128]
+[inputs.in1]
+shape = ["in1_d0 * in1_d1 * ceil(in1_d2 / 128)", 128]
+[inputs.w]
+shape = ["ceil(s0_n / 128) * (s0_k + 1)", 128]
+[inputs.affine]
+shape = ["4 * ceil(s2_channels / 128)", 128]
+[inputs.crow]
+shape = [5, 128]
+[scratch.tmp]
+shape = [40, 128]
+[outputs.out0]
+shape = ["out0_d0 * out0_d1 * ceil(out0_d2 / 128)", 128]
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+w = "CR4"
+affine = "CR5"
+crow = "CR6"
+tmp = "CR8"
+out0 = "CR9"
+qf_in0 = "CR10"
+qf_in1 = "CR11"
+qf_out0 = "CR12"
+tail = "CR13"
+scalar = "CR14"
+
+[cases.default]
