@@ -1,24 +1,91 @@
-{% set tiles = (m + 127) // 128 %}
-{% set last = (m - 1) % 128 + 1 %}
+{% set rem = m % 128 %}
+{% set aligned = true %}
 {% set act = 'generic' if act_out0 == 'silu' else act_out0 %}
 {% macro store(fn, ds) %}
-    ACTIVATE.QUANTIZE {{ fn }} {{ ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;;
-    INC LR1 1 ;;
+    ACTIVATE.QUANTIZE {{ fn }} {{ ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR2
+{%- endmacro %}
+{% macro copy(ds, full_tile) %}
+    LD.MULT R0 LR2 {{ cr.in1 }} ;;
+    MULT.VE LR0 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in1 }}.L ; ACC.ADD.FIRST ; {{ store('identity', ds) }} {% if full_tile %}; DEC LR4 1{% endif %} ;;
+    INC LR2 1 {% if full_tile %}; BNE LR4 CR0 copy_tile{% endif %} ;;
 {% endmacro %}
-{% macro repack_store(ds) %}
-    ACTIVATE.QUANTIZE identity {{ ds }}.L {{ cr.qf_in0 }}.L {{ cr.spatial }} LR7 ;;
+{% macro group(tag, count, repeat) %}
+{{ tag }}_group:
+    LD.MULT R0 LR3 {{ cr.coeff }} ; SET LR8 LR0 ; SET LR9 LR11 ;;
+    LD.MULT R1 LR3 {{ cr.coeff }} ; INC LR3 1 ; DEC LR8 1 ; DEC LR9 1 ;;
+{% if aligned %}
+    LD.MULT.CYCLIC LR6 {{ cr.spatial }} LR0 ; INC LR3 1 {% if repeat %}; DEC LR10 1{% endif %} ;;
+{% else %}
+    SET LR14 CR0 ; INC LR3 1 {% if repeat %}; DEC LR10 1{% endif %} ;;
+    INC LR14 {{ count }} ;;
+{{ tag }}_tap:
+    LD.MULT.CYCLIC LR6 {{ cr.spatial }} LR0 ; ADD LR5 LR6 CR1 ;;
+    BLT.S LR5 {{ cr.activation_rows }} {{ tag }}_high ;;
+    B {{ tag }}_window ;;
+{{ tag }}_high:
+    LD.MULT.CYCLIC LR5 {{ cr.spatial }} LR11 ;;
+{{ tag }}_window:
+{% endif %}
+{% for tap in range(count if aligned else 1) %}
+{% set window = 'LR0' if aligned else 'LR13' %}
+    MULT.RC.VE {{ window }} LR8 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR8 1 ;;
+    MULT.RC.VE {{ window }} LR9 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR9 1
+{% if aligned %}
+{% set step = (m + 127) // 128 %}
+    {%- if step %} ; INC LR6 {{ step }}{% endif %}
+    {%- if step and not loop.last %} ; LD.MULT.CYCLIC LR6 {{ cr.spatial }} LR0{% endif %}
+    {%- if repeat and loop.last %} ; BNE LR10 CR0 {{ tag }}_group{% endif %} ;;
+{% else %}
+    ; INC LR13 {{ rem }} {% if m // 128 %}; INC LR6 {{ m // 128 }}{% endif %} ;;
+    BLT.S LR13 LR11 {{ tag }}_advance ;;
+    SUB LR13 LR13 LR11 ; INC LR6 1 ;;
+{{ tag }}_advance:
+    DEC LR14 1 ; BNE LR14 CR1 {{ tag }}_tap ;;
+{% if repeat %}
+    BNE LR10 CR0 {{ tag }}_group ;;
+{% endif %}
+{% endif %}
+{% endfor %}
+{% endmacro %}
+    # The 144-wide source repeats its alignment every eight source rows:
+    # eight padded source rows contain exactly nine full spatial rows.
+{% if (m == 1024 and k == 144 and in0_d2 == 144) or (m == 256 and k == 192 and in0_d2 == 192) or (m == 64 and k == 240 and in0_d2 == 240) %}
+{% set cycle_tiles = 9 if m == 1024 else (3 if m == 256 else 15) %}
+{% set blocks = 4 if m == 64 else 8 %}
+{% set source_blocks = in0_d2 // 16 %}
+{% set cycle_blocks = cycle_tiles * blocks %}
+{% set cycles = k * m // (cycle_blocks * 16) %}
+    SET LR4 CR0 ; SET LR5 CR0 ; SET LR7 CR0 ;;
+    SET LR11 CR0 ; SET LR14 CR0 ;;
+    INC LR11 {{ cycles }} ;;
+pack_cycle:
+    LD.MULT R0 LR4 {{ cr.in0 }} ;;
+{% for tile in range(cycle_tiles) %}
+    SET LR0 LR2 ; SET LR1 LR3 ;;
+{% for block in range(blocks) %}
+{% set p = tile * blocks + block %}
+{% set next_row = ((p + 1) % source_blocks == 8) or ((p + 1) % source_blocks == 0) %}
+    MULT.VE LR5 CR1 0 LR14 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.RESHAPE LRD2 LRD0 0 {% if next_row %}; INC LR4 1{% endif %} ;;
+    MULT.VE LR5 CR1 0 LR14 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.RESHAPE LRD2 LRD0 0 ; INC LR5 8 ; ADDBI LRD0 8 ;;
+{% if not loop.last %}
+    {% if next_row %}SET LR5 CR0{% else %}INC LR5 8{% endif %} ; ADDBI LRD0 8 {% if next_row and p != cycle_blocks - 1 %}; LD.MULT R0 LR4 {{ cr.in0 }}{% endif %} ;;
+{% endif %}
+{% endfor %}
+{% set p = tile * blocks + blocks - 1 %}
+{% set next_row = ((p + 1) % source_blocks == 8) or ((p + 1) % source_blocks == 0) %}
+    ACTIVATE.QUANTIZE identity {{ cr.tail if m == 64 else cr.full }}.L {{ cr.qf_in0 }}.L {{ cr.spatial }} LR7 ; {% if next_row %}SET LR5 CR0{% else %}INC LR5 8{% endif %} {% if next_row and p != cycle_blocks - 1 %}; LD.MULT R0 LR4 {{ cr.in0 }}{% endif %} ;;
     INC LR7 1 ;;
-{% endmacro %}
-
-    # Walk the view's flat stream in 16-element blocks. Each pair of
-    # scatters shares a load and never crosses a stored row boundary.
+{% endfor %}
+    DEC LR11 1 ; BNE LR11 CR1 pack_cycle ;;
+    BEQ LR14 CR0 copy_init ;;
+{% else %}
+    # General repack of the flat input view into spatial rows.
     SET LR4 CR0 ; SET LR5 CR0 ; SET LR6 CR0 ;;
     SET LR7 CR0 ; SET LR11 LR14 ; SET LR12 CR0 ;;
     SET LR14 CR0 ; SET LR15 CR0 ;;
-    INC LR12 128 ; INC LR15 {{ last }} ;;
+    INC LR12 128 ; INC LR15 {{ (m - 1) % 128 + 1 }} ;;
 input_channel:
-    SET LR10 CR0 ;;
-    INC LR10 {{ tiles }} ;;
+    SET LR10 {{ cr.tiles }} ;;
 input_tile:
     SET LR8 LR12 ; DEC LR10 1 ;;
     BNE LR10 CR0 pack_tile ;;
@@ -37,16 +104,18 @@ next_stored_item:
 packed_octet:
     BLT.S LR9 LR8 pack_pair ;;
     BNE LR10 CR0 pack_full ;;
-    {{ repack_store(cr.tail) }}
+    ACTIVATE.QUANTIZE identity {{ cr.tail }}.L {{ cr.qf_in0 }}.L {{ cr.spatial }} LR7 ;;
+    INC LR7 1 ;;
     DEC LR11 1 ;;
     BNE LR11 CR0 input_channel ;;
     BEQ LR14 CR0 copy_init ;;
 pack_full:
-    {{ repack_store(cr.full) }}
+    ACTIVATE.QUANTIZE identity {{ cr.full }}.L {{ cr.qf_in0 }}.L {{ cr.spatial }} LR7 ;;
+    INC LR7 1 ;;
     BEQ LR14 CR0 input_tile ;;
-
+{% endif %}
 copy_init:
-    # Concatenation prefix: gather padded scanlines into packed output rows.
+    # Pack the padded skip scanlines directly into the output.
     SET LR0 CR0 ; SET LR1 CR0 ; SET LR8 CR0 ;;
     SET LR9 CR0 ;;
 {% for i in range(5) %}
@@ -68,63 +137,47 @@ skip_row:
     BLT.S LR5 LR3 copy_full ;;
     BEQ LR9 CR0 skip_row ;;
 skip_tail:
-    {{ store('identity', cr.tail) }}
+    ACTIVATE.QUANTIZE identity {{ cr.tail }}.L {{ cr.qf_in1 }}.L {{ cr.out0 }} LR1 ;;
+    INC LR1 1 ;;
     BLT.S LR0 {{ cr.skip_rows }} copy_channel ;;
     BEQ LR9 CR0 gemm_init ;;
 copy_full:
-    {{ store('identity', cr.full) }}
+    ACTIVATE.QUANTIZE identity {{ cr.full }}.L {{ cr.qf_in1 }}.L {{ cr.out0 }} LR1 ;;
+    INC LR1 1 ;;
     BEQ LR9 CR0 copy_tile ;;
-
-{% macro mac(preload) %}
-    # Keep both weight components, but share one spatial row between them.
-    MULT.RC.VE LR0 LR8 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR9 1 ;;
-    MULT.RC.VE LR0 LR9 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR8 1 {% if preload %}; LD.MULT.CYCLIC LR7 {{ cr.spatial }} LR0 ; INC LR7 {{ tiles }}{% endif %} ;;
-{% endmacro %}
-{% macro chunk(count, label) %}
-{% set block = 32 if count % 32 == 0 else 16 %}
-    SET LR10 CR0 ;;
-    LD.MULT R0 LR5 {{ cr.w }} ; SET LR8 CR0 ; SET LR9 LR15 ;;
-    INC LR5 1 ; INC LR10 {{ count // block }} ; DEC LR9 1 ;;
-    LD.MULT R1 LR5 {{ cr.w }} ;;
-    INC LR5 1 ;;
-{{ label }}:
-    LD.MULT.CYCLIC LR7 {{ cr.spatial }} LR0 ; INC LR7 {{ tiles }} ;;
-{% for i in range(block) %}
-    {{ mac(not loop.last) }}
-{% endfor %}
-    DEC LR10 1 ; BNE LR10 CR1 {{ label }} ;;
-{% endmacro %}
 gemm_init:
+    SET LR2 LR1 ; SET LR7 CR0 ; SET LR0 CR0 ;;
+    SET LR11 CR0 ; SET LR12 CR0 ; SET LR15 {{ cr.n }} ;;
+    INC LR11 128 ; INC LR12 64 ;;
+{% for i in range(5) %}
+    LD.LUT {{ i }} {{ cr.lut }} LR0 ;;
+    INC LR0 1 ;;
+{% endfor %}
     SET LR0 CR0 ;;
-    SET LR2 CR0 ; SET LR3 CR0 ; SET LR6 CR0 ;;
-    SET LR12 CR0 ; SET LR15 CR0 ;;
-    INC LR12 {{ tiles }} ; INC LR15 128 ;;
-channel:
-    SET LR4 LR12 ; SET LR13 CR0 ;;
+feature:
+    SET LR1 CR0 ; SET LR4 {{ cr.tiles }} ;;
 tile:
-    SET LR5 LR3 ; SUB LR7 LR13 LR12 ; DEC LR4 1 ;;
-{% if bias %}
-    LD.MULT R0 LR6 {{ cr.b }} ; ADD LR11 LR6 CR1 ;;
-    LD.MULT R1 LR11 {{ cr.b }} ;;
-    MULT.EE LR0 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
-    MULT.EE LR15 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ;;
-{% else %}
-    MULT.EE LR0 CR0 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
+    SET LR6 LR1 ; SET LR3 LR7 ; SET LR10 CR0 ; LD.MULT R0 LR7 {{ cr.coeff }} ;;
+    INC LR10 {{ k // 16 }} ;;
+    MULT.EE LR0 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ; INC LR3 1 ; LD.MULT R0 LR3 {{ cr.coeff }} ;;
+    MULT.EE LR0 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR3 1 {% if not aligned %}; SET LR13 CR0{% endif %} ;;
+{% if k >= 16 %}
+    {{ group('taps', 16, true) }}
 {% endif %}
-{% if k > 128 %}
-    SET LR14 CR0 ;;
-    INC LR14 {{ (k - 1) // 128 }} ;;
-full_chunk:
-    {{ chunk(128, 'full_group') }}
-    DEC LR14 1 ;;
-    BNE LR14 CR0 full_chunk ;;
+{% if k % 16 %}
+    {{ group('remainder', k % 16, false) }}
 {% endif %}
-    {{ chunk((k - 1) % 128 + 1, 'tail_group') }}
-    BNE LR4 CR0 gemm_full ;;
-    {{ store(act, cr.tail) }}
-    SET LR3 LR5 ; INC LR6 2 ; INC LR2 1 ;;
-    BLT.S LR2 {{ cr.n }} channel ;;
+{% if rem and m >= 128 %}
+    BEQ LR4 CR1 tail_tile ;;
+{% endif %}
+{% if m >= 128 %}
+    {{ store(act, cr.full) }} ; INC LR1 1 ; DEC LR4 1 ;;
+    INC LR2 1 ; BNE LR4 CR0 tile ;;
+{% endif %}
+{% if rem %}
+tail_tile:
+    {{ store(act, cr.tail) }} ;;
+    INC LR2 1 ;;
+{% endif %}
+    SET LR7 LR3 ; DEC LR15 1 ; BNE LR15 CR1 feature ;;
     HALT ;;
-gemm_full:
-    {{ store(act, cr.full) }}
-    INC LR13 1 ; BEQ LR0 CR0 tile ;;

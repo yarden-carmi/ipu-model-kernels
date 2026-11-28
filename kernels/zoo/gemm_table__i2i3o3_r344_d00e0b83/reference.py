@@ -66,18 +66,16 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
+    n, k = params['n'], params['k']
+    scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
+    weight = module.op0_weight.double().reshape(n, k) * scale[:, None]
+    bias = module.op1_bias - module.op1_running_mean * scale if params['bias'] else scale.new_zeros(n)
     def split(rows):
         _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
         step = torch.ldexp(torch.ones_like(rows[..., :1]), exponent - 4)
         coarse = torch.round(rows / step) * step
-        return torch.stack((coarse, rows - coarse), dim=-2).contiguous()
-
-    n, k = params['n'], params['k']
-    scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
-    weight = module.op0_weight.double().reshape(n, k) * scale[:, None]
-    rows = torch.nn.functional.pad(weight, (0, (-k) % 128)).reshape(n, -1, 128)
-    result = {'w': split(rows)}
-    if params['bias']:
-        bias = module.op1_bias - module.op1_running_mean * scale
-        result['b'] = split(bias[:, None].expand(n, 128))
-    return result
+        return torch.stack((coarse, rows - coarse), dim=-2)
+    bias_rows = split(torch.nn.functional.pad(bias[:, None], (0, 127)))
+    taps = torch.nn.functional.pad(weight, (0, (-k) % 16)).reshape(n, -1, 16)
+    tap_rows = split(torch.nn.functional.pad(taps, (0, 112))).reshape(n, -1, 128)
+    return {'coeff': torch.cat((bias_rows, tap_rows), dim=1).reshape(-1, 128)}
