@@ -54,10 +54,10 @@
 {% endmacro %}
 {% macro average(label) %}
  {{ save(0,3) }}
- {% for p in range(3) %}
- {{ load(p) }}
- MULT.EE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %} ;;
- {% endfor %}
+ // The final split subtraction leaves the middle part in R0.
+ MULT.EE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ; LD.MULT R0 LR0 {{ cr.tmp }} ;;
+ MULT.EE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
+ MULT.EE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD ;;
  {{ save(3,3) }}
  {{ at('LR10') }}
  {{ norm_products([3,4,5],label) }}
@@ -147,11 +147,6 @@ sum:
 sum_tail:
  MULT.VE LR3 CR1 0 LR0 {{ full }} {{ oq }} ; AGG.SUM LR0 {{ tail }} ;;
  {{ average('mean') }}{{ save(6,3) }}
- // Keep the mean residuals resident for every channel tile of this row.
- ADD LR7 LR3 LR3 ; DEC LR1 3 ;;
- {% for slot in ['LR0','LR3','LR7'] %}
- LD.MULT.CYCLIC LR1 {{ cr.tmp }} {{ slot }} ; INC LR1 1 ;;
- {% endfor %}
  SET LR5 CR0 ;;
  {{ at('LR9',32) }}
  // R1 still holds the last tile. Reuse it after centering earlier tiles.
@@ -164,9 +159,7 @@ center:
 center_tail:
  {{ vec(first=true,fmt=oq,ra='LR3') }}
 center_subtract:
- {% for slot in ['LR0','LR3','LR7'] %}
- MULT.RC.VE {{ slot }} CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB ;;
- {% endfor %}
+ {% for n in range(6,9) %}{{ load(n) }}{{ vec('SUB') }}{% endfor %}
  {{ split('LR9',2) }}
  INC LR9 1 ; INC LR5 1 ;;
  BLT.S LR5 {{ cr.tiles }} center ;;
@@ -192,22 +185,23 @@ variance_average:
  {{ at('LR1',12) }}
  ACTIVATE.QUANTIZE rsqrt {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
  {{ save(9,3) }}
- {{ at('LR1',13) }}{{ vec(first=true,s='CR0') }}
- ACTIVATE.QUANTIZE identity {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
- {{ at('LR4',1) }}
 // Newton refinement: y <- 1.5*y - 0.5*v*y^3.
-refine:
- {{ product(12,12,2) }}{{ save(14) }}
-  // The preceding split already loaded its high part into R0.
-  {{ product(9,14,3,true) }}{{ save(16) }}
-  {{ product(12,16,2,true) }}{{ save(18) }}
- {% for i in range(2) %}
- {{ load(12+i) }}
- {{ vec(first=loop.first) }}{{ vec(s=cr.half) }}
- {% endfor %}
+ // The seed has one stored part. Reuse its cyclic row for y² and y·(v·y²),
+ // rather than staging a zero residual and reloading it in each product.
+ {{ at('LR1',12) }}
+ LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR3 ;;
+ LD.MULT R0 LR1 {{ cr.tmp }} ;;
+ {{ mul(first=true,slot='LR3') }}{{ save(14) }}
+ {{ product(9,14,3,true) }}{{ save(16) }}
+ {{ at('LR8',17) }}
+ MULT.RC.VV LR3 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ; LD.MULT R1 LR8 {{ cr.tmp }} ;;
+ MULT.RC.VV LR3 R1 0 LR0 {{ full }} {{ q }} ; ACC.ADD ;;
+ {{ save(18) }}
+ {{ at('LR1',12) }}
+ MULT.RC.VE LR3 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ;;
+ MULT.RC.VE LR3 {{ cr.half }} 0 LR0 {{ full }} {{ q }} ; ACC.ADD ;;
  {% for n in [18,19] %}{{ load(n) }}{{ vec('SUB',s=cr.half) }}{% endfor %}
- {{ save(12,2,true) }}
- BNE LR4 CR0 refine ;;
+ {{ save(12) }}
  // Reserve the upper two cyclic slots for rsqrt across every output tile.
  ADD LR6 LR3 LR3 ;;
  ADD LR7 LR6 LR3 ;;
