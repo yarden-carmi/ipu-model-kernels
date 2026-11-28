@@ -33,9 +33,23 @@ query_ready:
     SET LR11 CR0 ;;
 tile:
     SET LR8 LR6 ; ADD LR9 LR1 LR11 ; SET LR10 {{ cr.k }} ;;
-    {{ product(true) }}
+    LD.MULT R0 LR8 {{ cr.in0 }} ;;
+    LD.MULT.CYCLIC LR9 {{ cr.in1 }} LR15 ; DEC LR10 1 ; ADD LR8 LR8 {{ cr.stride }}.L ;;
+    DEC LR10 1 ; BEQ LR10 CR0 only_one ;;
+    MULT.RC.VE LR15 LR5 0 LR15 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD.FIRST ; LD.MULT R1 LR8 {{ cr.in0 }} ; ADD LR9 LR9 {{ cr.stride }}.H ;;
 reduce:
-    {{ product(false) }}
+    LD.MULT.CYCLIC LR9 {{ cr.in1 }} LR15 ; DEC LR10 1 ; ADD LR8 LR8 {{ cr.stride }}.L ; INC LR5 128 ; BEQ LR10 CR0 last1 ;;
+    MULT.RC.VE LR15 LR5 0 LR15 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ; LD.MULT R0 LR8 {{ cr.in0 }} ; ADD LR9 LR9 {{ cr.stride }}.H ;;
+    LD.MULT.CYCLIC LR9 {{ cr.in1 }} LR15 ; DEC LR10 1 ; ADD LR8 LR8 {{ cr.stride }}.L ; DEC LR5 128 ; BEQ LR10 CR0 last0 ;;
+    MULT.RC.VE LR15 LR5 0 LR15 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ; LD.MULT R1 LR8 {{ cr.in0 }} ; ADD LR9 LR9 {{ cr.stride }}.H ; B reduce ;;
+last1:
+    MULT.RC.VE LR15 LR5 0 LR15 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ; ADD LR9 LR9 {{ cr.stride }}.H ; B restore ;;
+last0:
+    MULT.RC.VE LR15 LR5 0 LR15 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD ; ADD LR9 LR9 {{ cr.stride }}.H ; B store ;;
+restore:
+    DEC LR5 128 ; B store ;;
+only_one:
+    MULT.RC.VE LR15 LR5 0 LR15 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.ADD.FIRST ; ADD LR9 LR9 {{ cr.stride }}.H ;;
 store:
     INC LR11 1 ;;
     BEQ LR11 {{ cr.tiles }} tail ;;
