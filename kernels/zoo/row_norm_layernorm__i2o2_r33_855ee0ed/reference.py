@@ -59,7 +59,7 @@ def fold(module, **params):
     channels = int(params["channels"])
     padding = (-channels) % 128
 
-    def split(t, pieces=3, mantissa=4):
+    def split(t, pieces=2, mantissa=5):
         residual = t.reshape(-1, 128)
         parts = []
         for _ in range(pieces - 1):
@@ -76,6 +76,6 @@ def fold(module, **params):
     return {
         "gamma": affine(module.weight),
         "beta": affine(module.bias),
-        "crow": torch.cat((split(torch.full((128,), 1 / channels)), torch.full((1, 128), params["eps"]))),
-        "epsilon": torch.zeros((128,)),
+        "crow": split(torch.full((128,), 1 / channels), pieces=2, mantissa=5),
+        "epsilon": torch.full((128,), params["eps"]),
     }
