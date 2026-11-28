@@ -1,0 +1,24 @@
+formats = ["e1", "e2"]
+chain = ["conv2d"]
+chain_in = ["in0"]
+chain_out = ["out0"]
+
+[layout.in0]
+lanes = 2
+rows = [0, 1, 3]
+[view.in0]
+kind = "whole"
+
+[format.in0]
+format = "e2"
+[format.weights]
+format = "e2"
+
+[layout.out0]
+lanes = 2
+rows = [0, 1, 3]
+pack = "128 // d2"
+
+[lut.out0]
+range_mode = 2
+range_exp = 40
