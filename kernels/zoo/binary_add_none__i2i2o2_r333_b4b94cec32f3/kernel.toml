@@ -24,12 +24,15 @@ input_span = "in0_d1 * in0_d2"
 padded = "min(1, input_span % 128)"
 lane_span = "128 + padded * (in0_d2 - 128)"
 input_width = "1 + padded * (ceil(in0_d2 / 128) - 1)"
-span = "lane_span + 65536 * input_width"
-step_row = "(out0_d0 * out0_d1 // lane_span) * input_width"
-step_lane = "out0_d0 * out0_d1 % lane_span"
-dims = "out0_d0 + 65536 * out0_d1"
-tail = "ds((out0_d2 - 1) % 128 + 1)"
-scalar = "ds(1)"
+fast = "(1 - min(1, out0_d0 % 2)) * (1 - min(1, (out0_d0 * out0_d1) % 128)) * (1 - min(1, out0_d2 % 64)) * (1 - min(1, max(0, out0_d2 - 256))) * (1 - min(1, max(0, out0_d0 * out0_d1 - 32640))) * (1 - min(1, max(0, (out0_d1 - 1) * width - 8160)))"
+span = "(1 - fast) * (lane_span + 65536 * input_width) + fast * base(tiles)"
+step_row = "(1 - fast) * ((out0_d0 * out0_d1 // lane_span) * input_width) + fast * (312 + 65536 * 328)"
+step_lane = "(1 - fast) * (out0_d0 * out0_d1 % lane_span) + fast * 50462976"
+dims = "(1 - fast) * (out0_d0 + 65536 * out0_d1) + fast * 117835012"
+tail = "(1 - fast) * ds((out0_d2 - 1) % 128 + 1) + fast * 100925952"
+end_width = "(1 - fast) * out0_d2 + fast * 235670024"
+scalar = "(1 - fast) * ds(1) + fast * ds((out0_d2 - 1) % 128 + 1)"
+pair_index = "16777216"
 
 [inputs.in0]
 shape = ["in0_d0", "(1 - padded) * ceil(input_span / 128) + padded * in0_d1 * input_width", 128]
@@ -39,6 +42,9 @@ shape = ["in1_d0", "in1_d1", "ceil(in1_d2 / 128) * 128"]
 range = [-2, 2]
 [outputs.out0]
 shape = ["out0_d0", "out0_d1", "width * 128"]
+
+[scratch.tiles]
+shape = ["2 * ceil(out0_d2 / 64) + 1", 128]
 
 [abi]
 in0 = "CR2"
@@ -52,7 +58,8 @@ step_row = "CR9"
 step_lane = "CR10"
 dims = "CR11"
 tail = "CR12"
-out0_d2 = "CR13"
+end_width = "CR13"
 scalar = "CR14"
+pair_index = "LR8"
 
 [cases.default]
