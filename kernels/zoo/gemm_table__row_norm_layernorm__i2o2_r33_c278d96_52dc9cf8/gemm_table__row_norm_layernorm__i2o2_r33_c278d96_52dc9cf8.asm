@@ -222,14 +222,13 @@ normalize:
  MULT.RC.VV LR7 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; INC LR10 1{% if not loop.last %} ; LD.MULT R0 LR10 {{ cr.norm }}{% endif %} ;;
  {% endfor %}
  {{ save(20,3) }}
- LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;
- INC LR9 1 ;;
- LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR3 ;;
-  INC LR9 1 ; SET LR8 LR1 ; DEC LR1 2 ;;
+  LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ; SET LR8 LR1 ;;
+  INC LR9 1 ; DEC LR1 2 ;;
+  LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR3 ;;
    // R0 still contains the middle affine-scale part from split. Consume
    // it for both centered parts before loading the high and low parts.
    {% for n in range(3) %}
-   {{ mul(loop.first) }}
+    MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if loop.first %}.FIRST ; INC LR9 1{% endif %} ;;
    MULT.RC.VV LR3 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; {% if loop.first %}LD.MULT R0 LR1 {{ cr.tmp }}{% elif loop.last %}LD.MULT R0 LR10 {{ cr.norm }}{% else %}LD.MULT R0 LR8 {{ cr.tmp }}{% endif %} ;;
  {% endfor %}
  {% for i in range(3) %}
