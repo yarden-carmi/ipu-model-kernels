@@ -29,27 +29,29 @@
 {% endmacro %}
 {% macro save(n,count=2,dec=false) %}{{ at('LR1',n) }}{{ split('LR1',count,dec) }}{% endmacro %}
 {% macro norm_products(offsets,label) %}
+ SET LR8 {{ cr.tail }}.H ; ADD LR6 LR3 LR3 ;;
+ ADD LR7 LR6 LR3 ;
+ BNE LR8 CR0 {{ label }}_split ;;
+ // For an exact reciprocal, keep it resident from mean through variance.
+ {% if label == 'mean' %}LD.MULT.CYCLIC LR10 {{ cr.norm }} LR7 ;;{% endif %}
+ {% for i in range(3) %}
+ {{ load(offsets[i]) }}
+ MULT.RC.VV LR7 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %}{% if loop.last %} ; INC LR10 1{% endif %} ;;
+ {% endfor %}
+ B {{ label }}_end ;;
+ {{ label }}_split:
  // Hold the three left parts in cyclic slots and reuse each coefficient.
- SET LR6 LR3 ;;
- INC LR6 64 ;;
- INC LR6 64 ;;
  {{ load(offsets[0],true) }}
  {{ at('LR1',offsets[1]) }}
  LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR3 ;;
  {{ at('LR1',offsets[2]) }}
- LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR6 ; SET LR8 {{ cr.tail }}.H ;;
+ LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR6 ;;
  LD.MULT R0 LR10 {{ cr.norm }} ;;
- BEQ LR8 CR0 {{ label }}_exact ;;
  {% for _ in range(3) %}
   {{ mul(first=loop.first) }}
  {{ mul(slot='LR3') }}
  MULT.RC.VV LR6 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; INC LR10 1{% if not loop.last %} ; LD.MULT R0 LR10 {{ cr.norm }}{% endif %} ;;
   {% endfor %}
- B {{ label }}_end ;;
- {{ label }}_exact:
- {{ mul(first=true) }}
- {{ mul(slot='LR3') }}
- MULT.RC.VV LR6 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; INC LR10 1 ;;
  {{ label }}_end:
 {% endmacro %}
 {% macro average(label) %}
@@ -148,10 +150,10 @@ sum_tail:
  {{ average('mean') }}{{ save(6,3) }}
  // Cache all three broadcast mean parts across the centering loop.
  ADD LR6 LR3 LR3 ; DEC LR1 3 ; SET LR9 CR0 ;;
- ADD LR7 LR6 LR3 ; INC LR9 32 ;;
+ INC LR9 32 ;;
  LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ; INC LR1 1 ;;
  LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR6 ; INC LR1 1 ;;
- LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR7 ; INC LR1 1 ; SET LR5 CR0 ;;
+ LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR3 ; INC LR1 1 ; SET LR5 CR0 ;;
  // R1 still holds the last tile. Reuse it after centering earlier tiles.
 center:
  ADD LR8 LR5 CR1 ;;
@@ -162,7 +164,7 @@ center:
 center_tail:
  {{ vec(first=true,fmt=oq,ra='LR3') }}
 center_subtract:
- {% for slot in ['LR0','LR6','LR7'] %}
+ {% for slot in ['LR0','LR6','LR3'] %}
  MULT.RC.VE {{ slot }} CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB ;;
  {% endfor %}
  {{ split('LR9',2) }}
