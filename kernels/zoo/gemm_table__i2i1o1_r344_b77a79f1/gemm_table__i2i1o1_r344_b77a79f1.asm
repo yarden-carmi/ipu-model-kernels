@@ -31,8 +31,10 @@
 {% set advance = chunks * (m // in0_d2 + (position + step // 64) // 3) + ((position + step // 64) % 3 == 2)|int - (position == 2)|int %}
 {% set src = 'LR12' if position == 1 else 'LR6' %}
     LD.MULT R0 LR5 {{ cr.in0 }} ;;
-    {{ mac(src) }} ; {{ fetch() }}{% if not final or not loop.last %} ; INC LR5 {{ advance }}{% endif %}{% if not final and loop.last %} ; DEC LR10 1{% endif %} ;;
-    {{ mac(src) }}{% if not final or not loop.last %} ; {{ fetch() }}{% endif %}{% if not final and loop.last %} ; BNE LR10 CR0 period_{{ phase }}{% endif %} ;;
+    {{ mac(src) }} ; {{ fetch() }}{% if j == 0 %} ; INC LR5 {{ advance }}{% endif %} ;;
+{% if j != 0 %}
+    {{ mac(src) }}{% if not final or not loop.last %} ; {{ fetch() }} ; INC LR5 {{ advance }}{% endif %}{% if not final and loop.last %} ; DEC LR10 1 ; BNE LR10 CR1 period_{{ phase }}{% endif %} ;;
+{% endif %}
 {% endfor %}
 {% endmacro %}
 {% macro advance_lane(delta) %}

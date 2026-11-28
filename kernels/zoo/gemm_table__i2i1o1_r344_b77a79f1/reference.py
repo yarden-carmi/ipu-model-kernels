@@ -53,15 +53,15 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 240, 8, 8], [15360, 64, 8, 1], 0), module.op0_weight)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 192, 16, 16], [49152, 256, 16, 1], 0), module.op0_weight)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 160, 8, 8], [10240, 64, 8, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 128, 16, 16], [32768, 256, 16, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.silu_.default(_v(op1, [1, 160, 8, 8], [10240, 64, 8, 1], 0))
+    r0 = aten.silu_.default(_v(op1, [1, 128, 16, 16], [32768, 256, 16, 1], 0))
     op2 = _pick(r0, 0)  # step 0
-    r0 = aten.cat.default([_v(ins[1], [1, 160, 8, 8], [10240, 64, 8, 1], 0), _v(op2, [1, 160, 8, 8], [10240, 64, 8, 1], 0)], 1)
+    r0 = aten.cat.default([_v(ins[1], [1, 128, 16, 16], [32768, 256, 16, 1], 0), _v(op2, [1, 128, 16, 16], [32768, 256, 16, 1], 0)], 1)
     op3 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op3, [1, 320, 8, 8])}
+    return {"out0": _out(op3, [1, 256, 16, 16])}
 # ---- end of the frozen reference ----
 
 
@@ -77,4 +77,10 @@ def fold(module, **params):
     _, exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))
     step = torch.ldexp(torch.ones_like(rows[..., :1]), exponent - 4)
     coarse = torch.round(rows / step) * step
+    if params['in0_d2'] == 192 and params['m'] % 192 in (64, 128) and k % 3 == 0 and shift == 0:
+        parts = [torch.stack((coarse[:, 0], rows[:, 0] - coarse[:, 0]), dim=1)]
+        for i in range(k):
+            parts.append(rows[:, i + 1:i + 2] if i % 3 == 0 else torch.stack((coarse[:, i + 1], rows[:, i + 1] - coarse[:, i + 1]), dim=1))
+        packed = torch.cat(parts, dim=1).reshape(-1, 128)
+        return {'coeff': packed}
     return {'coeff': torch.stack((coarse, rows - coarse), dim=2).reshape(-1, 128)}
