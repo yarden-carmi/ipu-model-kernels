@@ -4,10 +4,10 @@
 {% set P = C // 16 %}
 {% set H = (out0_d1 + 127) // 128 %}
 {% set compensate = C % 128 == 16 and W == 2 %}
+// Only in0 needs the strided-view transpose. Read in1 in output-row order
+// after reshaping in0, and add it directly to the accumulator before the store.
 // The 16-lane tail uses main and residual scratch rows to preserve small
 // values when the transpose mixes elements from differently scaled rows.
-// In that path, tile lane 32*(token/2) + 2*channel + token%2 lets
-// ACC.STRIDE extract a token's 16 channels in one word.
 {% macro shift(reg, delta) %}
     {% if delta > 0 %}INC {{ reg }} {{ delta }} ;{% elif delta < 0 %}DEC {{ reg }} {{ -delta }} ;{% endif %}
 {% endmacro %}
@@ -19,7 +19,7 @@
 {% endif %}
 {% set prefix %}
 group:
-    SET LR6 LR14 ; SET LR7 LR13 ; SET LR9 LR12 ;;
+    SET LR6 LR14 ; SET LR7 LR13 ;;
     SET LR8 {{ 'CR1' if compensate else 'CR0' }} ;;
 tile:
 {% if compensate %}
@@ -59,7 +59,7 @@ phase_{{ p }}:
         {% set nr = next // C * W + (next % C // 128 if k < 15 else 0) %}
         {% if rr != row %}
             {% if compensate and k == 0 %}INC LR7 {{ target }} ;;{% endif %}
-             {% if k %}ADDBI LRD4 {{ 2 if compensate else 1 }} ;;{% endif %}
+            {% if k %}ADDBI LRD4 1 ;;{% endif %}
             {{ pick(cr.qf_in0, 4) }} {{ shift('LR15', lane - 16 - prev.lane) }}
             SET LR5 LR4 ; INC LR6 {{ rr - row }} ; LD.MULT R0 LR6 {{ cr.in0 }} ;;
             {% set lane = zr % C % 128 - 16 %}
@@ -67,7 +67,7 @@ phase_{{ p }}:
             ADD LR5 LR4 {{ cr.dest_gap }} ; {{ shift('LR6', nr - rr) }}
         {% else %}
             {{ pick(cr.qf_in0) }} {{ shift('LR15', lane - prev.lane) }} {{ advance }}
-             {% if k %}ADDBI LRD4 {{ 2 if compensate else 1 }} ;{% endif %} {{ shift('LR6', nr - row) }}
+            {% if k %}ADDBI LRD4 1 ;{% endif %} {{ shift('LR6', nr - row) }}
         {% endif %}
         {% if k < 15 %}LD.MULT R0 LR6 {{ cr.in0 }} ;{% else %}
             {% if compensate %}ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf_in0 }}.L {{ cr.tiles }} LR0 ;{% endif %}
@@ -89,19 +89,31 @@ phase_{{ p }}:
     {{ phase(p, pc.table['p' ~ ((p + S) % P)]) }}
 {% endfor %}
 stash:
+{#
 {% if compensate %}
-    LD.MULT R0 LR0 {{ cr.tiles }} ; SET LR2 CR1 ; SET LR3 {{ cr.seq_hi }} ;;
+    INC LR8 1 ; ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf_in0 }}.L {{ cr.tiles }} LR8 ;;
+    LD.MULT R0 LR0 {{ cr.tiles }} ; ADD LR15 LR8 {{ cr.tail }}.H ; SET LR2 {{ cr.seq_lo }} ; SET LR3 {{ cr.seq_hi }} ;;
     MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.SUB ;
-    ACTIVATE.QUANTIZE identity CR15.L {{ cr.scratch_format }}.H {{ cr.tiles }} LR2 ;
-    ADDBI LRD4 -30 ; SET LR15 LR11 ; LD.MULT R0 LR9 {{ cr.in1 }} ;;
+    ACTIVATE.QUANTIZE identity CR15.L {{ cr.scratch_format }}.H {{ cr.tiles }} LR15 ; SET LR4 {{ cr.limits }} ; ADD LR2 LR2 LR2 ; ADD LR3 LR3 LR3 ;;
+    ADD LR5 LR4 {{ cr.dest_gap }} ; ADD LR2 LR2 LR2 ; ADD LR3 LR3 LR3 ; BLT.S LR8 {{ cr.tail }}.H resume ;;
+{% else %}
+    ACTIVATE.QUANTIZE identity CR15.L {{ cr.scratch_format }}.L {{ cr.tiles }} LR8 ;
+    INC LR8 1 ; BLT.S LR8 {{ cr.limits }}.H tile ;;
+{% endif %}
+#}
+{% if compensate %}
+    LD.MULT R0 LR0 {{ cr.tiles }} ; SET LR15 CR1 ;;
+    MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf_in0 }}.L ; ACC.SUB ;
+    ACTIVATE.QUANTIZE identity CR15.L {{ cr.scratch_format }}.H {{ cr.tiles }} LR15 ;
+    ADDBI LRD4 -15 ; SET LR2 {{ cr.seq_lo }} ; SET LR3 {{ cr.seq_hi }} ; LD.MULT R0 LR9 {{ cr.in1 }} ;;
 {% else %}
     ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf_in0 }}.L {{ cr.tiles }} LR0 ;
     LD.MULT R0 LR9 {{ cr.in1 }} ; ADDBI LRD4 -15 ; SET LR2 {{ cr.seq_lo }} ; SET LR3 {{ cr.seq_hi }} ;;
-    SET LR15 LR11 ;;
 {% endif %}
-    INC.MODP2 LR15 LR0 7 ; {% if compensate %}SET LR2 {{ cr.seq_lo }} ;{% endif %} ;;
+    SET LR15 LR11 ;;
+    INC.MODP2 LR15 LR0 7 ;;
 {% for k in range(16) %}
-    {{ pick(cr.qf_in1) }} INC LR9 {{ H }} ; {% if k %}ADDBI LRD4 {{ 2 if compensate else 1 }} ;{% endif %}
+    {{ pick(cr.qf_in1) }} INC LR9 {{ H }} ; {% if k %}ADDBI LRD4 1 ;{% endif %}
     {% if k < 15 %}LD.MULT R0 LR9 {{ cr.in1 }} ;{% else %}LD.MULT R0 LR0 {{ cr.tiles }} ;{% endif %} ;;
 {% endfor %}
 {% if compensate %}
@@ -118,66 +130,75 @@ stash:
     ACTIVATE.QUANTIZE identity CR15.L {{ cr.scratch_format }}.L {{ cr.tiles }} LR8 ;
     INC LR8 1 ; BLT.S LR8 {{ cr.limits }}.H tile ;;
 {% endif %}
-{% if compensate %}
-    // Preload the first main tile; the residual bank has a separate cursor.
-    SET LR7 CR0 ; SET LR6 {{ cr.tail }}.H ; SET LR9 CR0 ;;
-     INC LR6 2 ; SET LR8 CR1 ; SET LR2 {{ cr.seq_lo }} ;;
-     SET LR3 {{ cr.seq_hi }} ;;
-     INC LR8 1 ; ADD LR2 LR2 LR2 ; ADD LR3 LR3 LR3 ; LD.MULT R0 LR8 {{ cr.tiles }} ;;
-{% else %}
     SET LR7 CR0 ; SET LR2 {{ cr.seq_lo }} ; SET LR3 {{ cr.seq_hi }} ;;
     SET LR6 CR0 ;;
     INC LR6 112 ;;
-{% endif %}
-{% macro emit_chunk(count, mask, qf) %}
+    {% if compensate %}SET LR8 CR1 ;;{% endif %}
+emit:
+    {% if compensate %}INC LR8 1 ; SET LR15 LR7 ;;{% else %}SET LR8 CR1 ; SET LR15 LR7 ;;{% endif %}
+{#
+{% macro emit_chunk(count, mask, qf, part='direct', reset=false, last=false) %}
     SET LR4 LR2 ; SET LR5 LR3 ; LD.MULT R0 LR8 {{ cr.tiles }} ;;
     {% for t in range(count) %}
         MULT.VE LR15 CR1 0 LR0 CR15.L {{ qf }} ; ACC.RESHAPE LRD2 LRD4 0 ; {% if t %}DEC LR15 8 ; ADDBI LRD4 8 ;{% endif %} ;;
         MULT.VE LR15 CR1 0 LR0 CR15.L {{ qf }} ; ACC.RESHAPE LRD2 LRD4 0 ; INC LR15 8 ; ADDBI LRD4 8 ; INC LR8 1 ;
         {% if t + 1 < count %}LD.MULT R0 LR8 {{ cr.tiles }} ;
-        {% else %}ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ mask }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;{% endif %} ;;
+        {% elif part == 'residual' %}ACTIVATE.QUANTIZE identity {{ mask }} {{ cr.scratch_format }}.H {{ cr.tiles }} LR0 ;
+        {% elif part == 'main' %}LD.MULT R0 LR0 {{ cr.tiles }} ;
+        {% else %}LD.MULT R0 LR1 {{ cr.in1 }} ;{% endif %} ;;
     {% endfor %}
-    INC LR1 1 ;;
+    {% if part == 'residual' %}
+        DEC LR8 {{ P + 1 + count }} ; SET LR15 LR7 ;;
+    {% else %}
+        {% if part == 'main' %}MULT.VE LR0 CR1 0 LR0 {{ mask }} {{ cr.scratch_format }}.H ; ACC.ADD ; INC LR1 1 ; LD.MULT R0 LR1 {{ cr.in1 }} ;;{% endif %}
+        MULT.VE LR0 CR1 0 LR0 {{ mask }} {{ cr.qf_in1 }}.L ; ACC.ADD ;
+        ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ mask }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ; {% if reset %}DEC LR8 {{ P + 1 }} ; SET LR15 LR7 ;{% endif %} {% if last %}SET LR8 CR1 ; INC LR7 16 ; BLT.S LR7 LR6 emit ;{% endif %} ;;
+        {% if part != 'main' %}INC LR1 1 ;;{% endif %}
+    {% endif %}
 {% endmacro %}
-{# Stride installs the first 16 channels of each 32-lane segment.
-   The following two scatters replace the unwanted upper 16 lanes. #}
-{% macro pipeline_emit(ptr, qf, nextptr, store=false) %}
-    {% for t in range(4) %}
-        MULT.VE LR7 CR1 0 LR0 CR15.L {{ qf }} ; ACC.STRIDE 64 on on LR9 ;
-        INC {{ ptr }} 1 ; LD.MULT R0 {{ ptr }} {{ cr.tiles }} ;
-        {% if t == 0 %}SET LR4 {{ cr.seq_lo }} ; SET LR5 {{ cr.seq_hi }} ;{% endif %} ;;
-        MULT.VE LR7 CR1 0 LR0 CR15.L {{ qf }} ; ACC.RESHAPE LRD2 LRD4 0 ; ADDBI LRD4 {{ 16 if t == 0 else 24 }} ; SET LR15 LR7 ; {% if t < 3 %}INC {{ ptr }} 1 ;{% endif %} ;;
-        MULT.VE LR15 CR1 0 LR0 CR15.L {{ qf }} ; ACC.RESHAPE LRD2 LRD4 0 ; ADDBI LRD4 8 ; INC LR15 16 ; INC LR9 1 ;
-        LD.MULT R0 {{ ptr if t < 3 else nextptr }} {{ cr.tiles }} ;
-        {% if t == 3 and store %}ACTIVATE.QUANTIZE identity CR15.L {{ cr.qf_out0 }}.L {{ cr.tiles }} LR0 ;{% endif %} ;;
-    {% endfor %}
-{% endmacro %}
-{% macro emit_token(step, last=false) %}
-    {{ pipeline_emit('LR8', cr.qf_out0 ~ '.L', 'LR6', true) }}
-    {{ pipeline_emit('LR6', cr.scratch_format ~ '.H', 'LR0') }}
-    MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf_out0 }}.L ; ACC.ADD ; INC LR1 1 ; INC LR8 1 ;
-    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} CR15.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ; LD.MULT R0 LR8 {{ cr.tiles }} ;;
-    MULT.VE LR7 CR1 0 LR0 CR15.L {{ cr.qf_out0 }}.L ; ACC.STRIDE 64 on on LR0 ; SET LR8 CR1 ; INC LR6 1 ; SET LR15 CR0 ;
-    ACTIVATE.QUANTIZE identity {{ cr.tail }}.L {{ cr.qf_out0 }}.L {{ cr.tiles }} LR0 ; LD.MULT R0 LR6 {{ cr.tiles }} ;;
-    MULT.VE LR7 CR1 0 LR0 CR15.L {{ cr.scratch_format }}.H ; ACC.STRIDE 64 on on LR0 ; INC LR8 1 ; LD.MULT R0 LR0 {{ cr.tiles }} ;
-    INC LR15 97 ;;
-    MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf_out0 }}.L ; ACC.ADD ;
-    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ cr.tail }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;
-    ADD LR6 LR8 {{ cr.tail }}.H ; INC LR7 {{ step }} ; INC LR1 1 ; LD.MULT R0 LR8 {{ cr.tiles }} ;
-    {% if last %}BLT.S LR7 LR15 emit ;{% endif %} ;;
-{% endmacro %}
-emit:
 {% if compensate %}
-     {{ emit_token(1) }}
-     {{ emit_token(31, true) }}
+    INC LR8 {{ P + 1 }} ;;
+    {{ emit_chunk(8, 'CR15.L', cr.scratch_format ~ '.H', 'residual') }}
+    {{ emit_chunk(8, 'CR15.L', cr.qf_in0 ~ '.L', 'main') }}
+    INC LR8 {{ P + 1 }} ; SET LR15 LR7 ;;
+    {{ emit_chunk(1, cr.tail ~ '.L', cr.scratch_format ~ '.H', 'residual') }}
+    {{ emit_chunk(1, cr.tail ~ '.L', cr.qf_in0 ~ '.L', 'main') }}
 {% else %}
-    SET LR8 CR1 ; SET LR15 LR7 ;;
     {% if W == 2 %}
         {{ emit_chunk(8, 'CR15.L', cr.scratch_format ~ '.L') }}
         SET LR15 LR7 ;;
     {% endif %}
     {{ emit_chunk((P - 1) % 8 + 1, cr.tail ~ '.L', cr.scratch_format ~ '.L') }}
-    INC LR7 16 ; BLT.S LR7 LR6 emit ;;
+{% endif %}
+#}
+{% macro emit_chunk(count, mask, qf, part='direct', reset=false, last=false) %}
+    SET LR4 LR2 ; SET LR5 LR3 ; LD.MULT R0 LR8 {{ cr.tiles }} ;;
+    {% for t in range(count) %}
+        MULT.VE LR15 CR1 0 LR0 CR15.L {{ qf }} ; ACC.RESHAPE LRD2 LRD4 0 ; {% if t %}DEC LR15 8 ; ADDBI LRD4 8 ;{% endif %} ;;
+        MULT.VE LR15 CR1 0 LR0 CR15.L {{ qf }} ; ACC.RESHAPE LRD2 LRD4 0 ; INC LR15 8 ; ADDBI LRD4 8 ; INC LR8 1 ;
+        {% if t + 1 < count %}LD.MULT R0 LR8 {{ cr.tiles }} ;
+        {% elif part == 'main' %}ACTIVATE.QUANTIZE identity {{ mask }} {{ qf }} {{ cr.tiles }} LR0 ;
+        {% elif part == 'residual' %}LD.MULT R0 LR0 {{ cr.tiles }} ;
+        {% else %}ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ mask }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;{% endif %} ;;
+    {% endfor %}
+    {% if part == 'main' %}
+        {{ shift('LR8', P + 1 - count) }} SET LR15 LR7 ;;
+    {% elif part == 'residual' %}
+        MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.qf_out0 }}.L ; ACC.ADD ; INC LR1 1 ;
+        ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ mask }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ; {% if reset %}DEC LR8 {{ P + 1 }} ; SET LR15 LR7 ;{% endif %} {% if last %}SET LR8 CR1 ; INC LR7 16 ; BLT.S LR7 LR6 emit ;{% endif %} ;;
+    {% else %}INC LR1 1 ; {% if last %}INC LR7 16 ; BLT.S LR7 LR6 emit ;{% endif %} ;;{% endif %}
+{% endmacro %}
+{% if compensate %}
+    {{ emit_chunk(8, 'CR15.L', cr.qf_out0 ~ '.L', 'main') }}
+    {{ emit_chunk(8, 'CR15.L', cr.scratch_format ~ '.H', 'residual', reset=true) }}
+    {{ emit_chunk(1, cr.tail ~ '.L', cr.qf_out0 ~ '.L', 'main') }}
+    {{ emit_chunk(1, cr.tail ~ '.L', cr.scratch_format ~ '.H', 'residual', last=true) }}
+{% else %}
+    {% if W == 2 %}
+        {{ emit_chunk(8, 'CR15.L', cr.scratch_format ~ '.L') }}
+        SET LR15 LR7 ;;
+    {% endif %}
+    {{ emit_chunk((P - 1) % 8 + 1, cr.tail ~ '.L', cr.scratch_format ~ '.L', last=true) }}
 {% endif %}
 {% if compensate %}
     SET LR6 CR0 ;; INC LR6 {{ out0_d1 - 8 }} ;;
@@ -189,28 +210,18 @@ emit:
     INC LR11 8 ; INC LR13 2 ;;
     BLT.S {{ 'LR6' if compensate else cr.limits ~ '.H' }} LR13 wrap_group ;;
 next_group:
-    SET LR15 LR11 ;;
-    INC.MODP2 LR15 LR0 7 ;;
-    BNE LR15 CR0 group ;;
-    INC LR12 1 ; B group ;;
+    {% for i in range((C * H + 127) // 128) %}DEC LR9 {{ [128, C * H - 128 * i] | min }} ;;{% endfor %}
+    {% if H > 1 %}SET LR6 CR0 ;; INC LR6 128 ;; BNE LR11 LR6 no_block_step ;; INC LR9 1 ;; no_block_step:{% endif %}
+    B group ;;
 wrap_group:
     SUB LR13 LR13 {{ 'LR6' if compensate else cr.limits ~ '.H' }} ; INC LR14 {{ W }} ;;
     DEC LR13 1 ; B next_group ;;
 next_batch:
+    {% if H > 1 %}DEC LR9 1 ;;{% endif %}
     SET LR6 CR0 ;;
     INC LR6 3 ;;
     BGE.S LR10 LR6 finish ;;
     SET LR14 CR0 ; SET LR13 CR0 ; SET LR11 CR0 ;;
-    {% if compensate %}
-        // LR9 was reused for the emit bound. Advance the last group's in1
-        // start from this batch's final token block to the next batch base.
-        INC LR10 1 ;;
-        {% for _ in range((C * H - H + 1) // 128) %}INC LR12 128 ;;
-        {% endfor %}
-        INC LR12 {{ (C * H - H + 1) % 128 }} ; B group ;;
-    {% else %}
-        SET LR12 LR9 ; INC LR10 1 ;;
-        {% if H > 1 %}DEC LR12 {{ H - 1 }} ;{% endif %} B group ;;
-    {% endif %}
+    INC LR10 1 ; B group ;;
 finish:
     HALT ;;
