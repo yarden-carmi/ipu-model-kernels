@@ -1,0 +1,76 @@
+[kernel]
+op = "unary_builtin__binary_mul_row"
+formats = ["e1"]
+
+[params.act_s0]
+type = "str"
+choices = ["reciprocal"]
+default = "reciprocal"
+[params.s0_numel]
+type = "int"
+default = 2
+[params.s0_operand]
+type = "int"
+choices = [1]
+default = 1
+[params.s1_broadcast]
+type = "str"
+choices = ["row"]
+default = "row"
+[params.s1_inner]
+type = "int"
+default = 2
+[params.s1_const]
+type = "int"
+choices = [0]
+default = 0
+[params.s1_numel]
+type = "int"
+default = 1024
+[params.s1_op]
+type = "str"
+choices = ["mul"]
+default = "mul"
+[params.in0_d0]
+type = "int"
+min = 1
+max = 128
+default = 2
+[params.out0_d0]
+type = "int"
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+default = 512
+[params.out0_d2]
+type = "int"
+default = 2
+
+[derived]
+chunks = "ceil(out0_d1 / 128)"
+rows = "out0_d0 * out0_d2 * chunks"
+ds_pair = "ds((out0_d1 - 1) % 128 + 1) + 65536 * ds(in0_d0)"
+
+[inputs.in0]
+shape = [128]
+[inputs.numerator]
+shape = ["rows", 128]
+[outputs.out0]
+shape = ["rows", 128]
+[scratch.s0]
+shape = [128]
+
+[abi]
+in0 = "CR2"
+numerator = "CR3"
+out0 = "CR4"
+s0 = "CR5"
+qf_in0 = "CR6"
+qf_numerator = "CR7"
+qf_out0 = "CR8"
+ds_pair = "CR9"
+rows = "CR10"
+out0_d2 = "CR11"
+
+[cases.default]
