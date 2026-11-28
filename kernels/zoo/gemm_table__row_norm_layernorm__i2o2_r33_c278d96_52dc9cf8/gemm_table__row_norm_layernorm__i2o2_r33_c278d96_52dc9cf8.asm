@@ -36,10 +36,13 @@
  {% if label == 'mean' %}LD.MULT.CYCLIC LR10 {{ cr.norm }} LR7 ;;{% endif %}
  // The split leaves the middle residual in R0. Use it before reloading
  // the high and low parts instead of loading the middle a second time.
- {% for i in [1,0,2] %}
- {% if not loop.first %}{{ load(offsets[i]) }}{% endif %}
- MULT.RC.VV LR7 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %}{% if loop.last %} ; INC LR10 1{% endif %} ;;
- {% endfor %}
+  // Stream high and low behind the middle part already resident in R0.
+  // save(3,3) leaves LR1 pointing to the low part.
+  SET LR8 LR1 ;;
+  DEC LR8 2 ;;
+  MULT.RC.VV LR7 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ; LD.MULT R0 LR8 {{ cr.tmp }} ;;
+  MULT.RC.VV LR7 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
+  MULT.RC.VV LR7 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; INC LR10 1 ;;
  B {{ label }}_end ;;
  {{ label }}_split:
  // Hold the three left parts in cyclic slots and reuse each coefficient.
