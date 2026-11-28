@@ -1,0 +1,88 @@
+[kernel]
+op = "unary_builtin__binary_mul_row"
+formats = ["e1"]
+
+[params.act_s0]
+type = "str"
+choices = ["reciprocal"]
+default = "reciprocal"
+[params.s0_numel]
+type = "int"
+default = 2
+[params.s0_operand]
+type = "int"
+choices = [1]
+default = 1
+[params.s1_broadcast]
+type = "str"
+choices = ["row"]
+default = "row"
+[params.s1_inner]
+type = "int"
+default = 2
+[params.s1_numel]
+type = "int"
+default = 1024
+[params.s1_op]
+type = "str"
+choices = ["mul"]
+default = "mul"
+[params.in0_d0]
+type = "int"
+default = 1
+[params.in0_d1]
+type = "int"
+default = 1
+[params.in0_d2]
+type = "int"
+default = 512
+[params.in0_d3]
+type = "int"
+default = 2
+[params.in1_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.in1_d1]
+type = "int"
+default = 2
+[params.out0_d0]
+type = "int"
+default = 1
+[params.out0_d1]
+type = "int"
+default = 1
+[params.out0_d2]
+type = "int"
+default = 512
+[params.out0_d3]
+type = "int"
+default = 2
+
+[derived]
+chunks = "ceil(out0_d2 / 128)"
+rows = "out0_d0 * out0_d1 * out0_d3 * chunks"
+ds_pair = "ds((out0_d2 - 1) % 128 + 1) + 65536 * ds(1)"
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d1", "in0_d3", "ceil(in0_d2 / 128)", 128]
+[inputs.in1]
+shape = ["in1_d1", "ceil(in1_d0 / 128)", 128]
+[outputs.out0]
+shape = ["rows", 128]
+[scratch.s0]
+shape = ["in1_d1", 128]
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+s0 = "CR5"
+qf_in0 = "CR6"
+qf_in1 = "CR7"
+qf_out0 = "CR8"
+ds_pair = "CR9"
+rows = "CR10"
+in1_d1 = "CR11"
+
+[cases.default]
