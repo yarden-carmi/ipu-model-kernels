@@ -76,7 +76,9 @@ def fold(module, **params):
 
     return {
         "gamma": split(pad(module.weight) * channels**0.5, mantissa=6),
-        "beta": split(pad(module.bias)),
-        "crow": split(torch.full((128,), 1 / channels)),
-        "epsilon": torch.full((1, 128), params["eps"] * channels),
+        "beta": (pad(module.bias).reshape(2, 128) if channels == 144
+                 else split(pad(module.bias), mantissa=6)),
+        "crow": torch.cat(((torch.full((1, 128), 1 / channels) if channels == 144
+                             else split(torch.full((128,), 1 / channels))),
+                           torch.full((1, 128), params["eps"] * channels))),
     }

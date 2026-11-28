@@ -58,17 +58,16 @@ ds1 = "ds(1) + 65536 * qf(1, 1, 8, 0)"
 c128 = "128 + (1 - min(1, rows % 8 + channels % 16)) * (50462976 - 128)"
 cC = "channels + (1 - min(1, rows % 8 + channels % 16)) * (117835012 - channels)"
 dsl = "ds(channels - 128)"
+pack_dest = "555745536"
 [inputs.in0]
 shape = ["in0_d0 * (in0_d1 * 2 + min(1, max(0, in0_d2 - 144)) * ((in0_d1 * in0_d2 + 127) // 128 - in0_d1 * 2))", 128]
 range = [-2.0, 2.0]
 [inputs.gamma]
 shape = [4, 128]
 [inputs.beta]
-shape = [4, 128]
+shape = ["2 + 2 * min(1, max(0, channels - 144))", 128]
 [inputs.crow]
-shape = [2, 128]
-[inputs.epsilon]
-shape = [1, 128]
+shape = ["2 + min(1, max(0, channels - 144))", 128]
 [scratch.tmp]
 shape = ["40 + 2 * rows + (rows // 8) * (channels // 16)", 128]
 [outputs.out0]
@@ -84,7 +83,7 @@ tmp = "CR8"
 qf_in0 = "CR9"
 c128 = "CR10"
 cC = "CR11"
-epsilon = "CR12"
+pack_dest = "CR12"
 ds1 = "CR13"
 dsl = "CR14"
 [golden]
