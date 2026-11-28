@@ -54,10 +54,10 @@
 {% endmacro %}
 {% macro average(label) %}
  {{ save(0,3) }}
- {% for p in range(3) %}
- {{ load(p) }}
- MULT.EE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %} ;;
- {% endfor %}
+ // The final split subtraction leaves the middle part in R0.
+ MULT.EE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ; LD.MULT R0 LR0 {{ cr.tmp }} ;;
+ MULT.EE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
+ MULT.EE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD ;;
  {{ save(3,3) }}
  {{ at('LR10') }}
  {{ norm_products([3,4,5],label) }}
