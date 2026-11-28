@@ -59,7 +59,8 @@
  LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;
  {% if not cached %}LD.MULT R0 LR9 {{ cr.tmp }} ;;{% endif %}
   {% for term in range(4) %}
-   MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ ds }}{% if term == 0 %} ; INC LR9 1 ; LD.MULT R0 LR9 {{ cr.tmp }}{% elif term == 3 %} ; INC LR9 1{% elif term == 2 %} ; LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0{% endif %} ;;
+  MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ ds }}{% if term == 0 or term == 3 %} ; INC LR9 1{% elif term == 2 %} ; LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0{% endif %} ;;
+  {% if term == 0 %}LD.MULT R0 LR9 {{ cr.tmp }} ;;{% endif %}
   {% endfor %}
 {% endmacro %}
 {% macro product(a,b,na,high_live=false) %}
