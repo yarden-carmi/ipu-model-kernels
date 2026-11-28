@@ -1,6 +1,7 @@
 [kernel]
 op = "gemm"
 formats = ["e2", "e3"]
+
 [params.bias]
 type = "bool"
 default = true
@@ -8,17 +9,17 @@ default = true
 type = "int"
 min = 1
 max = 65536
-default = 2
+default = 257
 [params.k]
 type = "int"
 min = 1
 max = 16384
-default = 129
+default = 1536
 [params.n]
 type = "int"
 min = 1
 max = 16384
-default = 135
+default = 384
 [params.in0_d0]
 type = "int"
 min = 1
@@ -28,12 +29,12 @@ default = 1
 type = "int"
 min = 1
 max = 65536
-default = 2
+default = 257
 [params.in0_d2]
 type = "int"
 min = 1
 max = 16384
-default = 129
+default = 1536
 [params.out0_d0]
 type = "int"
 min = 1
@@ -43,38 +44,57 @@ default = 1
 type = "int"
 min = 1
 max = 65536
-default = 2
+default = 257
 [params.out0_d2]
 type = "int"
 min = 1
 max = 16384
-default = 135
+default = 384
+
 [derived]
-tiles = "ceil(out0_d2 / 128)"
-rows = "out0_d0 * out0_d1"
-chunks = "ceil(in0_d2 / 128)"
-end = "(k - 1) % 128"
+blocks = "ceil(n / 128)"
+chunks = "ceil(k / 128)"
+rem = "k % 128"
+last = "(n - 1) % 128 + 1"
+dot_tail = "min(1, max(0, rem - last))"
+hybrid = "1 - min(1, max(0, k - 512))"
+tile = "1 + k"
+weights = "blocks * tile - hybrid * ((128 - last) * (k // 128) + dot_tail * (rem - last))"
 full = "ds(128)"
-tail = "ds((out0_d2 - 1) % 128 + 1)"
-full_end = "127"
+tail = "ds(last)"
+partial = "ds((k - 1) % 128 + 1)"
+width_limit = "last - 2 - min(1, k // 128 + dot_tail) * (1 - min(1, max(0, k // 128 + dot_tail - 1)))"
+aux = "126 + (1 - hybrid) * ((k - 1) % 128) - min(1, k // 128) * (1 - min(1, max(0, k - 255)))"
+
 [inputs.in0]
-shape = ["in0_d0 * in0_d1 * chunks", 128]
+shape = ["m * chunks", 128]
 range = [-2, 2]
 [inputs.w]
-shape = ["tiles * (k + 1)", 128]
+shape = ["weights", 128]
 [outputs.out0]
-shape = ["rows * tiles", 128]
+shape = ["m * blocks", 128]
+
 [abi]
 in0 = "CR2"
 w = "CR3"
 out0 = "CR4"
 qf_in0 = "CR5"
 qf_out0 = "CR6"
-tiles = "CR7"
+m = "CR7"
 full = "CR8"
 tail = "CR9"
-chunks = "CR10"
-end = "CR11"
-full_end = "CR13"
-rows = "CR14"
+partial = "CR10"
+width_limit = "CR11"
+tile = "CR12"
+blocks = "CR13"
+chunks = "CR14"
+aux = "CR15"
+
 [cases.default]
+m = 2
+k = 129
+n = 135
+in0_d1 = 2
+in0_d2 = 129
+out0_d1 = 2
+out0_d2 = 135

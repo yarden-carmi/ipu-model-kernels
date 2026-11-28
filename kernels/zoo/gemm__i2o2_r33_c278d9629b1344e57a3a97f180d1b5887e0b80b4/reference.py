@@ -56,10 +56,30 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
+    """Tile channels; use vector weights for the scalar tail and K rows for dots."""
     k, n = int(params["k"]), int(params["n"])
-    weight = module.weight.detach().reshape(n, k)
-    bias = module.bias.detach().reshape(n) if params["bias"] else weight.new_zeros(n)
-    data = torch.cat((bias[:, None], weight), dim=1)
-    rows = torch.nn.functional.pad(data, (0, 0, 0, (-n) % 128))
-    rows = rows.reshape(-1, 128, k + 1).transpose(1, 2)
-    return {"w": rows.reshape(-1, 128).float()}
+    if hasattr(module, "op1_lambda1"):
+        scale = module.op1_lambda1.detach().reshape(n).double()
+        w = module.op0_weight.detach().reshape(n, k).double() * scale[:, None]
+        b = module.op0_bias.detach().reshape(n).double() * scale if params["bias"] else w.new_zeros(n)
+    else:
+        source = getattr(module, "op0_weight", getattr(module, "weight", None))
+        w = source.detach().double()
+        if w.shape != (n, k):
+            w = w.reshape(k, n).T
+        bias = getattr(module, "op0_bias", getattr(module, "bias", None))
+        b = bias.detach().double().reshape(n) if params["bias"] and bias is not None else w.new_zeros(n)
+    tiles = []
+    for start in range(0, n, 128):
+        wt = w[start:start + 128]
+        width = wt.shape[0]
+        bias_row = torch.nn.functional.pad(b[start:start + width], (0, 128 - width))
+        rem = k % 128
+        dots = 0 if k > 512 else k // 128 + int(0 < width < rem)
+        scalar = wt[:, 128 * dots:].T
+        tiles.append(bias_row[None, :])
+        tiles.append(torch.nn.functional.pad(scalar, (0, 128 - width)))
+        if dots:
+            dot = wt[:, :128 * dots]
+            tiles.append(torch.nn.functional.pad(dot, (0, 128 * dots - dot.shape[1])).reshape(-1, 128))
+    return {"w": torch.cat(tiles).float()}
