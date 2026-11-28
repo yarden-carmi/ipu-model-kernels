@@ -1,0 +1,103 @@
+[kernel]
+op = "binary_add"
+formats = ["e2"]
+
+[params.broadcast]
+type = "str"
+choices = ["none"]
+default = "none"
+[params.inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.op]
+type = "str"
+choices = ["add"]
+default = "add"
+[params.numel]
+type = "int"
+min = 128
+max = 16777216
+default = 768000
+[params.in0_d0]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 16383
+default = 1500
+[params.in0_d2]
+type = "int"
+min = 128
+max = 16384
+multiple_of = 128
+default = 512
+[params.in1_d0]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.in1_d1]
+type = "int"
+min = 1
+max = 16384
+default = 1500
+[params.in1_d2]
+type = "int"
+min = 128
+max = 16384
+multiple_of = 128
+default = 512
+[params.out0_d0]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 16384
+default = 1500
+[params.out0_d2]
+type = "int"
+min = 128
+max = 16384
+multiple_of = 128
+default = 512
+
+[derived]
+blocks = "ceil(in0_d1 / 128)"
+rem_step = "in0_d1 % in0_d2"
+row_step = "rem_step * blocks"
+rollover = "in0_d2 * blocks"
+quot_step = "in0_d1 // in0_d2"
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d2", "blocks * 128"]
+range = [-2, 2]
+[inputs.in1]
+shape = ["in1_d0", "in1_d1", "in1_d2"]
+range = [-2, 2]
+[outputs.out0]
+shape = ["out0_d0", "out0_d1", "out0_d2"]
+
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_in1 = "CR6"
+qf_out0 = "CR7"
+in0_d2 = "CR8"
+in0_d1 = "CR9"
+blocks = "CR10"
+rem_step = "CR11"
+row_step = "CR12"
+rollover = "CR13"
+quot_step = "CR14"
+
+[cases.default]
