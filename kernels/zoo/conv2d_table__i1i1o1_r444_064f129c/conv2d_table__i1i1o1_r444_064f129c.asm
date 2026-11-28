@@ -111,7 +111,10 @@ scalar_{{ x }}_{{ c }}_single:
  {% if skip_border and x == 0 %}BEQ LR6 CR0 skip_left ;;{% endif %}
  {% for c in range(ic) %}
 {% set n = [128,cin-128*c]|min %}
-{% set s = (15*n)//32 if in1_d2*in1_d3 >= 512 else (111*n)//128 if balanced else n//2 %}
+{% set s = (15*n)//32 if in1_d2*in1_d3 >= 512 else n if balanced else n//2 %}
+   {% if s == n %}
+{{ dense_tap(x,c,0,n,true) }}
+   {% else %}
   {% if x == 0 or in1_d2*in1_d3 >= 512 %}
 {{ dense_tap(x,c,0,s,true) }} DEC LR4 1 ;;
 {{ dense_tap(x,c,s,n-s,false) }}
@@ -119,6 +122,7 @@ scalar_{{ x }}_{{ c }}_single:
 {{ dense_tap(x,c,0,n-s,false) }} DEC LR4 1 ;;
 {{ dense_tap(x,c,n-s,s,true) }}
 {% endif %}
+   {% endif %}
  {% endfor %}
  {% if skip_border and x == 0 %} after_left: {% endif %}
  {% endfor %}

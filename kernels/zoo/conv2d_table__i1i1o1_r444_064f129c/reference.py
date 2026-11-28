@@ -96,7 +96,7 @@ def fold(module, **params):
         for t in range(kh * kw):
             for c in range((cin + 127)//128):
                 n = min(128, cin - 128*c)
-                single = (111*n)//128
+                single = n
                 start = 1 + t*cin + 128*c + (0 if t % kw == 0 else n-single)
                 single_rows.extend(range(start, start+single))
         magnitude = np.abs(rows[:, single_rows])
@@ -130,7 +130,7 @@ def fold(module, **params):
         for t in range(kh * kw):
             for c in range((cin + 127)//128):
                 n = min(128, cin - 128*c)
-                single = (15*n)//32 if area >= 512 else (111*n)//128 if balance else n//2
+                single = (15*n)//32 if area >= 512 else n if balance else n//2
                 start = 1 + t*cin + 128*c
                 if t % kw == 0 or area >= 512:
                     parts.append(rows[:, start:start+single])
