@@ -84,6 +84,15 @@ tile:
     {{ bias_row('ADD.FIRST') }}
     {{ bias_row('ADD') }}
 chunk:
+{% if k <= 32 %}
+    {{ coeff('R0') }} ; SET LR2 CR0 ; SET LR3 LR1 ;;
+    {{ coeff('R1') }} ;;
+    {{ load_input() }} ;;
+{% for i in range(k) %}
+    {{ mac('LR2', 'ADD') }} {% if i %} ; INC LR2 1 {% endif %} ;;
+    {{ mac('LR3', 'ADD') }} {% if i %} ; INC LR3 1 {% endif %} {% if i + 1 < k %} ; {{ load_input() }} {% endif %} ;;
+{% endfor %}
+{% else %}
     SET LR2 CR0 ; SET LR3 LR1 ;;
 {% if k % 128 %}
     BNE LR14 CR1 load_coeff ;;
@@ -98,6 +107,7 @@ reduce:
     {{ mac('LR2', 'ADD') }} ;;
     {{ mac('LR2', 'ADD') }} ; ADD LR2 LR2 LR1 ; BLT.S LR2 LR3 next_scalar ;;
     DEC LR14 1 ; BNE LR14 CR1 chunk ;;
+{% endif %}
 {% if tiles == 1 %}
     ACTIVATE.QUANTIZE {{ act_out0 }} {{ cr.tail_ds }}.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR5 ; INC LR5 1 ; ADD LR12 LR12 {{ cr.spatial_row_stride }} ; DEC LR13 1 ; BNE LR13 CR1 row ;;
 {% else %}
@@ -112,6 +122,8 @@ reduce:
 full_tile:
     {{ store(cr.full_ds) }} ; DEC LR7 1 ; B tile ;;
 {% endif %}
+{% if k > 32 %}
 next_scalar:
     {{ load_input() }} ; DEC LR2 127 ; B reduce ;;
+{% endif %}
 {% endif %}
