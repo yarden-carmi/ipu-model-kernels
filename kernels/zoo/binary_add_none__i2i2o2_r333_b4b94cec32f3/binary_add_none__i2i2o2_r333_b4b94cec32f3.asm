@@ -1,9 +1,8 @@
 {% set dense = (in0_d1 * in0_d2) % 128 == 0 %}
 {% set lane_span = 128 if dense else in0_d2 %}
 {% set paired = dense and out0_d0 * out0_d1 == 64 and out0_d2 % 2 == 0 %}
-{% set stride = out0_d0 * out0_d1 % 128 %}
 {% set row_step = out0_d0 * out0_d1 // 128 %}
-{% set pipeline = dense and stride == 0 and row_step <= 127 %}
+{% set pipeline = dense and (out0_d0 * out0_d1) % 128 == 0 and row_step <= 127 %}
 {% macro store(mask) %}
     LD.MULT R0 LR1 {{ cr.in1 }} ; SET LR2 CR0 ; SET LR3 CR0 ;;
     MULT.VE LR0 CR1 0 LR0 {{ mask }} {{ cr.qf_in1 }}.L ; ACC.ADD ; ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ mask }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;;
@@ -33,15 +32,21 @@ start_gather:
 // AGG sees the incremented destination; the branch sees the old cursor.
 {% if paired %}
 // The row origin is below lane 64, so each loaded row supplies two values.
-    SET LR9 LR7 ; DEC LR2 1 ; DEC LR11 3 ;;
-    INC LR9 64 ;;
-pair:
-    LD.MULT R0 LR6 {{ cr.in0 }} ;;
+// Load the next pair alongside the second gather, leaving the final pair
+// separate so the last chunk never reads beyond the input.
+    SET LR9 LR7 ; DEC LR2 1 ; LD.MULT R0 LR6 {{ cr.in0 }} ;;
+    INC LR9 64 ; DEC LR11 2 ;;
+    BEQ LR11 CR0 pair_last ;;
+    DEC LR11 3 ;;
+pair_next:
     {{ gather_lane('LR7') }} ;;
-    {{ gather_lane('LR9') }} INC LR6 1 ; BLT.S LR2 LR11 pair ;;
+    {{ gather_lane('LR9') }} INC LR6 1 ; LD.MULT R0 LR6 {{ cr.in0 }} ; BLT.S LR2 LR11 pair_next ;;
+pair_last:
+    {{ gather_lane('LR7') }} ;;
+    {{ gather_lane('LR9') }} INC LR6 1 ;;
 {% elif pipeline %}
-// The view advances by whole input rows, so the source lane stays fixed.
-// Load one row ahead with each gather, except at the end of the chunk.
+// Whole-row strides keep the source lane fixed. Bundle the next load
+// with each gather, peeling the last lane to avoid a speculative read.
     LD.MULT R0 LR6 {{ cr.in0 }} ; DEC LR2 1 ; BEQ LR11 CR1 gather_last ;;
     DEC LR11 3 ;;
 gather_next:
