@@ -1,0 +1,143 @@
+[kernel]
+op = "conv2d_table"
+formats = ["e1", "e2"]
+
+[params.act_out0]
+type = "str"
+choices = ["hardswish", "silu"]
+default = "hardswish"
+[params.bias]
+type = "bool"
+default = true
+[params.cin]
+type = "int"
+min = 1
+max = 640
+default = 3
+[params.cout]
+type = "int"
+min = 1
+max = 640
+default = 16
+[params.groups]
+type = "int"
+min = 1
+max = 640
+default = 1
+[params.h]
+type = "int"
+min = 1
+max = 256
+default = 8
+[params.w]
+type = "int"
+min = 1
+max = 256
+default = 8
+[params.kh]
+type = "int"
+choices = [3, 5]
+default = 3
+[params.kw]
+type = "int"
+choices = [3, 5]
+default = 3
+[params.padding]
+type = "int"
+choices = [1, 2]
+default = 1
+[params.stride]
+type = "int"
+min = 1
+max = 2
+default = 1
+[params.in0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 640
+default = 3
+[params.in0_d2]
+type = "int"
+min = 1
+max = 256
+default = 8
+[params.in0_d3]
+type = "int"
+min = 1
+max = 256
+default = 8
+[params.out0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 640
+default = 16
+[params.out0_d2]
+type = "int"
+min = 1
+max = 256
+default = 8
+[params.out0_d3]
+type = "int"
+min = 1
+max = 256
+default = 8
+
+[derived]
+ic = "ceil(in0_d1 / 128)"
+oc = "ceil(out0_d1 / 128)"
+ds128 = "ds(128)"
+cm1 = "cin - 1"
+dense = "1 // groups"
+plane_chunks = "1 + dense * (ic - 1)"
+edge_dense = "dense * (1 - cout // max(128, cout)) * (1 - (cin - 1) // max(128, cin - 1)) * (1 // (kh + kw + padding + stride - 7)) * min(1, out0_d2 - 1, out0_d3 - 1)"
+direct_dw = "(1 - dense) * (2 - stride) * (2 - padding) * (9 // (kh * kw)) * min(1, max(0, in0_d2 - 2), max(0, in0_d3 - 2))"
+packed = "dense * min(1, cin - 1) * (4 // max(4, cin)) * (16 // max(16, cout)) * (9 // (kh * kw))"
+full_tile = "dense * (1 // (1 + max(cin - 128, 128 - cin))) * (1 // (1 + max(cout - 128, 128 - cout))) * (1 // (kh + kw + padding + stride - 7)) * min(1, out0_d2 - 1, out0_d3 - 1)"
+weight_block = "(2 * kh * kw - 6 * (1 - edge_dense) * (9 // (kh * kw)) * (1 - 4 // max(4, cin))) * cin * dense + 2 + (1 - dense) * (2 * kh * kw - 4 * (stride - 1) * (9 // (kh * kw))) - direct_dw - packed * 18 * (cin - 1) - 48 * full_tile"
+wrows = "weight_block * oc"
+clip_dw = "(1 - dense) * (kh * kw // 25) * min(1, max(0, out0_d2 - 4), max(0, out0_d3 - 4))"
+pair_bound = "(1 - clip_dw) * (cin - 1) + clip_dw * (out0_d3 - ceil(padding / stride) - max(0, out0_d3 - ((in0_d3 + padding - kw) // stride + 1)) - 1)"
+single_bound = "packed * ds(min(16, cout)) + (1 - packed) * ((1 - clip_dw) * (cin - 2) + clip_dw * in0_d3 * ic)"
+last_y = "out0_d2 - 1"
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d2", "in0_d3", "ic", 128]
+range = [-2, 2]
+[inputs.weights]
+shape = ["wrows", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[scratch.pad]
+shape = ["(in0_d2 + 2 * padding) * (in0_d3 + 2 * padding) * plane_chunks", 128]
+[outputs.out0]
+shape = ["out0_d0", "out0_d2", "out0_d3", "oc", 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+weights = "CR4"
+lut = "CR5"
+pad = "CR6"
+qf_in0 = "CR7"
+qf_weights = "CR8"
+qf_out0 = "CR9"
+ds128 = "CR10"
+pair_bound = "CR11"
+single_bound = "CR12"
+out0_d2 = "CR13"
+weight_block = "CR14"
+last_y = "CR15"
+
+[golden]
+tolerance = { e1 = "NX8_STEP", e2 = "NX8_STEP" }
+[cases.default]
