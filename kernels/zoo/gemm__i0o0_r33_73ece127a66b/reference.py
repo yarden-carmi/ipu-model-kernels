@@ -49,13 +49,14 @@ def _sub(module, prefix):
 def reference(module, *ins, _round=None, **params):
     aten = torch.ops.aten
     r_ = _round or (lambda t, where: t)
-    r0 = aten.linear.default(_v(ins[0], [4, 256, 144], [36864, 144, 1], 0), module.weight, module.bias)
+    r0 = aten.linear.default(_v(ins[0], [4, 64, 192], [12288, 192, 1], 0), module.weight, module.bias)
     op0 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op0, [4, 256, 432])}
+    return {"out0": _out(op0, [4, 64, 576])}
 # ---- end of the frozen reference ----
 
 
 def fold(module, **params):
+    """Pack broadcast biases and scalar weights by output channel."""
     k, n = int(params["k"]), int(params["n"])
     weight = module.weight.detach().reshape(n, k)
     bias = module.bias.detach().reshape(n) if params["bias"] else weight.new_zeros(n)

@@ -1,3 +1,5 @@
+{# LR0 is cyclic slot zero. LR4 streams constants in channel order.
+   LR5 is the output row; LR8 is the sample tile within a feature. #}
 {% macro mac(prefetch, branch='') %}
     MULT.RC.VE LR0 LR3 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ; INC LR3 1{% if prefetch %} ; LD.MULT.CYCLIC LR2 {{ cr.in0 }} LR0 ; ADD LR2 LR2 {{ cr.width }}{% endif %}{{ branch }} ;;
 {% endmacro %}
