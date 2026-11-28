@@ -10,9 +10,8 @@
     MULT.VE LR0 CR1 0 LR0 {{ ds }} {{ cr.qf_in1 }}.L ; ACC.ADD ; ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ ds }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR6 ; {% if ahead %}INC LR5 1 ; LD.MULT R0 LR5 {{ cr.in0 }} ; {% endif %}{% if branch %}BLT.S LR5 {{ limit }} group_loop ; {% endif %}{% if halt %}HALT{% endif %} ;;
 {% endmacro %}
     SET LR0 CR0 ; SET LR5 CR0 ; SET LR6 CR13 ; LD.MULT R0 LR5 {{ cr.in0 }} ;;
-{% if R == 1 and gt == 0 %}
-{# Single-row full groups use the winner's straight row stream. Multi-row
-   groups use the fork's unroll with one branch per packed group. #}
+{% if gt == 0 %}
+{# Full groups have no padding: stream all rows except the final one. #}
 {% if (items * d3 + 127) // 128 > 1 %}
 group_loop:
 {{ rowpair('CR15.L', true, true, false, cr.row_limit) }}
