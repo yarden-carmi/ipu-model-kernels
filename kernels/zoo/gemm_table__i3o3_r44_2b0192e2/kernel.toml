@@ -1,0 +1,98 @@
+[kernel]
+op = "gemm_table"
+formats = ["e1", "e2"]
+[params.k]
+type = "int"
+min = 1
+max = 65535
+default = 40
+[params.m]
+type = "int"
+min = 1
+max = 65535
+default = 196
+[params.n]
+type = "int"
+min = 1
+max = 65535
+default = 240
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 65535
+default = 40
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65535
+default = 14
+[params.in0_d3]
+type = "int"
+min = 1
+max = 128
+default = 14
+[params.out0_d0]
+type = "int"
+min = 1
+max = 65535
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 65535
+default = 240
+[params.out0_d2]
+type = "int"
+min = 1
+max = 65535
+default = 14
+[params.out0_d3]
+type = "int"
+min = 1
+max = 128
+default = 14
+[params.bias]
+type = "bool"
+default = true
+[params.act_out0]
+type = "str"
+choices = ["hardswish", "silu"]
+default = "hardswish"
+[derived]
+pack = "min(in0_d2, 128 // in0_d3)"
+plane = "ceil(in0_d2 / pack)"
+rows = "in0_d0 * in0_d1 * plane"
+out_rows = "out0_d0 * out0_d1 * plane"
+coeff_rows = "n * (2 * k + 2)"
+full = "ds(pack * in0_d3)"
+tail = "ds((in0_d2 - (plane - 1) * pack) * in0_d3)"
+[inputs.in0]
+shape = ["rows", 128]
+range = [-2, 2]
+[inputs.coeff]
+shape = ["coeff_rows", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[outputs.out0]
+shape = ["out_rows", 128]
+[abi]
+in0 = "CR2"
+coeff = "CR3"
+lut = "CR4"
+out0 = "CR5"
+qf_in0 = "CR6"
+qf_out0 = "CR7"
+plane = "CR8"
+n = "CR9"
+k = "CR10"
+in0_d0 = "CR11"
+full = "CR12"
+tail = "CR13"
+[cases.default]
