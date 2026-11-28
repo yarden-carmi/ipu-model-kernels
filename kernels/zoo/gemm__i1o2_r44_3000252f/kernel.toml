@@ -1,0 +1,93 @@
+[kernel]
+op = "gemm"
+formats = ["e1", "e2"]
+
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 4096
+default = 64
+[params.m]
+type = "int"
+min = 1
+default = 1024
+[params.n]
+type = "int"
+min = 1
+max = 4096
+default = 64
+[params.in0_d0]
+type = "int"
+min = 1
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 64
+[params.in0_d2]
+type = "int"
+min = 1
+max = 64
+default = 32
+[params.in0_d3]
+type = "int"
+min = 1
+default = 32
+[params.out0_d0]
+type = "int"
+min = 1
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 64
+[params.out0_d2]
+type = "int"
+min = 1
+max = 64
+default = 32
+[params.out0_d3]
+type = "int"
+min = 1
+default = 32
+
+[derived]
+chunks = "ceil(k / 128)"
+full = "ds(128)"
+active = "ds(2 * out0_d2)"
+tail = "ds(out0_d2)"
+step = "in0_d3 * chunks"
+batch_stride = "in0_d2 * in0_d3 * chunks"
+weight_stride = "2 + 2 * chunks"
+
+[inputs.in0]
+shape = ["in0_d0 * in0_d2 * in0_d3 * ceil(in0_d1 / 128)", 128]
+[inputs.w]
+shape = ["n * (2 + 2 * chunks)", 128]
+[outputs.out0]
+shape = ["out0_d0 * out0_d1 * ceil(out0_d3 / 2)", 128]
+
+[abi]
+in0 = "CR2"
+w = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+full = "CR7"
+active = "CR8"
+tail = "CR9"
+chunks = "CR10"
+step = "CR11"
+n = "CR12"
+in0_d2 = "CR13"
+in0_d3 = "CR14"
+batch_stride = "CR15"
+in0_d0 = "LR14"
+weight_stride = "LR13"
+
+[cases.default]
