@@ -130,6 +130,45 @@ group_done:
 wrap_origin:
     SET LR1 CR0 ; INC LR10 {{ V }} ; B group ;;
 finish:
+{% if D == 192 %}
+// Each pair of tokens yields three rows: A[0:128], A[128:192]
+// followed by B[0:64], then B[64:192]. The padded A tail and
+// a shifted B head are disjoint; retain all residual planes when mixing.
+{% macro packed192_merge(base, other, offset, first, planes) %}
+    LD.MULT R0 {{ base }} {{ cr.sums }} ;;
+{% for plane in range(planes) %}
+    {% if other %}LD.MULT R1 {{ other }} {{ cr.sums }} ;;{% endif %}
+    MULT.VE {{ offset }} CR1 0 LR0 CR15.L {{ cr.qf_out0 ~ '.L' if plane == 0 else cr.tail ~ '.H' }} ; {{ 'ACC.ADD.FIRST' if first and plane == 0 else 'ACC.ADD' }} ;
+    {% if base != 'LR0' %}INC {{ base }} 1 ;{% endif %}
+    {% if other %}INC {{ other }} 1 ;{% endif %}
+    {% if not loop.last and base != 'LR0' %}LD.MULT R0 {{ base }} {{ cr.sums }} ;{% endif %} ;;
+{% endfor %}
+{% endmacro %}
+{% macro packed192_store() %}
+    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} CR15.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;;
+    INC LR1 1 ;
+{% endmacro %}
+    MULT.VE LR0 CR0 0 LR0 CR15.L {{ cr.qf_in1 }}.L ; ACC.ADD.FIRST ;
+    ACTIVATE.QUANTIZE identity CR15.L {{ cr.tail }}.H {{ cr.sums }} LR0 ;;
+    SET LR1 CR0 ; SET LR10 CR1 ; SET LR11 CR0 ;;
+    SET LR9 CR0 ; INC LR11 64 ;;
+    {{ move('LR9', 4 * out0_d1 * D // 128 - 1) }} NOP ;;
+packed192:
+    SET LR2 LR10 ;;
+    {{ packed192_merge('LR2', '', 'LR0', true, 1 if act_out0 | default('identity') == 'identity' else 3) }}
+    {{ packed192_store() }}
+    SET LR2 LR10 ;;
+    INC LR2 3 ;;
+    {{ packed192_merge('LR2', '', 'LR0', true, 3) }}
+    SET LR3 LR2 ;;
+    {{ packed192_merge('LR0', 'LR3', 'LR11', false, 3) }}
+    {{ packed192_store() }}
+    SET LR3 LR2 ;;
+    INC LR3 3 ;;
+    {{ packed192_merge('LR2', 'LR3', 'LR11', true, 3) }}
+    {{ packed192_store() }}
+    INC LR10 12 ; BLT.S LR1 LR9 packed192 ;;
+{% else %}
     MULT.VE LR0 CR0 0 LR0 CR15.L {{ cr.qf_in1 }}.L ; ACC.ADD.FIRST ;
     ACTIVATE.QUANTIZE identity CR15.L {{ cr.tail }}.H {{ cr.sums }} LR0 ;
     SET LR1 CR0 ; SET LR10 CR1 ; SET LR11 CR0 ;;
@@ -171,4 +210,5 @@ store_packed:
     ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} CR15.L {{ cr.qf_out0 }}.L {{ cr.out0 }} LR1 ;;
     INC LR1 1 ;;
     BLT.S LR1 LR9 packed ;;
+{% endif %}
     HALT ;;
