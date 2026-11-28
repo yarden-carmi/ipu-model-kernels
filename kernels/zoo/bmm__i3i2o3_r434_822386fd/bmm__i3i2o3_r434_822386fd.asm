@@ -174,41 +174,56 @@ block_join_setup:
  SET LR8 CR0 ; SET LR7 {{ tiles }} ; SET LR5 CR0 ;;
 block_join_base:
  ADD LR8 LR8 {{ k }} ; DEC LR7 1 ; BNE LR7 CR1 block_join_base ;;
- SET LR2 LR0 ; SET LR3 LR1 ;;
  DEC LR5 1 ;;
  SET LR7 CR0 ;;
  INC LR7 64 ;;
- BEQ LR7 {{ cr.n }} narrow_join_setup ;;
+ BNE LR7 {{ cr.n }} wide_join_setup ;;
+ SET LR2 LR0 ; SET LR3 LR1 ; B narrow_join_setup ;;
+wide_join_setup:
+ {# Deinterleave the two low K bits in place. Each stride packs 64
+    values, so a pair of rows can be joined without eight-lane scatters. #}
+ SET LR1 CR0 ; SET LR2 CR1 ; SET LR3 LR8 ;;
+ INC LR1 128 ; INC LR2 1 ;;
+ {% macro split_pair(step,advance,tag) %}
+ {{ tag }}:
+  LD.MULT R0 LR3 {{ cr.panel }} ; SET LR4 LR3 ;;
+   MULT.VE LR10 CR1 0 LR10 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.STRIDE 16 off on LR10 ; INC LR4 {{ step }} ; LD.MULT R1 LR4 {{ cr.panel }} ;;
+   MULT.VE LR1 CR1 0 LR10 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.STRIDE 16 off on LR2 ; {{ panel('L','LR3') }} ;;
+   MULT.VE LR10 CR1 0 LR10 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.STRIDE 16 off on_inv LR10 ;;
+   MULT.VE LR1 CR1 0 LR10 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.STRIDE 16 off on_inv LR2 ; {{ panel('L','LR4') }} ; INC LR3 {{ advance }} ; BNE LR4 LR6 {{ tag }} ;;
+ {% endmacro %}
+ {{ split_pair(1,2,'wide_split_low') }}
+ SET LR3 LR8 ; DEC LR6 1 ;;
+ {{ split_pair(2,4,'wide_split_even') }}
+ SET LR3 LR8 ; INC LR6 1 ;;
+ INC LR3 1 ;;
+ {{ split_pair(2,4,'wide_split_odd') }}
  SET LR7 {{ cr.in0_d1 }} ; SET LR6 CR0 ;;
  ADD LR7 LR7 {{ cr.in0_d1 }} ;;
  SUB LR7 LR7 LR14 ;;
 join_head_offset:
  ADD LR6 LR6 {{ k }} ; DEC LR7 1 ; BNE LR7 CR1 join_head_offset ;;
  INC.MODP2 LR6 CR0 3 ; SET LR9 {{ k }} ;;
- {# Source bytes begin at 0..7, with the k row selected by the Ra offset. #}
- {% for i in range(4) %} ADD LR6 LR6 LR6 ;; {% endfor %}
+ SET LR7 CR0 ; SET LR3 CR1 ;;
+ INC LR7 4 ; INC LR3 1 ;;
 block_join_k:
- SET LR4 LR8 ; SET LR7 {{ tiles }} ;;
-block_join_tile:
- {% macro join_chunk(count, half, tag) %}
- LD.MULT R0 LR4 {{ cr.panel }} ;;
- {% for i in range(count) %}
- MULT.VE LR6 CR1 0 LR10 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.RESHAPE LRD0 LRD2 0 ; {% if not loop.first %}ADDBI LRD0 -8 ; ADDBI LRD2 8 ;{% endif %} ;;
- MULT.VE LR6 CR1 0 LR10 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.RESHAPE LRD0 LRD2 0 ; ADDBI LRD0 8 ; ADDBI LRD2 8 ;
- {% if loop.last %}
- {{ panel(half,'LR5') }} ; INC LR5 1 ;;
- {% else %}
- LD.MULT R0 LR4 {{ cr.panel }} ; INC LR4 1 ;;
- {% endif %}
- {% endfor %}
- ADDBI LRD0 -8 ; ADDBI LRD2 {{ 8-16*count }} ; INC LR4 1 ;;
+ SET LR4 LR6 ; SET LR2 {{ tiles }} ;;
+ INC.MODP2 LR4 CR0 2 ;;
+ ADD LR4 LR4 LR8 ; BGE.S LR6 LR7 block_join_odd ;;
+ {% macro wide_finish(tag,mode) %}
+ {{ tag }}:
+ LD.MULT R0 LR4 {{ cr.panel }} ; DEC LR2 1 ;;
+ MULT.VE LR10 CR1 0 LR10 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.STRIDE 16 off {{ mode }} LR10 ; INC LR4 4 ; LD.MULT R1 LR4 {{ cr.panel }} ;;
+ MULT.VE LR1 CR1 0 LR10 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.STRIDE 16 off {{ mode }} LR3 ; {{ panel('L','LR5') }} ; INC LR5 1 ; INC LR4 4 ; BNE LR2 CR0 {{ tag }} ;;
  {% endmacro %}
- {{ join_chunk(8,'L','wide') }}
- DEC LR7 1 ; BNE LR7 CR1 block_join_tile ;;
+ {{ wide_finish('block_join_even','on') }}
+ B block_join_next ;;
+ {{ wide_finish('block_join_odd','on_inv') }}
 block_join_next:
- DEC LR9 1 ; INC LR6 16 ; BEQ LR9 CR1 block_compute ;;
- INC.MODP2 LR6 CR0 7 ;;
+ DEC LR9 1 ; BEQ LR9 CR1 block_compute ;;
+ INC.MODP2 LR6 CR1 3 ;;
  BNE LR6 CR0 block_join_k ;;
+ DEC LR4 3 ;;
  SET LR8 LR4 ; B block_join_k ;;
 
 {# Join four 16-column blocks for eight successive K positions. The last
