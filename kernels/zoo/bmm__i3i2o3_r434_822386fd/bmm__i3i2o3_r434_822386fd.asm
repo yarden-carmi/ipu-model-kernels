@@ -89,10 +89,7 @@ medium_check:
  SET LR1 CR0 ; SET LR6 LR5 ;;
  INC LR1 48 ; INC LR6 48 ;;
  BEQ LR1 {{ k }} shuffle_panel ;;
- B dot_select ;;
-
-{# Each stride pass trades lane bits for column bits. Scratch rows 0..47
-   are the final panel; the four intermediate planes use 32 rows each. #}
+ B medium_old ;;
 shuffle_panel:
  SET LR0 CR0 ; SET LR1 CR1 ; SET LR2 CR1 ;;
  INC LR2 1 ; SET LR3 CR1 ; SET LR10 CR0 ;;
@@ -131,8 +128,6 @@ shuffle_s2_{{mode}}:
  {% endfor %}
  {% endfor %}
 {% endfor %}
-{# S2 output pairs are adjacent; its destination cursor advances by eight
-   after each pair (the first store above starts at the pair's first row). #}
 {% macro shuffle_merge(stage,mode,group,src,gap,dest) %}
  SET LR6 CR0 ; SET LR7 CR0 ; SET LR9 CR0 ;;
  INC LR6 {{src}} ; INC LR7 {{dest-1}} ; SET LR8 CR0 ; LD.MULT R0 LR6 {{cr.panel}} ;;
@@ -141,14 +136,12 @@ shuffle_merge_{{stage}}:
  MULT.VE LR0 CR1 0 LR0 {{cr.ds}}.L {{cr.qf_in1}}.L ; ACC.STRIDE 16 {{mode}} off LR0 ; LD.MULT R0 LR9 {{cr.panel}} ; INC LR9 1 ;;
  MULT.VE LR0 CR1 0 LR0 {{cr.ds}}.L {{cr.qf_in1}}.L ; ACC.STRIDE 16 {{mode}} off LR2 ; INC LR6 1 ; LD.MULT R0 LR6 {{cr.panel}} ; INC LR7 1 ; {{panel('L','LR7')}} ; DEC LR8 1 ; BNE LR8 CR0 shuffle_merge_{{stage}} ;;
 {% endmacro %}
-{# Keep k5 next to the previously extracted bits until the final unpack. #}
 {% for c in range(2) %}
  {{shuffle_merge('s3_'~c~'_0','on',8,80+c*16,8,112+c*16)}}
  {{shuffle_merge('s3_'~c~'_1','on_inv',8,80+c*16,8,120+c*16)}}
 {% endfor %}
 {{shuffle_merge('s4_0','on',16,112,16,144)}}
 {{shuffle_merge('s4_1','on_inv',16,112,16,160)}}
-{# Rows are ordered [k3,k2,k5,k1,k0], lanes [column,k4]. #}
  SET LR6 CR0 ; SET LR4 CR0 ;;
  INC LR6 144 ; DEC LR4 1 ;;
 {% for g in range(8) %}
@@ -163,6 +156,9 @@ shuffle_unpack_{{g}}:
  {% endif %}
 {% endfor %}
  B block_compute ;;
+medium_old:
+ SET LR7 CR0 ;;
+ INC LR7 128 ; B dot_select ;;
 
 {# Create little-endian byte bundles, three registers at a time. #}
 {% macro seed() %}
