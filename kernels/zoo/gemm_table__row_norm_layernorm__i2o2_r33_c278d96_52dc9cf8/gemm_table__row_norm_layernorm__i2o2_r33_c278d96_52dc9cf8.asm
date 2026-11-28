@@ -158,9 +158,8 @@ sum_tail:
  LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR3 ; INC LR1 1 ; SET LR5 CR0 ;;
  // R1 still holds the last tile. Reuse it after centering earlier tiles.
 center:
- ADD LR8 LR5 CR1 ;;
+ ADD LR8 LR5 CR1 ; LD.MULT R0 LR5 {{ cr.hidden }} ;;
  BGE.S LR8 {{ cr.tiles }} center_tail ;;
- LD.MULT R0 LR5 {{ cr.hidden }} ;;
  {{ vec(first=true,fmt=oq) }}
  B center_subtract ;;
 center_tail:
@@ -222,14 +221,13 @@ normalize:
  MULT.RC.VV LR7 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; INC LR10 1{% if not loop.last %} ; LD.MULT R0 LR10 {{ cr.norm }}{% endif %} ;;
  {% endfor %}
  {{ save(20,3) }}
- LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;
- INC LR9 1 ;;
- LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR3 ;;
-  INC LR9 1 ; SET LR8 LR1 ; DEC LR1 2 ;;
+  LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ; SET LR8 LR1 ;;
+  INC LR9 1 ; DEC LR1 2 ;;
+  LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR3 ;;
    // R0 still contains the middle affine-scale part from split. Consume
    // it for both centered parts before loading the high and low parts.
    {% for n in range(3) %}
-   {{ mul(loop.first) }}
+    MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if loop.first %}.FIRST ; INC LR9 1{% endif %} ;;
    MULT.RC.VV LR3 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; {% if loop.first %}LD.MULT R0 LR1 {{ cr.tmp }}{% elif loop.last %}LD.MULT R0 LR10 {{ cr.norm }}{% else %}LD.MULT R0 LR8 {{ cr.tmp }}{% endif %} ;;
  {% endfor %}
  {% for i in range(3) %}
