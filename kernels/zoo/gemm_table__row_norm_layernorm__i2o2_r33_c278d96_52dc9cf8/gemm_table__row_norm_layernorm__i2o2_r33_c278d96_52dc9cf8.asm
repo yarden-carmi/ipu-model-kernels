@@ -147,19 +147,25 @@ sum:
 sum_tail:
  MULT.VE LR3 CR1 0 LR0 {{ full }} {{ oq }} ; AGG.SUM LR0 {{ tail }} ;;
  {{ average('mean') }}{{ save(6,3) }}
- SET LR5 CR0 ;;
- {{ at('LR9',32) }}
+ // Cache all three broadcast mean parts across the centering loop.
+ ADD LR6 LR3 LR3 ; DEC LR1 3 ; SET LR9 CR0 ;;
+ ADD LR7 LR6 LR3 ; INC LR9 32 ;;
+ LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR0 ; INC LR1 1 ;;
+ LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR6 ; INC LR1 1 ;;
+ LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR7 ; INC LR1 1 ; SET LR5 CR0 ;;
  // R1 still holds the last tile. Reuse it after centering earlier tiles.
 center:
- ADD LR6 LR5 CR1 ;;
- BGE.S LR6 {{ cr.tiles }} center_tail ;;
+ ADD LR8 LR5 CR1 ;;
+ BGE.S LR8 {{ cr.tiles }} center_tail ;;
  LD.MULT R0 LR5 {{ cr.hidden }} ;;
  {{ vec(first=true,fmt=oq) }}
  B center_subtract ;;
 center_tail:
  {{ vec(first=true,fmt=oq,ra='LR3') }}
 center_subtract:
- {% for n in range(6,9) %}{{ load(n) }}{{ vec('SUB') }}{% endfor %}
+ {% for slot in ['LR0','LR6','LR7'] %}
+ MULT.RC.VE {{ slot }} CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB ;;
+ {% endfor %}
  {{ split('LR9',2) }}
  INC LR9 1 ; INC LR5 1 ;;
  BLT.S LR5 {{ cr.tiles }} center ;;
@@ -197,7 +203,6 @@ variance_average:
  MULT.RC.VV LR3 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ; LD.MULT R1 LR8 {{ cr.tmp }} ;;
  MULT.RC.VV LR3 R1 0 LR0 {{ full }} {{ q }} ; ACC.ADD ;;
  {{ save(18) }}
- {{ at('LR1',12) }}
  MULT.RC.VE LR3 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ;;
  MULT.RC.VE LR3 {{ cr.half }} 0 LR0 {{ full }} {{ q }} ; ACC.ADD ;;
  {% for n in [18,19] %}{{ load(n) }}{{ vec('SUB',s=cr.half) }}{% endfor %}
@@ -205,7 +210,7 @@ variance_average:
  // Reserve the upper two cyclic slots for rsqrt across every output tile.
  ADD LR6 LR3 LR3 ;;
  ADD LR7 LR6 LR3 ;;
- {{ at('LR1',11) }}
+ DEC LR1 2 ;;
  LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR6 ; INC LR1 1 ;;
  LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR7 ; INC LR1 1 ;;
  SET LR5 CR0 ;;
