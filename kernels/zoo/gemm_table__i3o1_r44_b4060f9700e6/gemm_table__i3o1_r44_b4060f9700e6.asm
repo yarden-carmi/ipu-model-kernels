@@ -11,7 +11,7 @@
     SET LR0 CR0 ; SET LR3 CR0 ; SET LR5 CR0 ;;
     DEC LR3 1 ; SET LR11 CR0 ; SET LR12 {{ cr.plane }} ;;
 {% for i in range(5) %}
-    {% if i %}INC LR11 1 ; {% endif %}LD.LUT {{ i }} {{ cr.lut }} LR11 ;;
+    {% if i %}INC LR11 1 ; {% endif %}{% if i == 4 and center64 %}SET LR1 CR0 ; {% endif %}LD.LUT {{ i }} {{ cr.lut }} LR11 ;;
 {% endfor %}
 
 {% if narrow_pair %}
@@ -76,7 +76,6 @@ narrow_end:
     HALT ;;
 {% elif center64 %}
 {# Stage sixteen channels for eight pixels per panel row. #}
-    SET LR1 CR0 ;;
     INC LR1 128 ;;
 center_group:
 {% set chunks = [8] * 8 %}
