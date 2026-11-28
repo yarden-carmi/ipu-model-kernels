@@ -1,20 +1,24 @@
 [kernel]
 op = "gemm"
 formats = ["e1", "e2"]
+
 [params.bias]
 type = "bool"
 default = true
 [params.k]
 type = "int"
 min = 1
+max = 4096
 default = 96
 [params.m]
 type = "int"
 min = 1
+max = 65536
 default = 196
 [params.n]
 type = "int"
 min = 1
+max = 4096
 default = 40
 [params.in0_d0]
 type = "int"
@@ -23,6 +27,7 @@ default = 1
 [params.in0_d1]
 type = "int"
 min = 1
+max = 4096
 default = 96
 [params.in0_d2]
 type = "int"
@@ -50,36 +55,38 @@ type = "int"
 min = 1
 max = 128
 default = 14
+
 [derived]
 pack = "min(in0_d2, max(1, 128 // in0_d3))"
 pitch = "ceil(in0_d2 / pack)"
-opack = "min(out0_d2, max(1, 128 // out0_d3))"
-opitch = "ceil(out0_d2 / opack)"
+outpack = "min(out0_d2, max(1, 128 // out0_d3))"
+outpitch = "ceil(out0_d2 / outpack)"
+batch_stride = "k * pitch"
+batches = "in0_d0"
 full = "ds(128)"
-active = "ds(min(128, opack * out0_d3))"
-tail = "ds(((out0_d2 - 1) % opack + 1) * out0_d3)"
-batchstride = "k * pitch"
-weights = "2 * (k + 1)"
+active = "ds(pack * in0_d3)"
+tail = "ds(((in0_d2 - 1) % pack + 1) * in0_d3)"
+
 [inputs.in0]
 shape = ["in0_d0 * in0_d1 * pitch", 128]
 [inputs.w]
-shape = ["n * weights", 128]
+shape = ["n * (k + 1) * 2 + 1", 128]
 [outputs.out0]
-shape = ["out0_d0 * out0_d1 * opitch", 128]
+shape = ["out0_d0 * out0_d1 * outpitch", 128]
+
 [abi]
 in0 = "CR2"
 w = "CR3"
 out0 = "CR4"
 qf_in0 = "CR5"
 qf_out0 = "CR6"
-pitch = "CR7"
-opitch = "CR8"
-k = "CR9"
-n = "CR10"
-full = "CR11"
-active = "CR12"
-batchstride = "CR13"
-weights = "CR14"
-in0_d0 = "LR15"
-tail = "CR15"
+k = "CR7"
+n = "CR8"
+pitch = "CR9"
+batch_stride = "CR10"
+batches = "CR11"
+full = "CR12"
+active = "CR13"
+tail = "CR14"
+
 [cases.default]

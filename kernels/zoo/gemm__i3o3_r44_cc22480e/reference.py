@@ -58,13 +58,13 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    n, k = int(params['n']), int(params['k'])
-    scale = module.op1_weight.double() * torch.rsqrt(module.op1_running_var.double() + 1e-5)
+    n, k = int(params["n"]), int(params["k"])
+    scale = module.op1_weight.detach().double() * torch.rsqrt(module.op1_running_var.detach().double() + 1e-5)
     weight = module.op0_weight.detach().double().reshape(n, k) * scale[:, None]
-    bias = module.op1_bias.double() - module.op1_running_mean.double() * scale
-    data = torch.cat((bias[:, None], weight), 1)
-    exp = torch.frexp(data.abs())[1]
-    step = torch.ldexp(torch.ones_like(data), exp - 4)
-    high = torch.round(data / step) * step
-    rows = torch.stack((high, data - high), -1).reshape(-1, 1).expand(-1, 128)
-    return {'w': rows.float().contiguous()}
+    bias = module.op1_bias.detach().double() - module.op1_running_mean.detach().double() * scale
+    values = torch.cat((bias[:, None], weight), dim=1)
+    exponent = torch.frexp(values.abs())[1]
+    step = torch.ldexp(torch.ones_like(values), exponent - 4)
+    high = (values / step).round() * step
+    rows = torch.stack((high, values - high), dim=-1).reshape(-1, 1).expand(-1, 128)
+    return {"w": torch.nn.functional.pad(rows.float(), (0, 0, 0, 1)).contiguous()}
