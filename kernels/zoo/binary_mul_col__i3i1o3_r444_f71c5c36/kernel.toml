@@ -1,0 +1,55 @@
+[kernel]
+op = "binary_mul_col"
+formats = ["e1", "e2"]
+[params.broadcast]
+type = "str"
+choices = ["col"]
+default = "col"
+[params.op]
+type = "str"
+choices = ["mul"]
+default = "mul"
+[params.inner]
+type = "int"
+default = 240
+[params.numel]
+type = "int"
+default = 47040
+[params.in0_d2]
+type = "int"
+default = 14
+[params.in0_d3]
+type = "int"
+default = 14
+[derived]
+pack = "128 // in0_d3"
+height = "in0_d2"
+limit = "128"
+src_lo = "50462976 - 16843008 * max(0, min(1, 8 - in0_d3))"
+src_hi = "117835012 - 16843009 * max(0, min(1, 8 - in0_d3))"
+valid = "ds(pack * in0_d3)"
+last_valid = "ds(((inner - 1) % pack + 1) * in0_d3)"
+[inputs.in0]
+shape = ["height * inner", 128]
+range = [-2, 2]
+[inputs.in1]
+shape = ["(inner + 127) // 128", 128]
+range = [-2, 2]
+[outputs.out0]
+shape = ["height * ((inner + pack - 1) // pack)", 128]
+[abi]
+in0 = "CR2"
+in1 = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_in1 = "CR6"
+qf_out0 = "CR7"
+src_lo = "CR8"
+src_hi = "CR9"
+inner = "CR10"
+height = "CR11"
+pack = "CR12"
+limit = "CR13"
+last_valid = "CR14"
+valid = "CR15"
+[cases.default]
