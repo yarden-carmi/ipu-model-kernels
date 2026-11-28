@@ -56,5 +56,6 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    x = module.op0_const0.reshape(params["out0_d0"], params["out0_d1"], params["out0_d2"])
-    return {"in1": torch.nn.functional.pad(x, (0, (-x.shape[2]) % 128, 0, (-x.shape[1]) % 256))}
+    shape = (params["out0_d0"], params["out0_d1"], params["out0_d2"])
+    x = _p(module.op0_const0, shape)
+    return {"operand": torch.nn.functional.pad(x, (0, (-shape[2]) % 128, 0, (-shape[1]) % 256))}
