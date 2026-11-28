@@ -28,7 +28,7 @@
  {% endfor %}
 {% endmacro %}
 {% macro save(n,count=2,dec=false) %}{{ at('LR1',n) }}{{ split('LR1',count,dec) }}{% endmacro %}
-{% macro norm_products(offsets) %}
+{% macro norm_products(offsets,label) %}
  // Hold the three left parts in cyclic slots and reuse each coefficient.
  SET LR6 LR3 ;;
  INC LR6 64 ;;
@@ -37,15 +37,22 @@
  {{ at('LR1',offsets[1]) }}
  LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR3 ;;
  {{ at('LR1',offsets[2]) }}
- LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR6 ;;
+ LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR6 ; SET LR8 {{ cr.tail }}.H ;;
  LD.MULT R0 LR10 {{ cr.norm }} ;;
+ BEQ LR8 CR0 {{ label }}_exact ;;
  {% for _ in range(3) %}
   {{ mul(first=loop.first) }}
  {{ mul(slot='LR3') }}
  MULT.RC.VV LR6 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; INC LR10 1{% if not loop.last %} ; LD.MULT R0 LR10 {{ cr.norm }}{% endif %} ;;
- {% endfor %}
+  {% endfor %}
+ B {{ label }}_end ;;
+ {{ label }}_exact:
+ {{ mul(first=true) }}
+ {{ mul(slot='LR3') }}
+ MULT.RC.VV LR6 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; INC LR10 1 ;;
+ {{ label }}_end:
 {% endmacro %}
-{% macro average() %}
+{% macro average(label) %}
  {{ save(0,3) }}
  {% for p in range(3) %}
  {{ load(p) }}
@@ -53,14 +60,14 @@
  {% endfor %}
  {{ save(3,3) }}
  {{ at('LR10') }}
- {{ norm_products([3,4,5]) }}
+ {{ norm_products([3,4,5],label) }}
 {% endmacro %}
 {% macro squares(ds,cached=false) %}
  LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ;;
  {% if not cached %}LD.MULT R0 LR9 {{ cr.tmp }} ;;{% endif %}
   {% for term in range(4) %}
-  MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ ds }}{% if term == 0 or term == 3 %} ; INC LR9 1{% elif term == 2 %} ; LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0{% endif %} ;;
-  {% if term == 0 %}LD.MULT R0 LR9 {{ cr.tmp }} ;;{% endif %}
+   MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ ds }}{% if term == 0 or term == 3 %} ; INC LR9 1{% elif term == 2 %} ; LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0{% endif %} ;;
+   {% if term == 0 %}LD.MULT R0 LR9 {{ cr.tmp }} ;;{% endif %}
   {% endfor %}
 {% endmacro %}
 {% macro product(a,b,na,high_live=false) %}
@@ -137,7 +144,7 @@ sum:
  MULT.VE LR3 CR1 0 LR0 {{ full }} {{ oq }} ; AGG.SUM LR0 {{ full }} ; B sum ;;
 sum_tail:
  MULT.VE LR3 CR1 0 LR0 {{ full }} {{ oq }} ; AGG.SUM LR0 {{ tail }} ;;
- {{ average() }}{{ save(6,3) }}
+ {{ average('mean') }}{{ save(6,3) }}
  SET LR5 CR0 ;;
  {{ at('LR9',32) }}
  // R1 still holds the last tile. Reuse it after centering earlier tiles.
@@ -170,9 +177,8 @@ variance_tail:
 variance_single:
  {{ squares(tail,true) }}
 variance_average:
- {{ average() }}
- {{ at('LR1',3) }}
- LD.MULT R0 LR1 {{ cr.norm }} ;;
+ {{ average('var') }}
+ LD.MULT R0 LR10 {{ cr.norm }} ;;
  {{ vec() }}
  {{ at('LR1',12) }}
  ACTIVATE.QUANTIZE rsqrt {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
@@ -200,7 +206,9 @@ refine:
  LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR6 ; INC LR1 1 ;;
  LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR7 ; INC LR1 1 ;;
  SET LR5 CR0 ;;
- {{ at('LR9',32) }}{{ at('LR10',4) }}
+ {{ at('LR9',32) }}
+ SET LR10 {{ cr.tail }}.H ;;
+ INC LR10 2 ;;
 normalize:
  LD.MULT R0 LR10 {{ cr.norm }} ;;
  {% for _ in range(3) %}

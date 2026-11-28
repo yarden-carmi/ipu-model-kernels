@@ -77,7 +77,8 @@ pitch = "ceil(in0_d2 / 128)"
 tiles = "ceil(s1_channels / 128)"
 rows = "out0_d0 * out0_d1"
 work = "ds(128) + 65536 * qf(1, 4, 8, 0)"
-tail = "ds((out0_d2 - 1) % 128 + 1)"
+recip_extra = "2 * min(1, 4096 % s1_channels)"
+tail = "ds((out0_d2 - 1) % 128 + 1) + 65536 * recip_extra"
 half = "1277440"
 chunks = "(s0_k - 1) // 128"
 last_k = "(s0_k - 1) % 128"
@@ -88,7 +89,7 @@ shape = ["tiles * (s0_k + 1)", 128]
 [inputs.lut]
 shape = [5, 128]
 [inputs.norm]
-shape = ["4 + 6 * tiles", 128]
+shape = ["2 + recip_extra + 6 * tiles", 128]
 [scratch.tmp]
 shape = ["32 + 2 * tiles", 128]
 [scratch.hidden]
