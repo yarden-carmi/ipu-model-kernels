@@ -135,7 +135,7 @@ batch:
     SET LR7 CR0 ; SET LR8 {% if single_slab %}CR0{% else %}LR9{% endif %} ;;
 position:
 {% if single_slab %}
-    // Keep the origin as a row/lane pair instead of dividing each position.
+    // Advance the origin as a row/lane pair instead of dividing each position.
     SET LR3 LR9 ; SET LR5 LR8 ;;
 {% else %}
     SET LR3 CR0 ; SET LR4 LR8 ; SET LR5 LR8 ;;
