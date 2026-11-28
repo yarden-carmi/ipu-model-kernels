@@ -93,7 +93,7 @@ def fold(module, **params):
     hi = (rows / grid).round() * grid
     lo = rows - hi
     if params['bias'] and k == 384 and n == 128:
-        # Keep both bias digits and use a single row for eleven taps per group.
+        # Keep both bias digits and a second digit for five taps per group.
         parts = [hi[:, :1], lo[:, :1]]
         for j in range(k):
             parts.append(rows[:, j+1:j+2] if j % 16 >= 5 else hi[:, j+1:j+2])

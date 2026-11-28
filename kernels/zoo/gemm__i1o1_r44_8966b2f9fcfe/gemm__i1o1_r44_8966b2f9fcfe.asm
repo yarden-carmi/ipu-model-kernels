@@ -42,7 +42,7 @@ second_channel:
 {% else %}
 {% macro mac(src, mode='ADD') %}MULT.RC.VE LR0 {{ src }} 0 LR0 {{ cr.active }}.L {{ cr.qf_in0 }}.L ; ACC.{{ mode }}{% endmacro %}
 {% set mixed = k == 384 and n == 128 %}
-{# In the mixed tile, five taps per 16 keep a second coefficient digit. #}
+{# Stream one coefficient row per MAC. Five taps per 16 retain two digits. #}
 {% macro taps(count, repeat=false, label='', more=false) %}
 {% for j in range(count) %}
 {% if mixed and j % 16 >= 5 %}
