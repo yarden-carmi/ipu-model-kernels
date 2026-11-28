@@ -65,13 +65,13 @@ def reference(module, *ins, _round=None, **params):
 
 def fold(module, **params):
     k, n = params["k"], params["n"]
-    scale = module.op1_weight.detach() * torch.rsqrt(module.op1_running_var.detach() + 1e-5)
+    scale = module.op1_weight.detach() / torch.sqrt(module.op1_running_var.detach() + 1e-5)
     weight = module.op0_weight.detach().reshape(n, k) * scale[:, None]
     bias = module.op1_bias.detach() - module.op1_running_mean.detach() * scale
-    weight = torch.nn.functional.pad(weight, (0, (-k) % 128)).reshape(n, -1, 128)
+    weight = torch.nn.functional.pad(weight, (0, (-k) % 128)).reshape(n, -1, 128).double()
+    _, exponent = torch.frexp(weight.abs().amax(dim=-1, keepdim=True))
+    step = torch.ldexp(torch.ones_like(weight[..., :1]), exponent - 4)
+    coarse = torch.round(weight / step) * step
+    weight = torch.stack((coarse, weight - coarse), dim=2).reshape(n, -1, 128)
     bias = torch.nn.functional.pad(bias.reshape(n, 1, 1), (0, 127))
-    rows = torch.cat((weight, bias), dim=1).double()
-    exponent = torch.frexp(rows.abs().amax(dim=-1, keepdim=True))[1]
-    step = torch.ldexp(torch.ones_like(exponent, dtype=rows.dtype), exponent - 5)
-    high = (rows / step).round().clamp(-31, 31) * step
-    return {"coeff": torch.cat((high, rows - high), dim=1).reshape(-1, 128).float()}
+    return {"coeff": torch.cat((weight, bias), dim=1).reshape(-1, 128)}

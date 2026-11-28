@@ -24,29 +24,28 @@
 batch:
     SET LR2 CR0 ; SET LR10 {{ cr.n }} ;;
 channel:
-    SET LR11 LR13 ; SET LR12 {{ cr.blocks }} ;;
+    ADD LR3 LR2 {{ cr.chunks }} ; SET LR11 LR13 ; SET LR12 {{ cr.blocks }} ;;
 block:
-    ADD LR3 LR2 {{ cr.chunks }} ;;
     LD.MULT R0 LR3 {{ cr.coeff }} ; SET LR4 LR11 ; SET LR5 LR2 ;;
     MULT.EE LR0 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD.FIRST ;;
 {% if k > 128 %}
     SET LR8 {{ cr.groups }} ;;
 groups:
     {{ chunk(128, 'reduce_full') }}
+    SUB LR4 LR4 {{ cr.batch_rows }} ;;
+    {{ chunk(128, 'reduce_full_residual') }}
     DEC LR8 1 ; BNE LR8 CR1 groups ;;
 {% endif %}
     {{ chunk((k - 1) % 128 + 1, 'reduce_last') }}
-    INC LR3 1 ; SET LR4 LR11 ;;
-    SET LR5 LR3 ; ADD LR3 LR3 {{ cr.chunks }} ;;
-    LD.MULT R0 LR3 {{ cr.coeff }} ;;
-    MULT.EE LR0 CR1 0 LR0 {{ cr.full }}.L {{ cr.qf_in0 }}.L ; ACC.ADD ;;
+    SET LR4 LR11 ;;
 {% if k > 128 %}
-    SET LR8 {{ cr.groups }} ;;
-groups_res:
-    {{ chunk(128, 'reduce_full_res') }}
-    DEC LR8 1 ; BNE LR8 CR1 groups_res ;;
+    {# The last chunk starts after all full 128-channel chunks. #}
+    SET LR4 LR11 ;
+    SET LR6 {{ cr.groups }} ;;
+residual_offset:
+    ADD LR4 LR4 {{ cr.batch_rows }} ; DEC LR6 1 ; BNE LR6 CR0 residual_offset ;;
 {% endif %}
-    {{ chunk((k - 1) % 128 + 1, 'reduce_last_res') }}
+    {{ chunk((k - 1) % 128 + 1, 'reduce_last_residual') }}
     DEC LR12 1 ; INC LR11 1 ; BNE LR12 CR1 full_block ;;
     {{ store(cr.tail) }} ;;
     SET LR2 LR3 ; DEC LR10 1 ; BNE LR10 CR1 next_channel ;;
