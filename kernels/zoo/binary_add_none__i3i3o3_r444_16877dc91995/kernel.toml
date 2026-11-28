@@ -83,12 +83,11 @@ default = 32
 
 [derived]
 blocks = "ceil(out0_d2 / (128 // out0_d3))"
-rows = "out0_d0 * out0_d1 - 1"
+channels = "out0_d0 * out0_d1 - 1"
+full = "ds((128 // out0_d3) * out0_d3)"
 tail = "ds(((out0_d2 - 1) % (128 // out0_d3) + 1) * out0_d3)"
-patch_skip = "blocks - 1"
-full_ds = "ds(128)"
-padding = "blocks * (128 // out0_d3) - out0_d2"
-total_rows = "out0_d0 * out0_d1 * blocks - 1"
+before_tail = "blocks - 1"
+full_end = "blocks - 2"
 
 [inputs.in0]
 shape = ["in0_d1", "in0_d0", "ceil(in0_d2 / (128 // in0_d3)) * 128"]
@@ -106,12 +105,10 @@ out0 = "CR4"
 qf_in0 = "CR5"
 qf_in1 = "CR6"
 qf_out0 = "CR7"
-rows = "CR8"
-blocks = "CR9"
+channels = "CR8"
+before_tail = "CR9"
 tail = "CR10"
-patch_skip = "CR11"
-full_ds = "CR12"
-padding = "CR13"
-total_rows = "CR14"
+full = "CR11"
+full_end = "CR12"
 
 [cases.default]
