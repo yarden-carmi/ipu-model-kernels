@@ -1,0 +1,122 @@
+[kernel]
+op = "gemm"
+formats = ["e2"]
+
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 65536
+default = 192
+[params.m]
+type = "int"
+min = 1
+max = 65536
+default = 256
+[params.n]
+type = "int"
+min = 1
+max = 16384
+default = 192
+[params.in0_d0]
+type = "int"
+min = 1
+max = 65536
+default = 4
+[params.in0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 4
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 64
+[params.in0_d3]
+type = "int"
+min = 1
+max = 128
+default = 48
+[params.out0_d0]
+type = "int"
+min = 1
+max = 8
+choices = [1, 2, 4, 8]
+default = 4
+[params.out0_d1]
+type = "int"
+min = 1
+max = 65536
+default = 64
+[params.out0_d2]
+type = "int"
+min = 1
+max = 16384
+default = 192
+
+[derived]
+pack = "1 + (1 - min(1, in0_d2 % 2 + max(0, in0_d3 - 64) + k % (2 * in0_d3)))"
+width = "in0_d3 * pack"
+blocks = "ceil(k / width)"
+tiles = "ceil(m / 128)"
+groups = "ceil(m / 8)"
+batch_stride = "in0_d1 * ceil(in0_d2 / pack)"
+batch_wrap = "blocks - (out0_d0 - 1) * batch_stride"
+group_stop = "(m - m % 8) / 8"
+direct = "min(1, max(0, tiles - 2)) * (1 - min(1, max(k - 2 * width, 2 * width - k)))"
+full = "ds(128) + 65536 * (qf(1, 1, 8, 1) * (1 - direct) + ds(width) * direct)"
+tail = "ds((m - 1) % 128 + 1)"
+micro_ds = "ds(64) + 65536 * qf(1, 1, 8, 1)"
+seq_lo = "50462976"
+seq_hi = "117835012"
+stride_lo = "403703808"
+stride_hi = "32 + 40 * 256 + 48 * 65536 + 56 * 16777216"
+weight_rows = "(ceil(k / 128) + 1) * (1 - direct) + 3 * direct"
+weight_count = "n * weight_rows"
+features_per_position = "blocks"
+input_panels = "(k - k % width) / width"
+minusone = "-1"
+
+[inputs.in0]
+shape = ["in0_d0 * batch_stride", 128]
+range = [-2, 2]
+[inputs.w]
+shape = ["n * weight_rows", 128]
+range = [-1, 1]
+[outputs.out0]
+shape = ["out0_d2 * ceil(out0_d0 * out0_d1 / 128)", 128]
+
+[scratch.micro]
+shape = ["(1 - direct) * groups * (input_panels * ceil(width / 8) + ceil((k % width) / 8)) + direct * weight_count", 128]
+[scratch.panel]
+shape = ["k * tiles", 128]
+
+[abi]
+in0 = "CR2"
+w = "CR3"
+out0 = "CR4"
+qf_in0 = "CR5"
+qf_out0 = "CR6"
+micro = "CR7"
+full = "CR8"
+tail = "CR9"
+panel = "CR10"
+batch_stride = "CR11"
+micro_ds = "CR12"
+tiles = "CR13"
+seq_lo = "CR14"
+seq_hi = "CR15"
+stride_lo = "LR4"
+stride_hi = "LR5"
+group_stop = "LR6"
+input_panels = "LR7"
+batch_wrap = "LR11"
+n = "LR14"
+minusone = "LR15"
+weight_count = "LR13"
+features_per_position = "LR2"
+
+[cases.default]
