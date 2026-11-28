@@ -62,15 +62,14 @@
  {{ at('LR10') }}
  {{ norm_products([3,4,5],label) }}
 {% endmacro %}
-{% macro squares(ds,cached=false) %}
+{% macro squares(ds) %}
  LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ; ADD LR8 LR9 CR1 ;;
- {% if not cached %}LD.MULT R0 LR9 {{ cr.tmp }} ;;{% endif %}
- // Both cross terms use the same high/low operands. Replace the cyclic
- // high part only after the second cross term, and retain low in R1.
- MULT.RC.VV LR0 R0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ ds }} ; LD.MULT R1 LR8 {{ cr.tmp }} ; INC LR9 1 ;;
- {% for i in range(3) %}
- MULT.RC.VV LR0 R1 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ ds }}{% if i == 1 %} ; LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0{% elif i == 2 %} ; INC LR9 1{% endif %} ;;
+ MULT.RC.VS LR0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ ds }} ; LD.MULT R1 LR8 {{ cr.tmp }} ; INC LR9 1 ;;
+ // Reuse high in the cyclic slot and low in R1 for both cross terms.
+ {% for i in range(2) %}
+ MULT.RC.VV LR0 R1 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ ds }}{% if loop.last %} ; LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0{% endif %} ;;
  {% endfor %}
+ MULT.RC.VS LR0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ ds }} ; INC LR9 1 ;;
 {% endmacro %}
 {% macro product(a,b,na,high_live=false) %}
    // Keep both right-hand residual parts live across the left-hand parts.
@@ -172,19 +171,13 @@ center_subtract:
  {{ vec(first=true,s='CR0') }}
  {{ at('LR9',32) }}
  SET LR5 CR1 ;;
- // With one tile, split left its high part in R0 and the zeroing MULT
- // did not replace it. Reuse that operand for the first square.
- BGE.S LR5 {{ cr.tiles }} variance_single ;;
+ BGE.S LR5 {{ cr.tiles }} variance_tail ;;
 variance:
  {{ squares(full) }}
  INC LR5 1 ;;
  BLT.S LR5 {{ cr.tiles }} variance ;;
 variance_tail:
  {{ squares(tail) }}
- B variance_average ;;
-variance_single:
- {{ squares(tail,true) }}
-variance_average:
  {{ average('var') }}
  LD.MULT R0 LR10 {{ cr.norm }} ;;
  {{ vec() }}
@@ -196,8 +189,8 @@ variance_average:
  // rather than staging a zero residual and reloading it in each product.
  {{ at('LR1',12) }}
  LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR3 ;;
- LD.MULT R0 LR1 {{ cr.tmp }} ;;
- {{ mul(first=true,slot='LR3') }}{{ save(14) }}
+ MULT.RC.VS LR3 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ;;
+ {{ save(14) }}
  {{ product(9,14,3,true) }}{{ save(16) }}
  {{ at('LR8',17) }}
  MULT.RC.VV LR3 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ; LD.MULT R1 LR8 {{ cr.tmp }} ;;
