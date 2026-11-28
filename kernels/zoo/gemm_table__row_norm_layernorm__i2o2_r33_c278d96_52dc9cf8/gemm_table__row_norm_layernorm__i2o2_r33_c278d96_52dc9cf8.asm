@@ -107,7 +107,7 @@
  INC LR1 1 ;;
 {% endmacro %}
 {% macro gelu(ds) %}ACTIVATE.QUANTIZE generic {{ ds }} {{ oq }} {{ cr.hidden }} LR4 ;;{% endmacro %}
-{% macro store(ds) %}ACTIVATE.QUANTIZE identity {{ ds }} {{ oq }} {{ cr.out0 }} LR13 ;;{% endmacro %}
+ {% macro store(ds,next_tile=false) %}ACTIVATE.QUANTIZE identity {{ ds }} {{ oq }} {{ cr.out0 }} LR13{% if next_tile %} ; LD.MULT R0 LR10 {{ cr.norm }}{% endif %} ;;{% endmacro %}
 
  SET LR0 CR0 ; SET LR1 CR0 ; SET LR2 CR0 ;;
  SET LR13 CR0 ;;
@@ -214,12 +214,11 @@ variance_tail:
  DEC LR1 2 ;;
  LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR6 ; INC LR1 1 ;;
  LD.MULT.CYCLIC LR1 {{ cr.tmp }} LR7 ; INC LR1 1 ;;
- SET LR5 CR0 ;;
  {{ at('LR9',32) }}
  SET LR10 {{ cr.tail }}.H ;;
  INC LR10 2 ;;
+ LD.MULT R0 LR10 {{ cr.norm }} ; SET LR5 CR0 ;;
 normalize:
- LD.MULT R0 LR10 {{ cr.norm }} ;;
  {% for _ in range(3) %}
  {{ mul(first=loop.first,slot='LR6') }}
  MULT.RC.VV LR7 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; INC LR10 1{% if not loop.last %} ; LD.MULT R0 LR10 {{ cr.norm }}{% endif %} ;;
@@ -240,7 +239,7 @@ normalize:
  {% endfor %}
  INC LR5 1 ;;
  BGE.S LR5 {{ cr.tiles }} last_output ;;
- {{ store(full) }}
+ {{ store(full,true) }}
  INC LR13 1 ; B normalize ;;
 last_output:
  {{ store(tail) }}
