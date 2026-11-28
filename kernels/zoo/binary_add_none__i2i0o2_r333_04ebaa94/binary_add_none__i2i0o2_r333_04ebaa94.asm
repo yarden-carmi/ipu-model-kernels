@@ -63,7 +63,7 @@ gather_rhs:
     // Splitting scratch values into a main part and a residual avoids
     // losing small values when different input row scales share a tile.
     SET LR15 CR0 ;;
-    INC LR15 {{ 2*P + 1 }} ;
+    INC LR15 {{ P + 1 }} ;
     MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.scratch_format }}.L ; ACC.SUB ;
     ACTIVATE.QUANTIZE identity CR15.L {{ cr.scratch_format }}.H {{ cr.tiles }} LR15 ;
     LD.MULT R0 LR9 {{ cr.in1 }} ;;
@@ -81,41 +81,28 @@ gather_rhs:
     MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.scratch_format }}.H ; ACC.ADD ;
     ACTIVATE.QUANTIZE identity CR15.L {{ cr.scratch_format }}.L {{ cr.tiles }} LR14 ;
     ;;
-    LD.MULT R0 LR14 {{ cr.tiles }} ; ADD LR15 LR14 CR1 ;;
-    INC LR15 {{ P - 1 }} ;
-    MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.scratch_format }}.L ; ACC.SUB ;
-    ACTIVATE.QUANTIZE identity CR15.L {{ cr.scratch_format }}.H {{ cr.tiles }} LR15 ;;
     INC LR14 1 ; BLT.S LR14 {{ cr.tail }}.H gather ;;
 
     SET LR2 {{ cr.stride_seq_lo }} ; SET LR3 {{ cr.stride_seq_hi }} ; SET LR7 CR0 ;;
-    SET LR6 LR1 ; SET LR8 CR0 ;;
+    SUB LR6 LR1 CR1 ; SET LR8 CR0 ;;
     INC LR8 4 ; SET LR14 CR0 ;;
     INC LR14 8 ;;
 emit:
-    SET LR9 CR1 ; SET LR15 LR7 ;;
-{% macro emit_part(count, mask, residual) %}
-    {% set qf = cr.scratch_format ~ ('.H' if residual else '.L') %}
-    {{ reset_dest() }} LD.MULT R0 LR9 {{ cr.tiles }} ;;
+    SET LR9 CR1 ;;
+{% macro emit_chunk(count, mask) %}
+    LD.MULT R0 LR9 {{ cr.tiles }} ;;
     {% for i in range(count) %}
-        {{ pick('LR15', qf) }} {% if i %}ADDBI LRD4 8 ; DEC LR15 64 ;{% endif %} ;;
-        {{ pick('LR15', qf) }} INC LR15 64 ; ADDBI LRD4 8 ;
+        {{ pick('LR15', cr.scratch_format ~ '.L') }}
+        {% if i %}ADDBI LRD4 8 ; DEC LR15 64 ;
+        {% else %}{{ reset_dest() }} SET LR15 LR7 ;{% endif %} ;;
+        {{ pick('LR15', cr.scratch_format ~ '.L') }} INC LR15 64 ; ADDBI LRD4 8 ;
         {% if i + 1 < count %}
             LD.MULT R0 LR9 {{ cr.tiles }} ; INC LR9 1 ;;
-        {% elif not residual %}
-            LD.MULT R0 LR0 {{ cr.tiles }} ;;
         {% else %}
-            ACTIVATE.QUANTIZE identity {{ mask }} {{ cr.scratch_format }}.H {{ cr.tiles }} LR0 ;;
+            ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ mask }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR6 ; INC LR6 1 ;;
+            INC LR9 1 ;;
         {% endif %}
     {% endfor %}
-{% endmacro %}
-{% macro emit_chunk(count, mask) %}
-    INC LR9 {{ P }} ;;
-    {{ emit_part(count, mask, true) }}
-    DEC LR9 {{ P + count - 1 }} ; SET LR15 LR7 ;;
-    {{ emit_part(count, mask, false) }}
-    MULT.VE LR0 CR1 0 LR0 CR15.L {{ cr.scratch_format }}.H ; ACC.ADD ;
-    ACTIVATE.QUANTIZE {{ act_out0 | default('identity') }} {{ mask }} {{ cr.qf_out0 }}.L {{ cr.out0 }} LR6 ;;
-    INC LR6 1 ; INC LR9 1 ; SET LR15 LR7 ;;
 {% endmacro %}
 {% if W == 2 %}{{ emit_chunk(8, 'CR15.L') }}{% endif %}
 {{ emit_chunk((P - 1) % 8 + 1, cr.tail ~ '.L') }}
@@ -125,7 +112,7 @@ emit:
     {% endfor %}
     BEQ LR7 LR14 group_done ;;
     BNE LR7 LR8 emit ;;
-    SET LR6 LR1 ;;
+    SUB LR6 LR1 CR1 ;;
     INC LR6 {{ W }} ; B emit ;;
 group_done:
     INC LR1 {{ 2 * W }} ; INC LR11 8 ; INC LR12 8 ;;
