@@ -57,7 +57,7 @@ gather_{{ phase }}:
  SET LR0 {{ cr.indices0 }} ; SET LR1 LR13 ; SET LR12 LR6 ; LD.MULT R0 LR12 {{ cr.in0 }} ;;
  {% endif %}
  {% endif %}
- {% for k in range(16) %}
+  {% for k in range(8 if rows == 64 else 16) %}
    {# Keep alternating 16-element bands in separate tiles so their
       shared NX8 scales do not suppress the smaller band. #}
    {% set x = 32*(k//2)+8*(k%2) if padded else 8*k %}
@@ -67,7 +67,7 @@ gather_{{ phase }}:
    {% set prev = ((phase+xp)%span)%128 if k else (lastlane if pipe else 0) %}
   {% set addr = stride*((phase+x)//span) + ((phase+x)%span)//128 %}
   {% set addrnext = stride*((phase+xn)//span) + ((phase+xn)%span)//128 %}
- {% if k == 8 and rows % 128 %}BEQ LR10 CR1 gather_tail_{{ phase }} ;;{% endif %}
+  {% if k == 8 and rows % 128 and rows != 64 %}BEQ LR10 CR1 gather_tail_{{ phase }} ;;{% endif %}
  {% if loop.first and not pipe %}SET LR2 {{ cr.dest0 }} ; SET LR3 {{ cr.dest1 }} ; {% endif %}
  {% if lane != prev %}ADDBI LRD0 {{ lane-prev }} ; {% endif %}
  {% if k %}
@@ -82,7 +82,7 @@ gather_{{ phase }}:
  {% if not rows % 128 and k == 2 and advance %}INC LR6 {{ advance }} ; {% endif %}
  {% if not rows % 128 and k == 14 %}DEC LR7 1 ; {% endif %}
  {% if not loop.last and addr != addrnext %}
- {% if k == 7 and rows % 128 %}
+  {% if k == 7 and rows % 128 and rows != 64 %}
  INC LR12 {{ addrnext-addr }} ; MULT.VE LR9 CR1 0 LR9 CR15.L {{ iq }} ; ACC.RESHAPE LRD0 LRD2 0 ;;
  BEQ LR10 CR1 gather_tail_{{ phase }} ;;
  LD.MULT R0 LR12 {{ cr.in0 }} ;;
@@ -211,7 +211,7 @@ affine_loop:
  LD.MULT R0 LR9 {{ cr.tmp }} ;;
  {{ cv('LR12','ADD.FIRST') }} ; LD.MULT R0 LR0 {{ cr.tmp }} ;;
  {{ cv('LR12','ADD') }} ; {{ ld('LR2','LR12') }} ;;
- {{ cv('LR12','ADD') }} ; LD.MULT R1 LR11 {{ cr.beta }} ; INC LR6 1 ;;
+  {{ cv('LR12','ADD') }} ; LD.MULT R1 LR11 {{ cr.beta }} ; INC LR6 1 ;;
  {{ ve('ADD',fmt=iq,reg='LR12') }} ; LD.MULT R1 LR14 {{ cr.beta }} ; INC LR11 1 ; INC LR2 1 ;;
  {{ ve('ADD',fmt=iq,reg='LR12') }} ; {{ st('LR6',iq) }} ; INC LR5 1 ;;
  LD.MULT R0 LR6 {{ cr.tmp }} ;;

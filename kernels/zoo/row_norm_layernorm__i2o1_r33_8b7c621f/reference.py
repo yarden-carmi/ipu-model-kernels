@@ -57,7 +57,6 @@ def reference(module, *ins, _round=None, **params):
 
 def fold(module, **params):
     channels = int(params["channels"])
-
     def split(t, mantissa=5):
         residual = t.reshape(-1, 128)
         parts = []
