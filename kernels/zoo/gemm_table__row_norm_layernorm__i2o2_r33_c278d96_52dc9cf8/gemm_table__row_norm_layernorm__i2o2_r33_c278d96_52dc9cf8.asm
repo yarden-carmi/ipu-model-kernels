@@ -36,10 +36,13 @@
  {% if label == 'mean' %}LD.MULT.CYCLIC LR10 {{ cr.norm }} LR7 ;;{% endif %}
  // The split leaves the middle residual in R0. Use it before reloading
  // the high and low parts instead of loading the middle a second time.
- {% for i in [1,0,2] %}
- {% if not loop.first %}{{ load(offsets[i]) }}{% endif %}
- MULT.RC.VV LR7 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %}{% if loop.last %} ; INC LR10 1{% endif %} ;;
- {% endfor %}
+  // Stream high and low behind the middle part already resident in R0.
+  // save(3,3) leaves LR1 pointing to the low part.
+  SET LR8 LR1 ;;
+  DEC LR8 2 ;;
+  MULT.RC.VV LR7 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ; LD.MULT R0 LR8 {{ cr.tmp }} ;;
+  MULT.RC.VV LR7 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
+  MULT.RC.VV LR7 R0 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; INC LR10 1 ;;
  B {{ label }}_end ;;
  {{ label }}_split:
  // Hold the three left parts in cyclic slots and reuse each coefficient.
@@ -66,14 +69,14 @@
  {{ at('LR10') }}
  {{ norm_products([3,4,5],label) }}
 {% endmacro %}
-{% macro squares(ds) %}
+{% macro squares(ds,prefetch_eps=false) %}
  LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0 ; ADD LR8 LR9 CR1 ;;
- MULT.RC.VS LR0 0 LR0 {{ ds }} {{ q }} ; AGG.SUM LR0 {{ ds }} ; LD.MULT R1 LR8 {{ cr.tmp }} ; INC LR9 1 ;;
+ MULT.RC.VS LR0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ ds }} ; LD.MULT R1 LR8 {{ cr.tmp }} ; INC LR9 1 ;;
  // Reuse high in the cyclic slot and low in R1 for both cross terms.
  {% for i in range(2) %}
- MULT.RC.VV LR0 R1 0 LR0 {{ ds }} {{ q }} ; AGG.SUM LR0 {{ ds }}{% if loop.last %} ; LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0{% endif %} ;;
+ MULT.RC.VV LR0 R1 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ ds }}{% if loop.last %} ; LD.MULT.CYCLIC LR9 {{ cr.tmp }} LR0{% endif %} ;;
  {% endfor %}
- MULT.RC.VS LR0 0 LR0 {{ ds }} {{ q }} ; AGG.SUM LR0 {{ ds }} ; INC LR9 1 ;;
+ MULT.RC.VS LR0 0 LR0 {{ full }} {{ q }} ; AGG.SUM LR0 {{ ds }} ; INC LR9 1{% if prefetch_eps %} ; LD.MULT R1 LR10 {{ cr.norm }}{% endif %} ;;
 {% endmacro %}
 {% macro product(a,b,na,high_live=false) %}
    // Keep both right-hand residual parts live across the left-hand parts.
@@ -147,7 +150,7 @@ sum:
  BGE.S LR5 {{ cr.tiles }} sum_tail ;;
  MULT.VE LR3 CR1 0 LR0 {{ full }} {{ oq }} ; AGG.SUM LR0 {{ full }} ; B sum ;;
 sum_tail:
- MULT.VE LR3 CR1 0 LR0 {{ tail }} {{ oq }} ; AGG.SUM LR0 {{ tail }} ;;
+ MULT.VE LR3 CR1 0 LR0 {{ full }} {{ oq }} ; AGG.SUM LR0 {{ tail }} ;;
  {{ average('mean') }}{{ save(6,3) }}
  // Cache all three broadcast mean parts across the centering loop.
  ADD LR6 LR3 LR3 ; DEC LR1 3 ; SET LR9 CR0 ;;
@@ -180,10 +183,10 @@ variance:
  INC LR5 1 ;;
  BLT.S LR5 {{ cr.tiles }} variance ;;
 variance_tail:
- {{ squares(tail) }}
+ // Mean left LR10 at epsilon. Fetch it into R1 during the final square.
+ {{ squares(tail,true) }}
  {{ average('var') }}
- LD.MULT R0 LR10 {{ cr.norm }} ;;
- {{ vec() }}
+ {{ vec(ra='LR3') }}
  {{ at('LR1',12) }}
  ACTIVATE.QUANTIZE rsqrt {{ full }} {{ q }} {{ cr.tmp }} LR1 ;;
  {{ save(9,3) }}
