@@ -86,16 +86,83 @@ transpose_select:
  B blocked_panel ;;
 
 medium_check:
- BLT.S LR7 {{ k }} dot_select ;;
- BLT.S {{ cr.kconfig }}.H CR1 dot_select ;;
- SET LR1 {{ k }} ; SET LR7 LR10 ;;
- INC.MODP2 LR1 CR0 3 ; INC.MODP2 LR7 CR0 3 ;;
- BNE LR1 CR0 medium_dot ;;
- BNE LR7 CR0 medium_dot ;;
- B blocked_panel ;;
-medium_dot:
- SET LR7 CR0 ;;
- INC LR7 128 ; B dot_select ;;
+ SET LR1 CR0 ; SET LR6 LR5 ;;
+ INC LR1 48 ; INC LR6 48 ;;
+ BEQ LR1 {{ k }} shuffle_panel ;;
+ B dot_select ;;
+
+{# Each stride pass trades lane bits for column bits. Scratch rows 0..47
+   are the final panel; the four intermediate planes use 32 rows each. #}
+shuffle_panel:
+ SET LR0 CR0 ; SET LR1 CR1 ; SET LR2 CR1 ;;
+ INC LR2 1 ; SET LR3 CR1 ; SET LR10 CR0 ;;
+ INC LR3 2 ; BLT.S LR7 LR6 shuffle_cross ;;
+{% macro shuffle_first(mode, parity, cross) %}
+ SET LR6 LR4 ; SET LR7 CR0 ; SET LR8 CR0 ;;
+ INC LR7 {{46+parity}} ; INC LR8 14 ; LD.MULT R0 LR6 {{ cr.in1 }} ;;
+ {% for tail in [false,true] %}
+ {% if not tail %} shuffle_first_{{parity}}_{{cross}}: {% endif %}
+ {% for j in range(4) %}
+ {% if cross %} ADD LR9 LR6 CR1 ; LD.MULT R1 LR9 {{ cr.in1 }} ;; {% endif %}
+ MULT.VE LR5 CR1 0 LR0 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.STRIDE 64 {{mode}} on LR{{j}} ; ADD LR6 LR6 {{bs}} ; {% if not tail or not loop.last %} LD.MULT R0 LR6 {{ cr.in1 }} ; {% endif %} {% if loop.last %} INC LR7 2 ; {{panel('L','LR7')}} ; {% if not tail %} DEC LR8 1 ; BNE LR8 CR0 shuffle_first_{{parity}}_{{cross}} ; {% endif %} {% endif %} ;;
+ {% endfor %}
+ {% endfor %}
+{% endmacro %}
+{{ shuffle_first('on',0,false) }}
+{{ shuffle_first('on_inv',1,false) }}
+ B shuffle_second ;;
+shuffle_cross:
+{{ shuffle_first('on',0,true) }}
+{{ shuffle_first('on_inv',1,true) }}
+shuffle_second:
+ BNE LR14 CR1 shuffle_s2_start ;;
+ SUB LR6 LR6 LR4 ;;
+ ADD LR13 LR13 LR6 ;;
+shuffle_s2_start:
+{% for mode in range(4) %}
+ SET LR6 CR0 ; SET LR7 CR0 ; SET LR8 CR0 ;;
+ INC LR6 48 ; INC LR7 {{73+2*mode}} ; INC LR8 3 ; LD.MULT R0 LR6 {{cr.panel}} ;;
+shuffle_s2_{{mode}}:
+ {% for p in range(2) %}
+ {% for j in range(4) %}
+ MULT.VE LR0 CR1 0 LR0 {{cr.ds}}.L {{cr.qf_in1}}.L ; ACC.STRIDE 16 {{'on_inv' if mode%2 else 'on'}} {{'on_inv' if mode>=2 else 'on'}} LR{{j}} ;
+ {% if not loop.last %} INC LR6 2 ; {% elif p == 0 %} DEC LR6 5 ; INC LR7 7 ; {{panel('L','LR7')}} ; {% else %} INC LR6 1 ; INC LR7 1 ; {{panel('L','LR7')}} ; DEC LR8 1 ; BNE LR8 CR0 shuffle_s2_{{mode}} ; {% endif %}
+ LD.MULT R0 LR6 {{cr.panel}} ;;
+ {% endfor %}
+ {% endfor %}
+{% endfor %}
+{# S2 output pairs are adjacent; its destination cursor advances by eight
+   after each pair (the first store above starts at the pair's first row). #}
+{% macro shuffle_merge(stage,mode,group,src,gap,dest) %}
+ SET LR6 CR0 ; SET LR7 CR0 ; SET LR9 CR0 ;;
+ INC LR6 {{src}} ; INC LR7 {{dest-1}} ; SET LR8 CR0 ; LD.MULT R0 LR6 {{cr.panel}} ;;
+ INC LR9 {{src+gap-1}} ; INC LR8 {{group-1}} ;;
+shuffle_merge_{{stage}}:
+ MULT.VE LR0 CR1 0 LR0 {{cr.ds}}.L {{cr.qf_in1}}.L ; ACC.STRIDE 16 {{mode}} off LR0 ; LD.MULT R0 LR9 {{cr.panel}} ; INC LR9 1 ;;
+ MULT.VE LR0 CR1 0 LR0 {{cr.ds}}.L {{cr.qf_in1}}.L ; ACC.STRIDE 16 {{mode}} off LR2 ; INC LR6 1 ; LD.MULT R0 LR6 {{cr.panel}} ; INC LR7 1 ; {{panel('L','LR7')}} ; DEC LR8 1 ; BNE LR8 CR0 shuffle_merge_{{stage}} ;;
+{% endmacro %}
+{# Keep k5 next to the previously extracted bits until the final unpack. #}
+{% for c in range(2) %}
+ {{shuffle_merge('s3_'~c~'_0','on',8,80+c*16,8,112+c*16)}}
+ {{shuffle_merge('s3_'~c~'_1','on_inv',8,80+c*16,8,120+c*16)}}
+{% endfor %}
+{{shuffle_merge('s4_0','on',16,112,16,144)}}
+{{shuffle_merge('s4_1','on_inv',16,112,16,160)}}
+{# Rows are ordered [k3,k2,k5,k1,k0], lanes [column,k4]. #}
+ SET LR6 CR0 ; SET LR4 CR0 ;;
+ INC LR6 144 ; DEC LR4 1 ;;
+{% for g in range(8) %}
+ {% set high = g%2 %}
+ {% set idx = (g//2)*4 %}
+ SET LR8 LR4 ; SET LR9 CR0 ; SET LR5 LR4 ; LD.MULT R0 LR6 {{cr.panel}} ;;
+ INC LR8 {{(32 if high else 0)+idx}} ; INC LR9 3 ; INC LR5 {{16+idx}} ;;
+shuffle_unpack_{{g}}:
+ MULT.VE LR0 CR1 0 LR0 {{cr.ds}}.L {{cr.qf_in1}}.L ; ACC.STRIDE 16 on off LR0 ; {{ panel('H','LR8') }} ; INC LR8 1 ; {% if high %} INC LR6 1 ; LD.MULT R0 LR6 {{cr.panel}} ; DEC LR9 1 ; BNE LR9 CR0 shuffle_unpack_{{g}} ; {% endif %} ;;
+ {% if not high %}
+ MULT.VE LR0 CR1 0 LR0 {{cr.ds}}.L {{cr.qf_in1}}.L ; ACC.STRIDE 16 on_inv off LR0 ; {{panel('H','LR5')}} ; INC LR6 1 ; LD.MULT R0 LR6 {{cr.panel}} ; INC LR5 1 ; DEC LR9 1 ; BNE LR9 CR0 shuffle_unpack_{{g}} ;;
+ {% endif %}
+{% endfor %}
+ B block_compute ;;
 
 {# Create little-endian byte bundles, three registers at a time. #}
 {% macro seed() %}
@@ -121,9 +188,7 @@ blocked_panel:
  SET LR10 CR0 ;;
 block_reserve:
  ADD LR6 LR6 {{ k }} ; DEC LR7 1 ; BNE LR7 CR1 block_reserve ;;
- DEC LR6 1 ; SET LR7 CR0 ;;
- INC LR7 64 ;;
- BEQ LR7 {{ cr.n }} narrow_block_setup ;;
+ DEC LR6 1 ;;
 block_k:
  SET LR7 {{ cr.n }} ; SET LR5 LR4 ;;
  DEC LR7 16 ;;
@@ -148,23 +213,6 @@ block_k_next:
  BNE LR9 CR0 block_k ;;
  INC LR4 1 ; B block_k ;;
 
-{# The 64-column tile uses four blocks. Pipeline the loads across them. #}
-narrow_block_setup:
- SET LR7 CR0 ;;
- INC LR7 8 ;;
-narrow_block_group:
- SET LR5 LR4 ; LD.MULT R0 LR5 {{ cr.in1 }} ;;
- {% macro narrow_block(j) %}
- {% for i in range(16) %}
- MULT.VE LR9 CR1 0 LR10 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.RESHAPE LRD0 LRD2 0{% if not loop.last or j < 3 %} ; ADD LR5 LR5 {{ bs }} ; LD.MULT R0 LR5 {{ cr.in1 }}{% endif %}{% if i == 0 and j %} ; ADDBI LRD2 -15{% elif i %} ; ADDBI LRD2 1{% endif %}{% if loop.last %} ; {{ panel('L','LR6') }} ; INC LR6 1{% endif %}{% if loop.last and j == 3 %} ; DEC LR8 8 ; BEQ LR8 LR7 narrow_block_end{% endif %} ;;
- {% endfor %}
- {% endmacro %}
- {% for j in range(4) %}{{ narrow_block(j) }}{% endfor %}
- ADDBI LRD2 -15 ; INC.MODP2 LR9 LR7 7 ;;
- BNE LR9 CR0 narrow_block_group ;;
- INC LR4 1 ; B narrow_block_group ;;
-narrow_block_end:
- ADD LR5 LR5 {{ bs }} ;;
 block_span_select:
  BNE LR14 CR1 block_join_setup ;;
  SUB LR5 LR5 LR4 ;;
@@ -175,10 +223,6 @@ block_join_setup:
 block_join_base:
  ADD LR8 LR8 {{ k }} ; DEC LR7 1 ; BNE LR7 CR1 block_join_base ;;
  DEC LR5 1 ;;
- SET LR7 CR0 ;;
- INC LR7 64 ;;
- BNE LR7 {{ cr.n }} wide_join_setup ;;
- SET LR2 LR0 ; SET LR3 LR1 ; B narrow_join_setup ;;
 wide_join_setup:
  {# Deinterleave the two low K bits in place. Each stride packs 64
     values, so a pair of rows can be joined without eight-lane scatters. #}
@@ -225,28 +269,6 @@ block_join_next:
  BNE LR6 CR0 block_join_k ;;
  DEC LR4 3 ;;
  SET LR8 LR4 ; B block_join_k ;;
-
-{# Join four 16-column blocks for eight successive K positions. The last
-   scatter of each output also preloads the first block for the next K. #}
-narrow_join_setup:
- SET LR9 {{ k }} ;;
-narrow_join_group:
- SET LR4 LR8 ; SET LR6 CR0 ; LD.MULT R0 LR4 {{ cr.panel }} ;;
- {% macro narrow_join_row(j) %}
- {% for i in range(4) %}
- MULT.VE LR6 CR1 0 LR10 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.RESHAPE LRD0 LRD2 0 ;
- {% if i %} ADDBI LRD0 -8 ; ADDBI LRD2 8 ;
- {% elif j %} ADDBI LRD0 -8 ; ADDBI LRD2 -56 ; INC LR6 16 ;
- {% endif %} {% if loop.last %}INC LR5 1 ;{% endif %} ;;
- MULT.VE LR6 CR1 0 LR10 {{ cr.ds }}.L {{ cr.qf_in1 }}.L ; ACC.RESHAPE LRD0 LRD2 0 ; ADDBI LRD0 8 ; ADDBI LRD2 8 ;
- {% if not loop.last %} LD.MULT R0 LR4 {{ cr.panel }} ; INC LR4 1 ;;
- {% elif j < 7 %} {{ panel('H','LR5') }} ; SET LR4 LR8 ; LD.MULT R0 LR4 {{ cr.panel }} ;;
- {% else %} {{ panel('H','LR5') }} ; DEC LR9 8 ;;
- {% endif %}
- {% endfor %}
- {% endmacro %}
- {% for j in range(8) %}{{ narrow_join_row(j) }}{% endfor %}
- ADD LR8 LR4 CR1 ; ADDBI LRD0 -8 ; ADDBI LRD2 -56 ; BNE LR9 CR0 narrow_join_group ;;
 
 block_compute:
  DEC LR14 1 ; SET LR4 CR0 ; SET LR5 CR0 ;;
