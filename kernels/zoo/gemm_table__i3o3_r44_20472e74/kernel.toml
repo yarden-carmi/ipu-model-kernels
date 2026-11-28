@@ -1,0 +1,107 @@
+[kernel]
+op = "gemm_table"
+formats = ["e1", "e2"]
+[params.act_out0]
+type = "str"
+choices = ["silu"]
+default = "silu"
+[params.bias]
+type = "bool"
+default = true
+[params.k]
+type = "int"
+min = 1
+max = 4096
+default = 96
+[params.n]
+type = "int"
+min = 16
+max = 4096
+multiple_of = 16
+default = 384
+[params.m]
+type = "int"
+min = 1
+max = 65536
+default = 1024
+[params.in0_d0]
+type = "int"
+min = 1
+max = 4096
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 4096
+default = 96
+[params.in0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 32
+[params.in0_d3]
+type = "int"
+min = 8
+max = 128
+multiple_of = 8
+default = 32
+[params.out0_d0]
+type = "int"
+min = 1
+max = 4096
+default = 1
+[params.out0_d1]
+type = "int"
+min = 16
+max = 4096
+multiple_of = 16
+default = 384
+[params.out0_d2]
+type = "int"
+min = 1
+max = 65536
+default = 32
+[params.out0_d3]
+type = "int"
+min = 8
+max = 128
+multiple_of = 8
+default = 32
+[derived]
+pack = "128 // in0_d3"
+single = "(k * 3 // 8) * (1 - min(1, max(pack - 8, 8 - pack)))"
+input_rows = "in0_d0 * in0_d1 * ceil(in0_d2 / pack)"
+groups = "ceil(n / pack)"
+active = "ds(pack * out0_d3)"
+batch_skip = "(k - 1) * in0_d2"
+index_lo = "50462976"
+index_hi = "117835012"
+[inputs.in0]
+shape = ["input_rows", 128]
+range = [-2, 2]
+[inputs.coeff]
+shape = ["groups * (2 * k + 2 - single)", 128]
+range = [-1, 1]
+[inputs.lut]
+shape = [5, 128]
+range = [0, 0]
+[outputs.out0]
+shape = ["out0_d0 * out0_d2 * groups", 128]
+[scratch.broadcast]
+shape = ["in0_d0 * in0_d1 * in0_d2", 128]
+[abi]
+in0 = "CR2"
+coeff = "CR3"
+lut = "CR4"
+out0 = "CR5"
+broadcast = "CR6"
+qf_in0 = "CR7"
+qf_out0 = "CR8"
+active = "CR9"
+input_rows = "CR10"
+groups = "CR11"
+batch_skip = "CR12"
+index_lo = "CR13"
+index_hi = "CR14"
+in0_d2 = "CR15"
+[cases.default]
