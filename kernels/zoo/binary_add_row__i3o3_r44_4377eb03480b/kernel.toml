@@ -44,8 +44,7 @@ default = 64
 type = "int"
 min = 1
 max = 65536
-multiple_of = 128
-default = 512
+default = 64
 [params.out0_d0]
 type = "int"
 min = 1
@@ -65,15 +64,14 @@ default = 64
 type = "int"
 min = 1
 max = 65536
-multiple_of = 128
-default = 512
+default = 64
 
 [derived]
 chunks = "ceil(in0_d3 / 128)"
 rows = "in0_d0 * in0_d1 * in0_d2 * chunks"
-plane = "in0_d1 * in0_d2 * chunks"
 last_row = "rows - 1"
-tail = "ds(128)"
+penultimate_row = "rows - 2"
+tail = "ds(min(in0_d3, 128))"
 
 [inputs.in0]
 shape = ["rows", 128]
@@ -93,7 +91,7 @@ qf_operand = "CR6"
 qf_out0 = "CR7"
 rows = "CR8"
 last_row = "CR9"
+penultimate_row = "CR11"
 tail = "CR10"
-plane = "CR11"
 
 [cases.default]

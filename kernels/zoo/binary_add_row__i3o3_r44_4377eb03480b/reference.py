@@ -56,8 +56,7 @@ def reference(module, *ins, _round=None, **params):
 
 
 def fold(module, **params):
-    operand = module.op0_const0
-    width = operand.shape[-1]
-    padded = torch.nn.functional.pad(operand.reshape(-1, width), (0, (-width) % 128))
-    rows = padded.reshape(operand.shape[0], -1, 128)
-    return {"operand": rows[:, None, :, :].expand(-1, params["in0_d1"] * params["in0_d2"], -1, -1).reshape(-1, 128).contiguous()}
+    n, c, h, w = (params[f"in0_d{i}"] for i in range(4))
+    operand = module.op0_const0.expand(n, c, h, w)
+    operand = torch.nn.functional.pad(operand, (0, (-w) % 128))
+    return {"operand": operand.contiguous().reshape(-1, 128)}
