@@ -1,0 +1,129 @@
+[kernel]
+op = "conv2d_builtin"
+formats = ["e1", "e2"]
+
+[params.act_out0]
+type = "str"
+choices = ["relu"]
+default = "relu"
+[params.bias]
+type = "bool"
+default = true
+[params.cin]
+type = "int"
+min = 1
+max = 255
+default = 128
+[params.cout]
+type = "int"
+min = 1
+max = 255
+default = 128
+[params.groups]
+type = "int"
+min = 1
+max = 255
+default = 1
+[params.h]
+type = "int"
+min = 1
+max = 128
+default = 28
+[params.w]
+type = "int"
+min = 1
+max = 224
+default = 28
+[params.kh]
+type = "int"
+choices = [3]
+default = 3
+[params.kw]
+type = "int"
+choices = [3]
+default = 3
+[params.padding]
+type = "int"
+choices = [1]
+default = 1
+[params.stride]
+type = "int"
+choices = [1, 2]
+default = 2
+[params.in0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 255
+default = 128
+[params.in0_d2]
+type = "int"
+min = 1
+max = 128
+default = 28
+[params.in0_d3]
+type = "int"
+min = 1
+max = 224
+default = 28
+[params.out0_d0]
+type = "int"
+choices = [1]
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 255
+default = 128
+[params.out0_d2]
+type = "int"
+min = 1
+max = 128
+default = 14
+[params.out0_d3]
+type = "int"
+min = 1
+max = 224
+default = 14
+
+[derived]
+full = "ds(128)"
+width = "ds(out0_d2)"
+right = "ds(max(1, min(out0_d2, in0_d2 // stride - (2 - stride))))"
+plane = "3 * (in0_d3 + 2)"
+next_plane = "plane - 9"
+group_plane = "plane * (cin // groups)"
+batch_jump = "(in0_d3 - 1) * in0_d1"
+weight_rows = "1 + cout * (2 + 18 * (cin // groups))"
+
+[inputs.in0]
+shape = ["in0_d0", "in0_d3", "in0_d1", 128]
+range = [-1, 1]
+[inputs.weights]
+shape = ["weight_rows", 128]
+range = [-1, 1]
+[outputs.out0]
+shape = ["out0_d0", "out0_d1", "out0_d3", 128]
+[scratch.windows]
+shape = ["in0_d1 * plane", 128]
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+weights = "CR4"
+windows = "CR5"
+qf_in0 = "CR6"
+qf_out0 = "CR7"
+full = "CR8"
+width = "CR9"
+next_plane = "CR11"
+right = "CR12"
+batch_jump = "CR13"
+group_plane = "CR14"
+weight_rows = "CR15"
+in0_d0 = "LR15"
+
+[cases.default]
