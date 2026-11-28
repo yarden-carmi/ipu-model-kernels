@@ -54,10 +54,10 @@
 {% endmacro %}
 {% macro average(label) %}
  {{ save(0,3) }}
- // The final split subtraction leaves the middle part in R0.
- MULT.EE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD.FIRST ; LD.MULT R0 LR0 {{ cr.tmp }} ;;
- MULT.EE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD ; LD.MULT R0 LR1 {{ cr.tmp }} ;;
- MULT.EE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD ;;
+ {% for p in range(3) %}
+ {{ load(p) }}
+ MULT.EE LR0 CR1 0 LR0 {{ full }} {{ q }} ; ACC.ADD{% if loop.first %}.FIRST{% endif %} ;;
+ {% endfor %}
  {{ save(3,3) }}
  {{ at('LR10') }}
  {{ norm_products([3,4,5],label) }}
@@ -147,6 +147,11 @@ sum:
 sum_tail:
  MULT.VE LR3 CR1 0 LR0 {{ full }} {{ oq }} ; AGG.SUM LR0 {{ tail }} ;;
  {{ average('mean') }}{{ save(6,3) }}
+ // Keep the mean residuals resident for every channel tile of this row.
+ ADD LR7 LR3 LR3 ; DEC LR1 3 ;;
+ {% for slot in ['LR0','LR3','LR7'] %}
+ LD.MULT.CYCLIC LR1 {{ cr.tmp }} {{ slot }} ; INC LR1 1 ;;
+ {% endfor %}
  SET LR5 CR0 ;;
  {{ at('LR9',32) }}
  // R1 still holds the last tile. Reuse it after centering earlier tiles.
@@ -159,7 +164,9 @@ center:
 center_tail:
  {{ vec(first=true,fmt=oq,ra='LR3') }}
 center_subtract:
- {% for n in range(6,9) %}{{ load(n) }}{{ vec('SUB') }}{% endfor %}
+ {% for slot in ['LR0','LR3','LR7'] %}
+ MULT.RC.VE {{ slot }} CR1 0 LR0 {{ full }} {{ q }} ; ACC.SUB ;;
+ {% endfor %}
  {{ split('LR9',2) }}
  INC LR9 1 ; INC LR5 1 ;;
  BLT.S LR5 {{ cr.tiles }} center ;;
