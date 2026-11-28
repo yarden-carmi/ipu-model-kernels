@@ -105,7 +105,7 @@ def fold(module, **params):
             packed.append(hi[:, :, t])
             if t != 5:
                 packed.append(remainder[:, :, t])
-        return {'weights': np.stack(packed, axis=2).reshape(-1, 128)}
+        return {'weights': np.pad(np.stack(packed, axis=2).reshape(-1, 128), ((0, 1), (0, 0)))}
     if (stride == 2 and gc == 1 and params['in0_d2'] * w % 128 == 0
             and params['out0_d2'] * ow % 128 == 0 and ow in (16, 32, 64)):
         values = weight.reshape(cout, 9).numpy()

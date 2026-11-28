@@ -11,6 +11,7 @@
 {% set short_bias = stride == 1 and w == 64 and gc == 1 %}
 {% set direct = stride == 1 and w in [64,128] and gc == 1 and (in0_d2*w)%128 == 0 and ir >= 3 and in0_d2 == out0_d2 %}
 {% set packed64 = direct and w == 64 %}
+{% set half_plane = stride == 2 and gc == 1 and w == 16 and in0_d2 == 16 and out0_d2 == in0_d2//2 and out0_d3 == w//2 %}
 {% set scalar_dw = stride == 2 and gc == 1 and in0_d2*w%128 == 0 and out0_d2*out0_d3%128 == 0 and out0_d3 in [16,32,64] %}
 {% set wk = 3-short_bias+parts*gc*kh*kw %}
 {% set dw_window = window and gc==1 %}
@@ -34,7 +35,7 @@ SET {{ r }} CR0 ;;
 {% endmacro %}
 
 # Copy input planes between zero guards for cyclic reads at the top and bottom.
-{% if not direct %}
+{% if not direct and not half_plane %}
 {{ imm('LR0',0) }}
 {{ imm('LR1',128) }}
 {{ imm('LR2',-1) }}
@@ -83,7 +84,28 @@ ACTIVATE.QUANTIZE identity {{ ds }} {{ qi }} {{ cr.guard }} LR3 ; INC LR3 1 ;;
 # Compact stride-two input taps into the output's spatial lane order.
 # For scalar depthwise taps, stage the even and odd columns only. The left
 # tap is the odd row shifted by one lane, with each scanline's first lane masked.
-{% if stride == 2 %}
+{% if half_plane %}
+# The 16x16 plane occupies two banks. Keep zeros on either side and
+# decimate two shifted windows per tap into the 64 live output lanes.
+{{ imm('LR2',-1) }}
+{{ imm('LR3',-1) }}
+{{ imm('LR4',1) }}
+{{ imm('LR5',cin-1) }}
+{{ imm('LR6',0) }}
+{{ imm('LR10',256) }}
+{{ imm('LR11',384) }}
+{{ imm('LR12',128) }}
+LD.MULT.CYCLIC LR0 {{ cr.guard }} LR0 ;;
+LD.MULT.CYCLIC LR0 {{ cr.guard }} LR11 ;;
+half_plane_channel:
+LD.MULT.CYCLIC LR3 {{ cr.in0 }} LR12 ; INC LR3 1 ; SET LR7 CR0 ;;
+LD.MULT.CYCLIC LR3 {{ cr.in0 }} LR10 ; INC LR3 1 ; DEC LR7 17 ;;
+{% for t in range(9) %}
+MULT.RC.VE LR7 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.STRIDE 16 on on LR0 ; {% if loop.first %}INC LR7 128 ;{% else %}DEC LR7 {{ 114 if t%3==0 else 127 }} ;{% endif %} ;;
+MULT.RC.VE LR7 CR1 0 LR0 {{ ds }} {{ qi }} ; ACC.STRIDE 16 on on LR4 ; ACTIVATE.QUANTIZE identity {{ cr.tail }}.L {{ qi }} {{ cr.stencil }} LR2 ; INC LR2 1 ; INC LR7 128 ;
+{% if loop.last %}BLT.S LR6 LR5 half_plane_channel ; INC LR6 1 ;{% endif %} ;;
+{% endfor %}
+{% elif stride == 2 %}
 {{ imm('LR2',-1) }}
 {{ imm('LR4',0) }}
 {{ imm('LR13',4+(-w-1)//128+(1 if w==128 else 0)) }}
@@ -141,10 +163,18 @@ LD.LUT {{ i }} {{ cr.lut }} LR2 ; INC LR2 1 ;;
 {{ imm('LR10',256) }}
 SET LR14 {{ cr.sr_last }} ;;
 {% if direct %}DEC LR14 1 ; DEC LR15 {{ 4 if w == 64 else 10 }} ;{% else %}INC LR14 1 ;{% endif %} ;;
+{% if packed64 %}
+LD.MULT.CYCLIC LR0 {{ cr.guard }} LR0 ; SET LR9 LR3 ; SET LR11 LR12 ; SET LR13 LR12 ;;
+LD.MULT R0 LR7 {{ cr.weights }} ;;
+{% endif %}
 short_channel:
-{% if direct %}
+{% if packed64 %}
+# The preceding channel's drain already installed the next leading zero.
+LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR11 ; INC LR9 1 ; INC.MODP2 LR13 LR12 9 ; SET LR6 CR0 ;;
+LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR13 ; INC LR9 1 ; SET LR8 LR7 ;;
+{% elif direct %}
 LD.MULT.CYCLIC LR0 {{ cr.guard }} LR0 ; SET LR6 CR0 ; SET LR9 LR3 ; SET LR11 LR12 ;;
-LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR12 ; INC LR9 1 ; {% if packed64 %}ADD LR13 LR12 LR12 ;{% endif %} ;;
+LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR12 ; INC LR9 1 ; {% if packed64 %}ADD LR13 LR12 LR12 ; SET LR8 LR7 ;{% endif %} ;;
 LD.MULT.CYCLIC LR9 {{ cr.in0 }} {{ 'LR13' if packed64 else 'LR10' }} ; INC LR9 1 ; {% if not packed64 %}SET LR13 LR10 ;{% endif %} ;;
 {% else %}
 SET LR6 CR0 ; SET LR9 LR3 ; SET LR11 LR12 ;;
@@ -153,7 +183,7 @@ LD.MULT.CYCLIC LR9 {{ cr.guard }} LR0 ; INC LR9 1 ;;
 LD.MULT.CYCLIC LR9 {{ cr.guard }} LR12 ; INC LR9 1 ;;
 LD.MULT.CYCLIC LR9 {{ cr.guard }} LR10 ; INC LR9 1 ; SET LR13 LR10 ;;
 {% endif %}
-LD.MULT {{ 'R0' if packed64 else 'R1' }} LR7 {{ cr.weights }} ; SET LR8 LR7 ;;
+{% if not packed64 %}LD.MULT R1 LR7 {{ cr.weights }} ; SET LR8 LR7 ;;{% endif %}
 {% macro short_body(last,end=false) %}
 {% if packed64 %}
 # Keep the bias residual and center-tap residual in R1; the center tap's
@@ -165,7 +195,8 @@ MULT.EE LR12 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; DEC LR1 65 ; LD.MULT R0 LR8
 {% if t == 4 and p == 1 %}MULT.RC.VE LR1 LR10 0 LR0 {{ ds }} {{ qw }} {% else %}MULT.RC.VV LR1 R0 0 LR0 {{ ds }} {{ qw }} {% endif %}; ACC.ADD ;
 {% if t and loop.first %}INC LR1 {{ 62 if t%3 == 0 else 1 }} ;{% endif %}
 {% if t == 8 and loop.last %}
-{% if end %}INC LR4 1 ; BLT.S LR4 LR5 short_channel ;{% else %}SET LR8 LR7 ; LD.MULT R0 LR7 {{ cr.weights }} ; INC.MODP2 LR11 LR12 9 ; {% if not last %}BLT.S LR6 LR14 short_row ;{% endif %}{% endif %} {{ store(ds) }}
+# The last row prefetches the next channel's bias (or the final pad row).
+LD.MULT R0 LR7 {{ cr.weights }} ; {% if end %}INC LR4 1 ; SET LR9 LR3 ; BLT.S LR4 LR5 short_channel ;{% else %}SET LR8 LR7 ; INC.MODP2 LR11 LR12 9 ; {% if not last %}BLT.S LR6 LR14 short_row ;{% endif %}{% endif %} {{ store(ds) }}
 {% else %}
 {% if t == 4 and p == 0 %}
 {% if last %}LD.MULT.CYCLIC LR0 {{ cr.guard }} LR13 ;{% else %}LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR13 ;{% endif %}
@@ -176,6 +207,8 @@ LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ;
 {% if t == 0 and loop.first %}INC.MODP2 LR13 LR12 9 ; SET LR10 LR12 ;{% endif %}
 {% if t == 1 and loop.last %}INC LR10 1 ;{% endif %}
 {% if t == 2 and not loop.first %}INC LR9 1 ; INC LR6 1 ;{% endif %}
+{% if end and t == 6 and loop.last %}INC.MODP2 LR13 LR12 9 ;{% endif %}
+{% if end and t == 7 and loop.last %}SET LR11 LR13 ;{% endif %}
 {% endif %} ;;
 {% endfor %}
 {% endfor %}
