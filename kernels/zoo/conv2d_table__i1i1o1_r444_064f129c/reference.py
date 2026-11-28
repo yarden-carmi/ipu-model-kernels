@@ -96,25 +96,31 @@ def fold(module, **params):
         for t in range(kh * kw):
             for c in range((cin + 127)//128):
                 n = min(128, cin - 128*c)
-                single = (93*n)//128
+                single = (111*n)//128
                 start = 1 + t*cin + 128*c + (0 if t % kw == 0 else n-single)
                 single_rows.extend(range(start, start+single))
         magnitude = np.abs(rows[:, single_rows])
         peaks = np.max(magnitude, axis=1, keepdims=True)
         gain = np.maximum(1/8, np.ceil(64 * peaks / np.maximum(peaks.max(axis=-1, keepdims=True), 1e-300)) / 64)
-        options = np.arange(8, 65) / 64
+        options = np.arange(64, 513) / 512
         for b in range(chunks):
             a = magnitude[b]
-            for _ in range(2):
+            for _ in range(4):
                 # Score representable gains on the E2 grid without raising
                 # the current exponent of any single-weight row.
                 scale = np.exp2(np.frexp((a / gain[b]).max(axis=1))[1] - 1)
-                scaled = a[:, :, None] / options
-                stride = scale[:, None, None] / 32
-                stride = np.where(scaled >= scale[:, None, None], stride,
-                                  np.where(scaled >= scale[:, None, None]/2, stride/2, stride/4))
-                error = np.sum((np.floor(scaled / stride + 0.5) * stride * options - a[:, :, None])**2, axis=0)
-                error[np.any(scaled >= 2*scale[:, None, None], axis=0)] = np.inf
+                scores = []
+                for candidates in np.array_split(options, 16):
+                    scaled = a[:, :, None] / candidates
+                    stride = scale[:, None, None] / 32
+                    stride = np.where(scaled >= scale[:, None, None], stride,
+                                       np.where(scaled >= scale[:, None, None]/2, stride/2, stride/4))
+                    delta = np.minimum(np.floor(scaled / stride + 0.5) * stride,
+                                       scale[:, None, None] * (63/32)) * candidates - a[:, :, None]
+                    error = np.sum(delta**2, axis=0)
+                    error[np.any(scaled >= 2*scale[:, None, None], axis=0)] = np.inf
+                    scores.append(error)
+                error = np.concatenate(scores, axis=-1)
                 gain[b, 0] = options[np.argmin(error, axis=1)]
         rows = rows / gain
     step = np.exp2(np.frexp(np.max(np.abs(rows), axis=-1, keepdims=True))[1] - 6.)
@@ -124,7 +130,7 @@ def fold(module, **params):
         for t in range(kh * kw):
             for c in range((cin + 127)//128):
                 n = min(128, cin - 128*c)
-                single = (15*n)//32 if area >= 512 else (93*n)//128 if area == 256 else n//2
+                single = (15*n)//32 if area >= 512 else (111*n)//128 if balance else n//2
                 start = 1 + t*cin + 128*c
                 if t % kw == 0 or area >= 512:
                     parts.append(rows[:, start:start+single])
@@ -135,6 +141,8 @@ def fold(module, **params):
                     parts.append(np.stack((hi[:, sl], rows[:, sl] - hi[:, sl]), axis=2).reshape(chunks, -1, 128))
                     parts.append(rows[:, start+n-single:start+n])
         if balance:
-            parts.append(gain)
+            grid = np.exp2(np.frexp(gain.max(axis=-1, keepdims=True))[1] - 1) / 32
+            high = np.minimum(np.floor(gain / grid + 0.5), 63) * grid
+            parts.extend((high, gain - high))
         return {'weights': np.concatenate(parts, axis=1).reshape(-1, 128)}
     return {'weights': np.stack((hi, rows - hi), axis=-2).reshape(-1, 128)}

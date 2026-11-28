@@ -9,7 +9,7 @@
 {% set qo = cr.qf_out0 ~ '.L' %}
 {% set skip_border = not dw and kh == 3 and kw == 3 and padding == 1 and stride == 1 and in1_d2 == out0_d2 and in1_d3 == out0_d3 and in1_d2 > 1 and in1_d3 > 1 %}
 {% set balanced = not dw and in1_d2*in1_d3 == 256 %}
-{% set tap_rows = (weight_block-2-balanced|int)//(kh*kw) %}
+{% set tap_rows = (weight_block-2-2*(balanced|int))//(kh*kw) %}
 {% macro step(r,n) %}
 {% for k in range(0,n,255) %}
  INC {{ r }} {{ [255,n-k]|min }} ;;
@@ -111,8 +111,8 @@ scalar_{{ x }}_{{ c }}_single:
  {% if skip_border and x == 0 %}BEQ LR6 CR0 skip_left ;;{% endif %}
  {% for c in range(ic) %}
 {% set n = [128,cin-128*c]|min %}
- {% set s = (15*n)//32 if in1_d2*in1_d3 >= 512 else (93*n)//128 if in1_d2*in1_d3 == 256 else n//2 %}
- {% if x == 0 or in1_d2*in1_d3 >= 512 %}
+{% set s = (15*n)//32 if in1_d2*in1_d3 >= 512 else (111*n)//128 if balanced else n//2 %}
+  {% if x == 0 or in1_d2*in1_d3 >= 512 %}
 {{ dense_tap(x,c,0,s,true) }} DEC LR4 1 ;;
 {{ dense_tap(x,c,s,n-s,false) }}
 {% else %}
@@ -132,8 +132,10 @@ scalar_{{ x }}_{{ c }}_single:
  ACTIVATE.QUANTIZE identity {{ ds }} {{ qw }} {{ cr.epilogue }} LR0 ; LD.MULT R0 LR13 {{ cr.weights }} ; SET LR14 CR1 ;;
  LD.MULT.CYCLIC LR0 {{ cr.epilogue }} LR0 ;;
  MULT.RC.VE LR0 CR1 0 LR0 {{ ds }} {{ qw }} ; ACC.SUB ; ACTIVATE.QUANTIZE identity {{ ds }} {{ qw }} {{ cr.epilogue }} LR14 ;;
- LD.MULT.CYCLIC LR14 {{ cr.epilogue }} LR1 ; MULT.RC.VV LR0 R0 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD.FIRST ;;
- MULT.RC.VV LR1 R0 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ;
+ LD.MULT.CYCLIC LR14 {{ cr.epilogue }} LR1 ; MULT.RC.VV LR0 R0 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD.FIRST ; INC LR13 1 ;;
+ MULT.RC.VV LR1 R0 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ; LD.MULT R1 LR13 {{ cr.weights }} ;;
+ MULT.RC.VV LR0 R1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ;;
+ MULT.RC.VV LR1 R1 0 LR0 {{ ds }} {{ qw }} ; ACC.ADD ;
  {% endif %}
   ACTIVATE.QUANTIZE generic {{ ds }} {{ qo }} {{ cr.out0 }} LR8 ; INC LR8 {{ oc }} ; INC LR5 {{ stride*pc }} ; INC LR6 1 ; BLT.S LR6 LR10 pixel ;;
  INC LR7 1 ; SET LR6 CR0 ;;
