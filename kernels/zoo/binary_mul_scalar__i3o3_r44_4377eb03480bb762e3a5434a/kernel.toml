@@ -1,0 +1,107 @@
+[kernel]
+op = "binary_mul_scalar"
+formats = ["e1", "e2"]
+
+[params.broadcast]
+type = "str"
+choices = ["scalar"]
+default = "scalar"
+[params.const]
+type = "int"
+min = 1
+max = 1
+default = 1
+[params.inner]
+type = "int"
+min = 0
+max = 0
+default = 0
+[params.op]
+type = "str"
+choices = ["mul"]
+default = "mul"
+[params.numel]
+type = "int"
+min = 1
+max = 2147483647
+default = 20071446
+[params.in0_d0]
+type = "int"
+min = 1
+max = 2147483647
+default = 1
+[params.in0_d1]
+type = "int"
+min = 1
+max = 2147483647
+default = 6
+[params.in0_d2]
+type = "int"
+min = 1
+max = 2147483647
+default = 1829
+[params.in0_d3]
+type = "int"
+min = 1
+max = 2147483647
+default = 1829
+[params.out0_d0]
+type = "int"
+min = 1
+max = 2147483647
+default = 1
+[params.out0_d1]
+type = "int"
+min = 1
+max = 2147483647
+default = 6
+[params.out0_d2]
+type = "int"
+min = 1
+max = 2147483647
+default = 1829
+[params.out0_d3]
+type = "int"
+min = 1
+max = 2147483647
+default = 1829
+
+[inputs.in0]
+shape = ["planes * plane_rows", 128]
+range = [-2.0, 2.0]
+[outputs.out0]
+shape = ["out0_d0 * out0_d1 * out0_d2 * ceil(out0_d3 / 128)", 128]
+[scratch.scalar]
+shape = [1, 128]
+
+[derived]
+planes = "in0_d0 * in0_d1"
+ic = "ceil(in0_d3 / 128)"
+plane_rows = "in0_d2 * ic"
+last = "(out0_d3 - 1) % 128 + 1"
+last_row = "planes * plane_rows - 1"
+penultimate = "last_row - 1"
+last_group = "planes * in0_d2 - 1"
+last_chunk = "ic - 1"
+ds_pair = "ds(last) + ds(128) * 65536"
+fifteen = "15"
+penultimate_group = "last_group - 1"
+nx_scale = "0x00017c35"
+
+[abi]
+in0 = "CR2"
+out0 = "CR3"
+qf_in0 = "CR4"
+qf_out0 = "CR5"
+ic = "CR6"
+last_row = "CR7"
+penultimate = "CR8"
+last_group = "CR9"
+last_chunk = "CR10"
+ds_pair = "CR11"
+scalar = "CR12"
+fifteen = "CR13"
+penultimate_group = "CR14"
+nx_scale = "CR15"
+
+[cases.default]
