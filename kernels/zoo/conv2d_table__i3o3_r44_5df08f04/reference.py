@@ -53,13 +53,13 @@ def reference(module, *ins, _round=None, **params):
     ins = tuple(t.clone() for t in ins)  # an in-place operation below writes on its own copies
     module = types.SimpleNamespace(**{k: v.clone() if hasattr(v, 'clone') else v
                                       for k, v in vars(module).items()})
-    r0 = aten.conv2d.default(_v(ins[0], [1, 256, 64, 64], [1048576, 4096, 64, 1], 0), module.op0_weight, None, [1, 1], [1, 1], [1, 1], 256)
+    r0 = aten.conv2d.default(_v(ins[0], [1, 64, 128, 128], [1048576, 16384, 128, 1], 0), module.op0_weight, None, [1, 1], [1, 1], [1, 1], 64)
     op0 = _pick(r0, 0)  # step 0
-    r0 = aten.batch_norm.default(_v(op0, [1, 256, 64, 64], [1048576, 4096, 64, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
+    r0 = aten.batch_norm.default(_v(op0, [1, 64, 128, 128], [1048576, 16384, 128, 1], 0), module.op1_weight, module.op1_bias, module.op1_running_mean, module.op1_running_var, False, 0.1, 1e-05, True)
     op1 = _pick(r0, 0)  # step 0
-    r0 = aten.silu_.default(_v(op1, [1, 256, 64, 64], [1048576, 4096, 64, 1], 0))
+    r0 = aten.silu_.default(_v(op1, [1, 64, 128, 128], [1048576, 16384, 128, 1], 0))
     op2 = _pick(r0, 0)  # step 0
-    return {"out0": _out(op2, [1, 256, 64, 64])}
+    return {"out0": _out(op2, [1, 64, 128, 128])}
 # ---- end of the frozen reference ----
 
 
@@ -124,6 +124,14 @@ def fold(module, **params):
         packed[:, 1, :9] = values - high
         return {'weights': np.concatenate((parts[:, 0, 0], packed), axis=1).reshape(-1, 128)}
     direct128 = stride == 1 and w == 128 and gc == 1 and ir >= 3 and params['in0_d2'] * w % 128 == 0 and params['in0_d2'] == params['out0_d2']
+    if direct128:
+        packed = [hi[:, :, 0], mid[:, :, 0]]
+        for t in range(9):
+            if t in (1, 4, 7):
+                packed.append(rows[:, :, t + 1])
+            else:
+                packed.extend((hi[:, :, t + 1], remainder[:, :, t + 1]))
+        return {'weights': np.stack(packed, axis=2).reshape(-1, 128)}
     if (stride == 1 and w == 64 and gc == 1) or direct128:
         scalar = np.zeros_like(rows[:, :, 0])
         scalar[:, :, :2] = remainder[:, :, [5, 8], 0]

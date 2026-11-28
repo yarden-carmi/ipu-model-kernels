@@ -153,7 +153,48 @@ ADD LR13 LR13 LR14 ; INC LR4 1 ; BLT.S LR4 LR5 stage_channel ;;
 {% for i in range(5) %}
 LD.LUT {{ i }} {{ cr.lut }} LR2 ; INC LR2 1 ;;
 {% endfor %}
-{% if short_bias or direct %}
+{% if direct and not packed64 %}
+{# Full spatial lanes; keep the three scanlines in a rolling cyclic window. #}
+{{ imm('LR2',-1) }}
+{{ imm('LR5',cout-1) }}
+{{ imm('LR9',-1) }}
+{{ imm('LR12',128) }}
+{{ imm('LR15',256) }}
+SET LR14 {{ cr.sr_last }} ; DEC LR8 1 ;;
+DEC LR14 2 ;;
+wide_channel:
+LD.MULT.CYCLIC LR0 {{ cr.guard }} LR0 ; SET LR6 CR0 ; SET LR11 LR12 ;;
+LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR12 ; INC LR9 1 ;;
+LD.MULT.CYCLIC LR9 {{ cr.in0 }} LR15 ; INC LR9 1 ; ADD LR13 LR12 LR15 ;;
+LD.MULT R0 LR8 {{ cr.weights }} ; INC LR8 1 ; ADD LR7 LR8 CR1 ;;
+{% macro wide_row(mode) %}
+MULT.VE LR0 CR1 0 LR0 {{ds}} {{qw}} ; ACC.ADD.FIRST ; LD.MULT R0 LR8 {{cr.weights}} ; INC LR8 1 ; SUB LR1 LR11 LR12 ;;
+MULT.VE LR0 CR1 0 LR0 {{ds}} {{qw}} ; ACC.ADD ; LD.MULT R0 LR8 {{cr.weights}} ; INC LR8 1 ; DEC LR1 1 ;;
+{% for t in range(9) %}
+{% for p in range(1 if t in [1,4,7] else 2) %}
+MULT.RC.VV LR1 R0 0 LR0 {{ds}} {{qw}} ; ACC.ADD ;
+{% if t and loop.first %}INC LR1 {{126 if t%3==0 else 1}} ;{% endif %}
+{% if t == 8 and loop.last %}
+{{store(ds)}}
+{% if mode != 'last' %}LD.MULT R0 LR7 {{cr.weights}} ; SET LR8 LR7 ; {% endif %}
+{% if mode == 'middle' %}BLT.S LR6 LR14 wide_middle ; INC LR6 1 ;{% endif %}
+{% else %}
+LD.MULT R0 LR8 {{cr.weights}} ; INC LR8 1 ;
+{% if t == 0 and loop.first %}INC.MODP2 LR13 LR12 9 ;{% endif %}
+{% if t == 1 and loop.first %}INC.MODP2 LR11 LR12 9 ;{% endif %}
+{% endif %} ;;
+{% endfor %}
+{% endfor %}
+{% endmacro %}
+wide_middle:
+LD.MULT.CYCLIC LR9 {{cr.in0}} LR13 ; INC LR9 1 ;;
+{{wide_row('middle')}}
+LD.MULT.CYCLIC LR0 {{cr.guard}} LR13 ;;
+{{wide_row('penultimate')}}
+{{wide_row('last')}}
+INC LR4 1 ; BLT.S LR4 LR5 wide_channel ;;
+HALT ;;
+{% elif short_bias or direct %}
 {{ imm('LR2',-1) }}
 {{ imm('LR3',-1 if direct else 2) }}
 {{ imm('LR4',0) }}
