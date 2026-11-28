@@ -221,40 +221,38 @@
 
  {% endif %}
  {% if channels == 144 %}
- {# Extract 16 channels of even-numbered blocks via stride; the extra
-    16 lanes are overwritten by the two scatters of the following block. #}
+  {# Pair 16-channel blocks into two 32-channel panels. Vertical stride
+     separates the row groups; the second pass selects one row by parity. #}
  {{ at('LR4',40 + 2 * rows) }}{{ at('LR11',rows // 8) }}
  {{ at('LR9',40) }}{{ at('LR13',rows // 2) }}{{ at('LR15',2) }}
- SET LR12 CR0 ; SET LR8 {{ cr.c128 }} ; SET LR5 {{ cr.cC }} ;;
- ADD LR8 LR8 LR8 ; ADD LR5 LR5 LR5 ;;
+ {{ at('LR8',128) }}{{ at('LR5',8) }}
+ {{ at('LR0',16) }}
+ SET LR12 CR0 ; SET LR7 LR15 ;;
  stride_tile:
- SET LR6 CR0 ; ADD LR14 LR9 LR15 ; SET LR10 LR4 ;;
- LD.MULT.CYCLIC LR10 {{ cr.tmp }} LR12 ; SET LR7 CR0 ;;
+ SET LR10 LR4 ; SET LR6 CR0 ; LD.MULT.CYCLIC LR10 {{ cr.tmp }} LR12 ;;
+ {% for pair in range(4) %}
+ INC LR10 1 ; LD.MULT.CYCLIC LR10 {{ cr.tmp }} LR8 ; MULT.RC.VE LR12 CR1 0 LR12 CR15.L {{ q }} ; ACC.STRIDE 32 off on LR12 ;;
+ MULT.RC.VE LR8 CR1 0 LR12 CR15.L {{ q }} ; ACC.STRIDE 32 off on LR7 ; ACTIVATE.QUANTIZE identity CR15.L {{ q }} {{ cr.tmp }} LR0 ; INC LR10 1 ;;
+ MULT.RC.VE LR12 CR1 0 LR12 CR15.L {{ q }} ; ACC.STRIDE 32 off on_inv LR12 ; ADD LR1 LR0 CR1 ;;
+ MULT.RC.VE LR8 CR1 0 LR12 CR15.L {{ q }} ; ACC.STRIDE 32 off on_inv LR7 ; ACTIVATE.QUANTIZE identity CR15.L {{ q }} {{ cr.tmp }} LR1 ; {% if loop.last %}DEC LR0 6 ; ADD LR14 LR9 LR15 ; ADD LR2 LR4 LR5 ; LD.MULT.CYCLIC LR0 {{ cr.tmp }} LR12{% else %}INC LR0 2 ; LD.MULT.CYCLIC LR10 {{ cr.tmp }} LR12{% endif %} ;;
+ {% endfor %}
  {% macro stride_unpack(i) %}
- {% if i %}
- INC LR6 {{ [0,1,31,1,31,1,31,1][i] }} ; SET LR7 CR0 ;
- {% if i == 4 %}SET LR9 LR14 ;{% else %}ADD LR9 LR9 LR13 ;{% endif %} ;;
- {% endif %}
+ {% set horizontal = 'on_inv' if i % 2 else 'on' %}
+ {% set vertical = 'on_inv' if i in [4,5,6,7] else 'on' %}
  {% for j in range(5) %}
- {% if j %}INC LR7 1 ;{% endif %}
- MULT.RC.VE LR6 CR1 0 LR12 CR15.L {{ q }} ; ACC.STRIDE 32 on on LR7 ;
+ {% if j == 0 %}ADD LR3 LR9 CR1 ; SET LR7 CR0 ;{% endif %}
+ {% if j == 1 %}{% if i %}INC LR6 {{ [0,1,31,1,31,1,31,1][i] }} ;{% else %}ADD LR1 LR0 CR1 ;{% endif %}{% endif %}
+ {% if 0 < j < 4 %}INC LR7 1 ;{% endif %}
+ MULT.RC.VE {{ 'LR12' if j < 4 else 'LR6' }} CR1 0 LR12 CR15.L {{ q }} ; ACC.STRIDE 32 {{ horizontal if j < 4 else 'on' }} {{ vertical if j < 4 else 'on' }} {{ 'LR7' if j < 4 else 'LR12' }} ;
  {% if j < 4 %}
- INC LR10 1 ; {% if j == 0 %}SET LR0 {{ cr.c128 }} ; SET LR1 {{ cr.cC }} ;{% endif %} LD.MULT.CYCLIC LR10 {{ cr.tmp }} LR12 ;;
- {% if j %}ADDBI LRD0 24 ; ADDBI LRD2 -16 ;{% else %}SET LR2 LR8 ; SET LR3 LR5 ; ADDBI LRD0 16 ;{% endif %}
- MULT.RC.VE LR6 CR1 0 LR12 CR15.L {{ q }} ; ACC.RESHAPE LRD2 LRD0 0 ;;
- ADDBI LRD0 8 ; ADDBI LRD2 16 ; INC LR10 1 ; LD.MULT.CYCLIC LR10 {{ cr.tmp }} LR12 ;
- MULT.RC.VE LR6 CR1 0 LR12 CR15.L {{ q }} ; ACC.RESHAPE LRD2 LRD0 0 ;
- {% if j == 3 %}ACTIVATE.QUANTIZE identity CR15.L {{ q }} {{ cr.tmp }} LR9 ;{% endif %} ;;
+ {% if j == 3 %}ACTIVATE.QUANTIZE identity CR15.L {{ q }} {{ cr.tmp }} LR9 ; LD.MULT.CYCLIC LR2 {{ cr.tmp }} LR12{% else %}{% if j == 0 and i == 0 %}ADD LR10 LR0 LR15{% else %}INC LR10 2{% endif %} ; LD.MULT.CYCLIC LR10 {{ cr.tmp }} LR12{% endif %} ;;
  {% else %}
- ADD LR3 LR9 CR1 ;
- {% if i < 7 %}SET LR10 LR4 ; LD.MULT.CYCLIC LR10 {{ cr.tmp }} LR12 ;{% endif %}
- ACTIVATE.QUANTIZE identity {{ cr.dsl }}.L {{ q }} {{ cr.tmp }} LR3 ;;
+ ACTIVATE.QUANTIZE identity {{ cr.dsl }}.L {{ q }} {{ cr.tmp }} LR3 ; {% if i < 7 %}SET LR10 {{ 'LR1' if i + 1 in [2,3,6,7] else 'LR0' }} ; LD.MULT.CYCLIC LR10 {{ cr.tmp }} LR12 ; {% if i == 3 %}SET LR9 LR14{% else %}ADD LR9 LR9 LR13{% endif %}{% else %}INC LR4 9 ; DEC LR11 1 ; ADD LR9 LR14 LR15{% endif %} ;;
  {% endif %}
  {% endfor %}
  {% endmacro %}
  {% for i in range(8) %}{{ stride_unpack(i) }}{% endfor %}
- INC LR4 9 ; DEC LR11 1 ; ADD LR9 LR14 LR15 ;;
- BNE LR11 CR0 stride_tile ;;
+ SET LR7 LR15 ; BNE LR11 CR0 stride_tile ;;
  {% elif true %}
  {{ at('LR4',40 + 2 * rows) }}{{ at('LR11',rows // 8) }}
   {{ at('LR9',40) }}{{ at('LR13',rows // 2 - (0 if channels == 144 else 1)) }}
